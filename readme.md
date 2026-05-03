@@ -211,6 +211,4 @@ main()
 | [CmBacktrace](https://github.com/armink/CmBacktrace) | - | Cortex-M 故障诊断回溯 |
 | [nr-micro-shell](https://github.com/Nrusher/nr-micro-shell) | 2.0.0 | 嵌入式命令行 Shell |
 
-## 许可证
 
-本项目代码由 chenjl 开发，始于 2019 年 7 月。第三方组件遵循各自的开源许可证。
