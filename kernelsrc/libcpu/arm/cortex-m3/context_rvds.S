@@ -3,11 +3,11 @@
 
 PendSV_Handler		PROC
 	EXPORT	PendSV_Handler
-    IMPORT  Kernel_isSwitching
-	IMPORT	Kernel_Active
+    IMPORT  svcrt_sched_is_switching
+	IMPORT	svcrt_sched_activate
     PUSH	{R0,LR}
 
-    LDR     R2, = Kernel_isSwitching
+    LDR     R2, = svcrt_sched_is_switching
     BLX		R2
     CMN     R0,#0
     BMI     endpend
@@ -15,7 +15,7 @@ PendSV_Handler		PROC
     MRS     R1,PSP
     STMDB   R1!,{R4-R11}
 
-    LDR     R2,=Kernel_Active
+    LDR     R2,=svcrt_sched_activate
     BLX		R0
 
     LDMIA	R0!,{R4-R11}

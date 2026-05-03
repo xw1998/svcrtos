@@ -1,18 +1,18 @@
 /**
-* @brief 操作系统内核功能接口文件
+* @brief SVCrtOS 操作系统内核功能接口文件
 * @details 供应用程序(分区)使用的OS接口封装，通过SVC指令陷入内核态
-* @author chenjl
-* @date 2019.07.01
+* @author xw
+* @date 2026.05.03
 */
 
-#include "anOs.h"
+#include "svcrt.h"
 
-int32  __svc(0x10)  CallDevIo(uint32 *p);
-void   __svc(0x11)  CallTimeFcn(uint32 fn,uint32 p);
-uint32 __svc(0x12)  CallGetSysInfo(uint32 fn);
-int32 __svc(0x13)   CallEventFcn(uint32 *p);
+int32  __svc(0x10)  svcrt_call_dev_io(uint32 *p);
+void   __svc(0x11)  svcrt_call_task_ctrl(uint32 fn, uint32 p);
+uint32 __svc(0x12)  svcrt_call_sys_info(uint32 fn);
+int32  __svc(0x13)  svcrt_call_event_ctrl(uint32 *p);
 
-int32 dev_open(char* name,uint32 param)
+int32 svcrt_dev_open(char *name, uint32 param)
 {
     uint32 parameters[4];
 
@@ -20,10 +20,10 @@ int32 dev_open(char* name,uint32 param)
     parameters[1] = (uint32)name;
     parameters[2] = param;
 
-    return CallDevIo(parameters);
+    return svcrt_call_dev_io(parameters);
 }
 
-int32 dev_read(int32 handle,void *pdata,int32 len)
+int32 svcrt_dev_read(int32 handle, void *pdata, int32 len)
 {
     uint32 parameters[4];
 
@@ -32,10 +32,10 @@ int32 dev_read(int32 handle,void *pdata,int32 len)
     parameters[2] = (uint32)pdata;
     parameters[3] = len;
 
-    return CallDevIo(parameters);
+    return svcrt_call_dev_io(parameters);
 }
 
-int32 dev_write(int32 handle,void *pdata,int32 len)
+int32 svcrt_dev_write(int32 handle, void *pdata, int32 len)
 {
     uint32 parameters[4];
 
@@ -44,10 +44,10 @@ int32 dev_write(int32 handle,void *pdata,int32 len)
     parameters[2] = (uint32)pdata;
     parameters[3] = len;
 
-    return CallDevIo(parameters);
+    return svcrt_call_dev_io(parameters);
 }
 
-int32 dev_ctrl(int32 handle,uint32 code,uint32 value)
+int32 svcrt_dev_ctrl(int32 handle, uint32 code, uint32 value)
 {
     uint32 parameters[4];
 
@@ -56,64 +56,64 @@ int32 dev_ctrl(int32 handle,uint32 code,uint32 value)
     parameters[2] = code;
     parameters[3] = value;
 
-    return CallDevIo(parameters);
+    return svcrt_call_dev_io(parameters);
 }
 
 __weak void AppMain(void)
 {
 }
 
-void TaskWait(uint32 ms)
+void svcrt_task_wait(uint32 ms)
 {
-    CallTimeFcn(1,ms);
+    svcrt_call_task_ctrl(1, ms);
 }
 
-void TaskWaitNxtPeriod(void)
+void svcrt_task_wait_period(void)
 {
-    CallTimeFcn(2,0);
+    svcrt_call_task_ctrl(2, 0);
 }
 
-void TaskDelay(uint32 us)
+void svcrt_task_delay(uint32 us)
 {
-    CallTimeFcn(3,us);
+    svcrt_call_task_ctrl(3, us);
 }
 
-void TaskKill(void)
+void svcrt_task_kill(void)
 {
-    CallTimeFcn(4,0);
+    svcrt_call_task_ctrl(4, 0);
 }
 
-uint32 GetSystemTimeMs(void)
+uint32 svcrt_get_time_ms(void)
 {
-    return CallGetSysInfo(1);
+    return svcrt_call_sys_info(1);
 }
 
-uint32 GetCpuPayload(void)
+uint32 svcrt_get_cpu_usage(void)
 {
-    return CallGetSysInfo(2);
+    return svcrt_call_sys_info(2);
 }
 
-int32 CreateEvent(char* name)
+int32 svcrt_event_create(char *name)
 {
     uint32 p[3];
     p[0] = 1;
     p[1] = (uint32)name;
-    return CallEventFcn(p);
+    return svcrt_call_event_ctrl(p);
 }
 
-void WaitEvent(int32 handle,int32 timeout)
+void svcrt_event_wait(int32 handle, int32 timeout)
 {
     uint32 p[3];
     p[0] = 2;
     p[1] = handle;
     p[2] = timeout;
-    CallEventFcn(p);
+    svcrt_call_event_ctrl(p);
 }
 
-void SetEvent(int32 handle)
+void svcrt_event_set(int32 handle)
 {
     uint32 p[3];
     p[0] = 3;
     p[1] = handle;
-    CallEventFcn(p);
+    svcrt_call_event_ctrl(p);
 }

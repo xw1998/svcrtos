@@ -32,26 +32,22 @@ kernelsrc/
 │   ├── appconfig.c             # 分区配置模板（RAM/ROM/周期/优先级）
 │   ├── appstart.s              # 应用启动汇编入口
 │   └── oslib.c                 # 应用层 OS 接口封装（SVC 调用）
-├── components/                 # 第三方组件
-│   ├── cm_backtrace/           # CmBacktrace — Cortex-M 故障回溯库
-│   └── nr_micro_shell/         # nr-micro-shell — 嵌入式命令行 Shell
 ├── drivers/                    # 板级驱动
-│   ├── devsio.c                # 设备注册表（静态方式）
+│   ├── devsio.c                # 板级设备注册表（静态方式）
 │   ├── drvled.c/h              # LED 指示灯驱动
 │   └── drvuart.c/h             # 串口驱动（中断收发 + FIFO 缓冲）
-├── include/                    # 内核公共头文件
-│   ├── appconfig.h             # 分区配置结构定义
-│   ├── devsio.h                # 设备 I/O 框架接口
-│   ├── kerOs.h                 # 内核基础类型与句柄宏
-│   ├── kerevent.h              # 事件模块接口
-│   ├── kerfifo.h               # FIFO 模块接口
-│   ├── kermpu.h                # MPU 模块接口
-│   ├── kernel.h                # 内核核心接口（任务/调度/系统时间）
-│   ├── osconfigure.h           # 内核配置加载接口
+├── include/                    # 内核头文件
 │   ├── svcrt.h                 # 应用层 API（面向 App SDK 用户）
 │   ├── svcrt_config.h          # 集中配置文件（功能开关/参数）
 │   ├── svcrt_port.h            # 硬件移植接口
-│   └── svcrt_types.h           # 应用层基础类型定义
+│   ├── svcrt_types.h           # 应用层基础类型定义
+│   ├── svcrt_def.h             # 内核公共定义（句柄宏/SVC编号）
+│   ├── svcrt_task.h            # 任务管理模块（内核内部）
+│   ├── svcrt_event.h           # 事件模块（内核内部）
+│   ├── svcrt_fifo.h            # FIFO 模块（内核内部）
+│   ├── svcrt_mpu.h             # MPU 模块（内核内部）
+│   ├── svcrt_dev.h             # 设备驱动框架（内核内部）
+│   └── svcrt_cfg.h             # 任务配置加载（内核内部）
 ├── libcpu/                     # CPU 架构移植
 │   └── arm/
 │       ├── cortex-m3/          # Cortex-M3 上下文切换与移植
@@ -68,13 +64,13 @@ kernelsrc/
 │       ├── svcrt_driver_bridge.c # 驱动注册桥接层
 │       └── svcrt_driver_sdk.h  # 驱动开发接口
 └── src/                        # 内核源码
-    ├── boot.c                  # 系统启动与初始化
-    ├── devsio.c                # 设备 I/O 框架实现（动态注册）
-    ├── kerevent.c              # 事件模块实现
-    ├── kerfifo.c               # FIFO 环形缓冲实现
-    ├── kermpu.c                # MPU 内存保护实现
-    ├── kernel.c                # 内核核心（调度/任务管理/SVC 服务）
-    └── osconfigure.c           # 内核配置加载
+    ├── svcrt_init.c            # 系统启动与初始化
+    ├── svcrt_task.c            # 任务管理与调度器
+    ├── svcrt_event.c           # 事件模块实现
+    ├── svcrt_fifo.c            # FIFO 环形缓冲实现
+    ├── svcrt_mpu.c             # MPU 内存保护实现
+    ├── svcrt_dev.c             # 设备驱动框架实现（动态注册）
+    └── svcrt_cfg.c             # 任务配置加载
 ```
 
 ## 系统架构
@@ -110,36 +106,36 @@ kernelsrc/
 
 | API | 说明 |
 |-----|------|
-| `TaskWait(ms)` | 挂起当前任务指定毫秒 |
-| `TaskWaitNxtPeriod()` | 挂起至下一周期起点 |
-| `TaskDelay(us)` | 微秒级忙等延时 |
-| `TaskKill()` | 终止当前任务 |
+| `svcrt_task_wait(ms)` | 挂起当前任务指定毫秒 |
+| `svcrt_task_wait_period()` | 挂起至下一周期起点 |
+| `svcrt_task_delay(us)` | 微秒级忙等延时 |
+| `svcrt_task_kill()` | 终止当前任务 |
 
 ### 设备操作
 
 | API | 说明 |
 |-----|------|
-| `dev_open(name, param)` | 打开设备，返回句柄 |
-| `dev_read(handle, buf, len)` | 从设备读取数据 |
-| `dev_write(handle, buf, len)` | 向设备写入数据 |
-| `dev_ctrl(handle, code, value)` | 设备控制命令 |
+| `svcrt_dev_open(name, param)` | 打开设备，返回句柄 |
+| `svcrt_dev_read(handle, buf, len)` | 从设备读取数据 |
+| `svcrt_dev_write(handle, buf, len)` | 向设备写入数据 |
+| `svcrt_dev_ctrl(handle, code, value)` | 设备控制命令 |
 
 ### 事件与系统信息
 
 | API | 说明 |
 |-----|------|
-| `CreateEvent(name)` | 创建命名事件 |
-| `WaitEvent(handle, timeout)` | 等待事件（支持超时） |
-| `SetEvent(handle)` | 触发事件 |
-| `GetSystemTimeMs()` | 获取系统运行时间（ms） |
-| `GetCpuPayload()` | 获取 CPU 负载率 |
+| `svcrt_event_create(name)` | 创建命名事件 |
+| `svcrt_event_wait(handle, timeout)` | 等待事件（支持超时） |
+| `svcrt_event_set(handle)` | 触发事件 |
+| `svcrt_get_time_ms()` | 获取系统运行时间（ms） |
+| `svcrt_get_cpu_usage()` | 获取 CPU 负载率 |
 
 ## 驱动开发
 
-驱动开发者使用 `svcrt_driver_sdk.h`，实现 `SVCRT_DRV_INTERFACE` 接口并通过 `svcrtDrvRegister()` 注册：
+驱动开发者使用 `svcrt_driver_sdk.h`，实现 `svcrt_dev_drv_t` 接口并通过 `svcrt_drv_register()` 注册：
 
 ```c
-static SVCRT_DRV_INTERFACE my_drv = {
+static svcrt_dev_drv_t my_drv = {
     my_drv_open,
     my_drv_close,
     my_drv_read,
@@ -149,7 +145,7 @@ static SVCRT_DRV_INTERFACE my_drv = {
 
 int32 my_drv_install(void)
 {
-    return svcrtDrvRegister("MYDEV", &my_drv, 0);
+    return svcrt_drv_register("MYDEV", &my_drv, 0);
 }
 ```
 
@@ -183,11 +179,11 @@ int32 my_drv_install(void)
 4. **实现 CPU 指令封装** — WFI/WFE/ISB/DSB/DMB/NOP
 5. **实现栈指针与控制寄存器操作** — PSP/CONTROL 读写
 6. **实现移植层回调函数**：
-   - `svcrtPortBoardInit()` — 板卡早期初始化（FPU 使能等）
-   - `svcrtPortIrqInit()` — 中断优先级配置
-   - `svcrtPortStartTimer()` — 启动系统定时器
-   - `svcrtPortEnableFpu()` — FPU 使能
-   - `svcrtPortSetIdleMpu()` — 后台任务 MPU 保护
+   - `svcrt_port_board_init()` — 板卡早期初始化（FPU 使能等）
+   - `svcrt_port_irq_init()` — 中断优先级配置
+   - `svcrt_port_start_timer()` — 启动系统定时器
+   - `svcrt_port_enable_fpu()` — FPU 使能
+   - `svcrt_port_set_idle_mpu()` — 后台任务 MPU 保护
 
 7. **适配上下文切换汇编** — 修改 `libcpu/` 下对应架构的 `context_rvds.S`
 
@@ -195,20 +191,26 @@ int32 my_drv_install(void)
 
 ```
 main()
-  ├── svcrtPortBoardInit()      // 硬件早期初始化
-  ├── LoadConfiguration()       // 加载任务配置
-  ├── svcrtPortIrqInit()        // 中断优先级配置
-  ├── OsInit()                  // 内核模块初始化（事件/MPU/设备）
-  ├── svcrtPortStartTimer()     // 启动 SysTick
-  └── StartTask()               // 切换到 PSP，进入非特权模式
-        └── WFI 循环            // 后台空闲任务
+  ├── svcrt_port_board_init()      // 硬件早期初始化
+  ├── svcrt_cfg_load()             // 加载任务配置
+  ├── svcrt_port_irq_init()        // 中断优先级配置
+  ├── svcrt_kernel_init()          // 内核模块初始化（事件/MPU/设备）
+  ├── svcrt_port_start_timer()     // 启动 SysTick
+  └── svcrt_start_idle()           // 切换到 PSP，进入非特权模式
+        └── WFI 循环               // 后台空闲任务
 ```
 
-## 第三方组件
+## 命名规范
 
-| 组件 | 版本 | 说明 |
+SVCrtOS 采用统一的命名规范，参照 FreeRTOS / RT-Thread 风格：
+
+| 类别 | 前缀 | 示例 |
 |------|------|------|
-| [CmBacktrace](https://gitee.com/Armink/CmBacktrace) | - | Cortex-M 故障诊断回溯 |
-| [nr-micro-shell](https://gitee.com/nrush/nr_micro_shell) | 2.0.0 | 嵌入式命令行 Shell |
-
-
+| 公开 API | `svcrt_模块_动作` | `svcrt_task_wait()`, `svcrt_dev_open()` |
+| 内核内部函数 | `svcrt_模块_动作_internal` | `svcrt_task_wait_internal()` |
+| 调度器 | `svcrt_sched_动作` | `svcrt_sched_next()`, `svcrt_sched_activate()` |
+| 移植层 | `svcrt_port_动作` | `svcrt_port_board_init()` |
+| 类型 | `svcrt_模块_t` | `svcrt_task_t`, `svcrt_fifo_t`, `svcrt_dev_drv_t` |
+| 枚举值 | `SVCRT_模块_状态` | `SVCRT_TASK_READY`, `SVCRT_TASK_WAIT` |
+| 宏定义 | `SVCRT_大写描述` | `SVCRT_FIFO_MAGIC`, `SVCRT_DEV_HANDLE_FLAG` |
+| 配置项 | `SVCRT_USE_功能` | `SVCRT_USE_FPU`, `SVCRT_USE_MPU` |

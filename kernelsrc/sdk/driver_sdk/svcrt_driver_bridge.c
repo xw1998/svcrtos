@@ -3,69 +3,69 @@
 */
 
 #include "svcrt_driver_sdk.h"
-#include "devsio.h"
+#include "svcrt_dev.h"
 
-static DRV_INTERFACE _drv_adapter;
+static svcrt_dev_drv_t _drv_adapter;
 
-static DEV_HDR* _drv_adapter_open(uint32 devid, uint32 param)
+static svcrt_dev_hdr_t *_drv_adapter_open(uint32 dev_id, uint32 param)
 {
-    SVCRT_DRV_INTERFACE *real_drv = (SVCRT_DRV_INTERFACE*)_drv_adapter.DrvOpen;
-    if(real_drv && real_drv->DrvOpen)
+    svcrt_dev_drv_t *real_drv = (svcrt_dev_drv_t *)_drv_adapter.drv_open;
+    if(real_drv && real_drv->drv_open)
     {
-        return real_drv->DrvOpen(devid, param);
+        return real_drv->drv_open(dev_id, param);
     }
     return 0;
 }
 
-static int32 _drv_adapter_read(DEV_HDR *obj, uint8 *pdata, int32 len)
+static int32 _drv_adapter_read(svcrt_dev_hdr_t *obj, uint8 *pdata, int32 len)
 {
-    SVCRT_DRV_INTERFACE *real_drv = (SVCRT_DRV_INTERFACE*)_drv_adapter.DrvOpen;
-    if(real_drv && real_drv->DrvRead)
+    svcrt_dev_drv_t *real_drv = (svcrt_dev_drv_t *)_drv_adapter.drv_open;
+    if(real_drv && real_drv->drv_read)
     {
-        return real_drv->DrvRead(obj, pdata, len);
+        return real_drv->drv_read(obj, pdata, len);
     }
     return SVCRT_DRV_ERROR;
 }
 
-static int32 _drv_adapter_write(DEV_HDR *obj, uint8 *pdata, int32 len)
+static int32 _drv_adapter_write(svcrt_dev_hdr_t *obj, uint8 *pdata, int32 len)
 {
-    SVCRT_DRV_INTERFACE *real_drv = (SVCRT_DRV_INTERFACE*)_drv_adapter.DrvOpen;
-    if(real_drv && real_drv->DrvWrite)
+    svcrt_dev_drv_t *real_drv = (svcrt_dev_drv_t *)_drv_adapter.drv_open;
+    if(real_drv && real_drv->drv_write)
     {
-        return real_drv->DrvWrite(obj, pdata, len);
+        return real_drv->drv_write(obj, pdata, len);
     }
     return SVCRT_DRV_ERROR;
 }
 
-static int32 _drv_adapter_ctrl(DEV_HDR *obj, uint32 code, uint32 value)
+static int32 _drv_adapter_ctrl(svcrt_dev_hdr_t *obj, uint32 code, uint32 value)
 {
-    SVCRT_DRV_INTERFACE *real_drv = (SVCRT_DRV_INTERFACE*)_drv_adapter.DrvOpen;
-    if(real_drv && real_drv->DrvCtrl)
+    svcrt_dev_drv_t *real_drv = (svcrt_dev_drv_t *)_drv_adapter.drv_open;
+    if(real_drv && real_drv->drv_ctrl)
     {
-        return real_drv->DrvCtrl(obj, code, value);
+        return real_drv->drv_ctrl(obj, code, value);
     }
     return SVCRT_DRV_ERROR;
 }
 
-int32 svcrtDrvRegister(const char *name, SVCRT_DRV_INTERFACE *drv, uint32 dev_num)
+int32 svcrt_drv_register(const char *name, svcrt_dev_drv_t *drv, uint32 dev_num)
 {
     if(drv == 0 || name == 0)
         return -2;
 
-    _drv_adapter.DrvOpen  = (DrvOpenFunc)drv;
-    _drv_adapter.DrvRead  = _drv_adapter_read;
-    _drv_adapter.DrvWrite = _drv_adapter_write;
-    _drv_adapter.DrvCtrl  = _drv_adapter_ctrl;
+    _drv_adapter.drv_open  = (svcrt_drv_open_func)drv;
+    _drv_adapter.drv_read  = _drv_adapter_read;
+    _drv_adapter.drv_write = _drv_adapter_write;
+    _drv_adapter.drv_ctrl  = _drv_adapter_ctrl;
 
-    return kerDevRegister(name, (DRV_INTERFACE*)&_drv_adapter, dev_num);
+    return svcrt_dev_register(name, &_drv_adapter, dev_num);
 }
 
-int32 svcrtDrvUnregister(const char *name)
+int32 svcrt_drv_unregister(const char *name)
 {
-    return kerDevUnregister(name);
+    return svcrt_dev_unregister(name);
 }
 
-int32 svcrtDrvGetCount(void)
+int32 svcrt_drv_get_count(void)
 {
-    return kerDevGetCount();
+    return svcrt_dev_get_count();
 }

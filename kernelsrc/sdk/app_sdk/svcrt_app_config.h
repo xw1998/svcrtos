@@ -16,9 +16,9 @@ typedef struct {
     uint32  period_ms;
     uint32  priority;
     uint8   share_mem_access;
-} SVCRT_APP_CONFIG;
+} svcrt_app_cfg_t;
 
-extern SVCRT_APP_CONFIG app_configures[];
-extern int32 app_num;
+extern svcrt_app_cfg_t svcrt_app_cfg_table[];
+extern int32 svcrt_app_count;
 
 #endif

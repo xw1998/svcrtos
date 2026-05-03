@@ -23,25 +23,25 @@
 #define SVCRT_DRV_INVALID_PARAM      (-4)
 
 typedef struct {
-    uint32 blocksize;
-} DEV_HDR;
+    uint32 block_size;
+} svcrt_dev_hdr_t;
 
-typedef DEV_HDR* (*DrvOpenFunc)(uint32 devid, uint32 param);
-typedef int32    (*DrvCloseFunc)(DEV_HDR *obj);
-typedef int32    (*DrvReadFunc)(DEV_HDR *obj, uint8 *pdata, int32 len);
-typedef int32    (*DrvWriteFunc)(DEV_HDR *obj, uint8 *pdata, int32 len);
-typedef int32    (*DrvIOCtrlFunc)(DEV_HDR *obj, uint32 code, uint32 value);
+typedef svcrt_dev_hdr_t *(*svcrt_drv_open_func)(uint32 dev_id, uint32 param);
+typedef int32            (*svcrt_drv_close_func)(svcrt_dev_hdr_t *obj);
+typedef int32            (*svcrt_drv_read_func)(svcrt_dev_hdr_t *obj, uint8 *pdata, int32 len);
+typedef int32            (*svcrt_drv_write_func)(svcrt_dev_hdr_t *obj, uint8 *pdata, int32 len);
+typedef int32            (*svcrt_drv_ioctl_func)(svcrt_dev_hdr_t *obj, uint32 code, uint32 value);
 
 typedef struct {
-    DrvOpenFunc    DrvOpen;
-    DrvCloseFunc   DrvClose;
-    DrvReadFunc    DrvRead;
-    DrvWriteFunc   DrvWrite;
-    DrvIOCtrlFunc  DrvCtrl;
-} SVCRT_DRV_INTERFACE;
+    svcrt_drv_open_func    drv_open;
+    svcrt_drv_close_func   drv_close;
+    svcrt_drv_read_func    drv_read;
+    svcrt_drv_write_func   drv_write;
+    svcrt_drv_ioctl_func   drv_ctrl;
+} svcrt_dev_drv_t;
 
-int32 svcrtDrvRegister(const char *name, SVCRT_DRV_INTERFACE *drv, uint32 dev_num);
-int32 svcrtDrvUnregister(const char *name);
-int32 svcrtDrvGetCount(void);
+int32 svcrt_drv_register(const char *name, svcrt_dev_drv_t *drv, uint32 dev_num);
+int32 svcrt_drv_unregister(const char *name);
+int32 svcrt_drv_get_count(void);
 
 #endif

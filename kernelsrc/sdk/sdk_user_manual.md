@@ -66,17 +66,17 @@ void AppMain(void)
 ```c
 void AppMain(void)
 {
-    int32 led = dev_open("LED", 0);
+    int32 led = svcrt_dev_open("LED", 0);
 
     while(1)
     {
         uint8 val = 1;
-        dev_write(led, &val, 1);
-        TaskWait(500);
+        svcrt_dev_write(led, &val, 1);
+        svcrt_task_wait(500);
 
         val = 0;
-        dev_write(led, &val, 1);
-        TaskWait(500);
+        svcrt_dev_write(led, &val, 1);
+        svcrt_task_wait(500);
     }
 }
 ```
@@ -86,19 +86,19 @@ void AppMain(void)
 在 `svcrt_app_config.h` 中定义分区资源需求：
 
 ```c
-SVCRT_APP_CONFIG app_configures[] = {
+svcrt_app_cfg_t svcrt_app_cfg_table[] = {
     {
         .ram_start       = 0x20000000,   // RAM起始地址
         .ram_size        = 0x1000,       // RAM大小(4KB)
         .stack_size      = 0x400,        // 栈大小(1KB)
         .rom_start       = 0x08020000,   // ROM起始地址
         .rom_size        = 0x20000,      // ROM大小(128KB)
-        .period_ms       = 1000,         // 任务周期(1秒)
+        .period          = 1000,         // 任务周期(1秒)
         .priority        = 10,           // 优先级
-        .share_mem_access = 0            // 共享内存访问属性
+        .shm_attri       = 0             // 共享内存访问属性
     }
 };
-int32 app_num = 1;
+int32 svcrt_app_count = 1;
 ```
 
 #### 步骤5：编译与烧录
@@ -109,10 +109,10 @@ int32 app_num = 1;
 
 #### 5.1 设备操作API
 
-##### `dev_open` - 打开设备
+##### `svcrt_dev_open` - 打开设备
 
 ```c
-int32 dev_open(char* name, uint32 param);
+int32 svcrt_dev_open(char* name, uint32 param);
 ```
 
 | 参数 | 说明 |
@@ -127,24 +127,24 @@ int32 dev_open(char* name, uint32 param);
 
 **示例：**
 ```c
-int32 com1 = dev_open("COM1", 115200);  // 以115200波特率打开串口1
-int32 led  = dev_open("LED", 0);         // 打开LED设备
-int32 spi  = dev_open("SPI1", 0);        // 打开SPI1
+int32 com1 = svcrt_dev_open("COM1", 115200);  // 以115200波特率打开串口1
+int32 led  = svcrt_dev_open("LED", 0);         // 打开LED设备
+int32 spi  = svcrt_dev_open("SPI1", 0);        // 打开SPI1
 
 if(com1 < 0) {
     // 设备打开失败处理
 }
 ```
 
-##### `dev_read` - 读取数据
+##### `svcrt_dev_read` - 读取数据
 
 ```c
-int32 dev_read(int32 handle, void *pdata, int32 len);
+int32 svcrt_dev_read(int32 handle, void *pdata, int32 len);
 ```
 
 | 参数 | 说明 |
 |------|------|
-| `handle` | `dev_open` 返回的设备句柄 |
+| `handle` | `svcrt_dev_open` 返回的设备句柄 |
 | `pdata` | 数据接收缓冲区指针 |
 | `len` | 期望读取的字节数 |
 
@@ -157,16 +157,16 @@ int32 dev_read(int32 handle, void *pdata, int32 len);
 **示例：**
 ```c
 uint8 buf[64];
-int32 len = dev_read(com1, buf, 64);
+int32 len = svcrt_dev_read(com1, buf, 64);
 if(len > 0) {
     // 处理接收到的数据
 }
 ```
 
-##### `dev_write` - 写入数据
+##### `svcrt_dev_write` - 写入数据
 
 ```c
-int32 dev_write(int32 handle, void *pdata, int32 len);
+int32 svcrt_dev_write(int32 handle, void *pdata, int32 len);
 ```
 
 | 参数 | 说明 |
@@ -183,13 +183,13 @@ int32 dev_write(int32 handle, void *pdata, int32 len);
 **示例：**
 ```c
 uint8 msg[] = "Hello";
-dev_write(com1, msg, 5);
+svcrt_dev_write(com1, msg, 5);
 ```
 
-##### `dev_ctrl` - 设备控制
+##### `svcrt_dev_ctrl` - 设备控制
 
 ```c
-int32 dev_ctrl(int32 handle, uint32 code, uint32 value);
+int32 svcrt_dev_ctrl(int32 handle, uint32 code, uint32 value);
 ```
 
 | 参数 | 说明 |
@@ -212,21 +212,21 @@ int32 dev_ctrl(int32 handle, uint32 code, uint32 value);
 **示例：**
 ```c
 // 设置波特率为9600
-dev_ctrl(com1, SVCRT_DEV_CTRL_SET_BAUD, 9600);
+svcrt_dev_ctrl(com1, SVCRT_DEV_CTRL_SET_BAUD, 9600);
 
 // 获取设备状态
-int32 status = dev_ctrl(com1, SVCRT_DEV_CTRL_GET_STATUS, 0);
+int32 status = svcrt_dev_ctrl(com1, SVCRT_DEV_CTRL_GET_STATUS, 0);
 
 // 复位设备
-dev_ctrl(com1, SVCRT_DEV_CTRL_RESET, 0);
+svcrt_dev_ctrl(com1, SVCRT_DEV_CTRL_RESET, 0);
 ```
 
 #### 5.2 任务管理API
 
-##### `TaskWait` - 等待指定毫秒
+##### `svcrt_task_wait` - 等待指定毫秒
 
 ```c
-void TaskWait(uint32 ms);
+void svcrt_task_wait(uint32 ms);
 ```
 
 将当前任务挂起指定的毫秒数。任务状态变为WAIT，等待时间到期后自动恢复为READY。
@@ -235,14 +235,14 @@ void TaskWait(uint32 ms);
 ```c
 while(1) {
     do_work();
-    TaskWait(100);  // 每100ms执行一次
+    svcrt_task_wait(100);  // 每100ms执行一次
 }
 ```
 
-##### `TaskWaitNxtPeriod` - 等待下一周期
+##### `svcrt_task_wait_period` - 等待下一周期
 
 ```c
-void TaskWaitNxtPeriod(void);
+void svcrt_task_wait_period(void);
 ```
 
 将当前任务挂起，直到下一个调度周期到来。适用于周期性任务。
@@ -251,14 +251,14 @@ void TaskWaitNxtPeriod(void);
 ```c
 while(1) {
     periodic_work();
-    TaskWaitNxtPeriod();  // 等待下一个周期
+    svcrt_task_wait_period();  // 等待下一个周期
 }
 ```
 
-##### `TaskDelay` - 微秒级忙等
+##### `svcrt_task_delay` - 微秒级忙等
 
 ```c
-void TaskDelay(uint32 us);
+void svcrt_task_delay(uint32 us);
 ```
 
 微秒级精确延时，**不会让出CPU**，任务保持RUNNING状态。适用于短时间精确延时。
@@ -266,15 +266,15 @@ void TaskDelay(uint32 us);
 **示例：**
 ```c
 // 等待传感器就绪（100微秒）
-TaskDelay(100);
+svcrt_task_delay(100);
 ```
 
-> ?? **注意：** `TaskDelay` 是忙等，会占用CPU。长时间延时请使用 `TaskWait`。
+> **注意：** `svcrt_task_delay` 是忙等，会占用CPU。长时间延时请使用 `svcrt_task_wait`。
 
-##### `TaskKill` - 终止当前任务
+##### `svcrt_task_kill` - 终止当前任务
 
 ```c
-void TaskKill(void);
+void svcrt_task_kill(void);
 ```
 
 终止当前执行的任务，任务状态变为INVALID，不再被调度。
@@ -282,47 +282,47 @@ void TaskKill(void);
 **示例：**
 ```c
 if(fatal_error) {
-    TaskKill();  // 发生致命错误，终止任务
+    svcrt_task_kill();  // 发生致命错误，终止任务
 }
 ```
 
 #### 5.3 系统信息API
 
-##### `GetSystemTimeMs` - 获取系统时间
+##### `svcrt_get_time_ms` - 获取系统时间
 
 ```c
-uint32 GetSystemTimeMs(void);
+uint32 svcrt_get_time_ms(void);
 ```
 
 返回自系统启动以来的毫秒数。
 
 **示例：**
 ```c
-uint32 start = GetSystemTimeMs();
+uint32 start = svcrt_get_time_ms();
 do_work();
-uint32 elapsed = GetSystemTimeMs() - start;
+uint32 elapsed = svcrt_get_time_ms() - start;
 ```
 
-##### `GetCpuPayload` - 获取CPU负载
+##### `svcrt_get_cpu_usage` - 获取CPU负载
 
 ```c
-uint32 GetCpuPayload(void);
+uint32 svcrt_get_cpu_usage(void);
 ```
 
 返回CPU负载率（0~1024范围内的值，1024表示100%负载）。
 
 **示例：**
 ```c
-uint32 load = GetCpuPayload();
+uint32 load = svcrt_get_cpu_usage();
 // load / 1024 * 100 = CPU使用率百分比
 ```
 
 #### 5.4 事件API
 
-##### `CreateEvent` - 创建事件
+##### `svcrt_event_create` - 创建事件
 
 ```c
-int32 CreateEvent(char* name);
+int32 svcrt_event_create(char* name);
 ```
 
 | 参数 | 说明 |
@@ -334,21 +334,21 @@ int32 CreateEvent(char* name);
 | ≥ 0 | 事件句柄 |
 | -1 | 创建失败（事件表已满） |
 
-##### `WaitEvent` - 等待事件
+##### `svcrt_event_wait` - 等待事件
 
 ```c
-void WaitEvent(int32 handle, int32 timeout);
+void svcrt_event_wait(int32 handle, int32 timeout);
 ```
 
 | 参数 | 说明 |
 |------|------|
-| `handle` | `CreateEvent` 返回的事件句柄 |
+| `handle` | `svcrt_event_create` 返回的事件句柄 |
 | `timeout` | 超时时间(毫秒)，0表示等待到下一周期 |
 
-##### `SetEvent` - 触发事件
+##### `svcrt_event_set` - 触发事件
 
 ```c
-void SetEvent(int32 handle);
+void svcrt_event_set(int32 handle);
 ```
 
 唤醒所有等待此事件的任务。
@@ -359,24 +359,24 @@ void SetEvent(int32 handle);
 // 生产者任务
 void AppMain(void)
 {
-    int32 evt = CreateEvent("data_ready");
+    int32 evt = svcrt_event_create("data_ready");
 
     while(1)
     {
         produce_data();
-        SetEvent(evt);         // 通知消费者数据就绪
-        TaskWait(100);
+        svcrt_event_set(evt);         // 通知消费者数据就绪
+        svcrt_task_wait(100);
     }
 }
 
 // 消费者任务（另一个分区）
 void AppMain(void)
 {
-    int32 evt = CreateEvent("data_ready");
+    int32 evt = svcrt_event_create("data_ready");
 
     while(1)
     {
-        WaitEvent(evt, 0);    // 等待数据就绪
+        svcrt_event_wait(evt, 0);    // 等待数据就绪
         consume_data();
     }
 }
@@ -391,17 +391,17 @@ void AppMain(void)
 
 void AppMain(void)
 {
-    int32 com1 = dev_open("COM1", 115200);
+    int32 com1 = svcrt_dev_open("COM1", 115200);
     uint8 buf[128];
 
     while(1)
     {
-        int32 len = dev_read(com1, buf, 128);
+        int32 len = svcrt_dev_read(com1, buf, 128);
         if(len > 0)
         {
-            dev_write(com1, buf, len);
+            svcrt_dev_write(com1, buf, len);
         }
-        TaskWait(10);
+        svcrt_task_wait(10);
     }
 }
 ```
@@ -413,16 +413,16 @@ void AppMain(void)
 
 void AppMain(void)
 {
-    int32 led = dev_open("LED", 0);
-    int32 evt = CreateEvent("tick");
+    int32 led = svcrt_dev_open("LED", 0);
+    int32 evt = svcrt_event_create("tick");
     uint8 state = 0;
 
     while(1)
     {
         state = !state;
-        dev_write(led, &state, 1);
-        SetEvent(evt);
-        TaskWait(500);
+        svcrt_dev_write(led, &state, 1);
+        svcrt_event_set(evt);
+        svcrt_task_wait(500);
     }
 }
 ```
@@ -434,33 +434,33 @@ void AppMain(void)
 
 void AppMain(void)
 {
-    int32 com1 = dev_open("COM1", 115200);
-    int32 led  = dev_open("LED", 0);
-    int32 spi  = dev_open("SPI1", 0);
-    int32 evt  = CreateEvent("cmd_recv");
+    int32 com1 = svcrt_dev_open("COM1", 115200);
+    int32 led  = svcrt_dev_open("LED", 0);
+    int32 spi  = svcrt_dev_open("SPI1", 0);
+    int32 evt  = svcrt_event_create("cmd_recv");
     uint8 cmd_buf[32];
     uint8 spi_buf[64];
 
     while(1)
     {
-        int32 len = dev_read(com1, cmd_buf, 32);
+        int32 len = svcrt_dev_read(com1, cmd_buf, 32);
         if(len > 0)
         {
             // 解析命令
             if(cmd_buf[0] == 0x01) {
                 // 读取SPI数据
-                dev_read(spi, spi_buf, 64);
-                dev_write(com1, spi_buf, 64);
+                svcrt_dev_read(spi, spi_buf, 64);
+                svcrt_dev_write(com1, spi_buf, 64);
             }
             else if(cmd_buf[0] == 0x02) {
                 // 切换LED
                 uint8 val = cmd_buf[1];
-                dev_write(led, &val, 1);
+                svcrt_dev_write(led, &val, 1);
             }
 
-            SetEvent(evt);
+            svcrt_event_set(evt);
         }
-        TaskWait(20);
+        svcrt_task_wait(20);
     }
 }
 ```
@@ -469,8 +469,8 @@ void AppMain(void)
 
 #### 7.1 必须遵守的规则
 
-1. **不要直接操作硬件寄存器** — 所有硬件访问必须通过 `dev_open/read/write/ctrl`
-2. **不要使用阻塞式循环等待** — 使用 `TaskWait` 或 `WaitEvent` 让出CPU
+1. **不要直接操作硬件寄存器** — 所有硬件访问必须通过 `svcrt_dev_open/read/write/ctrl`
+2. **不要使用阻塞式循环等待** — 使用 `svcrt_task_wait` 或 `svcrt_event_wait` 让出CPU
 3. **AppMain() 不能返回** — 必须包含无限循环
 4. **栈空间有限** — 避免大数组局部变量，使用静态或全局缓冲区
 5. **不要调用内核内部函数** — 只使用 `svcrt.h` 中声明的API
@@ -481,14 +481,14 @@ void AppMain(void)
 void AppMain(void)
 {
     // 阶段1：初始化
-    int32 dev1 = dev_open("DEV1", 0);
-    int32 evt  = CreateEvent("my_evt");
+    int32 dev1 = svcrt_dev_open("DEV1", 0);
+    int32 evt  = svcrt_event_create("my_evt");
 
     // 阶段2：主循环
     while(1)
     {
         // 读取输入
-        int32 len = dev_read(dev1, buf, sizeof(buf));
+        int32 len = svcrt_dev_read(dev1, buf, sizeof(buf));
 
         // 处理数据
         if(len > 0) {
@@ -496,10 +496,10 @@ void AppMain(void)
         }
 
         // 输出结果
-        dev_write(dev1, result, result_len);
+        svcrt_dev_write(dev1, result, result_len);
 
         // 等待下一周期
-        TaskWait(period_ms);
+        svcrt_task_wait(period_ms);
     }
 }
 ```
@@ -510,11 +510,11 @@ void AppMain(void)
 
 ### 8. Driver SDK 简介
 
-Driver SDK 是面向SVCrtOS设备驱动开发者的工具包。驱动运行在内核态，可以直接操作硬件寄存器。驱动通过 `svcrtDrvRegister()` 动态注册到内核设备表，应用程序通过 `dev_open()` 等API使用。
+Driver SDK 是面向SVCrtOS设备驱动开发者的工具包。驱动运行在内核态，可以直接操作硬件寄存器。驱动通过 `svcrt_drv_register()` 动态注册到内核设备表，应用程序通过 `svcrt_dev_open()` 等API使用。
 
 **核心特性：**
 - **动态注册** — 驱动可以在运行时注册/注销，无需修改内核源码
-- **统一接口** — 所有驱动实现相同的 `SVCRT_DRV_INTERFACE` 接口
+- **统一接口** — 所有驱动实现相同的 `svcrt_dev_drv_t` 接口
 - **独立开发** — 驱动代码与内核代码完全分离，可独立编译
 
 ### 9. Driver SDK 文件清单
@@ -542,41 +542,41 @@ sdk/driver_sdk/
 
 ```c
 typedef struct {
-    DEV_HDR hdr;        // 必须第一个成员！
-    uint32  my_reg;     // 设备寄存器地址
-    uint8   state;      // 设备状态
-} MY_DEV_OBJ;
+    svcrt_dev_hdr_t hdr;     // 必须第一个成员！
+    uint32  my_reg;          // 设备寄存器地址
+    uint8   state;           // 设备状态
+} my_dev_obj_t;
 ```
 
-> ?? **重要：** 设备对象结构体的第一个成员必须是 `DEV_HDR`。
+> **重要：** 设备对象结构体的第一个成员必须是 `svcrt_dev_hdr_t`。
 
 #### 步骤3：实现5个驱动接口函数
 
 ```c
-static DEV_HDR* my_drv_open(uint32 devid, uint32 param)
+static svcrt_dev_hdr_t* my_drv_open(uint32 devid, uint32 param)
 {
     // 初始化硬件、配置参数
     // 返回设备对象指针
 }
 
-static int32 my_drv_close(DEV_HDR *obj)
+static int32 my_drv_close(svcrt_dev_hdr_t *obj)
 {
     // 关闭设备、释放资源
 }
 
-static int32 my_drv_read(DEV_HDR *obj, uint8 *pdata, int32 len)
+static int32 my_drv_read(svcrt_dev_hdr_t *obj, uint8 *pdata, int32 len)
 {
     // 从设备读取数据
     // 返回实际读取的字节数
 }
 
-static int32 my_drv_write(DEV_HDR *obj, uint8 *pdata, int32 len)
+static int32 my_drv_write(svcrt_dev_hdr_t *obj, uint8 *pdata, int32 len)
 {
     // 向设备写入数据
     // 返回实际写入的字节数
 }
 
-static int32 my_drv_ctrl(DEV_HDR *obj, uint32 code, uint32 value)
+static int32 my_drv_ctrl(svcrt_dev_hdr_t *obj, uint32 code, uint32 value)
 {
     // 设备控制操作
     // 根据code执行不同操作
@@ -586,7 +586,7 @@ static int32 my_drv_ctrl(DEV_HDR *obj, uint32 code, uint32 value)
 #### 步骤4：声明驱动接口实例
 
 ```c
-static SVCRT_DRV_INTERFACE my_drv = {
+static svcrt_dev_drv_t my_drv = {
     my_drv_open,
     my_drv_close,
     my_drv_read,
@@ -600,7 +600,7 @@ static SVCRT_DRV_INTERFACE my_drv = {
 ```c
 int32 my_drv_install(void)
 {
-    return svcrtDrvRegister("MYDEV", &my_drv, 0);
+    return svcrt_drv_register("MYDEV", &my_drv, 0);
 }
 ```
 
@@ -608,32 +608,32 @@ int32 my_drv_install(void)
 
 ### 11. Driver SDK API 详解
 
-#### 11.1 驱动接口 SVCRT_DRV_INTERFACE
+#### 11.1 驱动接口 svcrt_dev_drv_t
 
 ```c
 typedef struct {
-    DrvOpenFunc    DrvOpen;    // 打开设备
-    DrvCloseFunc   DrvClose;   // 关闭设备
-    DrvReadFunc    DrvRead;    // 读取数据
-    DrvWriteFunc   DrvWrite;   // 写入数据
-    DrvIOCtrlFunc  DrvCtrl;    // 设备控制
-} SVCRT_DRV_INTERFACE;
+    svcrt_drv_open_func    drv_open;    // 打开设备
+    svcrt_drv_close_func   drv_close;   // 关闭设备
+    svcrt_drv_read_func    drv_read;    // 读取数据
+    svcrt_drv_write_func   drv_write;   // 写入数据
+    svcrt_drv_ctrl_func    drv_ctrl;    // 设备控制
+} svcrt_dev_drv_t;
 ```
 
 各函数指针类型定义：
 
 ```c
-typedef DEV_HDR* (*DrvOpenFunc)(uint32 devid, uint32 param);
-typedef int32    (*DrvCloseFunc)(DEV_HDR *obj);
-typedef int32    (*DrvReadFunc)(DEV_HDR *obj, uint8 *pdata, int32 len);
-typedef int32    (*DrvWriteFunc)(DEV_HDR *obj, uint8 *pdata, int32 len);
-typedef int32    (*DrvIOCtrlFunc)(DEV_HDR *obj, uint32 code, uint32 value);
+typedef svcrt_dev_hdr_t* (*svcrt_drv_open_func)(uint32 devid, uint32 param);
+typedef int32            (*svcrt_drv_close_func)(svcrt_dev_hdr_t *obj);
+typedef int32            (*svcrt_drv_read_func)(svcrt_dev_hdr_t *obj, uint8 *pdata, int32 len);
+typedef int32            (*svcrt_drv_write_func)(svcrt_dev_hdr_t *obj, uint8 *pdata, int32 len);
+typedef int32            (*svcrt_drv_ctrl_func)(svcrt_dev_hdr_t *obj, uint32 code, uint32 value);
 ```
 
-#### 11.2 DrvOpen - 打开设备
+#### 11.2 drv_open - 打开设备
 
 ```c
-DEV_HDR* DrvOpen(uint32 devid, uint32 param);
+svcrt_dev_hdr_t* drv_open(uint32 devid, uint32 param);
 ```
 
 | 参数 | 说明 |
@@ -643,7 +643,7 @@ DEV_HDR* DrvOpen(uint32 devid, uint32 param);
 
 | 返回值 | 说明 |
 |--------|------|
-| 非0 | 设备对象指针（DEV_HDR*） |
+| 非0 | 设备对象指针（svcrt_dev_hdr_t*） |
 | 0 | 打开失败 |
 
 **实现要点：**
@@ -651,25 +651,25 @@ DEV_HDR* DrvOpen(uint32 devid, uint32 param);
 - 配置设备参数（如波特率、工作模式等）
 - 返回设备对象指针，内核将其与应用句柄关联
 
-#### 11.3 DrvClose - 关闭设备
+#### 11.3 drv_close - 关闭设备
 
 ```c
-int32 DrvClose(DEV_HDR *obj);
+int32 drv_close(svcrt_dev_hdr_t *obj);
 ```
 
 | 参数 | 说明 |
 |------|------|
-| `obj` | DrvOpen返回的设备对象 |
+| `obj` | drv_open返回的设备对象 |
 
 | 返回值 | 说明 |
 |--------|------|
 | `SVCRT_DRV_OK` (0) | 成功 |
 | `SVCRT_DRV_ERROR` (-1) | 失败 |
 
-#### 11.4 DrvRead - 读取数据
+#### 11.4 drv_read - 读取数据
 
 ```c
-int32 DrvRead(DEV_HDR *obj, uint8 *pdata, int32 len);
+int32 drv_read(svcrt_dev_hdr_t *obj, uint8 *pdata, int32 len);
 ```
 
 | 参数 | 说明 |
@@ -684,18 +684,18 @@ int32 DrvRead(DEV_HDR *obj, uint8 *pdata, int32 len);
 | 0 | 无数据 |
 | 负数 | 错误码 |
 
-#### 11.5 DrvWrite - 写入数据
+#### 11.5 drv_write - 写入数据
 
 ```c
-int32 DrvWrite(DEV_HDR *obj, uint8 *pdata, int32 len);
+int32 drv_write(svcrt_dev_hdr_t *obj, uint8 *pdata, int32 len);
 ```
 
-参数和返回值含义同 DrvRead。
+参数和返回值含义同 drv_read。
 
-#### 11.6 DrvCtrl - 设备控制
+#### 11.6 drv_ctrl - 设备控制
 
 ```c
-int32 DrvIOCtrl(DEV_HDR *obj, uint32 code, uint32 value);
+int32 drv_ctrl(svcrt_dev_hdr_t *obj, uint32 code, uint32 value);
 ```
 
 | 参数 | 说明 |
@@ -719,17 +719,17 @@ int32 DrvIOCtrl(DEV_HDR *obj, uint32 code, uint32 value);
 
 #### 11.7 驱动注册/注销API
 
-##### `svcrtDrvRegister` - 注册驱动
+##### `svcrt_drv_register` - 注册驱动
 
 ```c
-int32 svcrtDrvRegister(const char *name, SVCRT_DRV_INTERFACE *drv, uint32 dev_num);
+int32 svcrt_drv_register(const char *name, svcrt_dev_drv_t *drv, uint32 dev_num);
 ```
 
 | 参数 | 说明 |
 |------|------|
 | `name` | 设备名称（最长7字符），应用通过此名称打开设备 |
 | `drv` | 驱动接口指针 |
-| `dev_num` | 驱动内部设备编号，传入DrvOpen的devid参数 |
+| `dev_num` | 驱动内部设备编号，传入drv_open的devid参数 |
 
 | 返回值 | 说明 |
 |--------|------|
@@ -737,10 +737,10 @@ int32 svcrtDrvRegister(const char *name, SVCRT_DRV_INTERFACE *drv, uint32 dev_nu
 | -1 | 设备表已满 |
 | -2 | 参数无效或名称重复 |
 
-##### `svcrtDrvUnregister` - 注销驱动
+##### `svcrt_drv_unregister` - 注销驱动
 
 ```c
-int32 svcrtDrvUnregister(const char *name);
+int32 svcrt_drv_unregister(const char *name);
 ```
 
 | 返回值 | 说明 |
@@ -748,10 +748,10 @@ int32 svcrtDrvUnregister(const char *name);
 | 0 | 注销成功 |
 | -1 | 设备未找到 |
 
-##### `svcrtDrvGetCount` - 获取已注册设备数
+##### `svcrt_drv_get_count` - 获取已注册设备数
 
 ```c
-int32 svcrtDrvGetCount(void);
+int32 svcrt_drv_get_count(void);
 ```
 
 #### 11.8 驱动返回值定义
@@ -774,35 +774,35 @@ int32 svcrtDrvGetCount(void);
 #define SPI1_BASE    0x40013000
 
 typedef struct {
-    DEV_HDR hdr;
+    svcrt_dev_hdr_t hdr;
     uint32  base;
     uint32  speed;
     uint8   mode;
-} SPI_DEV_OBJ;
+} spi_dev_obj_t;
 
-static SPI_DEV_OBJ spi_dev = {{0}, SPI1_BASE, 1000000, 0};
+static spi_dev_obj_t spi_dev = {{0}, SPI1_BASE, 1000000, 0};
 
-static DEV_HDR* spi_drv_open(uint32 devid, uint32 param)
+static svcrt_dev_hdr_t* spi_drv_open(uint32 devid, uint32 param)
 {
     spi_dev.speed = param ? param : 1000000;
     spi_dev.mode = 0;
-    spi_dev.hdr.blocksize = 1;
+    spi_dev.hdr.block_size = 1;
 
     // 配置SPI硬件
     // SPI_Init(spi_dev.base, spi_dev.speed, spi_dev.mode);
 
-    return (DEV_HDR*)&spi_dev;
+    return (svcrt_dev_hdr_t*)&spi_dev;
 }
 
-static int32 spi_drv_close(DEV_HDR *obj)
+static int32 spi_drv_close(svcrt_dev_hdr_t *obj)
 {
-    // SPI_DeInit(((SPI_DEV_OBJ*)obj)->base);
+    // SPI_DeInit(((spi_dev_obj_t*)obj)->base);
     return SVCRT_DRV_OK;
 }
 
-static int32 spi_drv_read(DEV_HDR *obj, uint8 *pdata, int32 len)
+static int32 spi_drv_read(svcrt_dev_hdr_t *obj, uint8 *pdata, int32 len)
 {
-    SPI_DEV_OBJ *p = (SPI_DEV_OBJ*)obj;
+    spi_dev_obj_t *p = (spi_dev_obj_t*)obj;
     int32 i;
     for(i = 0; i < len; i++)
     {
@@ -811,9 +811,9 @@ static int32 spi_drv_read(DEV_HDR *obj, uint8 *pdata, int32 len)
     return len;
 }
 
-static int32 spi_drv_write(DEV_HDR *obj, uint8 *pdata, int32 len)
+static int32 spi_drv_write(svcrt_dev_hdr_t *obj, uint8 *pdata, int32 len)
 {
-    SPI_DEV_OBJ *p = (SPI_DEV_OBJ*)obj;
+    spi_dev_obj_t *p = (spi_dev_obj_t*)obj;
     int32 i;
     for(i = 0; i < len; i++)
     {
@@ -822,9 +822,9 @@ static int32 spi_drv_write(DEV_HDR *obj, uint8 *pdata, int32 len)
     return len;
 }
 
-static int32 spi_drv_ctrl(DEV_HDR *obj, uint32 code, uint32 value)
+static int32 spi_drv_ctrl(svcrt_dev_hdr_t *obj, uint32 code, uint32 value)
 {
-    SPI_DEV_OBJ *p = (SPI_DEV_OBJ*)obj;
+    spi_dev_obj_t *p = (spi_dev_obj_t*)obj;
     switch(code)
     {
     case SVCRT_DEV_CTRL_SET_MODE:
@@ -840,7 +840,7 @@ static int32 spi_drv_ctrl(DEV_HDR *obj, uint32 code, uint32 value)
     }
 }
 
-static SVCRT_DRV_INTERFACE spi_drv = {
+static svcrt_dev_drv_t spi_drv = {
     spi_drv_open,
     spi_drv_close,
     spi_drv_read,
@@ -850,7 +850,7 @@ static SVCRT_DRV_INTERFACE spi_drv = {
 
 int32 spi_drv_install(void)
 {
-    return svcrtDrvRegister("SPI1", &spi_drv, 0);
+    return svcrt_drv_register("SPI1", &spi_drv, 0);
 }
 ```
 
@@ -860,38 +860,38 @@ int32 spi_drv_install(void)
 #include "svcrt_driver_sdk.h"
 
 typedef struct {
-    DEV_HDR hdr;
+    svcrt_dev_hdr_t hdr;
     uint32  uart_base;
     uint32  baudrate;
-} UART_DEV_OBJ;
+} uart_dev_obj_t;
 
 #define UART_MAX  3
-static UART_DEV_OBJ uart_devs[UART_MAX] = {
+static uart_dev_obj_t uart_devs[UART_MAX] = {
     {{0}, 0x40011000, 115200},  // UART1
     {{0}, 0x40004400, 115200},  // UART2
     {{0}, 0x40004800, 115200},  // UART3
 };
 
-static DEV_HDR* uart_drv_open(uint32 devid, uint32 param)
+static svcrt_dev_hdr_t* uart_drv_open(uint32 devid, uint32 param)
 {
-    UART_DEV_OBJ *p;
+    uart_dev_obj_t *p;
     if(devid >= UART_MAX) return 0;
 
     p = &uart_devs[devid];
     p->baudrate = param ? param : 115200;
-    p->hdr.blocksize = 1;
+    p->hdr.block_size = 1;
 
     // UART_Init(p->uart_base, p->baudrate);
-    return (DEV_HDR*)p;
+    return (svcrt_dev_hdr_t*)p;
 }
 
-static int32 uart_drv_close(DEV_HDR *obj) { return SVCRT_DRV_OK; }
-static int32 uart_drv_read(DEV_HDR *obj, uint8 *pdata, int32 len) { return 0; }
-static int32 uart_drv_write(DEV_HDR *obj, uint8 *pdata, int32 len) { return len; }
+static int32 uart_drv_close(svcrt_dev_hdr_t *obj) { return SVCRT_DRV_OK; }
+static int32 uart_drv_read(svcrt_dev_hdr_t *obj, uint8 *pdata, int32 len) { return 0; }
+static int32 uart_drv_write(svcrt_dev_hdr_t *obj, uint8 *pdata, int32 len) { return len; }
 
-static int32 uart_drv_ctrl(DEV_HDR *obj, uint32 code, uint32 value)
+static int32 uart_drv_ctrl(svcrt_dev_hdr_t *obj, uint32 code, uint32 value)
 {
-    UART_DEV_OBJ *p = (UART_DEV_OBJ*)obj;
+    uart_dev_obj_t *p = (uart_dev_obj_t*)obj;
     if(code == SVCRT_DEV_CTRL_SET_BAUD) {
         p->baudrate = value;
         return SVCRT_DRV_OK;
@@ -899,16 +899,16 @@ static int32 uart_drv_ctrl(DEV_HDR *obj, uint32 code, uint32 value)
     return SVCRT_DRV_ERROR;
 }
 
-static SVCRT_DRV_INTERFACE uart_drv = {
+static svcrt_dev_drv_t uart_drv = {
     uart_drv_open, uart_drv_close,
     uart_drv_read, uart_drv_write, uart_drv_ctrl
 };
 
 void uart_drv_install_all(void)
 {
-    svcrtDrvRegister("COM1", &uart_drv, 0);  // devid=0 → uart_devs[0]
-    svcrtDrvRegister("COM2", &uart_drv, 1);  // devid=1 → uart_devs[1]
-    svcrtDrvRegister("COM3", &uart_drv, 2);  // devid=2 → uart_devs[2]
+    svcrt_drv_register("COM1", &uart_drv, 0);  // devid=0 → uart_devs[0]
+    svcrt_drv_register("COM2", &uart_drv, 1);  // devid=1 → uart_devs[1]
+    svcrt_drv_register("COM3", &uart_drv, 2);  // devid=2 → uart_devs[2]
 }
 ```
 
@@ -916,64 +916,90 @@ void uart_drv_install_all(void)
 
 #### 13.1 必须遵守的规则
 
-1. **DEV_HDR 必须是设备对象结构体的第一个成员**
-2. **设备名称最长7字符**（含结尾\0为8字节）
-3. **DrvOpen 必须返回有效的 DEV_HDR* 指针**，返回0表示打开失败
-4. **中断处理函数中不要调用阻塞API**
-5. **驱动注册应在系统初始化阶段完成**，不要在任务运行中注册
+1. **设备对象第一个成员必须是 `svcrt_dev_hdr_t`** — 内核通过此头部管理设备
+2. **drv_open 必须返回有效的设备对象指针** — 返回0表示打开失败
+3. **drv_read/drv_write 返回实际操作字节数** — 返回负数表示错误
+4. **中断处理中不要调用阻塞API** — 中断上下文不能挂起任务
+5. **使用 `svcrt_fifo_t` 进行中断安全的数据缓冲** — 避免在中断中直接操作设备对象
 
 #### 13.2 推荐的编程模式
 
 ```c
-// 1. 定义设备对象（静态分配）
-static MY_DEV_OBJ my_dev = {0};
+// 驱动私有数据通过容器宏获取
+#define DRV_GET_OBJ(obj, type)  ((type*)(obj))
 
-// 2. 实现驱动接口
-static DEV_HDR* my_open(uint32 devid, uint32 param) { ... }
-static int32 my_close(DEV_HDR *obj) { ... }
-static int32 my_read(DEV_HDR *obj, uint8 *d, int32 l) { ... }
-static int32 my_write(DEV_HDR *obj, uint8 *d, int32 l) { ... }
-static int32 my_ctrl(DEV_HDR *obj, uint32 c, uint32 v) { ... }
-
-// 3. 声明接口实例
-static SVCRT_DRV_INTERFACE my_drv = {
-    my_open, my_close, my_read, my_write, my_ctrl
-};
-
-// 4. 安装函数
-int32 my_drv_install(void)
+// 或使用更安全的偏移检查
+static my_dev_obj_t* get_dev_obj(svcrt_dev_hdr_t *hdr)
 {
-    return svcrtDrvRegister("MYDEV", &my_drv, 0);
+    return (my_dev_obj_t*)hdr;
+}
+```
+
+#### 13.3 中断与驱动的协作
+
+驱动通常需要在中断中接收数据，在任务上下文中处理。推荐使用 FIFO 缓冲区：
+
+```c
+static svcrt_fifo_t rx_fifo;
+static uint8 rx_buf[256];
+
+static svcrt_dev_hdr_t* my_drv_open(uint32 devid, uint32 param)
+{
+    svcrt_fifo_init(&rx_fifo, rx_buf, 256);
+    // ...
+}
+
+// 中断服务函数
+void USART1_IRQHandler(void)
+{
+    if(USART_GetITStatus(USART1, USART_IT_RXNE))
+    {
+        uint8 data = USART_ReceiveData(USART1);
+        svcrt_fifo_write(&rx_fifo, &data, 1);
+    }
+}
+
+// 驱动读取函数（任务上下文调用）
+static int32 my_drv_read(svcrt_dev_hdr_t *obj, uint8 *pdata, int32 len)
+{
+    return svcrt_fifo_read(&rx_fifo, pdata, len);
 }
 ```
 
 ---
 
-## 附录A：SVC系统调用编号
+## 附录：API 速查表
 
-| SVC号 | 分类 | 功能 |
-|--------|------|------|
-| 0x10 | 设备IO | p[0]=1:dev_open, 2:dev_read, 3:dev_write, 4:dev_ctrl |
-| 0x11 | 时间管理 | r0=1:TaskWait, 2:TaskWaitNxtPeriod, 3:TaskDelay, 4:TaskKill |
-| 0x12 | 系统信息 | r0=1:GetSystemTimeMs, 2:GetCpuPayload |
-| 0x13 | 事件管理 | p[0]=1:CreateEvent, 2:WaitEvent, 3:SetEvent |
+### App SDK API 速查
 
-## 附录B：配置参数速查
+| 分类 | API | 说明 |
+|------|-----|------|
+| 设备 | `svcrt_dev_open(name, param)` | 打开设备 |
+| 设备 | `svcrt_dev_read(handle, buf, len)` | 读取数据 |
+| 设备 | `svcrt_dev_write(handle, buf, len)` | 写入数据 |
+| 设备 | `svcrt_dev_ctrl(handle, code, value)` | 设备控制 |
+| 任务 | `svcrt_task_wait(ms)` | 毫秒等待 |
+| 任务 | `svcrt_task_wait_period()` | 等待下一周期 |
+| 任务 | `svcrt_task_delay(us)` | 微秒忙等 |
+| 任务 | `svcrt_task_kill()` | 终止任务 |
+| 事件 | `svcrt_event_create(name)` | 创建事件 |
+| 事件 | `svcrt_event_wait(handle, timeout)` | 等待事件 |
+| 事件 | `svcrt_event_set(handle)` | 触发事件 |
+| 系统 | `svcrt_get_time_ms()` | 系统时间 |
+| 系统 | `svcrt_get_cpu_usage()` | CPU负载 |
 
-| 配置项 | 默认值 | 说明 |
-|--------|--------|------|
-| `SVCRT_TASK_MAX_NUM` | 7 | 最大任务数 |
-| `SVCRT_TICK_PERIOD_US` | 500 | 滴答周期(微秒) |
-| `SVCRT_EVENT_NUM` | 10 | 最大事件数 |
-| `SVCRT_MAX_EVENT_WAITERS` | 4 | 每事件最大等待者 |
-| `SVCRT_DEV_MAX_NUM` | 8 | 最大设备驱动数 |
-| `SVCRT_USE_FPU` | 自动 | FPU开关 |
-| `SVCRT_USE_MPU` | 自动 | MPU开关 |
-| `SVCRT_USE_PRIV` | 自动 | 特权分离开关 |
-| `SVCRT_USE_CPU_LOAD` | 1 | CPU负载统计 |
-| `SVCRT_USE_STACK_CHECK` | 1 | 栈溢出检测 |
+### Driver SDK API 速查
 
-## 附录C：错误码速查
+| API | 说明 |
+|-----|------|
+| `svcrt_drv_register(name, drv, dev_num)` | 注册驱动 |
+| `svcrt_drv_unregister(name)` | 注销驱动 |
+| `svcrt_drv_get_count()` | 获取设备数 |
+| `svcrt_fifo_init(fifo, buf, size)` | 初始化FIFO |
+| `svcrt_fifo_read(fifo, buf, len)` | 从FIFO读取 |
+| `svcrt_fifo_write(fifo, buf, len)` | 写入FIFO |
+
+### 错误码速查
 
 | 错误码 | 值 | 说明 |
 |--------|-----|------|
@@ -982,5 +1008,5 @@ int32 my_drv_install(void)
 | `SVCRT_DRV_BUSY` | -2 | 设备忙 |
 | `SVCRT_DRV_TIMEOUT` | -3 | 超时 |
 | `SVCRT_DRV_INVALID_PARAM` | -4 | 参数无效 |
-| dev_open返回-1 | -1 | 设备未找到 |
-| CreateEvent返回-1 | -1 | 事件表满 |
+| `svcrt_dev_open` 返回 -1 | -1 | 设备未找到 |
+| `svcrt_event_create` 返回 -1 | -1 | 事件表满 |

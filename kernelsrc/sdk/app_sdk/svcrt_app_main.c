@@ -13,6 +13,6 @@ int main(void)
     AppMain();
     while(1)
     {
-        TaskWait(1000);
+        svcrt_task_wait(1000);
     }
 }

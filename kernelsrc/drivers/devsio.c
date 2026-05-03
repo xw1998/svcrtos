@@ -1,36 +1,36 @@
 /**
-* @brief 设备接口模块
-* @author chenjl
-* @date 2019.07.05
+* @brief 板级设备初始化
+* @details 注册板载设备到内核驱动框架
+*          此文件应根据实际硬件平台修改
 */
 
-#include "devsio.h"
-#include "drvuart.h"
-#include "drvled.h"
+#include "svcrt_dev.h"
+#include "drv_uart.h"
+#include "drv_led.h"
 #include "string.h"
 
-#define DEVS_NUM    (2)
+#define BOARD_DEV_NUM    (2)
 
-static DEV_DESCRIPT dev_list[DEVS_NUM] =
+static svcrt_dev_desc_t board_dev_list[BOARD_DEV_NUM] =
 {
-    {"COM1",&usart_drv,UART_DEV_COM1},
-    {"LED",&led_drv,0},
+    {"COM1", &usart_drv, UART_DEV_COM1},
+    {"LED",  &led_drv,  0},
 };
 
-static DEV_HDR* dev_handles[DEVS_NUM];
+static svcrt_dev_hdr_t *board_dev_handles[BOARD_DEV_NUM];
 
-int32 kerDevOpen(char *name,uint32 param)
+int32 svcrt_dev_open_internal(char *name, uint32 param)
 {
     int16 i;
-    for(i=0;i<DEVS_NUM;i++)
+    for(i = 0; i < BOARD_DEV_NUM; i++)
     {
-        if(strcmp(name,dev_list[i].dev_name) == 0)
+        if(strcmp(name, board_dev_list[i].dev_name) == 0)
         {
-            dev_handles[i] = dev_list[i].drv->DrvOpen(
-                dev_list[i].dev_num,param);
-            if(dev_handles[i] != 0)
+            board_dev_handles[i] = board_dev_list[i].drv->drv_open(
+                board_dev_list[i].dev_num, param);
+            if(board_dev_handles[i] != 0)
             {
-                return DEV_HANDLE_FLAG | i;
+                return SVCRT_DEV_HANDLE_FLAG | i;
             }
             else
             {
@@ -41,35 +41,35 @@ int32 kerDevOpen(char *name,uint32 param)
     return -1;
 }
 
-int32 kerDevRead(int32 handle,uint8 *pData,int32 len)
+int32 svcrt_dev_read_internal(int32 handle, uint8 *pdata, int32 len)
 {
-    int32 ridx = handle & HANDLE_RELMASK;
+    int32 ridx = handle & SVCRT_HANDLE_RELMASK;
 
-    if(DEV_HANDLE_FLAG != (handle & HANDLE_MASK))
+    if(SVCRT_DEV_HANDLE_FLAG != (handle & SVCRT_HANDLE_MASK))
     {
         return 0;
     }
-    return dev_list[ridx].drv->DrvRead(dev_handles[ridx],pData,len);
+    return board_dev_list[ridx].drv->drv_read(board_dev_handles[ridx], pdata, len);
 }
 
-int32 kerDevWrite(int32 handle,uint8 *pData,int32 len)
+int32 svcrt_dev_write_internal(int32 handle, uint8 *pdata, int32 len)
 {
-    int32 ridx = handle & HANDLE_RELMASK;
+    int32 ridx = handle & SVCRT_HANDLE_RELMASK;
 
-    if(DEV_HANDLE_FLAG != (handle & HANDLE_MASK))
+    if(SVCRT_DEV_HANDLE_FLAG != (handle & SVCRT_HANDLE_MASK))
     {
         return 0;
     }
-    return dev_list[ridx].drv->DrvWrite(dev_handles[ridx],pData,len);
+    return board_dev_list[ridx].drv->drv_write(board_dev_handles[ridx], pdata, len);
 }
 
-int32 kerDevCtrl(int32 handle,uint32 code,uint32 value)
+int32 svcrt_dev_ctrl_internal(int32 handle, uint32 code, uint32 value)
 {
-    int32 ridx = handle & HANDLE_RELMASK;
+    int32 ridx = handle & SVCRT_HANDLE_RELMASK;
 
-    if(DEV_HANDLE_FLAG != (handle & HANDLE_MASK))
+    if(SVCRT_DEV_HANDLE_FLAG != (handle & SVCRT_HANDLE_MASK))
     {
         return 0;
     }
-    return dev_list[ridx].drv->DrvCtrl(dev_handles[ridx],code,value);
+    return board_dev_list[ridx].drv->drv_ctrl(board_dev_handles[ridx], code, value);
 }

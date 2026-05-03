@@ -72,26 +72,26 @@ extern uint32_t SystemCoreClock;
 * @details 在C运行时初始化之前调用，用于使能FPU等必须在早期配置的硬件
 *          如果使用FPU，必须在此函数中使能CP10/CP11
 */
-void svcrtPortBoardInit(void);
+void svcrt_port_board_init(void);
 
 /**
 * @brief 中断优先级配置
 * @details 配置NVIC优先级分组，设置PendSV为最低优先级，SysTick优先级
 */
-void svcrtPortIrqInit(void);
+void svcrt_port_irq_init(void);
 
 /**
 * @brief 启动系统定时器
 * @param tick_period_us 滴答周期(微秒)
 * @details 配置SysTick定时器，使其按指定周期产生中断
 */
-void svcrtPortStartTimer(uint32 tick_period_us);
+void svcrt_port_start_timer(uint32 tick_period_us);
 
 /**
 * @brief FPU使能
 * @details 使能浮点运算单元，仅在SVCRT_USE_FPU=1时被调用
 */
-void svcrtPortEnableFpu(void);
+void svcrt_port_enable_fpu(void);
 
 /**
 * @brief 后台任务MPU保护设置
@@ -100,18 +100,18 @@ void svcrtPortEnableFpu(void);
 * @param stack_addr 后台栈地址
 * @param stack_size 栈大小
 */
-void svcrtPortSetIdleMpu(uint32 task_func, uint32 stack_addr, uint32 stack_size);
+void svcrt_port_set_idle_mpu(uint32 task_func, uint32 stack_addr, uint32 stack_size);
 
 /* ============================================================
- * [必须实现] SysTick相关（用于kerTaskDelay微秒延时）
+ * [必须实现] SysTick相关（用于svcrt_task_delay微秒延时）
  * ============================================================ */
 
-static __inline uint32 svcrtPortGetSysTickVal(void)
+static __inline uint32 svcrt_port_get_systick_val(void)
 {
     return SysTick->VAL;
 }
 
-static __inline uint32 svcrtPortGetSysTickLoad(void)
+static __inline uint32 svcrt_port_get_systick_load(void)
 {
     return SysTick->LOAD;
 }
