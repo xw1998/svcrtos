@@ -208,7 +208,7 @@ main()
 
 | 组件 | 版本 | 说明 |
 |------|------|------|
-| [CmBacktrace](https://gite'eee.com/armink/CmBacktrace) | - | Cortex-M 故障诊断回溯 |
-| [nr-micro-shell](https://gitee.com/Nrusher/nr-micro-shell) | 2.0.0 | 嵌入式命令行 Shell |
+| [CmBacktrace](https://gitee.com/Armink/CmBacktrace) | - | Cortex-M 故障诊断回溯 |
+| [nr-micro-shell](https://gitee.com/nrush/nr_micro_shell) | 2.0.0 | 嵌入式命令行 Shell |
 
 
