@@ -1,6 +1,6 @@
 /**
-* @brief SVCrtOS App SDK - 操作系统接口封装
-* @details 供应用程序(分区)使用的OS接口封装，通过SVC指令陷入内核态
+* @brief SVCrtOS App SDK - ???????????
+* @details ????ó???(????)????OS??????????SVC???????????
 * @author xw
 * @date 2026.05.03
 */
@@ -48,6 +48,14 @@ int32 svcrt_dev_ctrl(int32 handle, uint32 code, uint32 value)
     parameters[1] = handle;
     parameters[2] = code;
     parameters[3] = value;
+    return svcrt_call_dev_io(parameters);
+}
+
+int32 svcrt_dev_close(int32 handle)
+{
+    uint32 parameters[4];
+    parameters[0] = 5;
+    parameters[1] = handle;
     return svcrt_call_dev_io(parameters);
 }
 

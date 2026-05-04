@@ -1,0 +1,17 @@
+/**
+* @brief SVCrtOS ?èâ???? - STM32F427
+* @details ?????????????????????? STM32F427 ????????
+*          ???????? -DSVCRT_BOARD_CONFIG=\"svcrt_board_config.h\" ????
+*/
+
+#ifndef __SVCRT_BOARD_CONFIG_H__
+#define __SVCRT_BOARD_CONFIG_H__
+
+#define SVCRT_CPU_ARCH            SVCRT_ARCH_CORTEX_M4
+
+#define SVCRT_SYSTEM_CLOCK_HZ     (168000000)
+
+#define SVCRT_SHARE_MEM_ADDR      (0x20028000)
+#define SVCRT_SHARE_MEM_SIZE      (0x8000)
+
+#endif

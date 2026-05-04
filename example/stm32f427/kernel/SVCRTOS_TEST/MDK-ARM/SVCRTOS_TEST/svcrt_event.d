@@ -1,0 +1,9 @@
+svcrtos_test\svcrt_event.o: ..\..\..\..\..\kernelsrc\src\svcrt_event.c
+svcrtos_test\svcrt_event.o: ..\..\..\..\..\kernelsrc\include\svcrt_event.h
+svcrtos_test\svcrt_event.o: ..\..\..\..\..\kernelsrc\include\svcrt_def.h
+svcrtos_test\svcrt_event.o: ..\..\..\..\..\kernelsrc\include\svcrt_types.h
+svcrtos_test\svcrt_event.o: ..\..\..\..\..\kernelsrc\include\svcrt_task.h
+svcrtos_test\svcrt_event.o: ..\..\..\..\..\kernelsrc\include\svcrt_port.h
+svcrtos_test\svcrt_event.o: ..\..\..\..\..\kernelsrc\include\svcrt_config.h
+svcrtos_test\svcrt_event.o: ..\..\..\..\..\board\stm32f427\svcrt_board_config.h
+svcrtos_test\svcrt_event.o: E:\mdk5\ARM\ARMCC\Bin\..\include\stdint.h

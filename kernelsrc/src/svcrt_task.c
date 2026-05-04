@@ -1,6 +1,6 @@
 /**
-* @brief SVCrtOS 任务管理与调度器
-* @details 实现任务状态管理、优先级调度、SVC服务分发等核心功能
+* @brief SVCrtOS ??????????????
+* @details ?????????????????????????SVC??????????????
 * @author xw
 * @date 2026.05.03
 */
@@ -23,7 +23,7 @@ static uint32 svcrt_idle_stack_ptr = 0;
 
 static void svcrt_tick_tasks(svcrt_task_t *p_task);
 
-void SysTick_Handler(void)
+void svcrt_kernel_tick_handler(void)
 {
     svcrt_kernel_tick++;
     SVCRT_SWITCH_TASK();
@@ -118,6 +118,9 @@ void SVC_Server(svcrt_svc_context_t *p_svc_ctx)
             case 4:
                 p_svc_ctx->r0 = svcrt_dev_ctrl_internal(p[1], p[2], p[3]);
                 break;
+            case 5:
+                p_svc_ctx->r0 = svcrt_dev_close_internal(p[1]);
+                break;
             default:
                 p_svc_ctx->r0 = 0;
                 break;
@@ -129,7 +132,7 @@ void SVC_Server(svcrt_svc_context_t *p_svc_ctx)
     }
 }
 
-void HardFault_Handler(void)
+void svcrt_hardfault_handler(void)
 {
     if(svcrt_current_task_id > 0)
     {
@@ -140,11 +143,8 @@ void HardFault_Handler(void)
     {
         while(1)
         {
-            SVCRT_NOP();
         }
     }
-    SVCRT_ISB();
-    SVCRT_WFE();
 }
 
 int32 svcrt_sched_is_switching(void)

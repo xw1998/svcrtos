@@ -92,13 +92,13 @@ __weak svcrt_app_cfg_t svcrt_app_cfg_table[] =
 
 ### 2.4 注册驱动
 
-在 `svcrt_port_board_init()` 中注册驱动：
+在 `svcrt_dev_board_init()` 中注册板载驱动（此函数在 `board/<芯片>/svcrt_board.c` 中实现）：
 
 ```c
-void svcrt_port_board_init(void)
+void svcrt_dev_board_init(void)
 {
-    led_drv_install();
-    uart_drv_install();
+    svcrt_dev_register("COM1", &usart_drv, 0);
+    svcrt_dev_register("LED",  &led_drv,  0);
 }
 ```
 
@@ -166,6 +166,7 @@ void svcrt_port_board_init(void)
 | API | 说明 | 返回值 |
 |-----|------|--------|
 | `svcrt_dev_open(name, param)` | 打开设备 | 设备句柄(≥0)或-1 |
+| `svcrt_dev_close(handle)` | 关闭设备，释放句柄 | 0=成功, -1=失败 |
 | `svcrt_dev_read(handle, buf, len)` | 读取数据 | 实际读取字节数 |
 | `svcrt_dev_write(handle, buf, len)` | 写入数据 | 实际写入字节数 |
 | `svcrt_dev_ctrl(handle, code, value)` | 设备控制 | 操作结果 |
@@ -179,6 +180,7 @@ if(com1 >= 0)
     uint8 buf[64];
     int32 len = svcrt_dev_read(com1, buf, 64);
     svcrt_dev_write(com1, buf, len);
+    svcrt_dev_close(com1);
 }
 ```
 

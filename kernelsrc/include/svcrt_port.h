@@ -1,119 +1,116 @@
 /**
-* @brief SVCrtOS 硬件移植接口
-* @details 此文件是SVCrtOS与具体MCU之间的唯一耦合点。
-*          用户必须根据目标平台实现此文件中的所有宏、函数和变量。
-*          内核代码不直接包含任何MCU头文件，所有硬件访问均通过此文件抽象。
+* @brief SVCrtOS ??????????????????о???????
+* @details ???????????????????????????
+*          ?????????????κ?MCU?????????????????
+*          ???????????????????????????
 *
-* 使用方法：将此文件复制到用户工程目录，修改为适配目标MCU的实现
+*          ?????????????? board/ ?????????Щ??????
+*          ??????????? -DSVCRT_PORT_HEADER=<chip_header.h>
+*          ???о???????
+*
+* @note ????????????????κ?о???????????????????
 */
 
 #ifndef __SVCRT_PORT_H__
 #define __SVCRT_PORT_H__
 
 #include "svcrt_config.h"
+#include "svcrt_types.h"
 
 /* ============================================================
- * [必须实现] 包含目标MCU的头文件
+ * [??????] ?ж????
+ * @brief ??????? board/svcrt_board.c ?????
  * ============================================================ */
-#include "stm32f4xx.h"
+void svcrt_port_disable_irq(void);
+void svcrt_port_enable_irq(void);
+
+#define SVCRT_DISABLE_IRQ()    svcrt_port_disable_irq()
+#define SVCRT_ENABLE_IRQ()     svcrt_port_enable_irq()
 
 /* ============================================================
- * [必须实现] 基础类型定义
+ * [??????] ?????л?????
+ * @brief ????PendSV????λ?????????????л?
  * ============================================================ */
-typedef unsigned long  uint32;
-typedef signed   long  int32;
-typedef unsigned short uint16;
-typedef signed   short int16;
-typedef unsigned char  uint8;
-typedef signed   char  int8;
+void svcrt_port_switch_task(void);
+
+#define SVCRT_SWITCH_TASK()    svcrt_port_switch_task()
 
 /* ============================================================
- * [必须实现] 中断控制
+ * [??????] CPU?????
  * ============================================================ */
-#define SVCRT_DISABLE_IRQ()    __disable_irq()
-#define SVCRT_ENABLE_IRQ()     __enable_irq()
+void svcrt_port_wfi(void);
+void svcrt_port_wfe(void);
+void svcrt_port_nop(void);
+void svcrt_port_isb(void);
+void svcrt_port_dsb(void);
+void svcrt_port_dmb(void);
+
+#define SVCRT_WFI()            svcrt_port_wfi()
+#define SVCRT_WFE()            svcrt_port_wfe()
+#define SVCRT_NOP()            svcrt_port_nop()
+#define SVCRT_ISB()            svcrt_port_isb()
+#define SVCRT_DSB()            svcrt_port_dsb()
+#define SVCRT_DMB()            svcrt_port_dmb()
 
 /* ============================================================
- * [必须实现] 任务切换触发
- * @brief 设置PendSV挂起位，触发上下文切换
+ * [??????] ?????????????????
  * ============================================================ */
-#define SVCRT_SWITCH_TASK()    (SCB->ICSR = SCB_ICSR_PENDSVSET_Msk)
+void svcrt_port_set_psp(uint32 val);
+uint32 svcrt_port_get_control(void);
+void svcrt_port_set_control(uint32 val);
+
+#define SVCRT_SET_PSP(val)     svcrt_port_set_psp(val)
+#define SVCRT_GET_CONTROL()    svcrt_port_get_control()
+#define SVCRT_SET_CONTROL(val) svcrt_port_set_control(val)
 
 /* ============================================================
- * [必须实现] CPU指令封装
+ * [??????] ?????
+ * @brief ?????????????????????位Hz
+ *          由CMSIS device头文件提供，使用uint32_t以兼容CMSIS声明
  * ============================================================ */
-#define SVCRT_WFI()            __WFI()
-#define SVCRT_WFE()            __WFE()
-#define SVCRT_ISB()            __ISB()
-#define SVCRT_DSB()            __DSB()
-#define SVCRT_DMB()            __DMB()
-#define SVCRT_NOP()            __NOP()
-
-/* ============================================================
- * [必须实现] 栈指针与控制寄存器操作
- * ============================================================ */
-#define SVCRT_SET_PSP(val)     __set_PSP(val)
-#define SVCRT_GET_CONTROL()    __get_CONTROL()
-#define SVCRT_SET_CONTROL(val) __set_CONTROL(val)
-
-/* ============================================================
- * [必须实现] 系统主频
- * @brief 必须在移植层定义此变量，单位Hz
- * ============================================================ */
+#include <stdint.h>
 extern uint32_t SystemCoreClock;
 
 /* ============================================================
- * [必须实现] 移植层回调函数
- * @brief 用户需实现这些函数，由内核在启动时调用
+ * [??????] SysTick ???????? svcrt_task_delay ????????
+ * ============================================================ */
+uint32 svcrt_port_get_systick_val(void);
+uint32 svcrt_port_get_systick_load(void);
+
+/* ============================================================
+ * [??????] ???????????
+ * @brief ??????? board/svcrt_board.c ???????Щ????
+ *        ??????????????
  * ============================================================ */
 
 /**
-* @brief 硬件板卡初始化
-* @details 在C运行时初始化之前调用，用于使能FPU等必须在早期配置的硬件
-*          如果使用FPU，必须在此函数中使能CP10/CP11
+* @brief ????忨?????
+* @details ??C????????????????????????FPU???????????????????
 */
 void svcrt_port_board_init(void);
 
 /**
-* @brief 中断优先级配置
-* @details 配置NVIC优先级分组，设置PendSV为最低优先级，SysTick优先级
+* @brief ?ж??????????
+* @details ????NVIC????????飬????PendSV???????????SysTick?????
 */
 void svcrt_port_irq_init(void);
 
 /**
-* @brief 启动系统定时器
-* @param tick_period_us 滴答周期(微秒)
-* @details 配置SysTick定时器，使其按指定周期产生中断
+* @brief ???????????
+* @param tick_period_us ?δ?????(???)
 */
 void svcrt_port_start_timer(uint32 tick_period_us);
 
 /**
-* @brief FPU使能
-* @details 使能浮点运算单元，仅在SVCRT_USE_FPU=1时被调用
+* @brief FPU???
+* @details ???? SVCRT_USE_FPU=1 ???????
 */
 void svcrt_port_enable_fpu(void);
 
 /**
-* @brief 后台任务MPU保护设置
-* @details 设置后台安全任务的MPU保护区域，仅在SVCRT_USE_MPU=1时被调用
-* @param task_func 后台任务函数地址
-* @param stack_addr 后台栈地址
-* @param stack_size 栈大小
+* @brief ???????MPU????????
+* @details ???? SVCRT_USE_MPU=1 ???????
 */
 void svcrt_port_set_idle_mpu(uint32 task_func, uint32 stack_addr, uint32 stack_size);
-
-/* ============================================================
- * [必须实现] SysTick相关（用于svcrt_task_delay微秒延时）
- * ============================================================ */
-
-static __inline uint32 svcrt_port_get_systick_val(void)
-{
-    return SysTick->VAL;
-}
-
-static __inline uint32 svcrt_port_get_systick_load(void)
-{
-    return SysTick->LOAD;
-}
 
 #endif
