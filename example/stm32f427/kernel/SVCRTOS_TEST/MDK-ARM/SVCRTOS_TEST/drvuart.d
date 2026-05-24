@@ -1,11 +1,11 @@
 svcrtos_test\drvuart.o: ..\..\..\..\..\board\stm32f427\drvuart.c
 svcrtos_test\drvuart.o: ..\..\..\..\..\board\stm32f427\drvuart.h
-svcrtos_test\drvuart.o: ..\..\..\..\..\kernelsrc\include\svcrt_def.h
-svcrtos_test\drvuart.o: ..\..\..\..\..\kernelsrc\include\svcrt_types.h
-svcrtos_test\drvuart.o: ..\..\..\..\..\kernelsrc\include\svcrt_fifo.h
-svcrtos_test\drvuart.o: ..\..\..\..\..\kernelsrc\include\svcrt_dev.h
-svcrtos_test\drvuart.o: ..\..\..\..\..\kernelsrc\include\svcrt_config.h
-svcrtos_test\drvuart.o: ..\..\..\..\..\board\stm32f427\svcrt_board_config.h
+svcrtos_test\drvuart.o: ../../../../../kernelsrc/include/svcrt_def.h
+svcrtos_test\drvuart.o: ../../../../../kernelsrc/include/svcrt_types.h
+svcrtos_test\drvuart.o: ../../../../../kernelsrc/include/svcrt_fifo.h
+svcrtos_test\drvuart.o: ../../../../../kernelsrc/include/svcrt_dev.h
+svcrtos_test\drvuart.o: ../../../../../kernelsrc/include/svcrt_config.h
+svcrtos_test\drvuart.o: ../../../../../board/stm32f427/svcrt_board_config.h
 svcrtos_test\drvuart.o: ../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h
 svcrtos_test\drvuart.o: ../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h
 svcrtos_test\drvuart.o: ../Drivers/CMSIS/Include/core_cm4.h

@@ -1,6 +1,8 @@
 /**
-* @brief SVCrtOS ??????????????
-* @details ?????????????????????????SVC??????????????
+* @brief SVCrtOS 任务管理与调度器
+* @details 实现任务状态管理、优先级调度、SVC服务分发等核心功能
+*          中断入口(SysTick_Handler/HardFault_Handler)位于 board/ 层,
+*          内核仅提供 svcrt_kernel_tick_handler / svcrt_hardfault_handler 供其转发。
 * @author xw
 * @date 2026.05.03
 */
@@ -11,6 +13,7 @@
 #include "svcrt_mpu.h"
 #include "svcrt_dev.h"
 #include "svcrt_def.h"
+#include "svcrt_port.h"
 
 uint32 svcrt_kernel_tick = 0;
 int32  svcrt_current_task_id = 0;
@@ -245,8 +248,7 @@ static void svcrt_tick_tasks(svcrt_task_t *p_task)
     uint32 used_tick = svcrt_kernel_tick;
     int32 escape_tick = used_tick - p_task->tim_tick;
 
-    if((p_task->status == SVCRT_TASK_RUNNING) ||
-        (p_task->status == SVCRT_TASK_INVALID))
+    if(p_task->status == SVCRT_TASK_INVALID)
     {
         return;
     }
@@ -260,6 +262,11 @@ static void svcrt_tick_tasks(svcrt_task_t *p_task)
         {
             p_task->status = SVCRT_TASK_READY;
         }
+    }
+
+    if(p_task->status == SVCRT_TASK_RUNNING)
+    {
+        return;
     }
 
     if(p_task->wait_time > 0)

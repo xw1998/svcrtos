@@ -1,7 +1,7 @@
 /**
-* @brief SVCrtOS ÈÎÎñÅäÖÃÄ£¿é£¨ÄÚºËÄÚ²¿£©
-* @details ¶¨ÒåÈÎÎñÅäÖÃ±íºÍÅäÖÃ¼ÓÔØ½Ó¿Ú
-*          ´ËÎÄ¼ş½ö¹©ÄÚºËÄÚ²¿Ê¹ÓÃ
+* @brief SVCrtOS ????
+* @details ñü??
+*          ????
 */
 
 #ifndef __SVCRT_CFG_H__
@@ -15,5 +15,7 @@ extern svcrt_task_t svcrt_task_table[SVCRT_TASK_MAX_NUM];
 extern int32 svcrt_task_count;
 
 void svcrt_cfg_load(void);
+void svcrt_task_stack_init(svcrt_task_t *p_task, void (*entry)(void),
+                           uint32 *stack_bottom, uint32 stack_size);
 
 #endif

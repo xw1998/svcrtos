@@ -15,5 +15,7 @@ extern svcrt_task_t svcrt_task_table[SVCRT_TASK_MAX_NUM];
 extern int32 svcrt_task_count;
 
 void svcrt_cfg_load(void);
+void svcrt_task_stack_init(svcrt_task_t *p_task, void (*entry)(void),
+                           uint32 *stack_bottom, uint32 stack_size);
 
 #endif

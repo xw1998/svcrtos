@@ -877,8 +877,8 @@ interwork --depend=svcrtos_test\startup_stm32f427xx.d -osvcrtos_test\startup_st
 m32f427xx.o -I.\RTE\_SVCRTOS_TEST -IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Inc
 lude -IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx
 \Include --predefine="__UVISION_VERSION SETA 535" --predefine="_RTE_ SETA 1" --
-predefine="STM32F427xx SETA 1" --predefine="_RTE_ SETA 1" --predefine="SVCRT_US
-E_FPU SETA 1" --list=startup_stm32f427xx.lst startup_stm32f427xx.s
+predefine="STM32F427xx SETA 1" --predefine="_RTE_ SETA 1" --list=startup_stm32f
+427xx.lst startup_stm32f427xx.s
 
 
 
@@ -2051,4 +2051,4 @@ Symbol: __use_two_region_memory
       None
 Comment: __use_two_region_memory unused
 3 symbols
-456 symbols in table
+455 symbols in table

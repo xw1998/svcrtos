@@ -36,10 +36,10 @@ svcrtos_test\svcrt_mpu.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart
 svcrtos_test\svcrt_mpu.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h
 svcrtos_test\svcrt_mpu.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h
 svcrtos_test\svcrt_mpu.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h
-svcrtos_test\svcrt_mpu.o: ..\..\..\..\..\kernelsrc\include\svcrt_mpu.h
-svcrtos_test\svcrt_mpu.o: ..\..\..\..\..\kernelsrc\include\svcrt_def.h
-svcrtos_test\svcrt_mpu.o: ..\..\..\..\..\kernelsrc\include\svcrt_types.h
-svcrtos_test\svcrt_mpu.o: ..\..\..\..\..\kernelsrc\include\svcrt_task.h
-svcrtos_test\svcrt_mpu.o: ..\..\..\..\..\kernelsrc\include\svcrt_port.h
-svcrtos_test\svcrt_mpu.o: ..\..\..\..\..\kernelsrc\include\svcrt_config.h
-svcrtos_test\svcrt_mpu.o: ..\..\..\..\..\board\stm32f427\svcrt_board_config.h
+svcrtos_test\svcrt_mpu.o: ../../../../../kernelsrc/include/svcrt_mpu.h
+svcrtos_test\svcrt_mpu.o: ../../../../../kernelsrc/include/svcrt_def.h
+svcrtos_test\svcrt_mpu.o: ../../../../../kernelsrc/include/svcrt_types.h
+svcrtos_test\svcrt_mpu.o: ../../../../../kernelsrc/include/svcrt_task.h
+svcrtos_test\svcrt_mpu.o: ../../../../../kernelsrc/include/svcrt_port.h
+svcrtos_test\svcrt_mpu.o: ../../../../../kernelsrc/include/svcrt_config.h
+svcrtos_test\svcrt_mpu.o: ../../../../../board/stm32f427/svcrt_board_config.h

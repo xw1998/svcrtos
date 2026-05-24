@@ -1,10 +1,10 @@
 svcrtos_test\drvled.o: ..\..\..\..\..\board\stm32f427\drvled.c
 svcrtos_test\drvled.o: ..\..\..\..\..\board\stm32f427\drvled.h
-svcrtos_test\drvled.o: ..\..\..\..\..\kernelsrc\include\svcrt_def.h
-svcrtos_test\drvled.o: ..\..\..\..\..\kernelsrc\include\svcrt_types.h
-svcrtos_test\drvled.o: ..\..\..\..\..\kernelsrc\include\svcrt_dev.h
-svcrtos_test\drvled.o: ..\..\..\..\..\kernelsrc\include\svcrt_config.h
-svcrtos_test\drvled.o: ..\..\..\..\..\board\stm32f427\svcrt_board_config.h
+svcrtos_test\drvled.o: ../../../../../kernelsrc/include/svcrt_def.h
+svcrtos_test\drvled.o: ../../../../../kernelsrc/include/svcrt_types.h
+svcrtos_test\drvled.o: ../../../../../kernelsrc/include/svcrt_dev.h
+svcrtos_test\drvled.o: ../../../../../kernelsrc/include/svcrt_config.h
+svcrtos_test\drvled.o: ../../../../../board/stm32f427/svcrt_board_config.h
 svcrtos_test\drvled.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h
 svcrtos_test\drvled.o: ../Core/Inc/stm32f4xx_hal_conf.h
 svcrtos_test\drvled.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h

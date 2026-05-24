@@ -1,9 +1,9 @@
 svcrtos_test\svcrt_cfg.o: ..\..\..\..\..\kernelsrc\src\svcrt_cfg.c
-svcrtos_test\svcrt_cfg.o: ..\..\..\..\..\kernelsrc\include\svcrt_cfg.h
-svcrtos_test\svcrt_cfg.o: ..\..\..\..\..\kernelsrc\include\svcrt_def.h
-svcrtos_test\svcrt_cfg.o: ..\..\..\..\..\kernelsrc\include\svcrt_types.h
-svcrtos_test\svcrt_cfg.o: ..\..\..\..\..\kernelsrc\include\svcrt_task.h
-svcrtos_test\svcrt_cfg.o: ..\..\..\..\..\kernelsrc\include\svcrt_port.h
-svcrtos_test\svcrt_cfg.o: ..\..\..\..\..\kernelsrc\include\svcrt_config.h
-svcrtos_test\svcrt_cfg.o: ..\..\..\..\..\board\stm32f427\svcrt_board_config.h
+svcrtos_test\svcrt_cfg.o: ../../../../../kernelsrc/include/svcrt_cfg.h
+svcrtos_test\svcrt_cfg.o: ../../../../../kernelsrc/include/svcrt_def.h
+svcrtos_test\svcrt_cfg.o: ../../../../../kernelsrc/include/svcrt_types.h
+svcrtos_test\svcrt_cfg.o: ../../../../../kernelsrc/include/svcrt_task.h
+svcrtos_test\svcrt_cfg.o: ../../../../../kernelsrc/include/svcrt_port.h
+svcrtos_test\svcrt_cfg.o: ../../../../../kernelsrc/include/svcrt_config.h
+svcrtos_test\svcrt_cfg.o: ../../../../../board/stm32f427/svcrt_board_config.h
 svcrtos_test\svcrt_cfg.o: E:\mdk5\ARM\ARMCC\Bin\..\include\stdint.h

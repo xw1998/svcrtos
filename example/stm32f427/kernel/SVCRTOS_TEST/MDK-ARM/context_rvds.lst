@@ -7,52 +7,85 @@ ARM Macro Assembler    Page 1
     1 00000000         
     2 00000000                 AREA             |.text|, CODE, READONLY
     3 00000000         
-    4 00000000         PendSV_Handler
+    4 00000000         ;-------------------------------------------------------
+                       -------
+    5 00000000         ; PendSV_Handler - ÉÏÏÂÎÄÇÐ»»
+    6 00000000         ;
+    7 00000000         ; ¼ò»¯°æ:²»ÔÙÊÖ¶¯±£´æ/»Ö¸´ FPU ÉÏÏÂÎÄ (S16-S31)
+    8 00000000         ; Ô­Òò:
+    9 00000000         ;   1) FPCCR.ASPEN=1, LSPEN=1 ÒÑ¿ªÆô FPU ×Ô¶¯×´Ì¬±£´æºÍÀ
+                       ÁÈëÕ»,
+   10 00000000         ;      Ó²¼þ»áÔÚÐèÒªÊ±°Ñ S0-S15+FPSCR ÈëÕ»,EXC_RETURN.bit
+                       4 ¸ú×Ù
+   11 00000000         ;      ÊÇ·ñÓÐ FPU Ö¡,³öÕ»Ê±Ó²¼þ×Ô¶¯»Ö¸´¡£
+   12 00000000         ;   2) ÈÎÎñÀïÓÃµ½µÄ S16-S31 ÊÇ·ÇÒ×Ê§¼Ä´æÆ÷,Õý³£ C µ÷ÓÃÔ¼
+                       ¶¨²»»á
+   13 00000000         ;      ¿çº¯ÊýÆÆ»µ,ÈÎÎñÇÐ»»Ê±Ö»Òª²»¶¯ËüÃÇ¾ÍÐÐ¡£
+   14 00000000         ;   3) ÕâÑù±ÜÃâÁË"PendSV Ç¿ÐÐ VSTMDB µ« EXC_RETURN.bit4=
+                       1
+   15 00000000         ;      ²»µ¯ FPU µ¼ÖÂÕ»´íÎ»"µÄÖÂÃüÎÊÌâ¡£
+   16 00000000         ;-------------------------------------------------------
+                       -------
+   17 00000000         PendSV_Handler
                                PROC
-    5 00000000                 EXPORT           PendSV_Handler
-    6 00000000                 IMPORT           svcrt_sched_is_switching
-    7 00000000                 IMPORT           svcrt_sched_activate
-    8 00000000 B501            PUSH             {R0,LR}
-    9 00000002         
-   10 00000002 4A0E            LDR              R2, = svcrt_sched_is_switching
-   11 00000004 4790            BLX              R2
-   12 00000006 F110 0F00       CMN              R0,#0
-   13 0000000A D40D            BMI              endpend
-   14 0000000C         
-   15 0000000C F3EF 8109       MRS              R1,PSP
-   16 00000010         
-   17 00000010                 IF               :DEF:SVCRT_USE_FPU
-   18 00000010 ED21 8A10       VSTMDB           R1!,{S16-S31}
-   19 00000014                 ENDIF
-   20 00000014         
-   21 00000014 E921 0FF0       STMDB            R1!,{R4-R11}
-   22 00000018         
-   23 00000018 4A09            LDR              R2,=svcrt_sched_activate
-   24 0000001A 4790            BLX              R2
-   25 0000001C         
-   26 0000001C E8B0 0FF0       LDMIA            R0!,{R4-R11}
-   27 00000020         
-   28 00000020                 IF               :DEF:SVCRT_USE_FPU
-   29 00000020 ECB0 8A10       VLDMIA           R0!,{S16-S31}
-   30 00000024                 ENDIF
-   31 00000024         
-   32 00000024 F380 8809       MSR              PSP,R0
-   33 00000028         
-   34 00000028         endpend
-   35 00000028 BD01            POP              {R0,PC}
-   36 0000002A                 ENDP
-   37 0000002A         
-   38 0000002A         SVC_Handler
+   18 00000000                 EXPORT           PendSV_Handler
+   19 00000000                 IMPORT           svcrt_sched_is_switching
+   20 00000000                 IMPORT           svcrt_sched_activate
+   21 00000000         
+   22 00000000 B501            PUSH             {R0, LR}    ; ±£´æ EXC_RETURN
+   23 00000002         
+   24 00000002 4A0C            LDR              R2, =svcrt_sched_is_switching
+   25 00000004 4790            BLX              R2          ; R0 = ÐÂÈÎÎñ ID (-
+                                                            1 ±íÊ¾ÎÞÇÐ»»)
+   26 00000006 F110 0F00       CMN              R0, #0
+   27 0000000A D409            BMI              endpend     ; R0 < 0 ¡ú ²»ÇÐ»»
+   28 0000000C         
+   29 0000000C F3EF 8109       MRS              R1, PSP     ; R1 = µ±Ç° PSP
+   30 00000010 E921 0FF0       STMDB            R1!, {R4-R11} ; ±£´æ R4-R11 (8 
+                                                            word)
+   31 00000014         
+   32 00000014 4A08            LDR              R2, =svcrt_sched_activate
+   33 00000016 4790            BLX              R2          ; R0 = ÐÂÈÎÎñ PSP (
+                                                            svcrt_sched_activat
+                                                            e(new, old_psp))
+   34 00000018         
+   35 00000018 E8B0 0FF0       LDMIA            R0!, {R4-R11} ; »Ö¸´ÐÂÈÎÎñµÄ R4
+                                                            -R11
+   36 0000001C F380 8809       MSR              PSP, R0     ; ¸üÐÂ PSP Ö¸ÏòÐÂÈÎ
+                                                            ÎñµÄÓ²¼þÖ¡
+   37 00000020         
+   38 00000020         endpend
+   39 00000020 BD01            POP              {R0, PC}    ; Òì³£·µ»Ø (LR ÒÑ±»
+                                                            µ¯µ½ PC)
+   40 00000022                 ENDP
+   41 00000022         
+   42 00000022         
+   43 00000022         ;-------------------------------------------------------
+                       -------
+   44 00000022         ; SVC_Handler - ÏµÍ³µ÷ÓÃÈë¿Ú
+
+
+
+ARM Macro Assembler    Page 2 
+
+
+   45 00000022         ;-------------------------------------------------------
+                       -------
+   46 00000022         SVC_Handler
                                PROC
-   39 0000002A                 EXPORT           SVC_Handler
-   40 0000002A                 IMPORT           SVC_Server
-   41 0000002A F01E 0F04       TST              LR, #4
-   42 0000002E BF0C            ITE              EQ
-   43 00000030 F3EF 8008       MRSEQ            R0,MSP
-   44 00000034 F3EF 8009       MRSNE            R0,PSP
-   45 00000038 F7FF BFFE       B                SVC_Server
-   46 0000003C                 ENDP
-   47 0000003C                 END
+   47 00000022                 EXPORT           SVC_Handler
+   48 00000022                 IMPORT           SVC_Server
+   49 00000022         
+   50 00000022 F01E 0F04       TST              LR, #4      ; ¼ì²é EXC_RETURN.b
+                                                            it2
+   51 00000026 BF0C            ITE              EQ
+   52 00000028 F3EF 8008       MRSEQ            R0, MSP     ; bit2=0: À´×Ô MSP
+   53 0000002C F3EF 8009       MRSNE            R0, PSP     ; bit2=1: À´×Ô PSP
+   54 00000030 F7FF BFFE       B                SVC_Server  ; R0 Ö¸ÏòÒì³£Ö¡,´«¸
+                                                            ø C
+   55 00000034                 ENDP
+   56 00000034         
+   57 00000034                 END
               00000000 
               00000000 
 Command Line: --debug --xref --diag_suppress=9931 --cpu=Cortex-M4.fp.sp --apcs=
@@ -60,8 +93,8 @@ interwork --depend=svcrtos_test\context_rvds.d -osvcrtos_test\context_rvds.o -I
 .\RTE\_SVCRTOS_TEST -IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include -IE:\mdk5
 \pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include --pre
 define="__UVISION_VERSION SETA 535" --predefine="_RTE_ SETA 1" --predefine="STM
-32F427xx SETA 1" --predefine="_RTE_ SETA 1" --predefine="SVCRT_USE_FPU SETA 1" 
---list=context_rvds.lst ..\..\..\..\..\board\stm32f427\context_rvds.S
+32F427xx SETA 1" --predefine="_RTE_ SETA 1" --list=context_rvds.lst ..\..\..\..
+\..\board\stm32f427\context_rvds.S
 
 
 
@@ -80,25 +113,25 @@ PendSV_Handler 00000000
 
 Symbol: PendSV_Handler
    Definitions
-      At line 4 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
+      At line 17 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
    Uses
-      At line 5 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
+      At line 18 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
 Comment: PendSV_Handler used once
-SVC_Handler 0000002A
+SVC_Handler 00000022
 
 Symbol: SVC_Handler
    Definitions
-      At line 38 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
+      At line 46 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
    Uses
-      At line 39 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
+      At line 47 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
 Comment: SVC_Handler used once
-endpend 00000028
+endpend 00000020
 
 Symbol: endpend
    Definitions
-      At line 34 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
+      At line 38 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
    Uses
-      At line 13 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
+      At line 27 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
 Comment: endpend used once
 4 symbols
 
@@ -111,25 +144,25 @@ SVC_Server 00000000
 
 Symbol: SVC_Server
    Definitions
-      At line 40 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
+      At line 48 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
    Uses
-      At line 45 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
+      At line 54 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
 Comment: SVC_Server used once
 svcrt_sched_activate 00000000
 
 Symbol: svcrt_sched_activate
    Definitions
-      At line 7 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
+      At line 20 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
    Uses
-      At line 23 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
+      At line 32 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
 Comment: svcrt_sched_activate used once
 svcrt_sched_is_switching 00000000
 
 Symbol: svcrt_sched_is_switching
    Definitions
-      At line 6 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
+      At line 19 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
    Uses
-      At line 10 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
+      At line 24 in file ..\..\..\..\..\board\stm32f427\context_rvds.S
 Comment: svcrt_sched_is_switching used once
 3 symbols
-344 symbols in table
+343 symbols in table

@@ -16,7 +16,7 @@ PendSV_Handler		PROC
     STMDB   R1!,{R4-R11}
 
     LDR     R2,=svcrt_sched_activate
-    BLX		R0
+    BLX		R2
 
     LDMIA	R0!,{R4-R11}
     MSR     PSP,R0
