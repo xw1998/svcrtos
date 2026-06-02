@@ -19,5 +19,6 @@
 #define SVCRT_SVC_TASK_CTRL         (0x11)
 #define SVCRT_SVC_SYS_INFO          (0x12)
 #define SVCRT_SVC_EVENT_CTRL        (0x13)
+#define SVCRT_SVC_DRV_MGR           (0x14)
 
 #endif

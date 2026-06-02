@@ -130,6 +130,25 @@ void SVC_Server(svcrt_svc_context_t *p_svc_ctx)
         }
         break;
 
+    case SVCRT_SVC_DRV_MGR:
+        p = (uint32 *)p_svc_ctx->r0;
+        switch(p[0])
+        {
+            case 1:
+                p_svc_ctx->r0 = svcrt_dev_register((char *)p[1], (svcrt_dev_drv_t *)p[2], p[3]);
+                break;
+            case 2:
+                p_svc_ctx->r0 = svcrt_dev_unregister((char *)p[1]);
+                break;
+            case 3:
+                p_svc_ctx->r0 = svcrt_dev_get_count();
+                break;
+            default:
+                p_svc_ctx->r0 = (-1);
+                break;
+        }
+        break;
+
     default:
         break;
     }
