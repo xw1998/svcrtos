@@ -5,10 +5,6 @@ svcrtos_test\drvled.o: ../../../../../kernelsrc/include/svcrt_types.h
 svcrtos_test\drvled.o: ../../../../../kernelsrc/include/svcrt_dev.h
 svcrtos_test\drvled.o: ../../../../../kernelsrc/include/svcrt_config.h
 svcrtos_test\drvled.o: ../../../../../board/stm32f427/svcrt_board_config.h
-svcrtos_test\drvled.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h
-svcrtos_test\drvled.o: ../Core/Inc/stm32f4xx_hal_conf.h
-svcrtos_test\drvled.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h
-svcrtos_test\drvled.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h
 svcrtos_test\drvled.o: ../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h
 svcrtos_test\drvled.o: ../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h
 svcrtos_test\drvled.o: ../Drivers/CMSIS/Include/core_cm4.h
@@ -19,6 +15,10 @@ svcrtos_test\drvled.o: ../Drivers/CMSIS/Include/cmsis_armcc.h
 svcrtos_test\drvled.o: ../Drivers/CMSIS/Include/mpu_armv7.h
 svcrtos_test\drvled.o: ../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h
 svcrtos_test\drvled.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h
+svcrtos_test\drvled.o: ../Core/Inc/stm32f4xx_hal_conf.h
+svcrtos_test\drvled.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h
+svcrtos_test\drvled.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h
+svcrtos_test\drvled.o: ../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h
 svcrtos_test\drvled.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h
 svcrtos_test\drvled.o: E:\mdk5\ARM\ARMCC\Bin\..\include\stddef.h
 svcrtos_test\drvled.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h

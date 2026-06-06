@@ -2,7 +2,7 @@
 
 ## 1. ¼Ü¹¹¸ÅÊö
 
-SVCrtOS ²ÉÓÃÓë RT-Thread ÀàËÆµÄ·Ö²ã½âñî¼Ü¹¹£¬ÄÚºË´úÂë£¨kernelsrc/£©Óë¾ßÌåĞ¾Æ¬ÍêÈ«·ÖÀë¡£ÒÆÖ²µ½ĞÂĞ¾Æ¬Ê±£¬Ö»ĞèÔÚ `board/` Ä¿Â¼ÏÂ´´½¨ĞÂµÄÒÆÖ²Ä¿Â¼£¬ÄÚºË´úÂëÎŞĞèÈÎºÎĞŞ¸Ä¡£
+SVCrtOS ²ÉÓÃ·Ö²ã½âñî¼Ü¹¹£¬ÄÚºË´úÂë£¨kernelsrc/£©Óë¾ßÌåĞ¾Æ¬ÍêÈ«·ÖÀë¡£ÒÆÖ²µ½ĞÂĞ¾Æ¬Ê±£¬Ö»ĞèÊµÏÖ port ²ãºÍ board ²ã£¬ÄÚºË´úÂëÎŞĞèÈÎºÎĞŞ¸Ä¡£
 
 ### 1.1 ·Ö²ã¼Ü¹¹Í¼
 
@@ -10,32 +10,39 @@ SVCrtOS ²ÉÓÃÓë RT-Thread ÀàËÆµÄ·Ö²ã½âñî¼Ü¹¹£¬ÄÚºË´úÂë£¨kernelsrc/£©Óë¾ßÌåĞ¾Æ¬ÍêÈ
 ©°©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©´
 ©¦            Ó¦ÓÃ²ã (App SDK)                                   ©¦
 ©À©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©È
-©¦         SVCrtOS ÄÚºË (kernelsrc/)         ©¦ ¡û ´¿ C£¬ÎŞĞ¾Æ¬ÒÀÀµ©¦
-©¦    src/ + include/ ´¿C´úÂë£¬²»°üº¬ÈÎºÎĞ¾Æ¬Í·ÎÄ¼ş              ©¦
+©¦         SVCrtOS ÄÚºË (kernelsrc/src/)      ©¦ ¡û ´¿ C£¬ÁãÓ²¼şÒÀÀµ©¦
+©¦    ÈÎÎñµ÷¶È¡¢ÊÂ¼ş¹ÜÀí¡¢Éè±¸¿ò¼Ü¡¢SVC·Ö·¢                       ©¦
 ©À©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©È
-©¦     svcrt_port.h (Ó²¼ş³éÏó½Ó¿Ú)            ©¦ ¡û ´¿º¯ÊıÉùÃ÷     ©¦
+©¦     svcrt_hal.h (Ó²¼ş³éÏó½Ó¿Ú)             ©¦ ¡û ´¿º¯ÊıÉùÃ÷     ©¦
 ©À©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©È
-©¦      board/<Ğ¾Æ¬>/ (°å¼¶ÒÆÖ²²ã)            ©¦ ¡û Ğ¾Æ¬Ïà¹ØÊµÏÖ   ©¦
-©¦   svcrt_board.c / svcrt_mpu.c / ÖĞ¶ÏÈë¿Ú / Çı¶¯             ©¦
+©¦      port/<¼Ü¹¹>/ (¼Ü¹¹ÊÊÅä²ã)             ©¦ ¡û ¼Ü¹¹Ïà¹ØÊµÏÖ   ©¦
+©¦   CPUÖ¸Áî¡¢ÉÏÏÂÎÄÇĞ»»¡¢Õ»Ö¡³õÊ¼»¯¡¢MPU²Ù×÷                    ©¦
+©¦   Àı: port/arm/cortex-m4/svcrt_port.c                        ©¦
+©¦       port/arm/cortex-m4/svcrt_context.S                     ©¦
+©À©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©È
+©¦      board/<Ğ¾Æ¬>/ (°å¼¶ÊÊÅä²ã)             ©¦ ¡û Ğ¾Æ¬Ïà¹ØÊµÏÖ   ©¦
+©¦   °å¿¨³õÊ¼»¯¡¢ÖĞ¶ÏÈë¿Ú¡¢Éè±¸Çı¶¯                              ©¦
+©¦   Àı: board/stm32f427/svcrt_board.c                          ©¦
+©¦       board/stm32f427/drvuart.c                              ©¦
 ©À©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©È
 ©¦            ¾ßÌåMCUÓ²¼ş                                        ©¦
 ©¸©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¼
 ```
 
 **½âñîÔ­Ôò£º**
-- `kernelsrc/` ÖĞµÄ´úÂë²»°üº¬ÈÎºÎĞ¾Æ¬Í·ÎÄ¼ş£¨Èç `stm32f4xx.h`£©
-- `kernelsrc/` ÖĞµÄ´úÂë²»Ö±½Ó²Ù×÷ÈÎºÎÓ²¼ş¼Ä´æÆ÷
-- ËùÓĞÓ²¼ş·ÃÎÊ¾ùÍ¨¹ı `svcrt_port.h` ÖĞÉùÃ÷µÄº¯Êı³éÏó
-- ÖĞ¶Ï·şÎñ³ÌĞò£¨SysTick_Handler¡¢HardFault_Handler£©ÔÚ `board/` ²ãÊµÏÖ
-- ÒÆÖ²µ½ĞÂĞ¾Æ¬Ö»Ğè´´½¨ `board/<Ğ¾Æ¬>/` Ä¿Â¼
+- `kernelsrc/src/` ÖĞµÄ´úÂë²»°üº¬ÈÎºÎĞ¾Æ¬Í·ÎÄ¼ş
+- `kernelsrc/src/` ÖĞµÄ´úÂë²»Ö±½Ó²Ù×÷ÈÎºÎÓ²¼ş¼Ä´æÆ÷
+- ËùÓĞÓ²¼ş·ÃÎÊ¾ùÍ¨¹ı `svcrt_hal.h` ÖĞÉùÃ÷µÄº¯Êı³éÏó
+- ¼Ü¹¹Ïà¹Ø´úÂë£¨ÉÏÏÂÎÄÇĞ»»¡¢Õ»Ö¡³õÊ¼»¯£©ÔÚ `port/` ²ãÊµÏÖ
+- °å¼¶Ïà¹Ø´úÂë£¨ÖĞ¶ÏÈë¿Ú¡¢Éè±¸Çı¶¯£©ÔÚ `board/` ²ãÊµÏÖ
 
 ### 1.2 Ö§³ÖµÄCPU¼Ü¹¹
 
-| ¼Ü¹¹ | FPU | MPU | µäĞÍMCU |
-|------|-----|-----|---------|
-| Cortex-M3 | - | - | STM32F1xx, LPC17xx |
-| Cortex-M4 | ÓĞ | ÓĞ | STM32F4xx, Kinetis K |
-| Cortex-M7 | ÓĞ | ÓĞ | STM32F7xx, STM32H7xx |
+| ¼Ü¹¹ | FPU | MPU | portÄ¿Â¼ |
+|------|-----|-----|----------|
+| Cortex-M3 | - | ¿ÉÑ¡ | port/arm/cortex-m3 |
+| Cortex-M4 | ÓĞ | ÓĞ | port/arm/cortex-m4 |
+| Cortex-M7 | ÓĞ | ÓĞ | port/arm/cortex-m7 (´ıÊµÏÖ) |
 
 ---
 
@@ -43,54 +50,48 @@ SVCrtOS ²ÉÓÃÓë RT-Thread ÀàËÆµÄ·Ö²ã½âñî¼Ü¹¹£¬ÄÚºË´úÂë£¨kernelsrc/£©Óë¾ßÌåĞ¾Æ¬ÍêÈ
 
 ```
 SVCRTOS/
-©À©¤©¤ kernelsrc/                      # ¡ï ÄÚºËÔ´Âë£¨ÁãĞ¾Æ¬ÒÀÀµ£©
+©À©¤©¤ kernelsrc/                      # ¡ï ÄÚºËÔ´Âë£¨ÁãÓ²¼şÒÀÀµ£©
 ©¦   ©À©¤©¤ include/                    # ÄÚºËÍ·ÎÄ¼ş
-©¦   ©¦   ©À©¤©¤ svcrt.h                 # Ó¦ÓÃAPIÍ·ÎÄ¼ş£¨App SDKÊ¹ÓÃ£©
-©¦   ©¦   ©À©¤©¤ svcrt_config.h          # ¡ï ¼¯ÖĞÅäÖÃÎÄ¼ş£¨¿É±»°å¼¶ÅäÖÃ¸²¸Ç£©
-©¦   ©¦   ©À©¤©¤ svcrt_port.h            # ¡ï Ó²¼ş³éÏó½Ó¿Ú£¨´¿ÉùÃ÷£¬ÎŞĞ¾Æ¬ÒÀÀµ£©
+©¦   ©¦   ©À©¤©¤ svcrt.h                 # Ó¦ÓÃAPIÍ·ÎÄ¼ş
+©¦   ©¦   ©À©¤©¤ svcrt_hal.h             # ¡ï Ó²¼ş³éÏó½Ó¿Ú£¨ºËĞÄ£©
+©¦   ©¦   ©À©¤©¤ svcrt_port.h            # ¼æÈİ²ã£¨°üº¬svcrt_hal.h£©
+©¦   ©¦   ©À©¤©¤ svcrt_config.h          # ÄÚºËÅäÖÃÎÄ¼ş
 ©¦   ©¦   ©À©¤©¤ svcrt_types.h           # »ù´¡ÀàĞÍ¶¨Òå
-©¦   ©¦   ©À©¤©¤ svcrt_def.h             # ÄÚºË¹«¹²¶¨Òå£¨¾ä±ú±êÖ¾/SVCºÅ£©
-©¦   ©¦   ©À©¤©¤ svcrt_task.h            # ÈÎÎñ¹ÜÀí¿é£¨ÄÚºËÄÚ²¿£©
+©¦   ©¦   ©À©¤©¤ svcrt_def.h             # ÄÚºË¹«¹²¶¨Òå
+©¦   ©¦   ©À©¤©¤ svcrt_task.h            # ÈÎÎñ¹ÜÀí£¨ÄÚºËÄÚ²¿£©
 ©¦   ©¦   ©À©¤©¤ svcrt_event.h           # ÊÂ¼şÄ£¿é£¨ÄÚºËÄÚ²¿£©
 ©¦   ©¦   ©À©¤©¤ svcrt_fifo.h            # FIFOÄ£¿é£¨ÄÚºËÄÚ²¿£©
 ©¦   ©¦   ©À©¤©¤ svcrt_mpu.h             # MPU¹ÜÀí½Ó¿Ú£¨ÄÚºËÄÚ²¿£©
 ©¦   ©¦   ©À©¤©¤ svcrt_dev.h             # Éè±¸Çı¶¯¿ò¼Ü£¨ÄÚºËÄÚ²¿£©
-©¦   ©¦   ©¸©¤©¤ svcrt_cfg.h             # ÈÎÎñÅäÖÃ¼ÓÔØ½Ó¿Ú£¨ÄÚºËÄÚ²¿£©
-©¦   ©À©¤©¤ src/                        # ÄÚºËÔ´ÎÄ¼ş£¨´¿C£¬ÎŞÓ²¼ş²Ù×÷£©
+©¦   ©¦   ©¸©¤©¤ svcrt_cfg.h             # ÈÎÎñÅäÖÃ¼ÓÔØ£¨ÄÚºËÄÚ²¿£©
+©¦   ©À©¤©¤ src/                        # ÄÚºËÔ´ÎÄ¼ş£¨´¿C£¬ÁãÓ²¼ş²Ù×÷£©
 ©¦   ©¦   ©À©¤©¤ svcrt_init.c            # ÄÚºËÆô¶¯Óë³õÊ¼»¯
-©¦   ©¦   ©À©¤©¤ svcrt_task.c            # ÈÎÎñµ÷¶È + SVC·Ö·¢ + tick/hardfault´¦Àí
+©¦   ©¦   ©À©¤©¤ svcrt_task.c            # ÈÎÎñµ÷¶È + SVC ·Ö·¢
 ©¦   ©¦   ©À©¤©¤ svcrt_event.c           # ÊÂ¼ş¹ÜÀí
-©¦   ©¦   ©À©¤©¤ svcrt_fifo.c            # FIFO»·ĞÎ»º³åÇø
+©¦   ©¦   ©À©¤©¤ svcrt_fifo.c            # FIFO »·ĞÎ»º³åÇø
 ©¦   ©¦   ©À©¤©¤ svcrt_dev.c             # Éè±¸Çı¶¯¿ò¼Ü
 ©¦   ©¦   ©¸©¤©¤ svcrt_cfg.c             # ÈÎÎñÅäÖÃ¼ÓÔØ
-©¦   ©À©¤©¤ app/                        # Ó¦ÓÃÄ£°å
-©¦   ©¦   ©À©¤©¤ appconfig.c             # ·ÖÇøÅäÖÃÄ£°å
-©¦   ©¦   ©À©¤©¤ appstart.s              # Ó¦ÓÃÆô¶¯Èë¿Ú
-©¦   ©¦   ©¸©¤©¤ oslib.c                 # OS½Ó¿Ú·â×°£¨º¬SVCµ÷ÓÃ£©
+©¦   ©À©¤©¤ port/                       # ¡ï ¼Ü¹¹ÊÊÅä²ã
+©¦   ©¦   ©¸©¤©¤ arm/
+©¦   ©¦       ©À©¤©¤ cortex-m3/
+©¦   ©¦       ©¦   ©À©¤©¤ svcrt_port.c    # Cortex-M3 ¼Ü¹¹ÊµÏÖ
+©¦   ©¦       ©¦   ©¸©¤©¤ svcrt_context.S # ÉÏÏÂÎÄÇĞ»»»ã±à
+©¦   ©¦       ©¸©¤©¤ cortex-m4/
+©¦   ©¦           ©À©¤©¤ svcrt_port.c    # Cortex-M4 ¼Ü¹¹ÊµÏÖ
+©¦   ©¦           ©¸©¤©¤ svcrt_context.S # ÉÏÏÂÎÄÇĞ»»»ã±à
 ©¦   ©À©¤©¤ sdk/                        # SDK ¿ª·¢°ü
-©¦   ©¦   ©À©¤©¤ app_sdk/                # App SDK
-©¦   ©¦   ©¸©¤©¤ driver_sdk/             # Driver SDK
 ©¦   ©¸©¤©¤ components/                 # ¿ÉÑ¡×é¼ş
-©¦       ©À©¤©¤ cm_backtrace/           # ¹ÊÕÏ»ØËİ
-©¦       ©¸©¤©¤ nr_micro_shell/         # µ÷ÊÔShell
 ©¦
-©À©¤©¤ board/                          # ¡ï °å¼¶ÒÆÖ²²ã£¨Ğ¾Æ¬Ïà¹Ø£©
+©À©¤©¤ board/                          # ¡ï °å¼¶ÊÊÅä²ã
 ©¦   ©¸©¤©¤ stm32f427/                  # STM32F427 ÒÆÖ²Ê¾Àı
-©¦       ©À©¤©¤ svcrt_board.c           # ¡ï ÒÆÖ²½Ó¿ÚÊµÏÖ + ÖĞ¶ÏÈë¿Ú + °åÔØÉè±¸×¢²á
-©¦       ©À©¤©¤ svcrt_board_config.h    # ¡ï °å¼¶ÅäÖÃ¸²¸Ç£¨Ö÷Æµ¡¢ÄÚ´æµØÖ·µÈ£©
-©¦       ©À©¤©¤ svcrt_mpu.c             # MPU²Ù×÷ÊµÏÖ£¨Ö±½Ó²Ù×÷ARM MPU¼Ä´æÆ÷£©
-©¦       ©À©¤©¤ context_rvds.S          # ÉÏÏÂÎÄÇĞ»»»ã±à
-©¦       ©À©¤©¤ drvuart.c/h             # UARTÇı¶¯£¨HAL¿â£©
-©¦       ©¸©¤©¤ drvled.c/h              # LEDÇı¶¯£¨HAL¿â£©
+©¦       ©À©¤©¤ svcrt_board.c           # °å¼¶³õÊ¼»¯ + ÖĞ¶ÏÈë¿Ú
+©¦       ©À©¤©¤ svcrt_board_config.h    # °å¼¶ÅäÖÃ¸²¸Ç
+©¦       ©À©¤©¤ drvuart.c/h             # UARTÇı¶¯
+©¦       ©¸©¤©¤ drvled.c/h              # LEDÇı¶¯
 ©¦
 ©¸©¤©¤ example/                        # ¹¤³ÌÊ¾Àı
     ©¸©¤©¤ stm32f427/                  # MDK ¹¤³Ì
 ```
-
-**¹Ø¼üÔ­Ôò£º**
-- `kernelsrc/` = ´¿ÄÚºË£¬²»°üº¬ÈÎºÎĞ¾Æ¬Í·ÎÄ¼ş£¬²»Ö±½Ó²Ù×÷ÈÎºÎÓ²¼ş¼Ä´æÆ÷
-- `board/` = Ğ¾Æ¬Ïà¹Ø£¬ÒÆÖ²µ½ĞÂĞ¾Æ¬Ö»Ğè´´½¨ĞÂµÄ `board/<Ğ¾Æ¬>/` Ä¿Â¼
-- `svcrt_port.h` = ÄÚºËÓëÓ²¼şµÄÎ¨Ò»ñîºÏµã£¬´¿º¯ÊıÉùÃ÷
 
 ---
 
@@ -98,568 +99,216 @@ SVCRTOS/
 
 ### 3.1 µÚÒ»²½£º´´½¨°å¼¶ÅäÖÃÎÄ¼ş
 
-ÔÚ `board/<Ğ¾Æ¬>/` ÏÂ´´½¨ `svcrt_board_config.h`£¬¸²¸ÇÄÚºËÄ¬ÈÏÅäÖÃ£º
+ÔÚ `board/<Ğ¾Æ¬>/` ÏÂ´´½¨ `svcrt_board_config.h`£º
 
 ```c
-/**
-* @brief °å¼¶ÅäÖÃ - <ÄãµÄĞ¾Æ¬>
-*/
 #ifndef __SVCRT_BOARD_CONFIG_H__
 #define __SVCRT_BOARD_CONFIG_H__
 
 #define SVCRT_CPU_ARCH            SVCRT_ARCH_CORTEX_M4
-
 #define SVCRT_SYSTEM_CLOCK_HZ     (168000000)
-
 #define SVCRT_SHARE_MEM_ADDR      (0x20028000)
 #define SVCRT_SHARE_MEM_SIZE      (0x8000)
+
+#undef  SVCRT_USE_FPU
+#define SVCRT_USE_FPU             1
+
+#undef  SVCRT_USE_MPU
+#define SVCRT_USE_MPU             0
 
 #endif
 ```
 
-ÔÚ MDK ±àÒëÑ¡ÏîÖĞÌí¼ÓÔ¤¶¨Òåºê£º
+ÔÚ±àÒëÑ¡ÏîÖĞÌí¼Ó£º`-DSVCRT_BOARD_CONFIG=\"svcrt_board_config.h\"`
+
+### 3.2 µÚ¶ş²½£ºÑ¡Ôñ¼Ü¹¹ÊÊÅä²ã
+
+¸ù¾İÄ¿±êCPU¼Ü¹¹£¬Ñ¡Ôñ¶ÔÓ¦µÄportÄ¿Â¼£º
+
+| CPU¼Ü¹¹ | portÄ¿Â¼ | ËµÃ÷ |
+|---------|----------|------|
+| Cortex-M3 | port/arm/cortex-m3 | ÎŞFPU£¬MPU¿ÉÑ¡ |
+| Cortex-M4 | port/arm/cortex-m4 | ÓĞFPUºÍMPU |
+| Cortex-M7 | port/arm/cortex-m7 | ´ıÊµÏÖ |
+
+½«¶ÔÓ¦Ä¿Â¼ÏÂµÄ `svcrt_port.c` ºÍ `svcrt_context.S` ¼ÓÈë¹¤³Ì¡£
+
+### 3.3 µÚÈı²½£ºÊµÏÖ°å¼¶ÊÊÅäÎÄ¼ş
+
+ÔÚ `board/<Ğ¾Æ¬>/` ÏÂ´´½¨ `svcrt_board.c`£¬¸²¸Çport²ãµÄÈõ¶¨Òåº¯Êı£º
+
+```c
+#include "stm32f4xx.h"
+#include "svcrt_hal.h"
+#include "svcrt_dev.h"
+#include "svcrt_task.h"
+
+/* ¸²¸Çport²ãÈõ¶¨Òå */
+void svcrt_port_board_init(void)
+{
+    SCB->CPACR |= (3UL << 20) | (3UL << 22);  /* FPUÊ¹ÄÜ */
+}
+
+void svcrt_port_irq_init(void)
+{
+    NVIC_SetPriorityGrouping(0);
+    NVIC_SetPriority(PendSV_IRQn,  0xFF);
+    NVIC_SetPriority(SysTick_IRQn, 0x00);
+    NVIC_SetPriority(SVCall_IRQn,  0x01);
+}
+
+/* °åÔØÉè±¸×¢²á */
+extern svcrt_dev_drv_t usart_drv;
+extern svcrt_dev_drv_t led_drv;
+
+void svcrt_dev_board_init(void)
+{
+    svcrt_dev_register("COM1", &usart_drv, 0);
+    svcrt_dev_register("LED",  &led_drv,  0);
+}
+
+/* ÖĞ¶Ï·şÎñ³ÌĞòÈë¿Ú */
+void SysTick_Handler(void)
+{
+    svcrt_kernel_tick_handler();
+}
+
+void HardFault_Handler(void)
+{
+    while(1);
+}
 ```
-SVCRT_BOARD_CONFIG=\"svcrt_board_config.h\"
-```
 
-ÕâÑù `svcrt_config.h` Ä©Î²»á×Ô¶¯°üº¬´ËÎÄ¼ş£¬¸²¸ÇÄ¬ÈÏÖµ¡£
+### 3.4 µÚËÄ²½£ºÊµÏÖÉè±¸Çı¶¯
 
-### 3.2 µÚ¶ş²½£º´´½¨°å¼¶ÒÆÖ²Ä¿Â¼
+²Î¿¼ `board/stm32f427/drvuart.c` ºÍ `drvled.c` ÊµÏÖ°åÔØÉè±¸Çı¶¯¡£
 
-ÔÚ `board/` ÏÂ´´½¨ĞÂĞ¾Æ¬Ä¿Â¼£¬ÊµÏÖÒÔÏÂÎÄ¼ş£º
+---
 
-```
-board/<ÄãµÄĞ¾Æ¬>/
-©À©¤©¤ svcrt_board.c           # ¡ï ±ØĞë£ºÊµÏÖ svcrt_port.h ÖĞµÄËùÓĞ½Ó¿Ú + ÖĞ¶ÏÈë¿Ú
-©À©¤©¤ svcrt_board_config.h    # ¡ï ±ØĞë£º°å¼¶ÅäÖÃ¸²¸Ç
-©À©¤©¤ svcrt_mpu.c             # ¿ÉÑ¡£ºMPU²Ù×÷£¨M4/M7ĞèÒª£©
-©À©¤©¤ context_rvds.S          # ±ØĞë£ºÉÏÏÂÎÄÇĞ»»»ã±à
-©À©¤©¤ drvxxx.c/h              # ¿ÉÑ¡£º°åÔØÇı¶¯
-©¸©¤©¤ ...
-```
+## 4. svcrt_hal.h ½Ó¿ÚËµÃ÷
 
-### 3.3 µÚÈı²½£ºÊµÏÖ `svcrt_board.c`
+### 4.1 CPUÖ¸Áî²ã
 
-ÕâÊÇÒÆÖ²µÄºËĞÄÎÄ¼ş£¬ĞèÒªÊµÏÖ `svcrt_port.h` ÖĞÉùÃ÷µÄËùÓĞº¯Êı£¬ÒÔ¼°ÖĞ¶Ï·şÎñ³ÌĞò¡£
+| º¯Êı | ËµÃ÷ |
+|------|------|
+| `svcrt_port_wfi()` | µÈ´ıÖĞ¶Ï |
+| `svcrt_port_wfe()` | µÈ´ıÊÂ¼ş |
+| `svcrt_port_nop()` | ¿Õ²Ù×÷ |
+| `svcrt_port_isb()` | Ö¸ÁîÍ¬²½ÆÁÕÏ |
+| `svcrt_port_dsb()` | Êı¾İÍ¬²½ÆÁÕÏ |
+| `svcrt_port_dmb()` | Êı¾İÄÚ´æÆÁÕÏ |
 
-#### 3.3.1 ±ØĞëÊµÏÖµÄÒÆÖ²½Ó¿Úº¯Êı
+### 4.2 ÖĞ¶Ï¿ØÖÆ²ã
 
 | º¯Êı | ËµÃ÷ |
 |------|------|
 | `svcrt_port_disable_irq()` | ¹Ø±ÕÈ«¾ÖÖĞ¶Ï |
 | `svcrt_port_enable_irq()` | ¿ªÆôÈ«¾ÖÖĞ¶Ï |
-| `svcrt_port_switch_task()` | ´¥·¢ÈÎÎñÇĞ»»£¨ÉèÖÃPendSV¹ÒÆğÎ»£© |
-| `svcrt_port_wfi()` | µÈ´ıÖĞ¶Ï£¨WFIÖ¸Áî£© |
-| `svcrt_port_wfe()` | µÈ´ıÊÂ¼ş£¨WFEÖ¸Áî£© |
-| `svcrt_port_nop()` | ¿Õ²Ù×÷£¨NOPÖ¸Áî£© |
-| `svcrt_port_isb()` | Ö¸ÁîÍ¬²½ÆÁÕÏ |
-| `svcrt_port_dsb()` | Êı¾İÍ¬²½ÆÁÕÏ |
-| `svcrt_port_dmb()` | Êı¾İÄÚ´æÆÁÕÏ |
+| `svcrt_port_switch_task()` | ´¥·¢ÈÎÎñÇĞ»» |
+
+### 4.3 ÉÏÏÂÎÄ²ã
+
+| º¯Êı | ËµÃ÷ |
+|------|------|
 | `svcrt_port_set_psp()` | ÉèÖÃPSPÕ»Ö¸Õë |
 | `svcrt_port_get_control()` | ¶ÁÈ¡CONTROL¼Ä´æÆ÷ |
 | `svcrt_port_set_control()` | Ğ´ÈëCONTROL¼Ä´æÆ÷ |
-| `svcrt_port_get_systick_val()` | ¶ÁÈ¡SysTickµ±Ç°Öµ |
-| `svcrt_port_get_systick_load()` | ¶ÁÈ¡SysTickÖØÔØÖµ |
-| `svcrt_port_board_init()` | Ó²¼ş°å¿¨³õÊ¼»¯ |
-| `svcrt_port_irq_init()` | NVICÓÅÏÈ¼¶ÅäÖÃ |
+| `svcrt_port_stack_init()` | ³õÊ¼»¯ÈÎÎñÕ»Ö¡ |
+| `svcrt_port_enter_idle()` | ½øÈë¿ÕÏĞÈÎÎñÉÏÏÂÎÄ |
+
+### 4.4 ¶¨Ê±Æ÷²ã
+
+| º¯Êı | ËµÃ÷ |
+|------|------|
+| `svcrt_port_get_system_clock()` | »ñÈ¡ÏµÍ³Ö÷Æµ |
+| `svcrt_port_get_systick_val()` | »ñÈ¡SysTickµ±Ç°Öµ |
+| `svcrt_port_get_systick_load()` | »ñÈ¡SysTickÖØÔØÖµ |
 | `svcrt_port_start_timer()` | Æô¶¯ÏµÍ³¶¨Ê±Æ÷ |
-| `svcrt_port_enable_fpu()` | FPUÊ¹ÄÜ£¨M3Áô¿Õ£© |
-| `svcrt_port_set_idle_mpu()` | ºóÌ¨ÈÎÎñMPUÉèÖÃ£¨M3Áô¿Õ£© |
-| `svcrt_dev_board_init()` | °åÔØÉè±¸×¢²á |
+| `svcrt_port_delay_us()` | Î¢Ãë¼¶Ã¦µÈÑÓÊ± |
 
-#### 3.3.2 ±ØĞëÊµÏÖµÄÖĞ¶Ï·şÎñ³ÌĞò
+### 4.5 °å¼¶²ã£¨Èõ¶¨Òå£¬¿É¸²¸Ç£©
 
-ÄÚºË²»ÔÙÖ±½Ó¶¨Òå `SysTick_Handler` ºÍ `HardFault_Handler`£¬¶øÊÇÌá¹©ÄÚºË´¦Àíº¯Êı¹© board ²ãµ÷ÓÃ£º
+| º¯Êı | ËµÃ÷ |
+|------|------|
+| `svcrt_port_board_init()` | °å¿¨Ó²¼ş³õÊ¼»¯ |
+| `svcrt_port_irq_init()` | ÖĞ¶Ï¿ØÖÆÆ÷³õÊ¼»¯ |
+| `svcrt_port_enable_fpu()` | FPUÊ¹ÄÜ |
+| `svcrt_port_set_idle_mpu()` | ¿ÕÏĞÈÎÎñMPUÉèÖÃ |
 
-| ÖĞ¶ÏÈë¿Ú£¨board²ã¶¨Òå£© | µ÷ÓÃµÄÄÚºËº¯Êı | ËµÃ÷ |
-|--------------------------|----------------|------|
-| `SysTick_Handler()` | `svcrt_kernel_tick_handler()` | ÏµÍ³µÎ´ğÖĞ¶Ï |
-| `HardFault_Handler()` | `svcrt_hardfault_handler()` | Ó²¼ş¹ÊÕÏÖĞ¶Ï |
+### 4.6 MPU½Ó¿Ú²ã
 
-**Ê¾ÀıÊµÏÖ£º**
-```c
-void SysTick_Handler(void)
-{
-    svcrt_kernel_tick_handler();
-}
-
-void HardFault_Handler(void)
-{
-    svcrt_hardfault_handler();
-}
-```
-
-> **ÎªÊ²Ã´ÕâÑùÉè¼Æ£¿** ²»Í¬Ğ¾Æ¬µÄÖĞ¶Ïº¯ÊıÃû¿ÉÄÜ²»Í¬£¨Èç RISC-V µÄÖĞ¶ÏÈë¿ÚÃûÍêÈ«²»Í¬£©£¬½«ÖĞ¶ÏÈë¿Ú·ÅÔÚ board ²ã¿ÉÒÔÈÃÄÚºËÍêÈ«ÓëĞ¾Æ¬ÖĞ¶ÏÌåÏµ½âñî¡£
-
-#### 3.3.3 Cortex-M4 ÍêÕûÊ¾Àı£¨STM32F427 HAL¿â£©
-
-```c
-/**
-* @brief SVCrtOS °å¼¶ÒÆÖ²ÊµÏÖ - STM32F427
-*/
-
-#include "svcrt_port.h"
-#include "svcrt_dev.h"
-#include "svcrt_task.h"
-#include "stm32f4xx.h"
-
-#if (SVCRT_USE_MPU == 1)
-#include "svcrt_mpu.h"
-#endif
-
-/* ---- ÖĞ¶Ï¿ØÖÆ ---- */
-void svcrt_port_disable_irq(void)  { __disable_irq(); }
-void svcrt_port_enable_irq(void)   { __enable_irq(); }
-
-/* ---- ÈÎÎñÇĞ»»´¥·¢ ---- */
-void svcrt_port_switch_task(void)  { SCB->ICSR = SCB_ICSR_PENDSVSET_Msk; }
-
-/* ---- CPU Ö¸Áî·â×° ---- */
-void svcrt_port_wfi(void)  { __WFI(); }
-void svcrt_port_wfe(void)  { __WFE(); }
-void svcrt_port_nop(void)  { __NOP(); }
-void svcrt_port_isb(void)  { __ISB(); }
-void svcrt_port_dsb(void)  { __DSB(); }
-void svcrt_port_dmb(void)  { __DMB(); }
-
-/* ---- Õ»Ö¸ÕëÓë¿ØÖÆ¼Ä´æÆ÷ ---- */
-void svcrt_port_set_psp(uint32 val)    { __set_PSP(val); }
-uint32 svcrt_port_get_control(void)    { return __get_CONTROL(); }
-void svcrt_port_set_control(uint32 val){ __set_CONTROL(val); }
-
-/* ---- SysTick ---- */
-uint32 svcrt_port_get_systick_val(void)  { return SysTick->VAL; }
-uint32 svcrt_port_get_systick_load(void) { return SysTick->LOAD; }
-
-/* ---- ÒÆÖ²²ã»Øµ÷ ---- */
-void svcrt_port_board_init(void)
-{
-    SCB->CPACR |= (3 << 20) | (3 << 22);
-}
-
-void svcrt_port_irq_init(void)
-{
-    NVIC_SetPriorityGrouping(0);
-    NVIC_SetPriority(PendSV_IRQn, 0xFF);
-    NVIC_SetPriority(SysTick_IRQn, 0x00);
-    NVIC_SetPriority(SVCall_IRQn, 0x01);
-}
-
-void svcrt_port_start_timer(uint32 tick_period_us)
-{
-    uint32 ticks = SystemCoreClock / 1000000 * tick_period_us / 8;
-    SysTick_Config(ticks);
-}
-
-void svcrt_port_enable_fpu(void)
-{
-    FPU->FPCCR = FPU_FPCCR_ASPEN_Msk | FPU_FPCCR_LSPEN_Msk;
-}
-
-void svcrt_port_set_idle_mpu(uint32 task_func, uint32 stack_addr, uint32 stack_size)
-{
-    #if (SVCRT_USE_MPU == 1)
-    svcrt_mpu_set(task_func, 0x1000, stack_addr, stack_size);
-    #endif
-}
-
-/* ---- °åÔØÉè±¸×¢²á ---- */
-extern svcrt_dev_drv_t usart_drv;
-extern svcrt_dev_drv_t led_drv;
-
-void svcrt_dev_board_init(void)
-{
-    svcrt_dev_register("COM1", &usart_drv, 0);
-    svcrt_dev_register("LED",  &led_drv,  0);
-}
-
-/* ---- ÖĞ¶Ï·şÎñ³ÌĞò ---- */
-void SysTick_Handler(void)
-{
-    svcrt_kernel_tick_handler();
-}
-
-void HardFault_Handler(void)
-{
-    svcrt_hardfault_handler();
-}
-```
-
-#### 3.3.4 Cortex-M3 ¾«¼òÊ¾Àı
-
-```c
-#include "svcrt_port.h"
-#include "svcrt_dev.h"
-#include "svcrt_task.h"
-#include "stm32f10x.h"
-
-void svcrt_port_disable_irq(void)  { __disable_irq(); }
-void svcrt_port_enable_irq(void)   { __enable_irq(); }
-void svcrt_port_switch_task(void)  { SCB->ICSR = SCB_ICSR_PENDSVSET_Msk; }
-void svcrt_port_wfi(void)          { __WFI(); }
-void svcrt_port_wfe(void)          { __WFE(); }
-void svcrt_port_nop(void)          { __NOP(); }
-void svcrt_port_isb(void)          { __ISB(); }
-void svcrt_port_dsb(void)          { __DSB(); }
-void svcrt_port_dmb(void)          { __DMB(); }
-void svcrt_port_set_psp(uint32 v)  { __set_PSP(v); }
-uint32 svcrt_port_get_control(void){ return __get_CONTROL(); }
-void svcrt_port_set_control(uint32 v){ __set_CONTROL(v); }
-uint32 svcrt_port_get_systick_val(void)  { return SysTick->VAL; }
-uint32 svcrt_port_get_systick_load(void) { return SysTick->LOAD; }
-
-void svcrt_port_board_init(void) { }
-void svcrt_port_enable_fpu(void) { }
-void svcrt_port_set_idle_mpu(uint32 a, uint32 b, uint32 c) { }
-
-void svcrt_port_irq_init(void)
-{
-    NVIC_SetPriorityGrouping(0);
-    NVIC_SetPriority(PendSV_IRQn, 0xFF);
-    NVIC_SetPriority(SysTick_IRQn, 0x00);
-}
-
-void svcrt_port_start_timer(uint32 tick_period_us)
-{
-    uint32 ticks = SystemCoreClock / 1000000 * tick_period_us / 8;
-    SysTick_Config(ticks);
-}
-
-void svcrt_dev_board_init(void)
-{
-    /* ×¢²á°åÔØÉè±¸ */
-}
-
-void SysTick_Handler(void)
-{
-    svcrt_kernel_tick_handler();
-}
-
-void HardFault_Handler(void)
-{
-    svcrt_hardfault_handler();
-}
-```
-
-### 3.4 µÚËÄ²½£ºÊµÏÖÉÏÏÂÎÄÇĞ»»»ã±à
-
-²Î¿¼ `board/stm32f427/context_rvds.S` ½øĞĞÊÊÅä£º
-
-- **Cortex-M3**£ºÉ¾³ı `IF :DEF:SVCRT_USE_FPU` ¿éÖĞµÄ¸¡µã±£´æ/»Ö¸´Ö¸Áî
-- **Cortex-M4/M7**£º±£Áô¸¡µã±£´æ/»Ö¸´Ö¸Áî
-
-### 3.5 µÚÎå²½£ºÅäÖÃ¹¤³Ì±àÒëÑ¡Ïî
+| º¯Êı | ËµÃ÷ |
+|------|------|
+| `svcrt_port_mpu_init()` | MPU³õÊ¼»¯ |
+| `svcrt_port_mpu_set_region()` | ÉèÖÃMPUÇøÓò |
+| `svcrt_port_mpu_set_app()` | ÉèÖÃÈÎÎñMPU |
+| `svcrt_port_mpu_reset()` | ÖØÖÃMPU |
 
 ---
 
-## 4. MDK (Keil) ¹¤³ÌÅäÖÃÖ¸ÄÏ
+## 5. MDK¹¤³ÌÅäÖÃ
 
-### 4.1 Ìí¼ÓÔ´ÎÄ¼şµ½¹¤³Ì
+### 5.1 Ìí¼ÓÔ´ÎÄ¼ş
 
-ÔÚ MDK ¹¤³ÌÖĞ´´½¨ÒÔÏÂ·Ö×é£¨Group£©£¬²¢Ìí¼Ó¶ÔÓ¦ÎÄ¼ş£º
+**Group: Kernel**
+- kernelsrc/src/svcrt_init.c
+- kernelsrc/src/svcrt_task.c
+- kernelsrc/src/svcrt_event.c
+- kernelsrc/src/svcrt_fifo.c
+- kernelsrc/src/svcrt_dev.c
+- kernelsrc/src/svcrt_cfg.c
 
-**Group: Kernel£¨ÄÚºËºËĞÄ£© ¡ª À´×Ô kernelsrc/**
+**Group: Port**
+- kernelsrc/port/arm/cortex-m4/svcrt_port.c
+- kernelsrc/port/arm/cortex-m4/svcrt_context.S
 
-| ÎÄ¼şÂ·¾¶ | ËµÃ÷ |
-|----------|------|
-| `kernelsrc/src/svcrt_init.c` | ÄÚºËÆô¶¯Óë³õÊ¼»¯ |
-| `kernelsrc/src/svcrt_task.c` | ÈÎÎñµ÷¶È + SVC ·Ö·¢ |
-| `kernelsrc/src/svcrt_event.c` | ÊÂ¼ş¹ÜÀí |
-| `kernelsrc/src/svcrt_fifo.c` | FIFO »·ĞÎ»º³åÇø |
-| `kernelsrc/src/svcrt_dev.c` | Éè±¸Çı¶¯¿ò¼Ü |
-| `kernelsrc/src/svcrt_cfg.c` | ÈÎÎñÅäÖÃ¼ÓÔØ |
+**Group: Board**
+- board/stm32f427/svcrt_board.c
+- board/stm32f427/drvuart.c
+- board/stm32f427/drvled.c
 
-**Group: Board£¨°å¼¶ÒÆÖ²£© ¡ª À´×Ô board/**
-
-| ÎÄ¼şÂ·¾¶ | ËµÃ÷ |
-|----------|------|
-| `board/stm32f427/svcrt_board.c` | ¡ï ÒÆÖ²½Ó¿Ú + ÖĞ¶ÏÈë¿Ú + °åÔØÉè±¸×¢²á |
-| `board/stm32f427/svcrt_mpu.c` | MPU²Ù×÷£¨M4/M7Ğè£© |
-| `board/stm32f427/context_rvds.S` | ÉÏÏÂÎÄÇĞ»»»ã±à |
-| `board/stm32f427/drvuart.c` | UARTÇı¶¯£¨¿ÉÑ¡£© |
-| `board/stm32f427/drvled.c` | LEDÇı¶¯£¨¿ÉÑ¡£© |
-
-**Group: App£¨Ó¦ÓÃ²ã£© ¡ª À´×Ô kernelsrc/app/**
-
-| ÎÄ¼şÂ·¾¶ | ËµÃ÷ |
-|----------|------|
-| `kernelsrc/app/appconfig.c` | ·ÖÇøÅäÖÃ±í |
-| `kernelsrc/app/oslib.c` | Ó¦ÓÃ SVC ½Ó¿Ú |
-| `kernelsrc/app/appstart.s` | Ó¦ÓÃÆô¶¯»ã±à |
-
-### 4.2 ÅäÖÃÍ·ÎÄ¼şÂ·¾¶£¨Include Paths£©
-
-ÔÚ MDK ¡ú Options ¡ú C/C++ ¡ú Include Paths ÖĞÌí¼Ó£º
+### 5.2 Í·ÎÄ¼şÂ·¾¶
 
 ```
 kernelsrc\include
+kernelsrc\port\arm\cortex-m4
 board\stm32f427
 ```
 
-- `kernelsrc\include` £ºÄÚºËÍ·ÎÄ¼ş
-- `board\stm32f427` £º°å¼¶Í·ÎÄ¼ş£¨Èç drvuart.h µÈ£©
+### 5.3 Ô¤¶¨Òåºê
 
-### 4.3 ÅäÖÃÔ¤¶¨Òåºê£¨Preprocessor Defines£©
-
-ÔÚ MDK ¡ú Options ¡ú C/C++ ¡ú Preprocessor Symbols ¡ú Define ÖĞÌí¼Ó£º
-
-**Cortex-M4 ¹¤³Ì£º**
-```
-SVCRT_USE_FPU,SVCRT_BOARD_CONFIG=\"svcrt_board_config.h\"
-```
-
-**Cortex-M3 ¹¤³Ì£º**
 ```
 SVCRT_BOARD_CONFIG=\"svcrt_board_config.h\"
 ```
 
-> `SVCRT_BOARD_CONFIG` ºêÈÃ `svcrt_config.h` ×Ô¶¯°üº¬°å¼¶ÅäÖÃÎÄ¼ş£¬¸²¸ÇÄ¬ÈÏµÄÖ÷ÆµºÍÄÚ´æµØÖ·¡£
+---
 
-### 4.4 »ã±àÎÄ¼şÅäÖÃ
+## 6. ÒÆÖ²ĞÂ¼Ü¹¹Ö¸ÄÏ
 
-- `context_rvds.S` ĞèÒªÊ¹ÓÃ ARM »ã±àÆ÷£¨ARMASM£©£¬MDK Ä¬ÈÏÖ§³Ö
-- »ã±àÎÄ¼şÖĞµÄÌõ¼ş±àÒëÊ¹ÓÃ ARMASM Óï·¨£¬ÔÚ Options ¡ú Asm ¡ú Preprocessor Symbols ÖĞÅäÖÃ
-- M4 ¹¤³ÌĞèÔÚ Define ÖĞÌí¼Ó `SVCRT_USE_FPU`
+ÒÔÒÆÖ²µ½ RISC-V ÎªÀı£º
 
-### 4.5 Á´½ÓÅäÖÃ×¢ÒâÊÂÏî
-
-- ÄÚºËÈë¿Ú `main()` ĞèÒªÎ»ÓÚ Flash ÆğÊ¼µØÖ·
-- ¸÷·ÖÇøµÄ ROM µØÖ·ĞèÓë `appconfig.c` ÖĞµÄ `rom_start` ¶ÔÓ¦
-- ¹²ÏíÄÚ´æµØÖ· `SVCRT_SHARE_MEM_ADDR` ĞèÔÚÁ´½Ó½Å±¾ÖĞÕıÈ·ÅäÖÃ
-
-### 4.6 ÒÆÖ²¼ì²éÇåµ¥
-
-ÒÆÖ²µ½ĞÂĞ¾Æ¬Ê±£¬ÇëÖğÏîÈ·ÈÏ£º
-
-- [ ] ´´½¨ `board/<Ğ¾Æ¬>/svcrt_board_config.h`£¬ÉèÖÃÕıÈ·µÄÖ÷ÆµºÍÄÚ´æµØÖ·
-- [ ] ´´½¨ `board/<Ğ¾Æ¬>/svcrt_board.c`£¬ÊµÏÖËùÓĞÒÆÖ²½Ó¿Úº¯Êı
-- [ ] ÔÚ `svcrt_board.c` ÖĞÊµÏÖ `SysTick_Handler()` ºÍ `HardFault_Handler()`
-- [ ] ÔÚ `svcrt_board.c` µÄ `svcrt_dev_board_init()` ÖĞ×¢²á°åÔØÉè±¸
-- [ ] ÊµÏÖÉÏÏÂÎÄÇĞ»»»ã±à£¬¸ù¾İ¼Ü¹¹Ñ¡ÔñÊÇ·ñ°üº¬ FPU ±£´æ/»Ö¸´
-- [ ] MDK ¹¤³ÌÌí¼ÓËùÓĞ `kernelsrc/src/*.c` ÎÄ¼ş
-- [ ] MDK ¹¤³ÌÌí¼ÓËùÓĞ `board/<Ğ¾Æ¬>/*.c` ºÍ `*.S` ÎÄ¼ş
-- [ ] MDK ¹¤³ÌÌí¼Ó `kernelsrc/app/` ÏÂµÄÓ¦ÓÃÎÄ¼ş
-- [ ] Include Paths °üº¬ `kernelsrc/include` ºÍ `board/<Ğ¾Æ¬>`
-- [ ] Ô¤¶¨Òåºê°üº¬ `SVCRT_BOARD_CONFIG=\"svcrt_board_config.h\"`
-- [ ] M4 ¹¤³ÌÌí¼Ó `SVCRT_USE_FPU` Ô¤¶¨Òåºê£¨C ºÍ»ã±à¾ùĞè£©
-- [ ] `appconfig.c` ÖĞ·ÖÇøµØÖ·ÓëÊµ¼ÊĞ¾Æ¬ÄÚ´æÓ³ÉäÆ¥Åä
+1. ´´½¨ `kernelsrc/port/risc-v/rv32imac/` Ä¿Â¼
+2. ÊµÏÖ `svcrt_port.c`£º
+   - CPUÖ¸Áî²ã£¨wfi¡¢fenceµÈ£©
+   - ÖĞ¶Ï¿ØÖÆ²ã£¨mie¡¢mipµÈ£©
+   - ÉÏÏÂÎÄ²ã£¨Õ»Ö¡³õÊ¼»¯¡¢mstatusÉèÖÃ£©
+   - ¶¨Ê±Æ÷²ã£¨mtimeÅäÖÃ£©
+3. ÊµÏÖ `svcrt_context.S`£º
+   - ÈÎÎñÉÏÏÂÎÄ±£´æ/»Ö¸´£¨x1-x31¼Ä´æÆ÷£©
+   - Òì³£Èë¿Ú´¦Àí
+4. ÄÚºË´úÂëÎŞĞèÈÎºÎĞŞ¸Ä
 
 ---
 
-## 5. ÅäÖÃ²ÎÊıÏê½â
+## 7. ¹¦ÄÜÍêÕûĞÔÑéÖ¤
 
-### 5.1 svcrt_config.h ²ÎÊı±í
+ÒÆÖ²Íê³Éºó£¬ÇëÑéÖ¤ÒÔÏÂ¹¦ÄÜ£º
 
-| ²ÎÊıÃû | Ä¬ÈÏÖµ | ËµÃ÷ |
-|--------|--------|------|
-| `SVCRT_CPU_ARCH` | `SVCRT_ARCH_CORTEX_M4` | CPU¼Ü¹¹Ñ¡Ôñ |
-| `SVCRT_USE_FPU` | ×Ô¶¯ | ¸¡µãµ¥ÔªÊ¹ÄÜ |
-| `SVCRT_USE_MPU` | ×Ô¶¯ | ÄÚ´æ±£»¤µ¥ÔªÊ¹ÄÜ |
-| `SVCRT_USE_PRIV` | ×Ô¶¯ | ÌØÈ¨Ä£Ê½·ÖÀë£¨ÒÀÀµMPU£© |
-| `SVCRT_TASK_MAX_NUM` | 7 | ×î´óÈÎÎñÊıÁ¿ |
-| `SVCRT_TICK_PERIOD_US` | 500 | µÎ´ğÖÜÆÚ(Î¢Ãë) |
-| `SVCRT_EVENT_NUM` | 10 | ÊÂ¼ş¶ÔÏóÊıÁ¿ |
-| `SVCRT_MAX_EVENT_WAITERS` | 4 | ÊÂ¼ş×î´óµÈ´ıÈÎÎñÊı |
-| `SVCRT_DEV_MAX_NUM` | 8 | ×î´óÉè±¸Çı¶¯ÊıÁ¿ |
-| `SVCRT_USE_CPU_LOAD` | 1 | CPU¸ºÔØÍ³¼Æ¿ª¹Ø |
-| `SVCRT_USE_STACK_CHECK` | 1 | Õ»Òç³ö¼ì²â¿ª¹Ø |
-| `SVCRT_SYSTEM_CLOCK_HZ` | 168000000 | ÏµÍ³Ö÷Æµ£¨Hz£©£¬ÓÉ°å¼¶ÅäÖÃ¸²¸Ç |
-| `SVCRT_SHARE_MEM_ADDR` | 0x20028000 | ¹²ÏíÄÚ´æµØÖ·£¬ÓÉ°å¼¶ÅäÖÃ¸²¸Ç |
-| `SVCRT_SHARE_MEM_SIZE` | 0x8000 | ¹²ÏíÄÚ´æ´óĞ¡£¬ÓÉ°å¼¶ÅäÖÃ¸²¸Ç |
-
-### 5.2 ¹¦ÄÜ²Ã¼ôÉúĞ§·½Ê½
-
-µ± `SVCRT_USE_MPU=0` Ê±£º
-- `svcrt_mpu_module_init()` / `svcrt_mpu_set_app()` µÈº¯Êı±»ºêÌæ»»Îª¿Õ
-- `svcrt_task_t` ÖĞ²»°üº¬ `mpu_bar[8]` / `mpu_asr[8]` ×Ö¶Î£¨½ÚÊ¡RAM£©
-- `svcrt_init.c` ÖĞ²»µ÷ÓÃMPU³õÊ¼»¯£¬²»ÉèÖÃMPU±£»¤
-
-µ± `SVCRT_USE_FPU=0` Ê±£º
-- Òì³£Ö¡ÖĞ²»°üº¬¸¡µã¼Ä´æÆ÷±£´æÇø
-- ÉÏÏÂÎÄÇĞ»»Ê±²»±£´æ/»Ö¸´¸¡µã¼Ä´æÆ÷
-- ÈÎÎñÕ»ĞèÇó´ó·ù¼õÉÙ
-
----
-
-## 6. Cortex-M3 ÒÆÖ²ÌØ±ğËµÃ÷
-
-### 6.1 ÎŞMPUµÄºó¹û
-
-- ÈÎÎñÖ®¼ä**Ã»ÓĞ**ÄÚ´æ¸ôÀë±£»¤
-- ÈÎºÎÈÎÎñ¶¼¿ÉÒÔ·ÃÎÊÈ«²¿RAM¿Õ¼ä
-- HardFault Ö»ÄÜÉ±ËÀ³ö´íÈÎÎñ£¬²»ÄÜ·ÀÖ¹Ô½½ç·ÃÎÊ
-- `SVCRT_USE_PRIV` Ç¿ÖÆ¹Ø±Õ£¬ÎŞ·¨ÊµÏÖÌØÈ¨¼¶·ÖÀë
-
-### 6.2 ÎŞFPUµÄÓÅ»¯
-
-- ÉÏÏÂÎÄÇĞ»»²»±£´æ16¸ö¸¡µã¼Ä´æÆ÷ + FPSCR
-- Ã¿¸öÈÎÎñÕ»½ÚÊ¡Ô¼68×Ö½Ú
-- ÖĞ¶ÏÏìÓ¦ËÙ¶È¸ü¿ì
-
-### 6.3 ×ÊÔ´¶Ô±È
-
-| ÏîÄ¿ | Cortex-M3 | Cortex-M4 |
-|------|-----------|-----------|
-| ×îĞ¡ÈÎÎñÕ»Ö¡ | ~40×Ö½Ú | ~108×Ö½Ú |
-| ÉÏÏÂÎÄÇĞ»»Ê±¼ä | ~30ÖÜÆÚ | ~60ÖÜÆÚ |
-| ¶îÍâRAM¿ªÏú | ½ÏÉÙ | ½Ï¶à£¨MPU×Ö¶Î£© |
-
----
-
-## 7. Éè±¸Çı¶¯¿ò¼Ü
-
-SVCrtOS µÄÉè±¸Çı¶¯¿ò¼ÜÍ³Ò»¹ÜÀí**ÄÚÖÃÇı¶¯**ºÍ**¿É°²×°Çı¶¯**£¬¹²ÓÃÍ¬Ò»Ì×Éè±¸±íºÍ `svcrt_dev_register()` ½Ó¿Ú¡£
-
-### 7.1 Çı¶¯ĞÎÌ¬¶Ô±È
-
-| Çı¶¯ĞÎÌ¬ | ×¢²áÊ±»ú | ÉúÃüÖÜÆÚ | Î»ÖÃ |
-|----------|----------|----------|------|
-| ÄÚÖÃÇı¶¯ | `svcrt_dev_board_init()` ÖĞ×¢²á | ËæÄÚºË³£×¤ | `board/<Ğ¾Æ¬>/` |
-| ¿É°²×°Çı¶¯ | ¶¯Ì¬×¢²á | °´Ğè¼ÓÔØĞ¶ÔØ | ¶ÀÁ¢±àÒë |
-
-Á½ÖÖÇı¶¯¹²ÓÃÏàÍ¬µÄ `svcrt_dev_drv_t` ½á¹¹£¨5¸öº¯ÊıÖ¸Õë£ºopen/close/read/write/ctrl£©£¬¶ş½øÖÆ¼æÈİ¡£
-
-### 7.2 ÄÚÖÃÇı¶¯¿ª·¢
-
-ÔÚ `board/<Ğ¾Æ¬>/svcrt_board.c` µÄ `svcrt_dev_board_init()` ÖĞ×¢²áÄÚÖÃÇı¶¯£º
-
-```c
-extern svcrt_dev_drv_t usart_drv;
-extern svcrt_dev_drv_t led_drv;
-
-void svcrt_dev_board_init(void)
-{
-    svcrt_dev_register("COM1", &usart_drv, 0);
-    svcrt_dev_register("LED",  &led_drv,  0);
-}
-```
-
-´Ëº¯ÊıÔÚ `svcrt_init.c` µÄ `svcrt_kernel_init()` ÖĞ±»×Ô¶¯µ÷ÓÃ¡£
-
-### 7.3 ¿É°²×°Çı¶¯¿ª·¢£¨Driver SDK£©
-
-¿É°²×°Çı¶¯Ö»Ğè°üº¬ `svcrt_driver_sdk.h`£¬ÊµÏÖÇı¶¯½Ó¿Úºóµ÷ÓÃ×¢²áº¯Êı£º
-
-```c
-#include "svcrt_driver_sdk.h"
-
-static svcrt_dev_drv_t my_drv = {
-    my_open, my_close, my_read, my_write, my_ctrl
-};
-
-void my_driver_init(void)
-{
-    svcrt_drv_register("MYDEV", &my_drv, 0);
-}
-```
-
-### 7.4 Ğ¶ÔØÇı¶¯
-
-```c
-svcrt_drv_unregister("MYDEV");
-```
-
----
-
-## 8. ÒÆÖ²ĞÂĞ¾Æ¬¿ìËÙÖ¸ÄÏ
-
-ÒÔÒÆÖ²µ½ STM32F103 ÎªÀı£º
-
-### 8.1 ´´½¨°å¼¶Ä¿Â¼
-
-```
-board/stm32f103/
-©À©¤©¤ svcrt_board.c           # ²Î¿¼ stm32f427 °æ±¾£¬ĞŞ¸ÄĞ¾Æ¬Í·ÎÄ¼ş
-©À©¤©¤ svcrt_board_config.h    # ÉèÖÃ F103 µÄÖ÷ÆµºÍÄÚ´æµØÖ·
-©À©¤©¤ context_rvds.S          # ²Î¿¼ M3 °æ±¾£¬È¥µô FPU ²¿·Ö
-©À©¤©¤ drvuart.c/h             # Ê¹ÓÃ F103 µÄ HAL »ò SPL ¿â
-©¸©¤©¤ drvled.c/h              # Ê¹ÓÃ F103 µÄ HAL »ò SPL ¿â
-```
-
-### 8.2 ´´½¨°å¼¶ÅäÖÃ
-
-```c
-/* board/stm32f103/svcrt_board_config.h */
-#define SVCRT_CPU_ARCH            SVCRT_ARCH_CORTEX_M3
-#define SVCRT_SYSTEM_CLOCK_HZ     (72000000)
-#define SVCRT_SHARE_MEM_ADDR      (0x20005000)
-#define SVCRT_SHARE_MEM_SIZE      (0x2000)
-```
-
-### 8.3 ĞŞ¸Ä svcrt_board.c
-
-```c
-#include "stm32f10x.h"  // Ìæ»»ÎªF103µÄÍ·ÎÄ¼ş
-// FPU/MPU Ïà¹Øº¯ÊıÁô¿Õ
-```
-
-### 8.4 ĞŞ¸ÄÉÏÏÂÎÄÇĞ»»»ã±à
-
-É¾³ı¸¡µã¼Ä´æÆ÷±£´æ/»Ö¸´£¨`VSTMDB`/`VLDMIA` Ö¸Áî£©¡£
-
-### 8.5 ÔÚ MDK ÖĞ¸üĞÂÅäÖÃ
-
-- Ìæ»» Board ×éÎÄ¼şÎª `board/stm32f103/` ÏÂµÄÎÄ¼ş
-- É¾³ı `SVCRT_USE_FPU` Ô¤¶¨Òåºê
-- ¸üĞÂ Include Paths
-- ¸üĞÂÔ¤¶¨Òåºê `SVCRT_BOARD_CONFIG=\"svcrt_board_config.h\"`
-
-**¹Ø¼ü£ºÒÔÉÏËùÓĞĞŞ¸Ä¶¼ÔÚ board/ Ä¿Â¼ÏÂÍê³É£¬kernelsrc/ Ä¿Â¼ÎŞĞèÈÎºÎ¸Ä¶¯£¡**
-
----
-
-## 9. App SDK Ê¹ÓÃËµÃ÷
-
-### 9.1 Ó¦ÓÃ³ÌĞò¿ª·¢
-
-Ó¦ÓÃ³ÌĞòÖ»ĞèÊµÏÖ `AppMain()` º¯Êı¼´¿É£º
-
-```c
-#include "svcrt.h"
-
-void AppMain(void)
-{
-    int32 led = svcrt_dev_open("LED", 0);
-
-    while(1)
-    {
-        uint8 val = 1;
-        svcrt_dev_write(led, &val, 1);
-        svcrt_task_wait(500);
-
-        val = 0;
-        svcrt_dev_write(led, &val, 1);
-        svcrt_task_wait(500);
-    }
-}
-```
-
-### 9.2 App SDK ÎÄ¼şÇåµ¥
-
-| ÎÄ¼ş | ËµÃ÷ |
-|------|------|
-| `svcrt.h` | Ó¦ÓÃAPIÍ·ÎÄ¼ş |
-| `svcrt_types.h` | »ù´¡ÀàĞÍ¶¨Òå |
-| `svcrt_app_config.h` | Ó¦ÓÃÅäÖÃ½á¹¹ |
-| `svcrt_oslib.c` | SVCµ÷ÓÃ·â×° |
-| `svcrt_app_main.c` | Ó¦ÓÃÈë¿ÚÄ£°å |
-| `svcrt_app_start.s` | Ó¦ÓÃÆô¶¯»ã±à |
-
-### 9.3 ÍêÕûAPIÁĞ±í
-
-| API | ËµÃ÷ |
-|-----|------|
-| `svcrt_task_wait(ms)` | µÈ´ıÖ¸¶¨ºÁÃë |
-| `svcrt_task_wait_period()` | µÈ´ıµ±Ç°ÖÜÆÚ |
-| `svcrt_task_delay(us)` | Î¢Ãë¼¶Ã¦µÈÑÓÊ± |
-| `svcrt_task_kill()` | ÖÕÖ¹µ±Ç°ÈÎÎñ |
-| `svcrt_get_time_ms()` | »ñÈ¡ÏµÍ³ÔËĞĞÊ±¼ä(ms) |
-| `svcrt_get_cpu_usage()` | »ñÈ¡CPUÊ¹ÓÃÂÊ |
-| `svcrt_event_create(name)` | ´´½¨ÊÂ¼ş |
-| `svcrt_event_wait(handle, timeout)` | µÈ´ıÊÂ¼ş |
-| `svcrt_event_set(handle)` | ´¥·¢ÊÂ¼ş |
-| `svcrt_dev_open(name, param)` | ´ò¿ªÉè±¸ |
-| `svcrt_dev_close(handle)` | ¹Ø±ÕÉè±¸ |
-| `svcrt_dev_read(handle, data, len)` | ¶ÁÈ¡Éè±¸ |
-| `svcrt_dev_write(handle, data, len)` | Ğ´ÈëÉè±¸ |
-| `svcrt_dev_ctrl(handle, code, value)` | Éè±¸¿ØÖÆ |
+- [ ] ÈÎÎñ´´½¨Óëµ÷¶È
+- [ ] ÈÎÎñÑÓÊ±£¨svcrt_task_wait£©
+- [ ] Î¢ÃëÑÓÊ±£¨svcrt_task_delay£©
+- [ ] ÊÂ¼ş´´½¨ÓëµÈ´ı
+- [ ] Éè±¸Çı¶¯×¢²áÓë²Ù×÷
+- [ ] Õ»Òç³ö¼ì²â
+- [ ] CPU¸ºÔØÍ³¼Æ
+- [ ] MPUÄÚ´æ±£»¤£¨ÈçÆôÓÃ£©

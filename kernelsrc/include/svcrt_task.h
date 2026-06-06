@@ -1,21 +1,16 @@
 /**
-* @brief SVCrtOS ??????????????????
-* @details ??????????????????????????????????????
-*          ????????????????????????????? svcrt.h
+* @brief SVCrtOS 任务管理模块（内核内部）
+* @details 定义任务控制块、任务状态和内核内部任务操作函数。
+*          任务上下文保存/恢复由port层实现，内核不定义具体寄存器布局。
+*          应用程序使用的接口请参见 svcrt.h
 */
 
 #ifndef __SVCRT_TASK_H__
 #define __SVCRT_TASK_H__
 
 #include "svcrt_def.h"
-#include "svcrt_port.h"
+#include "svcrt_hal.h"
 #include "svcrt_config.h"
-
-#if (SVCRT_USE_FPU == 1)
-#define SVCRT_FPU_USED 1
-#else
-#define SVCRT_FPU_USED 0
-#endif
 
 typedef enum {
     SVCRT_TASK_INVALID,
@@ -24,21 +19,13 @@ typedef enum {
     SVCRT_TASK_RUNNING
 } svcrt_task_status_t;
 
-typedef struct {
-    uint32  r4_r11[8];
-    #if (SVCRT_FPU_USED == 1)
-    uint32  sm[16];
-    #endif
-    uint32  r0;
-    uint32  r1;
-    uint32  r2;
-    uint32  r3;
-    uint32  r12;
-    uint32  lr;
-    uint32  pc;
-    uint32  xpsr;
-} svcrt_exc_context_t;
-
+/**
+* @brief SVC服务调用上下文
+* @details 由port层的SVC_Handler传递给内核 SVC_Server()。
+*          不同架构的寄存器布局不同，port层负责将架构特定的
+*          栈帧指针转换为内核可操作的统一结构。
+*          内核通过此结构读写SVC调用的参数和返回值。
+*/
 typedef struct {
     uint32 r0;
     uint32 r1;
@@ -50,6 +37,12 @@ typedef struct {
     uint32 xpsr;
 } svcrt_svc_context_t;
 
+/**
+* @brief 任务控制块
+* @details 包含任务的所有管理信息，不包含具体寄存器布局
+*          寄存器保存区由port层的上下文切换汇编管理，
+*          内核仅通过 stack_ptr 保存/恢复上下文指针
+*/
 typedef struct {
     uint32 ram_start;
     uint32 ram_size;

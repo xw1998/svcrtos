@@ -1,20 +1,16 @@
 /**
 * @brief SVCrtOS 任务管理模块（内核内部）
-* @details 定义任务控制块、调度器接口等内核内部数据结构和函数
-*          此文件仅供内核内部使用，应用程序应使用 svcrt.h
+* @details 定义任务控制块、任务状态和内核内部任务操作函数。
+*          任务上下文保存/恢复由port层实现，内核不定义具体寄存器布局。
+*          应用程序使用的接口请参见 svcrt.h
 */
 
 #ifndef __SVCRT_TASK_H__
 #define __SVCRT_TASK_H__
 
 #include "svcrt_def.h"
+#include "svcrt_hal.h"
 #include "svcrt_config.h"
-
-#if (SVCRT_USE_FPU == 1)
-#define SVCRT_FPU_USED 1
-#else
-#define SVCRT_FPU_USED 0
-#endif
 
 typedef enum {
     SVCRT_TASK_INVALID,
@@ -22,25 +18,6 @@ typedef enum {
     SVCRT_TASK_WAIT,
     SVCRT_TASK_RUNNING
 } svcrt_task_status_t;
-
-typedef struct {
-    #if (SVCRT_FPU_USED == 1)
-    uint32  sm[16];
-    #endif
-    uint32  r4_r11[8];
-    uint32  r0;
-    uint32  r1;
-    uint32  r2;
-    uint32  r3;
-    uint32  r12;
-    uint32  lr;
-    uint32  pc;
-    uint32  xpsr;
-    #if (SVCRT_FPU_USED == 1)
-    uint32  sa[16];
-    uint32  fpscr;
-    #endif
-} svcrt_exc_context_t;
 
 typedef struct {
     uint32 r0;
@@ -105,5 +82,8 @@ void svcrt_sched_activate_higher(uint8 ck_pri);
 
 int32 svcrt_sched_is_switching(void);
 int32 svcrt_sched_activate(int32 new_task, uint32 old_psp);
+
+void svcrt_kernel_tick_handler(void);
+void svcrt_hardfault_handler(void);
 
 #endif

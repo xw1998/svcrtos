@@ -45,7 +45,7 @@ svcrtos_test\main.o: ../Core/Inc/usb_otg.h
 svcrtos_test\main.o: ../Core/Inc/gpio.h
 svcrtos_test\main.o: ../../../../../kernelsrc/include/svcrt.h
 svcrtos_test\main.o: ../../../../../kernelsrc/include/svcrt_types.h
-svcrtos_test\main.o: ../../../../../kernelsrc/include/svcrt_port.h
+svcrtos_test\main.o: ../../../../../kernelsrc/include/svcrt_hal.h
 svcrtos_test\main.o: ../../../../../kernelsrc/include/svcrt_config.h
 svcrtos_test\main.o: ../../../../../board/stm32f427/svcrt_board_config.h
 svcrtos_test\main.o: ../../../../../kernelsrc/include/svcrt_cfg.h
@@ -53,4 +53,3 @@ svcrtos_test\main.o: ../../../../../kernelsrc/include/svcrt_def.h
 svcrtos_test\main.o: ../../../../../kernelsrc/include/svcrt_task.h
 svcrtos_test\main.o: ../../../../../kernelsrc/include/svcrt_event.h
 svcrtos_test\main.o: ../../../../../kernelsrc/include/svcrt_dev.h
-svcrtos_test\main.o: ../../../../../kernelsrc/include/svcrt_mpu.h

@@ -459,32 +459,32 @@
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>..\..\..\..\..\board\stm32f427\svcrt_mpu.c</PathWithFileName>
-      <FilenameWithoutPath>svcrt_mpu.c</FilenameWithoutPath>
+      <PathWithFileName>..\..\..\..\..\board\stm32f427\drvuart.c</PathWithFileName>
+      <FilenameWithoutPath>drvuart.c</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>
     <File>
       <GroupNumber>4</GroupNumber>
       <FileNumber>20</FileNumber>
-      <FileType>2</FileType>
+      <FileType>1</FileType>
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>..\..\..\..\..\board\stm32f427\context_rvds.S</PathWithFileName>
-      <FilenameWithoutPath>context_rvds.S</FilenameWithoutPath>
+      <PathWithFileName>..\..\..\..\..\board\stm32f427\drvled.c</PathWithFileName>
+      <FilenameWithoutPath>drvled.c</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>
     <File>
       <GroupNumber>4</GroupNumber>
       <FileNumber>21</FileNumber>
-      <FileType>1</FileType>
+      <FileType>2</FileType>
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>..\..\..\..\..\board\stm32f427\drvuart.c</PathWithFileName>
-      <FilenameWithoutPath>drvuart.c</FilenameWithoutPath>
+      <PathWithFileName>..\kernelsrc\port\arm\cortex-m4\svcrt_context.S</PathWithFileName>
+      <FilenameWithoutPath>svcrt_context.S</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>
@@ -495,8 +495,8 @@
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>..\..\..\..\..\board\stm32f427\drvled.c</PathWithFileName>
-      <FilenameWithoutPath>drvled.c</FilenameWithoutPath>
+      <PathWithFileName>..\kernelsrc\port\arm\cortex-m4\svcrt_port.c</PathWithFileName>
+      <FilenameWithoutPath>svcrt_port.c</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>

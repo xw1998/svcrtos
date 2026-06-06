@@ -1,5 +1,9 @@
 /**
 * @brief 系统指示灯模块（HAL库版本）
+* @details 支持RGB三色LED，通过open时的id参数选择颜色：
+*          LED_ID_RED(0)   -> PC0 红色
+*          LED_ID_GREEN(1) -> PC1 绿色
+*          LED_ID_BLUE(2)  -> PC2 蓝色
 * @author xw
 * @date 2026.05.03
 */
@@ -7,31 +11,47 @@
 #include "drvled.h"
 #include "stm32f4xx_hal.h"
 
-static led_dev_t sysled_1;
+#define LED_MAX_NUM     3
+
+static const uint16_t led_gpio_pins[LED_MAX_NUM] = {
+    GPIO_PIN_0,
+    GPIO_PIN_1,
+    GPIO_PIN_2
+};
+
+static led_dev_t sysled[LED_MAX_NUM];
 
 svcrt_dev_hdr_t *led_drv_open(uint32 id, uint32 p)
 {
     GPIO_InitTypeDef  GPIO_InitStr;
+    led_dev_t *p_dev;
 
-    if(sysled_1.opened == 0)
+    if(id >= LED_MAX_NUM)
     {
-        sysled_1.opened = 1;
-        sysled_1.led_on = 1;
+        return 0;
+    }
+
+    p_dev = &sysled[id];
+
+    if(p_dev->opened == 0)
+    {
+        p_dev->opened = 1;
+        p_dev->led_on = 0;
+        p_dev->gpio_pin = led_gpio_pins[id];
+        p_dev->hdr.block_size = sizeof(led_dev_t);
 
         __HAL_RCC_GPIOC_CLK_ENABLE();
 
         GPIO_InitStr.Mode  = GPIO_MODE_OUTPUT_PP;
-        GPIO_InitStr.Pin   = GPIO_PIN_0;
+        GPIO_InitStr.Pin   = p_dev->gpio_pin;
         GPIO_InitStr.Pull  = GPIO_PULLUP;
         GPIO_InitStr.Speed = GPIO_SPEED_FREQ_LOW;
         HAL_GPIO_Init(GPIOC, &GPIO_InitStr);
 
-        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_RESET);
-
-        sysled_1.hdr.block_size = sizeof(led_dev_t);
+        HAL_GPIO_WritePin(GPIOC, p_dev->gpio_pin, GPIO_PIN_SET);
     }
 
-    return (svcrt_dev_hdr_t *)&sysled_1;
+    return (svcrt_dev_hdr_t *)p_dev;
 }
 
 int32 led_drv_read(svcrt_dev_hdr_t *p, uint8 *pdata, int32 len)
@@ -73,11 +93,11 @@ int32 led_drv_write(svcrt_dev_hdr_t *p, uint8 *pdata, int32 len)
         }
         if(p_dev->led_on == 0)
         {
-            HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_SET);
+            HAL_GPIO_WritePin(GPIOC, p_dev->gpio_pin, GPIO_PIN_SET);
         }
         else
         {
-            HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(GPIOC, p_dev->gpio_pin, GPIO_PIN_RESET);
         }
         return 0;
     }
@@ -96,7 +116,7 @@ int32 led_drv_close(svcrt_dev_hdr_t *p)
     }
 
     p_dev->opened = 0;
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOC, p_dev->gpio_pin, GPIO_PIN_SET);
     return 0;
 }
 

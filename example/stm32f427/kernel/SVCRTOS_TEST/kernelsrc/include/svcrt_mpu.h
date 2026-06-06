@@ -1,13 +1,15 @@
 /**
-* @brief SVCrtOS 内存保护单元模块（内核内部）
-* @details 提供MPU区域配置和管理功能
-*          此文件仅供内核内部使用
+* @brief SVCrtOS 内存保护单元管理接口（内核内部）
+* @details 提供MPU区域配置和管理的内核侧接口。
+*          实际的MPU寄存器操作由port层的 svcrt_port_mpu_* 系列函数实现，
+*          内核不直接操作任何MPU寄存器。
 */
 
 #ifndef __SVCRT_MPU_H__
 #define __SVCRT_MPU_H__
 
 #include "svcrt_def.h"
+#include "svcrt_hal.h"
 #include "svcrt_task.h"
 #include "svcrt_config.h"
 

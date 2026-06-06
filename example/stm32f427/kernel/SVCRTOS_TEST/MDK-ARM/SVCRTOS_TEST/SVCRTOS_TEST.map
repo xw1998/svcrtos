@@ -14,7 +14,7 @@ Section Cross References
     startup_stm32f427xx.o(RESET) refers to stm32f4xx_it.o(i.MemManage_Handler) for MemManage_Handler
     startup_stm32f427xx.o(RESET) refers to stm32f4xx_it.o(i.BusFault_Handler) for BusFault_Handler
     startup_stm32f427xx.o(RESET) refers to stm32f4xx_it.o(i.UsageFault_Handler) for UsageFault_Handler
-    startup_stm32f427xx.o(RESET) refers to context_rvds.o(.text) for SVC_Handler
+    startup_stm32f427xx.o(RESET) refers to svcrt_context.o(.text) for SVC_Handler
     startup_stm32f427xx.o(RESET) refers to stm32f4xx_it.o(i.DebugMon_Handler) for DebugMon_Handler
     startup_stm32f427xx.o(RESET) refers to svcrt_board.o(i.SysTick_Handler) for SysTick_Handler
     startup_stm32f427xx.o(RESET) refers to drvuart.o(i.USART1_IRQHandler) for USART1_IRQHandler
@@ -28,6 +28,9 @@ Section Cross References
     main.o(i.SystemClock_Config) refers to rt_memclr_w.o(.text) for __aeabi_memclr4
     main.o(i.SystemClock_Config) refers to stm32f4xx_hal_rcc.o(i.HAL_RCC_OscConfig) for HAL_RCC_OscConfig
     main.o(i.SystemClock_Config) refers to stm32f4xx_hal_rcc.o(i.HAL_RCC_ClockConfig) for HAL_RCC_ClockConfig
+    main.o(i.led2_blink_task) refers to oslib.o(i.svcrt_dev_open) for svcrt_dev_open
+    main.o(i.led2_blink_task) refers to oslib.o(i.svcrt_dev_write) for svcrt_dev_write
+    main.o(i.led2_blink_task) refers to oslib.o(i.svcrt_task_wait) for svcrt_task_wait
     main.o(i.led_blink_task) refers to oslib.o(i.svcrt_dev_open) for svcrt_dev_open
     main.o(i.led_blink_task) refers to oslib.o(i.svcrt_dev_write) for svcrt_dev_write
     main.o(i.led_blink_task) refers to oslib.o(i.svcrt_task_wait) for svcrt_task_wait
@@ -43,17 +46,16 @@ Section Cross References
     main.o(i.main) refers to svcrt_event.o(i.svcrt_event_module_init) for svcrt_event_module_init
     main.o(i.main) refers to svcrt_dev.o(i.svcrt_dev_module_init) for svcrt_dev_module_init
     main.o(i.main) refers to svcrt_board.o(i.svcrt_dev_board_init) for svcrt_dev_board_init
-    main.o(i.main) refers to svcrt_board.o(i.svcrt_port_set_psp) for svcrt_port_set_psp
-    main.o(i.main) refers to svcrt_board.o(i.svcrt_port_set_control) for svcrt_port_set_control
-    main.o(i.main) refers to svcrt_board.o(i.svcrt_port_isb) for svcrt_port_isb
-    main.o(i.main) refers to svcrt_board.o(i.svcrt_port_start_timer) for svcrt_port_start_timer
-    main.o(i.main) refers to svcrt_board.o(i.svcrt_port_wfi) for svcrt_port_wfi
+    main.o(i.main) refers to svcrt_port.o(i.svcrt_port_enter_idle) for svcrt_port_enter_idle
+    main.o(i.main) refers to svcrt_port.o(i.svcrt_port_start_timer) for svcrt_port_start_timer
+    main.o(i.main) refers to svcrt_port.o(i.svcrt_port_wfi) for svcrt_port_wfi
     main.o(i.main) refers to main.o(.bss) for .bss
     main.o(i.svcrt_register_tasks) refers to svcrt_cfg.o(i.svcrt_task_stack_init) for svcrt_task_stack_init
     main.o(i.svcrt_register_tasks) refers to main.o(.bss) for .bss
     main.o(i.svcrt_register_tasks) refers to svcrt_cfg.o(.data) for svcrt_task_count
     main.o(i.svcrt_register_tasks) refers to svcrt_cfg.o(.bss) for svcrt_task_table
     main.o(i.svcrt_register_tasks) refers to main.o(i.led_blink_task) for led_blink_task
+    main.o(i.svcrt_register_tasks) refers to main.o(i.led2_blink_task) for led2_blink_task
     gpio.o(i.MX_GPIO_Init) refers to rt_memclr_w.o(.text) for __aeabi_memclr4
     gpio.o(i.MX_GPIO_Init) refers to stm32f4xx_hal_gpio.o(i.HAL_GPIO_WritePin) for HAL_GPIO_WritePin
     gpio.o(i.MX_GPIO_Init) refers to stm32f4xx_hal_gpio.o(i.HAL_GPIO_Init) for HAL_GPIO_Init
@@ -95,55 +97,54 @@ Section Cross References
     svcrt_task.o(i.SVC_Server) refers to svcrt_task.o(i.svcrt_task_kill_internal) for svcrt_task_kill_internal
     svcrt_task.o(i.SVC_Server) refers to svcrt_task.o(i.svcrt_task_wait_internal) for svcrt_task_wait_internal
     svcrt_task.o(i.SVC_Server) refers to svcrt_task.o(i.svcrt_task_wait_period_internal) for svcrt_task_wait_period_internal
-    svcrt_task.o(i.SVC_Server) refers to svcrt_task.o(i.svcrt_task_delay_internal) for svcrt_task_delay_internal
+    svcrt_task.o(i.SVC_Server) refers to svcrt_port.o(i.svcrt_port_delay_us) for svcrt_port_delay_us
     svcrt_task.o(i.SVC_Server) refers to svcrt_dev.o(i.svcrt_dev_open_internal) for svcrt_dev_open_internal
     svcrt_task.o(i.SVC_Server) refers to svcrt_dev.o(i.svcrt_dev_read_internal) for svcrt_dev_read_internal
     svcrt_task.o(i.SVC_Server) refers to svcrt_dev.o(i.svcrt_dev_write_internal) for svcrt_dev_write_internal
     svcrt_task.o(i.SVC_Server) refers to svcrt_dev.o(i.svcrt_dev_ctrl_internal) for svcrt_dev_ctrl_internal
     svcrt_task.o(i.SVC_Server) refers to svcrt_dev.o(i.svcrt_dev_close_internal) for svcrt_dev_close_internal
     svcrt_task.o(i.SVC_Server) refers to svcrt_task.o(.data) for .data
-    svcrt_task.o(i.svcrt_hardfault_handler) refers to svcrt_board.o(i.svcrt_port_switch_task) for svcrt_port_switch_task
+    svcrt_task.o(i.svcrt_hardfault_handler) refers to svcrt_port.o(i.svcrt_port_switch_task) for svcrt_port_switch_task
     svcrt_task.o(i.svcrt_hardfault_handler) refers to svcrt_task.o(.data) for .data
     svcrt_task.o(i.svcrt_hardfault_handler) refers to svcrt_cfg.o(.bss) for svcrt_task_table
     svcrt_task.o(i.svcrt_kernel_get_cpu_idle) refers to svcrt_task.o(.data) for .data
     svcrt_task.o(i.svcrt_kernel_get_tick) refers to svcrt_task.o(.data) for .data
     svcrt_task.o(i.svcrt_kernel_get_time) refers to svcrt_task.o(.data) for .data
-    svcrt_task.o(i.svcrt_kernel_tick_handler) refers to svcrt_board.o(i.svcrt_port_switch_task) for svcrt_port_switch_task
+    svcrt_task.o(i.svcrt_kernel_tick_handler) refers to svcrt_port.o(i.svcrt_port_switch_task) for svcrt_port_switch_task
     svcrt_task.o(i.svcrt_kernel_tick_handler) refers to svcrt_task.o(.data) for .data
     svcrt_task.o(i.svcrt_sched_activate) refers to svcrt_task.o(.data) for .data
     svcrt_task.o(i.svcrt_sched_activate) refers to svcrt_cfg.o(.bss) for svcrt_task_table
-    svcrt_task.o(i.svcrt_sched_activate_higher) refers to svcrt_board.o(i.svcrt_port_switch_task) for svcrt_port_switch_task
+    svcrt_task.o(i.svcrt_sched_activate_higher) refers to svcrt_port.o(i.svcrt_port_switch_task) for svcrt_port_switch_task
     svcrt_task.o(i.svcrt_sched_activate_higher) refers to svcrt_task.o(.data) for .data
     svcrt_task.o(i.svcrt_sched_activate_higher) refers to svcrt_cfg.o(.bss) for svcrt_task_table
     svcrt_task.o(i.svcrt_sched_is_switching) refers to svcrt_task.o(i.svcrt_sched_next) for svcrt_sched_next
     svcrt_task.o(i.svcrt_sched_is_switching) refers to svcrt_task.o(.data) for .data
     svcrt_task.o(i.svcrt_sched_is_switching) refers to svcrt_cfg.o(.bss) for svcrt_task_table
-    svcrt_task.o(i.svcrt_sched_next) refers to svcrt_task.o(.data) for .data
+    svcrt_task.o(i.svcrt_sched_next) refers to svcrt_task.o(i.svcrt_tick_tasks) for svcrt_tick_tasks
     svcrt_task.o(i.svcrt_sched_next) refers to svcrt_cfg.o(.bss) for svcrt_task_table
     svcrt_task.o(i.svcrt_sched_next) refers to svcrt_cfg.o(.data) for svcrt_task_count
-    svcrt_task.o(i.svcrt_sched_switch) refers to svcrt_board.o(i.svcrt_port_switch_task) for svcrt_port_switch_task
-    svcrt_task.o(i.svcrt_sched_switch) refers to svcrt_board.o(i.svcrt_port_wfe) for svcrt_port_wfe
-    svcrt_task.o(i.svcrt_task_delay_internal) refers to svcrt_board.o(i.svcrt_port_get_systick_val) for svcrt_port_get_systick_val
-    svcrt_task.o(i.svcrt_task_delay_internal) refers to svcrt_board.o(i.svcrt_port_get_systick_load) for svcrt_port_get_systick_load
-    svcrt_task.o(i.svcrt_task_delay_internal) refers to system_stm32f4xx_1.o(.data) for SystemCoreClock
-    svcrt_task.o(i.svcrt_task_get_current) refers to svcrt_board.o(i.svcrt_port_disable_irq) for svcrt_port_disable_irq
-    svcrt_task.o(i.svcrt_task_get_current) refers to svcrt_board.o(i.svcrt_port_enable_irq) for svcrt_port_enable_irq
+    svcrt_task.o(i.svcrt_sched_switch) refers to svcrt_port.o(i.svcrt_port_switch_task) for svcrt_port_switch_task
+    svcrt_task.o(i.svcrt_sched_switch) refers to svcrt_port.o(i.svcrt_port_wfe) for svcrt_port_wfe
+    svcrt_task.o(i.svcrt_task_delay_internal) refers to svcrt_port.o(i.svcrt_port_delay_us) for svcrt_port_delay_us
+    svcrt_task.o(i.svcrt_task_get_current) refers to svcrt_port.o(i.svcrt_port_disable_irq) for svcrt_port_disable_irq
+    svcrt_task.o(i.svcrt_task_get_current) refers to svcrt_port.o(i.svcrt_port_enable_irq) for svcrt_port_enable_irq
     svcrt_task.o(i.svcrt_task_get_current) refers to svcrt_task.o(.data) for .data
     svcrt_task.o(i.svcrt_task_get_current) refers to svcrt_cfg.o(.bss) for svcrt_task_table
-    svcrt_task.o(i.svcrt_task_kill_internal) refers to svcrt_board.o(i.svcrt_port_switch_task) for svcrt_port_switch_task
-    svcrt_task.o(i.svcrt_task_kill_internal) refers to svcrt_board.o(i.svcrt_port_wfe) for svcrt_port_wfe
+    svcrt_task.o(i.svcrt_task_kill_internal) refers to svcrt_port.o(i.svcrt_port_switch_task) for svcrt_port_switch_task
+    svcrt_task.o(i.svcrt_task_kill_internal) refers to svcrt_port.o(i.svcrt_port_wfe) for svcrt_port_wfe
     svcrt_task.o(i.svcrt_task_kill_internal) refers to svcrt_task.o(.data) for .data
     svcrt_task.o(i.svcrt_task_kill_internal) refers to svcrt_cfg.o(.bss) for svcrt_task_table
-    svcrt_task.o(i.svcrt_task_wait_internal) refers to svcrt_board.o(i.svcrt_port_disable_irq) for svcrt_port_disable_irq
-    svcrt_task.o(i.svcrt_task_wait_internal) refers to svcrt_board.o(i.svcrt_port_switch_task) for svcrt_port_switch_task
-    svcrt_task.o(i.svcrt_task_wait_internal) refers to svcrt_board.o(i.svcrt_port_enable_irq) for svcrt_port_enable_irq
+    svcrt_task.o(i.svcrt_task_wait_internal) refers to svcrt_port.o(i.svcrt_port_disable_irq) for svcrt_port_disable_irq
+    svcrt_task.o(i.svcrt_task_wait_internal) refers to svcrt_port.o(i.svcrt_port_switch_task) for svcrt_port_switch_task
+    svcrt_task.o(i.svcrt_task_wait_internal) refers to svcrt_port.o(i.svcrt_port_enable_irq) for svcrt_port_enable_irq
     svcrt_task.o(i.svcrt_task_wait_internal) refers to svcrt_task.o(.data) for .data
     svcrt_task.o(i.svcrt_task_wait_internal) refers to svcrt_cfg.o(.bss) for svcrt_task_table
-    svcrt_task.o(i.svcrt_task_wait_period_internal) refers to svcrt_board.o(i.svcrt_port_disable_irq) for svcrt_port_disable_irq
-    svcrt_task.o(i.svcrt_task_wait_period_internal) refers to svcrt_board.o(i.svcrt_port_switch_task) for svcrt_port_switch_task
-    svcrt_task.o(i.svcrt_task_wait_period_internal) refers to svcrt_board.o(i.svcrt_port_enable_irq) for svcrt_port_enable_irq
+    svcrt_task.o(i.svcrt_task_wait_period_internal) refers to svcrt_port.o(i.svcrt_port_disable_irq) for svcrt_port_disable_irq
+    svcrt_task.o(i.svcrt_task_wait_period_internal) refers to svcrt_port.o(i.svcrt_port_switch_task) for svcrt_port_switch_task
+    svcrt_task.o(i.svcrt_task_wait_period_internal) refers to svcrt_port.o(i.svcrt_port_enable_irq) for svcrt_port_enable_irq
     svcrt_task.o(i.svcrt_task_wait_period_internal) refers to svcrt_task.o(.data) for .data
     svcrt_task.o(i.svcrt_task_wait_period_internal) refers to svcrt_cfg.o(.bss) for svcrt_task_table
+    svcrt_task.o(i.svcrt_tick_tasks) refers to svcrt_task.o(.data) for .data
     svcrt_dev.o(i.svcrt_dev_close_internal) refers to svcrt_dev.o(.data) for .data
     svcrt_dev.o(i.svcrt_dev_close_internal) refers to svcrt_dev.o(.bss) for .bss
     svcrt_dev.o(i.svcrt_dev_ctrl_internal) refers to svcrt_dev.o(.data) for .data
@@ -169,17 +170,12 @@ Section Cross References
     svcrt_event.o(i.svcrt_event_wait_internal) refers to svcrt_task.o(i.svcrt_task_wait_period_internal) for svcrt_task_wait_period_internal
     svcrt_event.o(i.svcrt_event_wait_internal) refers to svcrt_event.o(.bss) for .bss
     svcrt_cfg.o(i.svcrt_cfg_load) refers to svcrt_cfg.o(.data) for .data
+    svcrt_cfg.o(i.svcrt_task_stack_init) refers to svcrt_port.o(i.svcrt_port_stack_init) for svcrt_port_stack_init
     svcrt_board.o(i.SysTick_Handler) refers to svcrt_task.o(i.svcrt_kernel_tick_handler) for svcrt_kernel_tick_handler
     svcrt_board.o(i.svcrt_dev_board_init) refers to svcrt_dev.o(i.svcrt_dev_register) for svcrt_dev_register
-    svcrt_board.o(i.svcrt_dev_board_init) refers to drvuart.o(.data) for usart_drv
     svcrt_board.o(i.svcrt_dev_board_init) refers to drvled.o(.data) for led_drv
+    svcrt_board.o(i.svcrt_dev_board_init) refers to drvuart.o(.data) for usart_drv
     svcrt_board.o(i.svcrt_port_irq_init) refers to svcrt_board.o(i.__NVIC_SetPriority) for __NVIC_SetPriority
-    svcrt_board.o(i.svcrt_port_start_timer) refers to lludivv7m.o(.text) for __aeabi_uldivmod
-    svcrt_board.o(i.svcrt_port_start_timer) refers to svcrt_board.o(i.__NVIC_SetPriority) for __NVIC_SetPriority
-    svcrt_board.o(i.svcrt_port_start_timer) refers to system_stm32f4xx_1.o(.data) for SystemCoreClock
-    context_rvds.o(.text) refers to svcrt_task.o(i.SVC_Server) for SVC_Server
-    context_rvds.o(.text) refers to svcrt_task.o(i.svcrt_sched_is_switching) for svcrt_sched_is_switching
-    context_rvds.o(.text) refers to svcrt_task.o(i.svcrt_sched_activate) for svcrt_sched_activate
     drvuart.o(i.USART1_IRQHandler) refers to drvuart.o(i.handle_usart_service) for handle_usart_service
     drvuart.o(i.USART1_IRQHandler) refers to drvuart.o(.bss) for .bss
     drvuart.o(i.handle_usart_service) refers to svcrt_fifo.o(i.svcrt_fifo_write) for svcrt_fifo_write
@@ -200,13 +196,23 @@ Section Cross References
     drvled.o(i.led_drv_close) refers to stm32f4xx_hal_gpio.o(i.HAL_GPIO_WritePin) for HAL_GPIO_WritePin
     drvled.o(i.led_drv_open) refers to stm32f4xx_hal_gpio.o(i.HAL_GPIO_Init) for HAL_GPIO_Init
     drvled.o(i.led_drv_open) refers to stm32f4xx_hal_gpio.o(i.HAL_GPIO_WritePin) for HAL_GPIO_WritePin
-    drvled.o(i.led_drv_open) refers to drvled.o(.data) for .data
+    drvled.o(i.led_drv_open) refers to drvled.o(.bss) for .bss
+    drvled.o(i.led_drv_open) refers to drvled.o(.constdata) for .constdata
     drvled.o(i.led_drv_write) refers to stm32f4xx_hal_gpio.o(i.HAL_GPIO_WritePin) for HAL_GPIO_WritePin
     drvled.o(.data) refers to drvled.o(i.led_drv_open) for led_drv_open
     drvled.o(.data) refers to drvled.o(i.led_drv_close) for led_drv_close
     drvled.o(.data) refers to drvled.o(i.led_drv_read) for led_drv_read
     drvled.o(.data) refers to drvled.o(i.led_drv_write) for led_drv_write
     drvled.o(.data) refers to drvled.o(i.led_drv_ctrl) for led_drv_ctrl
+    svcrt_context.o(.text) refers to svcrt_task.o(i.SVC_Server) for SVC_Server
+    svcrt_context.o(.text) refers to svcrt_task.o(i.svcrt_sched_is_switching) for svcrt_sched_is_switching
+    svcrt_context.o(.text) refers to svcrt_task.o(i.svcrt_sched_activate) for svcrt_sched_activate
+    svcrt_port.o(i.svcrt_port_delay_us) refers to system_stm32f4xx_1.o(.data) for SystemCoreClock
+    svcrt_port.o(i.svcrt_port_get_system_clock) refers to system_stm32f4xx_1.o(.data) for SystemCoreClock
+    svcrt_port.o(i.svcrt_port_irq_init) refers to svcrt_port.o(i.__NVIC_SetPriority) for __NVIC_SetPriority
+    svcrt_port.o(i.svcrt_port_start_timer) refers to lludivv7m.o(.text) for __aeabi_uldivmod
+    svcrt_port.o(i.svcrt_port_start_timer) refers to svcrt_port.o(i.__NVIC_SetPriority) for __NVIC_SetPriority
+    svcrt_port.o(i.svcrt_port_start_timer) refers to system_stm32f4xx_1.o(.data) for SystemCoreClock
     stm32f4xx_hal_rtc.o(i.HAL_RTC_AlarmIRQHandler) refers to stm32f4xx_hal_rtc.o(i.HAL_RTC_AlarmAEventCallback) for HAL_RTC_AlarmAEventCallback
     stm32f4xx_hal_rtc.o(i.HAL_RTC_AlarmIRQHandler) refers to stm32f4xx_hal_rtc_ex.o(i.HAL_RTCEx_AlarmBEventCallback) for HAL_RTCEx_AlarmBEventCallback
     stm32f4xx_hal_rtc.o(i.HAL_RTC_DeInit) refers to stm32f4xx_hal_rtc.o(i.RTC_EnterInitMode) for RTC_EnterInitMode
@@ -936,13 +942,26 @@ Removing Unused input sections from the image.
     Removing stm32f4xx_hal_msp.o(.rev16_text), (4 bytes).
     Removing stm32f4xx_hal_msp.o(.revsh_text), (4 bytes).
     Removing stm32f4xx_hal_msp.o(.rrx_text), (6 bytes).
+    Removing svcrt_task.o(.rev16_text), (4 bytes).
+    Removing svcrt_task.o(.revsh_text), (4 bytes).
+    Removing svcrt_task.o(.rrx_text), (6 bytes).
     Removing svcrt_task.o(i.svcrt_hardfault_handler), (40 bytes).
     Removing svcrt_task.o(i.svcrt_kernel_get_cpu_idle), (12 bytes).
     Removing svcrt_task.o(i.svcrt_kernel_get_tick), (12 bytes).
     Removing svcrt_task.o(i.svcrt_sched_activate_higher), (40 bytes).
     Removing svcrt_task.o(i.svcrt_sched_switch), (14 bytes).
+    Removing svcrt_task.o(i.svcrt_task_delay_internal), (4 bytes).
+    Removing svcrt_dev.o(.rev16_text), (4 bytes).
+    Removing svcrt_dev.o(.revsh_text), (4 bytes).
+    Removing svcrt_dev.o(.rrx_text), (6 bytes).
     Removing svcrt_dev.o(i.svcrt_dev_get_count), (12 bytes).
     Removing svcrt_dev.o(i.svcrt_dev_unregister), (140 bytes).
+    Removing svcrt_event.o(.rev16_text), (4 bytes).
+    Removing svcrt_event.o(.revsh_text), (4 bytes).
+    Removing svcrt_event.o(.rrx_text), (6 bytes).
+    Removing svcrt_cfg.o(.rev16_text), (4 bytes).
+    Removing svcrt_cfg.o(.revsh_text), (4 bytes).
+    Removing svcrt_cfg.o(.rrx_text), (6 bytes).
     Removing oslib.o(i.AppMain), (2 bytes).
     Removing oslib.o(i.svcrt_dev_close), (16 bytes).
     Removing oslib.o(i.svcrt_dev_ctrl), (20 bytes).
@@ -958,21 +977,31 @@ Removing Unused input sections from the image.
     Removing svcrt_board.o(.rev16_text), (4 bytes).
     Removing svcrt_board.o(.revsh_text), (4 bytes).
     Removing svcrt_board.o(.rrx_text), (6 bytes).
-    Removing svcrt_board.o(i.svcrt_port_dmb), (6 bytes).
-    Removing svcrt_board.o(i.svcrt_port_dsb), (6 bytes).
     Removing svcrt_board.o(i.svcrt_port_enable_fpu), (16 bytes).
-    Removing svcrt_board.o(i.svcrt_port_get_control), (6 bytes).
-    Removing svcrt_board.o(i.svcrt_port_nop), (4 bytes).
     Removing svcrt_board.o(i.svcrt_port_set_idle_mpu), (2 bytes).
-    Removing svcrt_mpu.o(.rev16_text), (4 bytes).
-    Removing svcrt_mpu.o(.revsh_text), (4 bytes).
-    Removing svcrt_mpu.o(.rrx_text), (6 bytes).
     Removing drvuart.o(.rev16_text), (4 bytes).
     Removing drvuart.o(.revsh_text), (4 bytes).
     Removing drvuart.o(.rrx_text), (6 bytes).
     Removing drvled.o(.rev16_text), (4 bytes).
     Removing drvled.o(.revsh_text), (4 bytes).
     Removing drvled.o(.rrx_text), (6 bytes).
+    Removing svcrt_port.o(.rev16_text), (4 bytes).
+    Removing svcrt_port.o(.revsh_text), (4 bytes).
+    Removing svcrt_port.o(.rrx_text), (6 bytes).
+    Removing svcrt_port.o(i.svcrt_port_board_init), (28 bytes).
+    Removing svcrt_port.o(i.svcrt_port_dmb), (6 bytes).
+    Removing svcrt_port.o(i.svcrt_port_dsb), (6 bytes).
+    Removing svcrt_port.o(i.svcrt_port_enable_fpu), (16 bytes).
+    Removing svcrt_port.o(i.svcrt_port_get_control), (6 bytes).
+    Removing svcrt_port.o(i.svcrt_port_get_system_clock), (12 bytes).
+    Removing svcrt_port.o(i.svcrt_port_get_systick_load), (8 bytes).
+    Removing svcrt_port.o(i.svcrt_port_get_systick_val), (8 bytes).
+    Removing svcrt_port.o(i.svcrt_port_irq_init), (56 bytes).
+    Removing svcrt_port.o(i.svcrt_port_isb), (6 bytes).
+    Removing svcrt_port.o(i.svcrt_port_nop), (4 bytes).
+    Removing svcrt_port.o(i.svcrt_port_set_control), (10 bytes).
+    Removing svcrt_port.o(i.svcrt_port_set_idle_mpu), (2 bytes).
+    Removing svcrt_port.o(i.svcrt_port_set_psp), (6 bytes).
     Removing stm32f4xx_hal_rtc.o(.rev16_text), (4 bytes).
     Removing stm32f4xx_hal_rtc.o(.revsh_text), (4 bytes).
     Removing stm32f4xx_hal_rtc.o(.rrx_text), (6 bytes).
@@ -1536,7 +1565,7 @@ Removing Unused input sections from the image.
     Removing stm32f4xx_ll_usb.o(i.USB_StopHost), (138 bytes).
     Removing stm32f4xx_ll_usb.o(i.USB_WritePacket), (40 bytes).
 
-644 unused section(s) (total 44604 bytes) removed from the image.
+667 unused section(s) (total 44816 bytes) removed from the image.
 
 ==============================================================================
 
@@ -1579,66 +1608,64 @@ Image Symbol Table
     ../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.c 0x00000000   Number         0  stm32f4xx_hal_uart.o ABSOLUTE
     ../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_ll_sdmmc.c 0x00000000   Number         0  stm32f4xx_ll_sdmmc.o ABSOLUTE
     ../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_ll_usb.c 0x00000000   Number         0  stm32f4xx_ll_usb.o ABSOLUTE
-    ../clib/angel/boardlib.s                 0x00000000   Number         0  boardinit3.o ABSOLUTE
-    ../clib/angel/boardlib.s                 0x00000000   Number         0  boardshut.o ABSOLUTE
     ../clib/angel/boardlib.s                 0x00000000   Number         0  boardinit1.o ABSOLUTE
     ../clib/angel/boardlib.s                 0x00000000   Number         0  boardinit2.o ABSOLUTE
-    ../clib/angel/handlers.s                 0x00000000   Number         0  __scatter_zi.o ABSOLUTE
+    ../clib/angel/boardlib.s                 0x00000000   Number         0  boardinit3.o ABSOLUTE
+    ../clib/angel/boardlib.s                 0x00000000   Number         0  boardshut.o ABSOLUTE
     ../clib/angel/handlers.s                 0x00000000   Number         0  __scatter_copy.o ABSOLUTE
-    ../clib/angel/kernel.s                   0x00000000   Number         0  rtexit2.o ABSOLUTE
+    ../clib/angel/handlers.s                 0x00000000   Number         0  __scatter_zi.o ABSOLUTE
     ../clib/angel/kernel.s                   0x00000000   Number         0  rtexit.o ABSOLUTE
+    ../clib/angel/kernel.s                   0x00000000   Number         0  rtexit2.o ABSOLUTE
+    ../clib/angel/kernel.s                   0x00000000   Number         0  __rtentry.o ABSOLUTE
     ../clib/angel/kernel.s                   0x00000000   Number         0  __rtentry4.o ABSOLUTE
     ../clib/angel/kernel.s                   0x00000000   Number         0  __rtentry2.o ABSOLUTE
-    ../clib/angel/kernel.s                   0x00000000   Number         0  __rtentry.o ABSOLUTE
-    ../clib/angel/rt.s                       0x00000000   Number         0  aeabi_ldiv0_sigfpe.o ABSOLUTE
+    ../clib/angel/rt.s                       0x00000000   Number         0  rt_raise.o ABSOLUTE
     ../clib/angel/rt.s                       0x00000000   Number         0  aeabi_ldiv0.o ABSOLUTE
     ../clib/angel/rt.s                       0x00000000   Number         0  rt_div0.o ABSOLUTE
-    ../clib/angel/rt.s                       0x00000000   Number         0  rt_raise.o ABSOLUTE
+    ../clib/angel/rt.s                       0x00000000   Number         0  aeabi_ldiv0_sigfpe.o ABSOLUTE
     ../clib/angel/scatter.s                  0x00000000   Number         0  __scatter.o ABSOLUTE
     ../clib/angel/startup.s                  0x00000000   Number         0  __main.o ABSOLUTE
-    ../clib/angel/sys.s                      0x00000000   Number         0  use_no_semi.o ABSOLUTE
-    ../clib/angel/sys.s                      0x00000000   Number         0  libspace.o ABSOLUTE
     ../clib/angel/sys.s                      0x00000000   Number         0  sys_stackheap_outer.o ABSOLUTE
     ../clib/angel/sys.s                      0x00000000   Number         0  indicate_semi.o ABSOLUTE
-    ../clib/angel/sysapp.c                   0x00000000   Number         0  sys_wrch.o ABSOLUTE
+    ../clib/angel/sys.s                      0x00000000   Number         0  use_no_semi.o ABSOLUTE
+    ../clib/angel/sys.s                      0x00000000   Number         0  libspace.o ABSOLUTE
     ../clib/angel/sysapp.c                   0x00000000   Number         0  sys_exit.o ABSOLUTE
+    ../clib/angel/sysapp.c                   0x00000000   Number         0  sys_wrch.o ABSOLUTE
     ../clib/angel/sysapp.c                   0x00000000   Number         0  sys_command.o ABSOLUTE
-    ../clib/armsys.c                         0x00000000   Number         0  argv_veneer.o ABSOLUTE
+    ../clib/armsys.c                         0x00000000   Number         0  _get_argv_nomalloc.o ABSOLUTE
     ../clib/armsys.c                         0x00000000   Number         0  argv_veneer.o ABSOLUTE
     ../clib/armsys.c                         0x00000000   Number         0  no_argv.o ABSOLUTE
-    ../clib/armsys.c                         0x00000000   Number         0  _get_argv_nomalloc.o ABSOLUTE
+    ../clib/armsys.c                         0x00000000   Number         0  argv_veneer.o ABSOLUTE
     ../clib/heapalloc.c                      0x00000000   Number         0  hrguard.o ABSOLUTE
     ../clib/heapaux.c                        0x00000000   Number         0  heapauxi.o ABSOLUTE
-    ../clib/libinit.s                        0x00000000   Number         0  libshutdown2.o ABSOLUTE
-    ../clib/libinit.s                        0x00000000   Number         0  libshutdown.o ABSOLUTE
     ../clib/libinit.s                        0x00000000   Number         0  libinit2.o ABSOLUTE
+    ../clib/libinit.s                        0x00000000   Number         0  libshutdown.o ABSOLUTE
+    ../clib/libinit.s                        0x00000000   Number         0  libshutdown2.o ABSOLUTE
     ../clib/libinit.s                        0x00000000   Number         0  libinit.o ABSOLUTE
     ../clib/longlong.s                       0x00000000   Number         0  lludivv7m.o ABSOLUTE
     ../clib/memcpset.s                       0x00000000   Number         0  rt_memclr_w.o ABSOLUTE
-    ../clib/signal.c                         0x00000000   Number         0  defsig_segv_inner.o ABSOLUTE
-    ../clib/signal.c                         0x00000000   Number         0  defsig_other.o ABSOLUTE
-    ../clib/signal.c                         0x00000000   Number         0  defsig_fpe_outer.o ABSOLUTE
-    ../clib/signal.c                         0x00000000   Number         0  defsig_cppl_inner.o ABSOLUTE
-    ../clib/signal.c                         0x00000000   Number         0  defsig_general.o ABSOLUTE
-    ../clib/signal.c                         0x00000000   Number         0  defsig_pvfn_inner.o ABSOLUTE
-    ../clib/signal.c                         0x00000000   Number         0  defsig_stak_inner.o ABSOLUTE
-    ../clib/signal.c                         0x00000000   Number         0  defsig_rtmem_formal.o ABSOLUTE
-    ../clib/signal.c                         0x00000000   Number         0  defsig_rtmem_outer.o ABSOLUTE
     ../clib/signal.c                         0x00000000   Number         0  defsig_fpe_inner.o ABSOLUTE
-    ../clib/signal.c                         0x00000000   Number         0  defsig_abrt_inner.o ABSOLUTE
     ../clib/signal.c                         0x00000000   Number         0  defsig_exit.o ABSOLUTE
     ../clib/signal.c                         0x00000000   Number         0  defsig_rtmem_inner.o ABSOLUTE
-    ../clib/signal.c                         0x00000000   Number         0  defsig_rtred_inner.o ABSOLUTE
-    ../clib/signal.c                         0x00000000   Number         0  __raise.o ABSOLUTE
+    ../clib/signal.c                         0x00000000   Number         0  defsig_rtmem_outer.o ABSOLUTE
+    ../clib/signal.c                         0x00000000   Number         0  defsig_other.o ABSOLUTE
+    ../clib/signal.c                         0x00000000   Number         0  defsig_general.o ABSOLUTE
+    ../clib/signal.c                         0x00000000   Number         0  defsig_segv_inner.o ABSOLUTE
+    ../clib/signal.c                         0x00000000   Number         0  defsig_cppl_inner.o ABSOLUTE
+    ../clib/signal.c                         0x00000000   Number         0  defsig_fpe_outer.o ABSOLUTE
     ../clib/signal.c                         0x00000000   Number         0  defsig_fpe_formal.o ABSOLUTE
+    ../clib/signal.c                         0x00000000   Number         0  defsig_pvfn_inner.o ABSOLUTE
+    ../clib/signal.c                         0x00000000   Number         0  defsig_stak_inner.o ABSOLUTE
+    ../clib/signal.c                         0x00000000   Number         0  defsig_abrt_inner.o ABSOLUTE
+    ../clib/signal.c                         0x00000000   Number         0  defsig_rtmem_formal.o ABSOLUTE
+    ../clib/signal.c                         0x00000000   Number         0  __raise.o ABSOLUTE
+    ../clib/signal.c                         0x00000000   Number         0  defsig_rtred_inner.o ABSOLUTE
     ../clib/signal.s                         0x00000000   Number         0  defsig.o ABSOLUTE
     ../clib/stdlib.c                         0x00000000   Number         0  exit.o ABSOLUTE
     ../fplib/fpinit.s                        0x00000000   Number         0  fpinit.o ABSOLUTE
-    ..\..\..\..\..\board\stm32f427\context_rvds.S 0x00000000   Number         0  context_rvds.o ABSOLUTE
     ..\..\..\..\..\board\stm32f427\drvled.c  0x00000000   Number         0  drvled.o ABSOLUTE
     ..\..\..\..\..\board\stm32f427\drvuart.c 0x00000000   Number         0  drvuart.o ABSOLUTE
     ..\..\..\..\..\board\stm32f427\svcrt_board.c 0x00000000   Number         0  svcrt_board.o ABSOLUTE
-    ..\..\..\..\..\board\stm32f427\svcrt_mpu.c 0x00000000   Number         0  svcrt_mpu.o ABSOLUTE
     ..\..\..\..\..\kernelsrc\app\oslib.c     0x00000000   Number         0  oslib.o ABSOLUTE
     ..\..\..\..\..\kernelsrc\src\svcrt_cfg.c 0x00000000   Number         0  svcrt_cfg.o ABSOLUTE
     ..\..\..\..\..\kernelsrc\src\svcrt_dev.c 0x00000000   Number         0  svcrt_dev.o ABSOLUTE
@@ -1681,7 +1708,13 @@ Image Symbol Table
     ..\\..\\..\\..\\..\\board\\stm32f427\\drvled.c 0x00000000   Number         0  drvled.o ABSOLUTE
     ..\\..\\..\\..\\..\\board\\stm32f427\\drvuart.c 0x00000000   Number         0  drvuart.o ABSOLUTE
     ..\\..\\..\\..\\..\\board\\stm32f427\\svcrt_board.c 0x00000000   Number         0  svcrt_board.o ABSOLUTE
-    ..\\..\\..\\..\\..\\board\\stm32f427\\svcrt_mpu.c 0x00000000   Number         0  svcrt_mpu.o ABSOLUTE
+    ..\\..\\..\\..\\..\\kernelsrc\\src\\svcrt_cfg.c 0x00000000   Number         0  svcrt_cfg.o ABSOLUTE
+    ..\\..\\..\\..\\..\\kernelsrc\\src\\svcrt_dev.c 0x00000000   Number         0  svcrt_dev.o ABSOLUTE
+    ..\\..\\..\\..\\..\\kernelsrc\\src\\svcrt_event.c 0x00000000   Number         0  svcrt_event.o ABSOLUTE
+    ..\\..\\..\\..\\..\\kernelsrc\\src\\svcrt_task.c 0x00000000   Number         0  svcrt_task.o ABSOLUTE
+    ..\\kernelsrc\\port\\arm\\cortex-m4\\svcrt_port.c 0x00000000   Number         0  svcrt_port.o ABSOLUTE
+    ..\kernelsrc\port\arm\cortex-m4\svcrt_context.S 0x00000000   Number         0  svcrt_context.o ABSOLUTE
+    ..\kernelsrc\port\arm\cortex-m4\svcrt_port.c 0x00000000   Number         0  svcrt_port.o ABSOLUTE
     dc.s                                     0x00000000   Number         0  dc.o ABSOLUTE
     startup_stm32f427xx.s                    0x00000000   Number         0  startup_stm32f427xx.o ABSOLUTE
     RESET                                    0x08000000   Section      428  startup_stm32f427xx.o(RESET)
@@ -1733,8 +1766,8 @@ Image Symbol Table
     .ARM.Collect$$rtexit$$00000004           0x08000244   Section        6  rtexit2.o(.ARM.Collect$$rtexit$$00000004)
     .text                                    0x0800024c   Section       64  startup_stm32f427xx.o(.text)
     $v0                                      0x0800024c   Number         0  startup_stm32f427xx.o(.text)
-    .text                                    0x0800028c   Section       60  context_rvds.o(.text)
-    $v0                                      0x0800028c   Number         0  context_rvds.o(.text)
+    .text                                    0x0800028c   Section       60  svcrt_context.o(.text)
+    $v0                                      0x0800028c   Number         0  svcrt_context.o(.text)
     .text                                    0x080002c8   Section      238  lludivv7m.o(.text)
     .text                                    0x080003b6   Section       78  rt_memclr_w.o(.text)
     .text                                    0x08000404   Section        0  heapauxi.o(.text)
@@ -1786,72 +1819,77 @@ Image Symbol Table
     i.UsageFault_Handler                     0x0800162c   Section        0  stm32f4xx_it.o(i.UsageFault_Handler)
     i.__NVIC_SetPriority                     0x0800162e   Section        0  svcrt_board.o(i.__NVIC_SetPriority)
     __NVIC_SetPriority                       0x0800162f   Thumb Code    32  svcrt_board.o(i.__NVIC_SetPriority)
-    i.__NVIC_SetPriority                     0x0800164e   Section        0  stm32f4xx_hal_cortex.o(i.__NVIC_SetPriority)
-    __NVIC_SetPriority                       0x0800164f   Thumb Code    32  stm32f4xx_hal_cortex.o(i.__NVIC_SetPriority)
-    i.handle_usart_service                   0x0800166e   Section        0  drvuart.o(i.handle_usart_service)
-    handle_usart_service                     0x0800166f   Thumb Code    94  drvuart.o(i.handle_usart_service)
-    i.led_blink_task                         0x080016cc   Section        0  main.o(i.led_blink_task)
-    led_blink_task                           0x080016cd   Thumb Code    56  main.o(i.led_blink_task)
-    i.led_drv_close                          0x08001708   Section        0  drvled.o(i.led_drv_close)
-    i.led_drv_ctrl                           0x08001730   Section        0  drvled.o(i.led_drv_ctrl)
-    i.led_drv_open                           0x08001734   Section        0  drvled.o(i.led_drv_open)
-    i.led_drv_read                           0x0800178c   Section        0  drvled.o(i.led_drv_read)
-    i.led_drv_write                          0x080017a4   Section        0  drvled.o(i.led_drv_write)
-    i.main                                   0x080017fc   Section        0  main.o(i.main)
-    i.svcrt_cfg_load                         0x08001854   Section        0  svcrt_cfg.o(i.svcrt_cfg_load)
-    i.svcrt_dev_board_init                   0x08001860   Section        0  svcrt_board.o(i.svcrt_dev_board_init)
-    i.svcrt_dev_close_internal               0x08001890   Section        0  svcrt_dev.o(i.svcrt_dev_close_internal)
-    i.svcrt_dev_ctrl_internal                0x080018e0   Section        0  svcrt_dev.o(i.svcrt_dev_ctrl_internal)
-    i.svcrt_dev_module_init                  0x08001924   Section        0  svcrt_dev.o(i.svcrt_dev_module_init)
-    i.svcrt_dev_open                         0x08001954   Section        0  oslib.o(i.svcrt_dev_open)
-    i.svcrt_dev_open_internal                0x08001968   Section        0  svcrt_dev.o(i.svcrt_dev_open_internal)
-    i.svcrt_dev_read_internal                0x080019c4   Section        0  svcrt_dev.o(i.svcrt_dev_read_internal)
-    i.svcrt_dev_register                     0x08001a08   Section        0  svcrt_dev.o(i.svcrt_dev_register)
-    i.svcrt_dev_write                        0x08001a88   Section        0  oslib.o(i.svcrt_dev_write)
-    i.svcrt_dev_write_internal               0x08001a9c   Section        0  svcrt_dev.o(i.svcrt_dev_write_internal)
-    i.svcrt_event_create_internal            0x08001ae0   Section        0  svcrt_event.o(i.svcrt_event_create_internal)
-    i.svcrt_event_module_init                0x08001b1c   Section        0  svcrt_event.o(i.svcrt_event_module_init)
-    i.svcrt_event_set_internal               0x08001b4c   Section        0  svcrt_event.o(i.svcrt_event_set_internal)
-    i.svcrt_event_wait_internal              0x08001b80   Section        0  svcrt_event.o(i.svcrt_event_wait_internal)
-    i.svcrt_fifo_create                      0x08001bd4   Section        0  svcrt_fifo.o(i.svcrt_fifo_create)
-    i.svcrt_fifo_read                        0x08001bee   Section        0  svcrt_fifo.o(i.svcrt_fifo_read)
-    i.svcrt_fifo_write                       0x08001c2c   Section        0  svcrt_fifo.o(i.svcrt_fifo_write)
-    i.svcrt_kernel_get_time                  0x08001c64   Section        0  svcrt_task.o(i.svcrt_kernel_get_time)
-    i.svcrt_kernel_tick_handler              0x08001c70   Section        0  svcrt_task.o(i.svcrt_kernel_tick_handler)
-    i.svcrt_port_board_init                  0x08001ca0   Section        0  svcrt_board.o(i.svcrt_port_board_init)
-    i.svcrt_port_disable_irq                 0x08001cb0   Section        0  svcrt_board.o(i.svcrt_port_disable_irq)
-    i.svcrt_port_enable_irq                  0x08001cb4   Section        0  svcrt_board.o(i.svcrt_port_enable_irq)
-    i.svcrt_port_get_systick_load            0x08001cb8   Section        0  svcrt_board.o(i.svcrt_port_get_systick_load)
-    i.svcrt_port_get_systick_val             0x08001cc0   Section        0  svcrt_board.o(i.svcrt_port_get_systick_val)
-    i.svcrt_port_irq_init                    0x08001cc8   Section        0  svcrt_board.o(i.svcrt_port_irq_init)
-    i.svcrt_port_isb                         0x08001d00   Section        0  svcrt_board.o(i.svcrt_port_isb)
-    i.svcrt_port_set_control                 0x08001d06   Section        0  svcrt_board.o(i.svcrt_port_set_control)
-    i.svcrt_port_set_psp                     0x08001d10   Section        0  svcrt_board.o(i.svcrt_port_set_psp)
-    i.svcrt_port_start_timer                 0x08001d18   Section        0  svcrt_board.o(i.svcrt_port_start_timer)
-    i.svcrt_port_switch_task                 0x08001d54   Section        0  svcrt_board.o(i.svcrt_port_switch_task)
-    i.svcrt_port_wfe                         0x08001d64   Section        0  svcrt_board.o(i.svcrt_port_wfe)
-    i.svcrt_port_wfi                         0x08001d68   Section        0  svcrt_board.o(i.svcrt_port_wfi)
-    i.svcrt_register_tasks                   0x08001d6c   Section        0  main.o(i.svcrt_register_tasks)
-    svcrt_register_tasks                     0x08001d6d   Thumb Code    82  main.o(i.svcrt_register_tasks)
-    i.svcrt_sched_activate                   0x08001dd0   Section        0  svcrt_task.o(i.svcrt_sched_activate)
-    i.svcrt_sched_is_switching               0x08001e38   Section        0  svcrt_task.o(i.svcrt_sched_is_switching)
-    i.svcrt_sched_next                       0x08001e6c   Section        0  svcrt_task.o(i.svcrt_sched_next)
-    i.svcrt_task_delay_internal              0x08001f44   Section        0  svcrt_task.o(i.svcrt_task_delay_internal)
-    i.svcrt_task_get_current                 0x08001f84   Section        0  svcrt_task.o(i.svcrt_task_get_current)
-    i.svcrt_task_kill_internal               0x08001fb0   Section        0  svcrt_task.o(i.svcrt_task_kill_internal)
-    i.svcrt_task_stack_init                  0x08001fe0   Section        0  svcrt_cfg.o(i.svcrt_task_stack_init)
-    i.svcrt_task_wait                        0x08002030   Section        0  oslib.o(i.svcrt_task_wait)
-    i.svcrt_task_wait_internal               0x08002038   Section        0  svcrt_task.o(i.svcrt_task_wait_internal)
-    i.svcrt_task_wait_period_internal        0x0800207c   Section        0  svcrt_task.o(i.svcrt_task_wait_period_internal)
-    i.uart_drv_close                         0x080020b0   Section        0  drvuart.o(i.uart_drv_close)
-    i.uart_drv_ctrl                          0x080020d0   Section        0  drvuart.o(i.uart_drv_ctrl)
-    i.uart_drv_open                          0x080020d4   Section        0  drvuart.o(i.uart_drv_open)
-    i.uart_drv_read                          0x080021bc   Section        0  drvuart.o(i.uart_drv_read)
-    i.uart_drv_write                         0x080021d0   Section        0  drvuart.o(i.uart_drv_write)
-    x$fpl$fpinit                             0x08002204   Section       10  fpinit.o(x$fpl$fpinit)
-    $v0                                      0x08002204   Number         0  fpinit.o(x$fpl$fpinit)
-    .constdata                               0x0800220e   Section       16  system_stm32f4xx_1.o(.constdata)
-    .constdata                               0x0800221e   Section        8  system_stm32f4xx_1.o(.constdata)
+    i.__NVIC_SetPriority                     0x0800164e   Section        0  svcrt_port.o(i.__NVIC_SetPriority)
+    __NVIC_SetPriority                       0x0800164f   Thumb Code    32  svcrt_port.o(i.__NVIC_SetPriority)
+    i.__NVIC_SetPriority                     0x0800166e   Section        0  stm32f4xx_hal_cortex.o(i.__NVIC_SetPriority)
+    __NVIC_SetPriority                       0x0800166f   Thumb Code    32  stm32f4xx_hal_cortex.o(i.__NVIC_SetPriority)
+    i.handle_usart_service                   0x0800168e   Section        0  drvuart.o(i.handle_usart_service)
+    handle_usart_service                     0x0800168f   Thumb Code    94  drvuart.o(i.handle_usart_service)
+    i.led2_blink_task                        0x080016ec   Section        0  main.o(i.led2_blink_task)
+    led2_blink_task                          0x080016ed   Thumb Code    56  main.o(i.led2_blink_task)
+    i.led_blink_task                         0x0800172c   Section        0  main.o(i.led_blink_task)
+    led_blink_task                           0x0800172d   Thumb Code    56  main.o(i.led_blink_task)
+    i.led_drv_close                          0x08001768   Section        0  drvled.o(i.led_drv_close)
+    i.led_drv_ctrl                           0x08001790   Section        0  drvled.o(i.led_drv_ctrl)
+    i.led_drv_open                           0x08001794   Section        0  drvled.o(i.led_drv_open)
+    i.led_drv_read                           0x08001804   Section        0  drvled.o(i.led_drv_read)
+    i.led_drv_write                          0x0800181c   Section        0  drvled.o(i.led_drv_write)
+    i.main                                   0x08001878   Section        0  main.o(i.main)
+    i.svcrt_cfg_load                         0x080018c8   Section        0  svcrt_cfg.o(i.svcrt_cfg_load)
+    i.svcrt_dev_board_init                   0x080018d4   Section        0  svcrt_board.o(i.svcrt_dev_board_init)
+    i.svcrt_dev_close_internal               0x08001914   Section        0  svcrt_dev.o(i.svcrt_dev_close_internal)
+    i.svcrt_dev_ctrl_internal                0x08001964   Section        0  svcrt_dev.o(i.svcrt_dev_ctrl_internal)
+    i.svcrt_dev_module_init                  0x080019a8   Section        0  svcrt_dev.o(i.svcrt_dev_module_init)
+    i.svcrt_dev_open                         0x080019d8   Section        0  oslib.o(i.svcrt_dev_open)
+    i.svcrt_dev_open_internal                0x080019ec   Section        0  svcrt_dev.o(i.svcrt_dev_open_internal)
+    i.svcrt_dev_read_internal                0x08001a48   Section        0  svcrt_dev.o(i.svcrt_dev_read_internal)
+    i.svcrt_dev_register                     0x08001a8c   Section        0  svcrt_dev.o(i.svcrt_dev_register)
+    i.svcrt_dev_write                        0x08001b0c   Section        0  oslib.o(i.svcrt_dev_write)
+    i.svcrt_dev_write_internal               0x08001b20   Section        0  svcrt_dev.o(i.svcrt_dev_write_internal)
+    i.svcrt_event_create_internal            0x08001b64   Section        0  svcrt_event.o(i.svcrt_event_create_internal)
+    i.svcrt_event_module_init                0x08001ba0   Section        0  svcrt_event.o(i.svcrt_event_module_init)
+    i.svcrt_event_set_internal               0x08001bd0   Section        0  svcrt_event.o(i.svcrt_event_set_internal)
+    i.svcrt_event_wait_internal              0x08001c04   Section        0  svcrt_event.o(i.svcrt_event_wait_internal)
+    i.svcrt_fifo_create                      0x08001c58   Section        0  svcrt_fifo.o(i.svcrt_fifo_create)
+    i.svcrt_fifo_read                        0x08001c72   Section        0  svcrt_fifo.o(i.svcrt_fifo_read)
+    i.svcrt_fifo_write                       0x08001cb0   Section        0  svcrt_fifo.o(i.svcrt_fifo_write)
+    i.svcrt_kernel_get_time                  0x08001ce8   Section        0  svcrt_task.o(i.svcrt_kernel_get_time)
+    i.svcrt_kernel_tick_handler              0x08001cf4   Section        0  svcrt_task.o(i.svcrt_kernel_tick_handler)
+    i.svcrt_port_board_init                  0x08001d24   Section        0  svcrt_board.o(i.svcrt_port_board_init)
+    i.svcrt_port_delay_us                    0x08001d40   Section        0  svcrt_port.o(i.svcrt_port_delay_us)
+    i.svcrt_port_disable_irq                 0x08001d74   Section        0  svcrt_port.o(i.svcrt_port_disable_irq)
+    i.svcrt_port_enable_irq                  0x08001d78   Section        0  svcrt_port.o(i.svcrt_port_enable_irq)
+    i.svcrt_port_enter_idle                  0x08001d7c   Section        0  svcrt_port.o(i.svcrt_port_enter_idle)
+    i.svcrt_port_irq_init                    0x08001da0   Section        0  svcrt_board.o(i.svcrt_port_irq_init)
+    i.svcrt_port_stack_init                  0x08001dd8   Section        0  svcrt_port.o(i.svcrt_port_stack_init)
+    i.svcrt_port_start_timer                 0x08001e20   Section        0  svcrt_port.o(i.svcrt_port_start_timer)
+    i.svcrt_port_switch_task                 0x08001e5c   Section        0  svcrt_port.o(i.svcrt_port_switch_task)
+    i.svcrt_port_wfe                         0x08001e6c   Section        0  svcrt_port.o(i.svcrt_port_wfe)
+    i.svcrt_port_wfi                         0x08001e70   Section        0  svcrt_port.o(i.svcrt_port_wfi)
+    i.svcrt_register_tasks                   0x08001e74   Section        0  main.o(i.svcrt_register_tasks)
+    svcrt_register_tasks                     0x08001e75   Thumb Code   158  main.o(i.svcrt_register_tasks)
+    i.svcrt_sched_activate                   0x08001f2c   Section        0  svcrt_task.o(i.svcrt_sched_activate)
+    i.svcrt_sched_is_switching               0x08001f94   Section        0  svcrt_task.o(i.svcrt_sched_is_switching)
+    i.svcrt_sched_next                       0x08001fc8   Section        0  svcrt_task.o(i.svcrt_sched_next)
+    i.svcrt_task_get_current                 0x0800202c   Section        0  svcrt_task.o(i.svcrt_task_get_current)
+    i.svcrt_task_kill_internal               0x08002058   Section        0  svcrt_task.o(i.svcrt_task_kill_internal)
+    i.svcrt_task_stack_init                  0x08002088   Section        0  svcrt_cfg.o(i.svcrt_task_stack_init)
+    i.svcrt_task_wait                        0x0800209e   Section        0  oslib.o(i.svcrt_task_wait)
+    i.svcrt_task_wait_internal               0x080020a8   Section        0  svcrt_task.o(i.svcrt_task_wait_internal)
+    i.svcrt_task_wait_period_internal        0x080020ec   Section        0  svcrt_task.o(i.svcrt_task_wait_period_internal)
+    i.svcrt_tick_tasks                       0x08002120   Section        0  svcrt_task.o(i.svcrt_tick_tasks)
+    svcrt_tick_tasks                         0x08002121   Thumb Code    82  svcrt_task.o(i.svcrt_tick_tasks)
+    i.uart_drv_close                         0x08002178   Section        0  drvuart.o(i.uart_drv_close)
+    i.uart_drv_ctrl                          0x08002198   Section        0  drvuart.o(i.uart_drv_ctrl)
+    i.uart_drv_open                          0x0800219c   Section        0  drvuart.o(i.uart_drv_open)
+    i.uart_drv_read                          0x08002284   Section        0  drvuart.o(i.uart_drv_read)
+    i.uart_drv_write                         0x08002298   Section        0  drvuart.o(i.uart_drv_write)
+    x$fpl$fpinit                             0x080022cc   Section       10  fpinit.o(x$fpl$fpinit)
+    $v0                                      0x080022cc   Number         0  fpinit.o(x$fpl$fpinit)
+    .constdata                               0x080022d6   Section       16  system_stm32f4xx_1.o(.constdata)
+    .constdata                               0x080022e6   Section        8  system_stm32f4xx_1.o(.constdata)
+    .constdata                               0x080022ee   Section        6  drvled.o(.constdata)
+    led_gpio_pins                            0x080022ee   Data           6  drvled.o(.constdata)
     .data                                    0x20000000   Section        4  system_stm32f4xx_1.o(.data)
     .data                                    0x20000004   Section       16  svcrt_task.o(.data)
     svcrt_idle_stack_ptr                     0x20000010   Data           4  svcrt_task.o(.data)
@@ -1860,30 +1898,31 @@ Image Symbol Table
     .data                                    0x20000018   Section        4  svcrt_cfg.o(.data)
     .data                                    0x2000001c   Section       20  drvuart.o(.data)
     .data                                    0x20000030   Section       20  drvled.o(.data)
-    .data                                    0x20000044   Section        8  drvled.o(.data)
-    sysled_1                                 0x20000044   Data           8  drvled.o(.data)
-    .data                                    0x2000004c   Section       12  stm32f4xx_hal.o(.data)
-    .bss                                     0x20000058   Section     2048  main.o(.bss)
-    svcrt_idle_stack                         0x20000058   Data        1024  main.o(.bss)
-    led_task_stack                           0x20000458   Data        1024  main.o(.bss)
-    .bss                                     0x20000858   Section       32  rtc.o(.bss)
-    .bss                                     0x20000878   Section       72  usart.o(.bss)
-    .bss                                     0x200008c0   Section      160  svcrt_dev.o(.bss)
-    svcrt_dev_list                           0x200008c0   Data         128  svcrt_dev.o(.bss)
-    svcrt_dev_handles                        0x20000940   Data          32  svcrt_dev.o(.bss)
-    .bss                                     0x20000960   Section      320  svcrt_event.o(.bss)
-    svcrt_events                             0x20000960   Data         320  svcrt_event.o(.bss)
-    .bss                                     0x20000aa0   Section      420  svcrt_cfg.o(.bss)
-    .bss                                     0x20000c44   Section      348  drvuart.o(.bss)
-    uart_dev_list                            0x20000c44   Data          20  drvuart.o(.bss)
-    uart_pipe_array                          0x20000c58   Data         256  drvuart.o(.bss)
-    uart_handle                              0x20000d58   Data          72  drvuart.o(.bss)
-    .bss                                     0x20000da0   Section       96  libspace.o(.bss)
-    HEAP                                     0x20000e00   Section      512  startup_stm32f427xx.o(HEAP)
-    Heap_Mem                                 0x20000e00   Data         512  startup_stm32f427xx.o(HEAP)
-    STACK                                    0x20001000   Section     1024  startup_stm32f427xx.o(STACK)
-    Stack_Mem                                0x20001000   Data        1024  startup_stm32f427xx.o(STACK)
-    __initial_sp                             0x20001400   Data           0  startup_stm32f427xx.o(STACK)
+    .data                                    0x20000044   Section       12  stm32f4xx_hal.o(.data)
+    .bss                                     0x20000050   Section     6144  main.o(.bss)
+    svcrt_idle_stack                         0x20000050   Data        2048  main.o(.bss)
+    led_task_stack                           0x20000850   Data        2048  main.o(.bss)
+    led2_task_stack                          0x20001050   Data        2048  main.o(.bss)
+    .bss                                     0x20001850   Section       32  rtc.o(.bss)
+    .bss                                     0x20001870   Section       72  usart.o(.bss)
+    .bss                                     0x200018b8   Section      160  svcrt_dev.o(.bss)
+    svcrt_dev_list                           0x200018b8   Data         128  svcrt_dev.o(.bss)
+    svcrt_dev_handles                        0x20001938   Data          32  svcrt_dev.o(.bss)
+    .bss                                     0x20001958   Section      320  svcrt_event.o(.bss)
+    svcrt_events                             0x20001958   Data         320  svcrt_event.o(.bss)
+    .bss                                     0x20001a98   Section      420  svcrt_cfg.o(.bss)
+    .bss                                     0x20001c3c   Section      348  drvuart.o(.bss)
+    uart_dev_list                            0x20001c3c   Data          20  drvuart.o(.bss)
+    uart_pipe_array                          0x20001c50   Data         256  drvuart.o(.bss)
+    uart_handle                              0x20001d50   Data          72  drvuart.o(.bss)
+    .bss                                     0x20001d98   Section       24  drvled.o(.bss)
+    sysled                                   0x20001d98   Data          24  drvled.o(.bss)
+    .bss                                     0x20001db0   Section       96  libspace.o(.bss)
+    HEAP                                     0x20001e10   Section      512  startup_stm32f427xx.o(HEAP)
+    Heap_Mem                                 0x20001e10   Data         512  startup_stm32f427xx.o(HEAP)
+    STACK                                    0x20002010   Section     1024  startup_stm32f427xx.o(STACK)
+    Stack_Mem                                0x20002010   Data        1024  startup_stm32f427xx.o(STACK)
+    __initial_sp                             0x20002410   Data           0  startup_stm32f427xx.o(STACK)
 
     Global Symbols
 
@@ -2061,8 +2100,8 @@ Image Symbol Table
     USART6_IRQHandler                        0x08000267   Thumb Code     0  startup_stm32f427xx.o(.text)
     WWDG_IRQHandler                          0x08000267   Thumb Code     0  startup_stm32f427xx.o(.text)
     __user_initial_stackheap                 0x08000269   Thumb Code     0  startup_stm32f427xx.o(.text)
-    PendSV_Handler                           0x0800028d   Thumb Code    34  context_rvds.o(.text)
-    SVC_Handler                              0x080002af   Thumb Code    18  context_rvds.o(.text)
+    PendSV_Handler                           0x0800028d   Thumb Code    34  svcrt_context.o(.text)
+    SVC_Handler                              0x080002af   Thumb Code    18  svcrt_context.o(.text)
     __aeabi_uldivmod                         0x080002c9   Thumb Code     0  lludivv7m.o(.text)
     _ll_udiv                                 0x080002c9   Thumb Code   238  lludivv7m.o(.text)
     __aeabi_memclr4                          0x080003b7   Thumb Code     0  rt_memclr_w.o(.text)
@@ -2119,67 +2158,64 @@ Image Symbol Table
     SystemInit                               0x08001505   Thumb Code    12  system_stm32f4xx_1.o(i.SystemInit)
     USART1_IRQHandler                        0x08001621   Thumb Code     6  drvuart.o(i.USART1_IRQHandler)
     UsageFault_Handler                       0x0800162d   Thumb Code     2  stm32f4xx_it.o(i.UsageFault_Handler)
-    led_drv_close                            0x08001709   Thumb Code    34  drvled.o(i.led_drv_close)
-    led_drv_ctrl                             0x08001731   Thumb Code     4  drvled.o(i.led_drv_ctrl)
-    led_drv_open                             0x08001735   Thumb Code    74  drvled.o(i.led_drv_open)
-    led_drv_read                             0x0800178d   Thumb Code    24  drvled.o(i.led_drv_read)
-    led_drv_write                            0x080017a5   Thumb Code    84  drvled.o(i.led_drv_write)
-    main                                     0x080017fd   Thumb Code    82  main.o(i.main)
-    svcrt_cfg_load                           0x08001855   Thumb Code     8  svcrt_cfg.o(i.svcrt_cfg_load)
-    svcrt_dev_board_init                     0x08001861   Thumb Code    26  svcrt_board.o(i.svcrt_dev_board_init)
-    svcrt_dev_close_internal                 0x08001891   Thumb Code    70  svcrt_dev.o(i.svcrt_dev_close_internal)
-    svcrt_dev_ctrl_internal                  0x080018e1   Thumb Code    60  svcrt_dev.o(i.svcrt_dev_ctrl_internal)
-    svcrt_dev_module_init                    0x08001925   Thumb Code    38  svcrt_dev.o(i.svcrt_dev_module_init)
-    svcrt_dev_open                           0x08001955   Thumb Code    18  oslib.o(i.svcrt_dev_open)
-    svcrt_dev_open_internal                  0x08001969   Thumb Code    84  svcrt_dev.o(i.svcrt_dev_open_internal)
-    svcrt_dev_read_internal                  0x080019c5   Thumb Code    60  svcrt_dev.o(i.svcrt_dev_read_internal)
-    svcrt_dev_register                       0x08001a09   Thumb Code   120  svcrt_dev.o(i.svcrt_dev_register)
-    svcrt_dev_write                          0x08001a89   Thumb Code    20  oslib.o(i.svcrt_dev_write)
-    svcrt_dev_write_internal                 0x08001a9d   Thumb Code    60  svcrt_dev.o(i.svcrt_dev_write_internal)
-    svcrt_event_create_internal              0x08001ae1   Thumb Code    54  svcrt_event.o(i.svcrt_event_create_internal)
-    svcrt_event_module_init                  0x08001b1d   Thumb Code    44  svcrt_event.o(i.svcrt_event_module_init)
-    svcrt_event_set_internal                 0x08001b4d   Thumb Code    46  svcrt_event.o(i.svcrt_event_set_internal)
-    svcrt_event_wait_internal                0x08001b81   Thumb Code    78  svcrt_event.o(i.svcrt_event_wait_internal)
-    svcrt_fifo_create                        0x08001bd5   Thumb Code    26  svcrt_fifo.o(i.svcrt_fifo_create)
-    svcrt_fifo_read                          0x08001bef   Thumb Code    62  svcrt_fifo.o(i.svcrt_fifo_read)
-    svcrt_fifo_write                         0x08001c2d   Thumb Code    56  svcrt_fifo.o(i.svcrt_fifo_write)
-    svcrt_kernel_get_time                    0x08001c65   Thumb Code     8  svcrt_task.o(i.svcrt_kernel_get_time)
-    svcrt_kernel_tick_handler                0x08001c71   Thumb Code    42  svcrt_task.o(i.svcrt_kernel_tick_handler)
-    svcrt_port_board_init                    0x08001ca1   Thumb Code    12  svcrt_board.o(i.svcrt_port_board_init)
-    svcrt_port_disable_irq                   0x08001cb1   Thumb Code     4  svcrt_board.o(i.svcrt_port_disable_irq)
-    svcrt_port_enable_irq                    0x08001cb5   Thumb Code     4  svcrt_board.o(i.svcrt_port_enable_irq)
-    svcrt_port_get_systick_load              0x08001cb9   Thumb Code     8  svcrt_board.o(i.svcrt_port_get_systick_load)
-    svcrt_port_get_systick_val               0x08001cc1   Thumb Code     8  svcrt_board.o(i.svcrt_port_get_systick_val)
-    svcrt_port_irq_init                      0x08001cc9   Thumb Code    48  svcrt_board.o(i.svcrt_port_irq_init)
-    svcrt_port_isb                           0x08001d01   Thumb Code     6  svcrt_board.o(i.svcrt_port_isb)
-    svcrt_port_set_control                   0x08001d07   Thumb Code    10  svcrt_board.o(i.svcrt_port_set_control)
-    svcrt_port_set_psp                       0x08001d11   Thumb Code     6  svcrt_board.o(i.svcrt_port_set_psp)
-    svcrt_port_start_timer                   0x08001d19   Thumb Code    50  svcrt_board.o(i.svcrt_port_start_timer)
-    svcrt_port_switch_task                   0x08001d55   Thumb Code    10  svcrt_board.o(i.svcrt_port_switch_task)
-    svcrt_port_wfe                           0x08001d65   Thumb Code     4  svcrt_board.o(i.svcrt_port_wfe)
-    svcrt_port_wfi                           0x08001d69   Thumb Code     4  svcrt_board.o(i.svcrt_port_wfi)
-    svcrt_sched_activate                     0x08001dd1   Thumb Code    96  svcrt_task.o(i.svcrt_sched_activate)
-    svcrt_sched_is_switching                 0x08001e39   Thumb Code    42  svcrt_task.o(i.svcrt_sched_is_switching)
-    svcrt_sched_next                         0x08001e6d   Thumb Code   202  svcrt_task.o(i.svcrt_sched_next)
-    svcrt_task_delay_internal                0x08001f45   Thumb Code    56  svcrt_task.o(i.svcrt_task_delay_internal)
-    svcrt_task_get_current                   0x08001f85   Thumb Code    36  svcrt_task.o(i.svcrt_task_get_current)
-    svcrt_task_kill_internal                 0x08001fb1   Thumb Code    38  svcrt_task.o(i.svcrt_task_kill_internal)
-    svcrt_task_stack_init                    0x08001fe1   Thumb Code    80  svcrt_cfg.o(i.svcrt_task_stack_init)
-    svcrt_task_wait                          0x08002031   Thumb Code     8  oslib.o(i.svcrt_task_wait)
-    svcrt_task_wait_internal                 0x08002039   Thumb Code    60  svcrt_task.o(i.svcrt_task_wait_internal)
-    svcrt_task_wait_period_internal          0x0800207d   Thumb Code    42  svcrt_task.o(i.svcrt_task_wait_period_internal)
-    uart_drv_close                           0x080020b1   Thumb Code    32  drvuart.o(i.uart_drv_close)
-    uart_drv_ctrl                            0x080020d1   Thumb Code     4  drvuart.o(i.uart_drv_ctrl)
-    uart_drv_open                            0x080020d5   Thumb Code   212  drvuart.o(i.uart_drv_open)
-    uart_drv_read                            0x080021bd   Thumb Code    20  drvuart.o(i.uart_drv_read)
-    uart_drv_write                           0x080021d1   Thumb Code    52  drvuart.o(i.uart_drv_write)
-    _fp_init                                 0x08002205   Thumb Code    10  fpinit.o(x$fpl$fpinit)
-    __fplib_config_fpu_vfp                   0x0800220d   Thumb Code     0  fpinit.o(x$fpl$fpinit)
-    __fplib_config_pureend_doubles           0x0800220d   Thumb Code     0  fpinit.o(x$fpl$fpinit)
-    AHBPrescTable                            0x0800220e   Data          16  system_stm32f4xx_1.o(.constdata)
-    APBPrescTable                            0x0800221e   Data           8  system_stm32f4xx_1.o(.constdata)
-    Region$$Table$$Base                      0x08002228   Number         0  anon$$obj.o(Region$$Table)
-    Region$$Table$$Limit                     0x08002248   Number         0  anon$$obj.o(Region$$Table)
+    led_drv_close                            0x08001769   Thumb Code    34  drvled.o(i.led_drv_close)
+    led_drv_ctrl                             0x08001791   Thumb Code     4  drvled.o(i.led_drv_ctrl)
+    led_drv_open                             0x08001795   Thumb Code    96  drvled.o(i.led_drv_open)
+    led_drv_read                             0x08001805   Thumb Code    24  drvled.o(i.led_drv_read)
+    led_drv_write                            0x0800181d   Thumb Code    86  drvled.o(i.led_drv_write)
+    main                                     0x08001879   Thumb Code    74  main.o(i.main)
+    svcrt_cfg_load                           0x080018c9   Thumb Code     8  svcrt_cfg.o(i.svcrt_cfg_load)
+    svcrt_dev_board_init                     0x080018d5   Thumb Code    36  svcrt_board.o(i.svcrt_dev_board_init)
+    svcrt_dev_close_internal                 0x08001915   Thumb Code    70  svcrt_dev.o(i.svcrt_dev_close_internal)
+    svcrt_dev_ctrl_internal                  0x08001965   Thumb Code    60  svcrt_dev.o(i.svcrt_dev_ctrl_internal)
+    svcrt_dev_module_init                    0x080019a9   Thumb Code    38  svcrt_dev.o(i.svcrt_dev_module_init)
+    svcrt_dev_open                           0x080019d9   Thumb Code    18  oslib.o(i.svcrt_dev_open)
+    svcrt_dev_open_internal                  0x080019ed   Thumb Code    84  svcrt_dev.o(i.svcrt_dev_open_internal)
+    svcrt_dev_read_internal                  0x08001a49   Thumb Code    60  svcrt_dev.o(i.svcrt_dev_read_internal)
+    svcrt_dev_register                       0x08001a8d   Thumb Code   120  svcrt_dev.o(i.svcrt_dev_register)
+    svcrt_dev_write                          0x08001b0d   Thumb Code    20  oslib.o(i.svcrt_dev_write)
+    svcrt_dev_write_internal                 0x08001b21   Thumb Code    60  svcrt_dev.o(i.svcrt_dev_write_internal)
+    svcrt_event_create_internal              0x08001b65   Thumb Code    54  svcrt_event.o(i.svcrt_event_create_internal)
+    svcrt_event_module_init                  0x08001ba1   Thumb Code    44  svcrt_event.o(i.svcrt_event_module_init)
+    svcrt_event_set_internal                 0x08001bd1   Thumb Code    46  svcrt_event.o(i.svcrt_event_set_internal)
+    svcrt_event_wait_internal                0x08001c05   Thumb Code    78  svcrt_event.o(i.svcrt_event_wait_internal)
+    svcrt_fifo_create                        0x08001c59   Thumb Code    26  svcrt_fifo.o(i.svcrt_fifo_create)
+    svcrt_fifo_read                          0x08001c73   Thumb Code    62  svcrt_fifo.o(i.svcrt_fifo_read)
+    svcrt_fifo_write                         0x08001cb1   Thumb Code    56  svcrt_fifo.o(i.svcrt_fifo_write)
+    svcrt_kernel_get_time                    0x08001ce9   Thumb Code     8  svcrt_task.o(i.svcrt_kernel_get_time)
+    svcrt_kernel_tick_handler                0x08001cf5   Thumb Code    42  svcrt_task.o(i.svcrt_kernel_tick_handler)
+    svcrt_port_board_init                    0x08001d25   Thumb Code    18  svcrt_board.o(i.svcrt_port_board_init)
+    svcrt_port_delay_us                      0x08001d41   Thumb Code    42  svcrt_port.o(i.svcrt_port_delay_us)
+    svcrt_port_disable_irq                   0x08001d75   Thumb Code     4  svcrt_port.o(i.svcrt_port_disable_irq)
+    svcrt_port_enable_irq                    0x08001d79   Thumb Code     4  svcrt_port.o(i.svcrt_port_enable_irq)
+    svcrt_port_enter_idle                    0x08001d7d   Thumb Code    34  svcrt_port.o(i.svcrt_port_enter_idle)
+    svcrt_port_irq_init                      0x08001da1   Thumb Code    48  svcrt_board.o(i.svcrt_port_irq_init)
+    svcrt_port_stack_init                    0x08001dd9   Thumb Code    72  svcrt_port.o(i.svcrt_port_stack_init)
+    svcrt_port_start_timer                   0x08001e21   Thumb Code    50  svcrt_port.o(i.svcrt_port_start_timer)
+    svcrt_port_switch_task                   0x08001e5d   Thumb Code    10  svcrt_port.o(i.svcrt_port_switch_task)
+    svcrt_port_wfe                           0x08001e6d   Thumb Code     4  svcrt_port.o(i.svcrt_port_wfe)
+    svcrt_port_wfi                           0x08001e71   Thumb Code     4  svcrt_port.o(i.svcrt_port_wfi)
+    svcrt_sched_activate                     0x08001f2d   Thumb Code    96  svcrt_task.o(i.svcrt_sched_activate)
+    svcrt_sched_is_switching                 0x08001f95   Thumb Code    42  svcrt_task.o(i.svcrt_sched_is_switching)
+    svcrt_sched_next                         0x08001fc9   Thumb Code    90  svcrt_task.o(i.svcrt_sched_next)
+    svcrt_task_get_current                   0x0800202d   Thumb Code    36  svcrt_task.o(i.svcrt_task_get_current)
+    svcrt_task_kill_internal                 0x08002059   Thumb Code    38  svcrt_task.o(i.svcrt_task_kill_internal)
+    svcrt_task_stack_init                    0x08002089   Thumb Code    22  svcrt_cfg.o(i.svcrt_task_stack_init)
+    svcrt_task_wait                          0x0800209f   Thumb Code     8  oslib.o(i.svcrt_task_wait)
+    svcrt_task_wait_internal                 0x080020a9   Thumb Code    60  svcrt_task.o(i.svcrt_task_wait_internal)
+    svcrt_task_wait_period_internal          0x080020ed   Thumb Code    42  svcrt_task.o(i.svcrt_task_wait_period_internal)
+    uart_drv_close                           0x08002179   Thumb Code    32  drvuart.o(i.uart_drv_close)
+    uart_drv_ctrl                            0x08002199   Thumb Code     4  drvuart.o(i.uart_drv_ctrl)
+    uart_drv_open                            0x0800219d   Thumb Code   212  drvuart.o(i.uart_drv_open)
+    uart_drv_read                            0x08002285   Thumb Code    20  drvuart.o(i.uart_drv_read)
+    uart_drv_write                           0x08002299   Thumb Code    52  drvuart.o(i.uart_drv_write)
+    _fp_init                                 0x080022cd   Thumb Code    10  fpinit.o(x$fpl$fpinit)
+    __fplib_config_fpu_vfp                   0x080022d5   Thumb Code     0  fpinit.o(x$fpl$fpinit)
+    __fplib_config_pureend_doubles           0x080022d5   Thumb Code     0  fpinit.o(x$fpl$fpinit)
+    AHBPrescTable                            0x080022d6   Data          16  system_stm32f4xx_1.o(.constdata)
+    APBPrescTable                            0x080022e6   Data           8  system_stm32f4xx_1.o(.constdata)
+    Region$$Table$$Base                      0x080022f4   Number         0  anon$$obj.o(Region$$Table)
+    Region$$Table$$Limit                     0x08002314   Number         0  anon$$obj.o(Region$$Table)
     SystemCoreClock                          0x20000000   Data           4  system_stm32f4xx_1.o(.data)
     svcrt_cpu_load_counter                   0x20000004   Data           2  svcrt_task.o(.data)
     svcrt_cpu_idle_millis                    0x20000006   Data           2  svcrt_task.o(.data)
@@ -2188,14 +2224,14 @@ Image Symbol Table
     svcrt_task_count                         0x20000018   Data           4  svcrt_cfg.o(.data)
     usart_drv                                0x2000001c   Data          20  drvuart.o(.data)
     led_drv                                  0x20000030   Data          20  drvled.o(.data)
-    uwTickFreq                               0x2000004c   Data           1  stm32f4xx_hal.o(.data)
-    uwTickPrio                               0x20000050   Data           4  stm32f4xx_hal.o(.data)
-    uwTick                                   0x20000054   Data           4  stm32f4xx_hal.o(.data)
-    hrtc                                     0x20000858   Data          32  rtc.o(.bss)
-    huart1                                   0x20000878   Data          72  usart.o(.bss)
-    svcrt_task_table                         0x20000aa0   Data         420  svcrt_cfg.o(.bss)
-    __libspace_start                         0x20000da0   Data          96  libspace.o(.bss)
-    __temporary_stack_top$libspace           0x20000e00   Data           0  libspace.o(.bss)
+    uwTickFreq                               0x20000044   Data           1  stm32f4xx_hal.o(.data)
+    uwTickPrio                               0x20000048   Data           4  stm32f4xx_hal.o(.data)
+    uwTick                                   0x2000004c   Data           4  stm32f4xx_hal.o(.data)
+    hrtc                                     0x20001850   Data          32  rtc.o(.bss)
+    huart1                                   0x20001870   Data          72  usart.o(.bss)
+    svcrt_task_table                         0x20001a98   Data         420  svcrt_cfg.o(.bss)
+    __libspace_start                         0x20001db0   Data          96  libspace.o(.bss)
+    __temporary_stack_top$libspace           0x20001e10   Data           0  libspace.o(.bss)
 
 
 
@@ -2205,211 +2241,212 @@ Memory Map of the image
 
   Image Entry point : 0x080001ad
 
-  Load Region LR_IROM1 (Base: 0x08000000, Size: 0x000022a0, Max: 0x00100000, ABSOLUTE)
+  Load Region LR_IROM1 (Base: 0x08000000, Size: 0x00002364, Max: 0x00100000, ABSOLUTE)
 
-    Execution Region ER_IROM1 (Exec base: 0x08000000, Load base: 0x08000000, Size: 0x00002248, Max: 0x00100000, ABSOLUTE)
+    Execution Region ER_IROM1 (Exec base: 0x08000000, Load base: 0x08000000, Size: 0x00002314, Max: 0x00100000, ABSOLUTE)
 
     Exec Addr    Load Addr    Size         Type   Attr      Idx    E Section Name        Object
 
     0x08000000   0x08000000   0x000001ac   Data   RO            3    RESET               startup_stm32f427xx.o
-    0x080001ac   0x080001ac   0x00000008   Code   RO         4683  * !!!main             c_w.l(__main.o)
-    0x080001b4   0x080001b4   0x00000034   Code   RO         4852    !!!scatter          c_w.l(__scatter.o)
-    0x080001e8   0x080001e8   0x0000001a   Code   RO         4854    !!handler_copy      c_w.l(__scatter_copy.o)
+    0x080001ac   0x080001ac   0x00000008   Code   RO         4793  * !!!main             c_w.l(__main.o)
+    0x080001b4   0x080001b4   0x00000034   Code   RO         4962    !!!scatter          c_w.l(__scatter.o)
+    0x080001e8   0x080001e8   0x0000001a   Code   RO         4964    !!handler_copy      c_w.l(__scatter_copy.o)
     0x08000202   0x08000202   0x00000002   PAD
-    0x08000204   0x08000204   0x0000001c   Code   RO         4856    !!handler_zi        c_w.l(__scatter_zi.o)
-    0x08000220   0x08000220   0x00000002   Code   RO         4720    .ARM.Collect$$libinit$$00000000  c_w.l(libinit.o)
-    0x08000222   0x08000222   0x00000004   Code   RO         4732    .ARM.Collect$$libinit$$00000001  c_w.l(libinit2.o)
-    0x08000226   0x08000226   0x00000000   Code   RO         4735    .ARM.Collect$$libinit$$00000004  c_w.l(libinit2.o)
-    0x08000226   0x08000226   0x00000000   Code   RO         4738    .ARM.Collect$$libinit$$0000000A  c_w.l(libinit2.o)
-    0x08000226   0x08000226   0x00000000   Code   RO         4740    .ARM.Collect$$libinit$$0000000C  c_w.l(libinit2.o)
-    0x08000226   0x08000226   0x00000000   Code   RO         4742    .ARM.Collect$$libinit$$0000000E  c_w.l(libinit2.o)
-    0x08000226   0x08000226   0x00000000   Code   RO         4745    .ARM.Collect$$libinit$$00000011  c_w.l(libinit2.o)
-    0x08000226   0x08000226   0x00000000   Code   RO         4747    .ARM.Collect$$libinit$$00000013  c_w.l(libinit2.o)
-    0x08000226   0x08000226   0x00000000   Code   RO         4749    .ARM.Collect$$libinit$$00000015  c_w.l(libinit2.o)
-    0x08000226   0x08000226   0x00000000   Code   RO         4751    .ARM.Collect$$libinit$$00000017  c_w.l(libinit2.o)
-    0x08000226   0x08000226   0x00000000   Code   RO         4753    .ARM.Collect$$libinit$$00000019  c_w.l(libinit2.o)
-    0x08000226   0x08000226   0x00000000   Code   RO         4755    .ARM.Collect$$libinit$$0000001B  c_w.l(libinit2.o)
-    0x08000226   0x08000226   0x00000000   Code   RO         4757    .ARM.Collect$$libinit$$0000001D  c_w.l(libinit2.o)
-    0x08000226   0x08000226   0x00000000   Code   RO         4759    .ARM.Collect$$libinit$$0000001F  c_w.l(libinit2.o)
-    0x08000226   0x08000226   0x00000000   Code   RO         4761    .ARM.Collect$$libinit$$00000021  c_w.l(libinit2.o)
-    0x08000226   0x08000226   0x00000000   Code   RO         4763    .ARM.Collect$$libinit$$00000023  c_w.l(libinit2.o)
-    0x08000226   0x08000226   0x00000000   Code   RO         4765    .ARM.Collect$$libinit$$00000025  c_w.l(libinit2.o)
-    0x08000226   0x08000226   0x00000000   Code   RO         4769    .ARM.Collect$$libinit$$0000002C  c_w.l(libinit2.o)
-    0x08000226   0x08000226   0x00000000   Code   RO         4771    .ARM.Collect$$libinit$$0000002E  c_w.l(libinit2.o)
-    0x08000226   0x08000226   0x00000000   Code   RO         4773    .ARM.Collect$$libinit$$00000030  c_w.l(libinit2.o)
-    0x08000226   0x08000226   0x00000000   Code   RO         4775    .ARM.Collect$$libinit$$00000032  c_w.l(libinit2.o)
-    0x08000226   0x08000226   0x00000002   Code   RO         4776    .ARM.Collect$$libinit$$00000033  c_w.l(libinit2.o)
-    0x08000228   0x08000228   0x00000002   Code   RO         4807    .ARM.Collect$$libshutdown$$00000000  c_w.l(libshutdown.o)
-    0x0800022a   0x0800022a   0x00000000   Code   RO         4833    .ARM.Collect$$libshutdown$$00000002  c_w.l(libshutdown2.o)
-    0x0800022a   0x0800022a   0x00000000   Code   RO         4835    .ARM.Collect$$libshutdown$$00000004  c_w.l(libshutdown2.o)
-    0x0800022a   0x0800022a   0x00000000   Code   RO         4837    .ARM.Collect$$libshutdown$$00000006  c_w.l(libshutdown2.o)
-    0x0800022a   0x0800022a   0x00000000   Code   RO         4840    .ARM.Collect$$libshutdown$$00000009  c_w.l(libshutdown2.o)
-    0x0800022a   0x0800022a   0x00000000   Code   RO         4843    .ARM.Collect$$libshutdown$$0000000C  c_w.l(libshutdown2.o)
-    0x0800022a   0x0800022a   0x00000000   Code   RO         4845    .ARM.Collect$$libshutdown$$0000000E  c_w.l(libshutdown2.o)
-    0x0800022a   0x0800022a   0x00000000   Code   RO         4848    .ARM.Collect$$libshutdown$$00000011  c_w.l(libshutdown2.o)
-    0x0800022a   0x0800022a   0x00000002   Code   RO         4849    .ARM.Collect$$libshutdown$$00000012  c_w.l(libshutdown2.o)
-    0x0800022c   0x0800022c   0x00000000   Code   RO         4685    .ARM.Collect$$rtentry$$00000000  c_w.l(__rtentry.o)
-    0x0800022c   0x0800022c   0x00000000   Code   RO         4691    .ARM.Collect$$rtentry$$00000002  c_w.l(__rtentry2.o)
-    0x0800022c   0x0800022c   0x00000006   Code   RO         4703    .ARM.Collect$$rtentry$$00000004  c_w.l(__rtentry4.o)
-    0x08000232   0x08000232   0x00000000   Code   RO         4693    .ARM.Collect$$rtentry$$00000009  c_w.l(__rtentry2.o)
-    0x08000232   0x08000232   0x00000004   Code   RO         4694    .ARM.Collect$$rtentry$$0000000A  c_w.l(__rtentry2.o)
-    0x08000236   0x08000236   0x00000000   Code   RO         4696    .ARM.Collect$$rtentry$$0000000C  c_w.l(__rtentry2.o)
-    0x08000236   0x08000236   0x00000008   Code   RO         4697    .ARM.Collect$$rtentry$$0000000D  c_w.l(__rtentry2.o)
-    0x0800023e   0x0800023e   0x00000002   Code   RO         4724    .ARM.Collect$$rtexit$$00000000  c_w.l(rtexit.o)
-    0x08000240   0x08000240   0x00000000   Code   RO         4780    .ARM.Collect$$rtexit$$00000002  c_w.l(rtexit2.o)
-    0x08000240   0x08000240   0x00000004   Code   RO         4781    .ARM.Collect$$rtexit$$00000003  c_w.l(rtexit2.o)
-    0x08000244   0x08000244   0x00000006   Code   RO         4782    .ARM.Collect$$rtexit$$00000004  c_w.l(rtexit2.o)
+    0x08000204   0x08000204   0x0000001c   Code   RO         4966    !!handler_zi        c_w.l(__scatter_zi.o)
+    0x08000220   0x08000220   0x00000002   Code   RO         4830    .ARM.Collect$$libinit$$00000000  c_w.l(libinit.o)
+    0x08000222   0x08000222   0x00000004   Code   RO         4842    .ARM.Collect$$libinit$$00000001  c_w.l(libinit2.o)
+    0x08000226   0x08000226   0x00000000   Code   RO         4845    .ARM.Collect$$libinit$$00000004  c_w.l(libinit2.o)
+    0x08000226   0x08000226   0x00000000   Code   RO         4848    .ARM.Collect$$libinit$$0000000A  c_w.l(libinit2.o)
+    0x08000226   0x08000226   0x00000000   Code   RO         4850    .ARM.Collect$$libinit$$0000000C  c_w.l(libinit2.o)
+    0x08000226   0x08000226   0x00000000   Code   RO         4852    .ARM.Collect$$libinit$$0000000E  c_w.l(libinit2.o)
+    0x08000226   0x08000226   0x00000000   Code   RO         4855    .ARM.Collect$$libinit$$00000011  c_w.l(libinit2.o)
+    0x08000226   0x08000226   0x00000000   Code   RO         4857    .ARM.Collect$$libinit$$00000013  c_w.l(libinit2.o)
+    0x08000226   0x08000226   0x00000000   Code   RO         4859    .ARM.Collect$$libinit$$00000015  c_w.l(libinit2.o)
+    0x08000226   0x08000226   0x00000000   Code   RO         4861    .ARM.Collect$$libinit$$00000017  c_w.l(libinit2.o)
+    0x08000226   0x08000226   0x00000000   Code   RO         4863    .ARM.Collect$$libinit$$00000019  c_w.l(libinit2.o)
+    0x08000226   0x08000226   0x00000000   Code   RO         4865    .ARM.Collect$$libinit$$0000001B  c_w.l(libinit2.o)
+    0x08000226   0x08000226   0x00000000   Code   RO         4867    .ARM.Collect$$libinit$$0000001D  c_w.l(libinit2.o)
+    0x08000226   0x08000226   0x00000000   Code   RO         4869    .ARM.Collect$$libinit$$0000001F  c_w.l(libinit2.o)
+    0x08000226   0x08000226   0x00000000   Code   RO         4871    .ARM.Collect$$libinit$$00000021  c_w.l(libinit2.o)
+    0x08000226   0x08000226   0x00000000   Code   RO         4873    .ARM.Collect$$libinit$$00000023  c_w.l(libinit2.o)
+    0x08000226   0x08000226   0x00000000   Code   RO         4875    .ARM.Collect$$libinit$$00000025  c_w.l(libinit2.o)
+    0x08000226   0x08000226   0x00000000   Code   RO         4879    .ARM.Collect$$libinit$$0000002C  c_w.l(libinit2.o)
+    0x08000226   0x08000226   0x00000000   Code   RO         4881    .ARM.Collect$$libinit$$0000002E  c_w.l(libinit2.o)
+    0x08000226   0x08000226   0x00000000   Code   RO         4883    .ARM.Collect$$libinit$$00000030  c_w.l(libinit2.o)
+    0x08000226   0x08000226   0x00000000   Code   RO         4885    .ARM.Collect$$libinit$$00000032  c_w.l(libinit2.o)
+    0x08000226   0x08000226   0x00000002   Code   RO         4886    .ARM.Collect$$libinit$$00000033  c_w.l(libinit2.o)
+    0x08000228   0x08000228   0x00000002   Code   RO         4917    .ARM.Collect$$libshutdown$$00000000  c_w.l(libshutdown.o)
+    0x0800022a   0x0800022a   0x00000000   Code   RO         4943    .ARM.Collect$$libshutdown$$00000002  c_w.l(libshutdown2.o)
+    0x0800022a   0x0800022a   0x00000000   Code   RO         4945    .ARM.Collect$$libshutdown$$00000004  c_w.l(libshutdown2.o)
+    0x0800022a   0x0800022a   0x00000000   Code   RO         4947    .ARM.Collect$$libshutdown$$00000006  c_w.l(libshutdown2.o)
+    0x0800022a   0x0800022a   0x00000000   Code   RO         4950    .ARM.Collect$$libshutdown$$00000009  c_w.l(libshutdown2.o)
+    0x0800022a   0x0800022a   0x00000000   Code   RO         4953    .ARM.Collect$$libshutdown$$0000000C  c_w.l(libshutdown2.o)
+    0x0800022a   0x0800022a   0x00000000   Code   RO         4955    .ARM.Collect$$libshutdown$$0000000E  c_w.l(libshutdown2.o)
+    0x0800022a   0x0800022a   0x00000000   Code   RO         4958    .ARM.Collect$$libshutdown$$00000011  c_w.l(libshutdown2.o)
+    0x0800022a   0x0800022a   0x00000002   Code   RO         4959    .ARM.Collect$$libshutdown$$00000012  c_w.l(libshutdown2.o)
+    0x0800022c   0x0800022c   0x00000000   Code   RO         4795    .ARM.Collect$$rtentry$$00000000  c_w.l(__rtentry.o)
+    0x0800022c   0x0800022c   0x00000000   Code   RO         4801    .ARM.Collect$$rtentry$$00000002  c_w.l(__rtentry2.o)
+    0x0800022c   0x0800022c   0x00000006   Code   RO         4813    .ARM.Collect$$rtentry$$00000004  c_w.l(__rtentry4.o)
+    0x08000232   0x08000232   0x00000000   Code   RO         4803    .ARM.Collect$$rtentry$$00000009  c_w.l(__rtentry2.o)
+    0x08000232   0x08000232   0x00000004   Code   RO         4804    .ARM.Collect$$rtentry$$0000000A  c_w.l(__rtentry2.o)
+    0x08000236   0x08000236   0x00000000   Code   RO         4806    .ARM.Collect$$rtentry$$0000000C  c_w.l(__rtentry2.o)
+    0x08000236   0x08000236   0x00000008   Code   RO         4807    .ARM.Collect$$rtentry$$0000000D  c_w.l(__rtentry2.o)
+    0x0800023e   0x0800023e   0x00000002   Code   RO         4834    .ARM.Collect$$rtexit$$00000000  c_w.l(rtexit.o)
+    0x08000240   0x08000240   0x00000000   Code   RO         4890    .ARM.Collect$$rtexit$$00000002  c_w.l(rtexit2.o)
+    0x08000240   0x08000240   0x00000004   Code   RO         4891    .ARM.Collect$$rtexit$$00000003  c_w.l(rtexit2.o)
+    0x08000244   0x08000244   0x00000006   Code   RO         4892    .ARM.Collect$$rtexit$$00000004  c_w.l(rtexit2.o)
     0x0800024a   0x0800024a   0x00000002   PAD
     0x0800024c   0x0800024c   0x00000040   Code   RO            4    .text               startup_stm32f427xx.o
-    0x0800028c   0x0800028c   0x0000003c   Code   RO         1119    .text               context_rvds.o
-    0x080002c8   0x080002c8   0x000000ee   Code   RO         4677    .text               c_w.l(lludivv7m.o)
-    0x080003b6   0x080003b6   0x0000004e   Code   RO         4679    .text               c_w.l(rt_memclr_w.o)
-    0x08000404   0x08000404   0x00000006   Code   RO         4681    .text               c_w.l(heapauxi.o)
-    0x0800040a   0x0800040a   0x0000004a   Code   RO         4707    .text               c_w.l(sys_stackheap_outer.o)
-    0x08000454   0x08000454   0x00000012   Code   RO         4709    .text               c_w.l(exit.o)
+    0x0800028c   0x0800028c   0x0000003c   Code   RO         1187    .text               svcrt_context.o
+    0x080002c8   0x080002c8   0x000000ee   Code   RO         4787    .text               c_w.l(lludivv7m.o)
+    0x080003b6   0x080003b6   0x0000004e   Code   RO         4789    .text               c_w.l(rt_memclr_w.o)
+    0x08000404   0x08000404   0x00000006   Code   RO         4791    .text               c_w.l(heapauxi.o)
+    0x0800040a   0x0800040a   0x0000004a   Code   RO         4817    .text               c_w.l(sys_stackheap_outer.o)
+    0x08000454   0x08000454   0x00000012   Code   RO         4819    .text               c_w.l(exit.o)
     0x08000466   0x08000466   0x00000002   PAD
-    0x08000468   0x08000468   0x00000008   Code   RO         4721    .text               c_w.l(libspace.o)
-    0x08000470   0x08000470   0x0000000c   Code   RO         4777    .text               c_w.l(sys_exit.o)
-    0x0800047c   0x0800047c   0x00000002   Code   RO         4796    .text               c_w.l(use_no_semi.o)
-    0x0800047e   0x0800047e   0x00000000   Code   RO         4798    .text               c_w.l(indicate_semi.o)
-    0x0800047e   0x0800047e   0x00000002   Code   RO          506    i.BusFault_Handler  stm32f4xx_it.o
-    0x08000480   0x08000480   0x00000002   Code   RO          507    i.DebugMon_Handler  stm32f4xx_it.o
+    0x08000468   0x08000468   0x00000008   Code   RO         4831    .text               c_w.l(libspace.o)
+    0x08000470   0x08000470   0x0000000c   Code   RO         4887    .text               c_w.l(sys_exit.o)
+    0x0800047c   0x0800047c   0x00000002   Code   RO         4906    .text               c_w.l(use_no_semi.o)
+    0x0800047e   0x0800047e   0x00000000   Code   RO         4908    .text               c_w.l(indicate_semi.o)
+    0x0800047e   0x0800047e   0x00000002   Code   RO          508    i.BusFault_Handler  stm32f4xx_it.o
+    0x08000480   0x08000480   0x00000002   Code   RO          509    i.DebugMon_Handler  stm32f4xx_it.o
     0x08000482   0x08000482   0x00000004   Code   RO          159    i.Error_Handler     main.o
     0x08000486   0x08000486   0x00000002   PAD
-    0x08000488   0x08000488   0x00000234   Code   RO         2054    i.HAL_GPIO_Init     stm32f4xx_hal_gpio.o
-    0x080006bc   0x080006bc   0x0000000a   Code   RO         2058    i.HAL_GPIO_WritePin  stm32f4xx_hal_gpio.o
+    0x08000488   0x08000488   0x00000234   Code   RO         2164    i.HAL_GPIO_Init     stm32f4xx_hal_gpio.o
+    0x080006bc   0x080006bc   0x0000000a   Code   RO         2168    i.HAL_GPIO_WritePin  stm32f4xx_hal_gpio.o
     0x080006c6   0x080006c6   0x00000002   PAD
-    0x080006c8   0x080006c8   0x0000000c   Code   RO         2624    i.HAL_GetTick       stm32f4xx_hal.o
-    0x080006d4   0x080006d4   0x00000034   Code   RO         2631    i.HAL_Init          stm32f4xx_hal.o
-    0x08000708   0x08000708   0x00000040   Code   RO         2632    i.HAL_InitTick      stm32f4xx_hal.o
-    0x08000748   0x08000748   0x00000030   Code   RO          557    i.HAL_MspInit       stm32f4xx_hal_msp.o
-    0x08000778   0x08000778   0x0000001a   Code   RO         2464    i.HAL_NVIC_EnableIRQ  stm32f4xx_hal_cortex.o
+    0x080006c8   0x080006c8   0x0000000c   Code   RO         2734    i.HAL_GetTick       stm32f4xx_hal.o
+    0x080006d4   0x080006d4   0x00000034   Code   RO         2741    i.HAL_Init          stm32f4xx_hal.o
+    0x08000708   0x08000708   0x00000040   Code   RO         2742    i.HAL_InitTick      stm32f4xx_hal.o
+    0x08000748   0x08000748   0x00000030   Code   RO          559    i.HAL_MspInit       stm32f4xx_hal_msp.o
+    0x08000778   0x08000778   0x0000001a   Code   RO         2574    i.HAL_NVIC_EnableIRQ  stm32f4xx_hal_cortex.o
     0x08000792   0x08000792   0x00000002   PAD
-    0x08000794   0x08000794   0x00000040   Code   RO         2470    i.HAL_NVIC_SetPriority  stm32f4xx_hal_cortex.o
-    0x080007d4   0x080007d4   0x00000024   Code   RO         2471    i.HAL_NVIC_SetPriorityGrouping  stm32f4xx_hal_cortex.o
-    0x080007f8   0x080007f8   0x00000254   Code   RO         1755    i.HAL_RCCEx_PeriphCLKConfig  stm32f4xx_hal_rcc_ex.o
-    0x08000a4c   0x08000a4c   0x00000134   Code   RO         1648    i.HAL_RCC_ClockConfig  stm32f4xx_hal_rcc.o
-    0x08000b80   0x08000b80   0x00000020   Code   RO         1655    i.HAL_RCC_GetPCLK1Freq  stm32f4xx_hal_rcc.o
-    0x08000ba0   0x08000ba0   0x00000020   Code   RO         1656    i.HAL_RCC_GetPCLK2Freq  stm32f4xx_hal_rcc.o
-    0x08000bc0   0x08000bc0   0x00000060   Code   RO         1657    i.HAL_RCC_GetSysClockFreq  stm32f4xx_hal_rcc.o
-    0x08000c20   0x08000c20   0x0000036c   Code   RO         1660    i.HAL_RCC_OscConfig  stm32f4xx_hal_rcc.o
-    0x08000f8c   0x08000f8c   0x0000009c   Code   RO         1260    i.HAL_RTC_Init      stm32f4xx_hal_rtc.o
-    0x08001028   0x08001028   0x0000003c   Code   RO          297    i.HAL_RTC_MspInit   rtc.o
-    0x08001064   0x08001064   0x00000038   Code   RO         1268    i.HAL_RTC_WaitForSynchro  stm32f4xx_hal_rtc.o
-    0x0800109c   0x0800109c   0x00000028   Code   RO         2475    i.HAL_SYSTICK_Config  stm32f4xx_hal_cortex.o
-    0x080010c4   0x080010c4   0x00000064   Code   RO         3760    i.HAL_UART_Init     stm32f4xx_hal_uart.o
-    0x08001128   0x08001128   0x0000006c   Code   RO          423    i.HAL_UART_MspInit  usart.o
-    0x08001194   0x08001194   0x00000028   Code   RO          941    i.HardFault_Handler  svcrt_board.o
-    0x080011bc   0x080011bc   0x000000e8   Code   RO          272    i.MX_GPIO_Init      gpio.o
-    0x080012a4   0x080012a4   0x00000034   Code   RO          298    i.MX_RTC_Init       rtc.o
-    0x080012d8   0x080012d8   0x00000038   Code   RO          424    i.MX_USART1_UART_Init  usart.o
-    0x08001310   0x08001310   0x00000002   Code   RO          508    i.MemManage_Handler  stm32f4xx_it.o
-    0x08001312   0x08001312   0x00000002   Code   RO          509    i.NMI_Handler       stm32f4xx_it.o
-    0x08001314   0x08001314   0x00000048   Code   RO         1271    i.RTC_EnterInitMode  stm32f4xx_hal_rtc.o
-    0x0800135c   0x0800135c   0x0000002a   Code   RO         1272    i.RTC_ExitInitMode  stm32f4xx_hal_rtc.o
+    0x08000794   0x08000794   0x00000040   Code   RO         2580    i.HAL_NVIC_SetPriority  stm32f4xx_hal_cortex.o
+    0x080007d4   0x080007d4   0x00000024   Code   RO         2581    i.HAL_NVIC_SetPriorityGrouping  stm32f4xx_hal_cortex.o
+    0x080007f8   0x080007f8   0x00000254   Code   RO         1865    i.HAL_RCCEx_PeriphCLKConfig  stm32f4xx_hal_rcc_ex.o
+    0x08000a4c   0x08000a4c   0x00000134   Code   RO         1758    i.HAL_RCC_ClockConfig  stm32f4xx_hal_rcc.o
+    0x08000b80   0x08000b80   0x00000020   Code   RO         1765    i.HAL_RCC_GetPCLK1Freq  stm32f4xx_hal_rcc.o
+    0x08000ba0   0x08000ba0   0x00000020   Code   RO         1766    i.HAL_RCC_GetPCLK2Freq  stm32f4xx_hal_rcc.o
+    0x08000bc0   0x08000bc0   0x00000060   Code   RO         1767    i.HAL_RCC_GetSysClockFreq  stm32f4xx_hal_rcc.o
+    0x08000c20   0x08000c20   0x0000036c   Code   RO         1770    i.HAL_RCC_OscConfig  stm32f4xx_hal_rcc.o
+    0x08000f8c   0x08000f8c   0x0000009c   Code   RO         1370    i.HAL_RTC_Init      stm32f4xx_hal_rtc.o
+    0x08001028   0x08001028   0x0000003c   Code   RO          299    i.HAL_RTC_MspInit   rtc.o
+    0x08001064   0x08001064   0x00000038   Code   RO         1378    i.HAL_RTC_WaitForSynchro  stm32f4xx_hal_rtc.o
+    0x0800109c   0x0800109c   0x00000028   Code   RO         2585    i.HAL_SYSTICK_Config  stm32f4xx_hal_cortex.o
+    0x080010c4   0x080010c4   0x00000064   Code   RO         3870    i.HAL_UART_Init     stm32f4xx_hal_uart.o
+    0x08001128   0x08001128   0x0000006c   Code   RO          425    i.HAL_UART_MspInit  usart.o
+    0x08001194   0x08001194   0x00000028   Code   RO          991    i.HardFault_Handler  svcrt_board.o
+    0x080011bc   0x080011bc   0x000000e8   Code   RO          274    i.MX_GPIO_Init      gpio.o
+    0x080012a4   0x080012a4   0x00000034   Code   RO          300    i.MX_RTC_Init       rtc.o
+    0x080012d8   0x080012d8   0x00000038   Code   RO          426    i.MX_USART1_UART_Init  usart.o
+    0x08001310   0x08001310   0x00000002   Code   RO          510    i.MemManage_Handler  stm32f4xx_it.o
+    0x08001312   0x08001312   0x00000002   Code   RO          511    i.NMI_Handler       stm32f4xx_it.o
+    0x08001314   0x08001314   0x00000048   Code   RO         1381    i.RTC_EnterInitMode  stm32f4xx_hal_rtc.o
+    0x0800135c   0x0800135c   0x0000002a   Code   RO         1382    i.RTC_ExitInitMode  stm32f4xx_hal_rtc.o
     0x08001386   0x08001386   0x00000002   PAD
-    0x08001388   0x08001388   0x000000e0   Code   RO          578    i.SVC_Server        svcrt_task.o
-    0x08001468   0x08001468   0x00000004   Code   RO          942    i.SysTick_Handler   svcrt_board.o
+    0x08001388   0x08001388   0x000000e0   Code   RO          583    i.SVC_Server        svcrt_task.o
+    0x08001468   0x08001468   0x00000004   Code   RO          992    i.SysTick_Handler   svcrt_board.o
     0x0800146c   0x0800146c   0x00000098   Code   RO          160    i.SystemClock_Config  main.o
     0x08001504   0x08001504   0x00000010   Code   RO           14    i.SystemInit        system_stm32f4xx_1.o
-    0x08001514   0x08001514   0x0000010c   Code   RO         3786    i.UART_SetConfig    stm32f4xx_hal_uart.o
-    0x08001620   0x08001620   0x0000000c   Code   RO         1126    i.USART1_IRQHandler  drvuart.o
-    0x0800162c   0x0800162c   0x00000002   Code   RO          510    i.UsageFault_Handler  stm32f4xx_it.o
-    0x0800162e   0x0800162e   0x00000020   Code   RO          943    i.__NVIC_SetPriority  svcrt_board.o
-    0x0800164e   0x0800164e   0x00000020   Code   RO         2477    i.__NVIC_SetPriority  stm32f4xx_hal_cortex.o
-    0x0800166e   0x0800166e   0x0000005e   Code   RO         1127    i.handle_usart_service  drvuart.o
-    0x080016cc   0x080016cc   0x0000003c   Code   RO          161    i.led_blink_task    main.o
-    0x08001708   0x08001708   0x00000028   Code   RO         1192    i.led_drv_close     drvled.o
-    0x08001730   0x08001730   0x00000004   Code   RO         1193    i.led_drv_ctrl      drvled.o
-    0x08001734   0x08001734   0x00000058   Code   RO         1194    i.led_drv_open      drvled.o
-    0x0800178c   0x0800178c   0x00000018   Code   RO         1195    i.led_drv_read      drvled.o
-    0x080017a4   0x080017a4   0x00000058   Code   RO         1196    i.led_drv_write     drvled.o
-    0x080017fc   0x080017fc   0x00000058   Code   RO          162    i.main              main.o
-    0x08001854   0x08001854   0x0000000c   Code   RO          817    i.svcrt_cfg_load    svcrt_cfg.o
-    0x08001860   0x08001860   0x00000030   Code   RO          944    i.svcrt_dev_board_init  svcrt_board.o
-    0x08001890   0x08001890   0x00000050   Code   RO          695    i.svcrt_dev_close_internal  svcrt_dev.o
-    0x080018e0   0x080018e0   0x00000044   Code   RO          696    i.svcrt_dev_ctrl_internal  svcrt_dev.o
-    0x08001924   0x08001924   0x00000030   Code   RO          698    i.svcrt_dev_module_init  svcrt_dev.o
-    0x08001954   0x08001954   0x00000012   Code   RO          845    i.svcrt_dev_open    oslib.o
-    0x08001966   0x08001966   0x00000002   PAD
-    0x08001968   0x08001968   0x0000005c   Code   RO          699    i.svcrt_dev_open_internal  svcrt_dev.o
-    0x080019c4   0x080019c4   0x00000044   Code   RO          700    i.svcrt_dev_read_internal  svcrt_dev.o
-    0x08001a08   0x08001a08   0x00000080   Code   RO          701    i.svcrt_dev_register  svcrt_dev.o
-    0x08001a88   0x08001a88   0x00000014   Code   RO          847    i.svcrt_dev_write   oslib.o
-    0x08001a9c   0x08001a9c   0x00000044   Code   RO          703    i.svcrt_dev_write_internal  svcrt_dev.o
-    0x08001ae0   0x08001ae0   0x0000003c   Code   RO          758    i.svcrt_event_create_internal  svcrt_event.o
-    0x08001b1c   0x08001b1c   0x00000030   Code   RO          759    i.svcrt_event_module_init  svcrt_event.o
-    0x08001b4c   0x08001b4c   0x00000034   Code   RO          760    i.svcrt_event_set_internal  svcrt_event.o
-    0x08001b80   0x08001b80   0x00000054   Code   RO          761    i.svcrt_event_wait_internal  svcrt_event.o
-    0x08001bd4   0x08001bd4   0x0000001a   Code   RO          790    i.svcrt_fifo_create  svcrt_fifo.o
-    0x08001bee   0x08001bee   0x0000003e   Code   RO          791    i.svcrt_fifo_read   svcrt_fifo.o
-    0x08001c2c   0x08001c2c   0x00000038   Code   RO          792    i.svcrt_fifo_write  svcrt_fifo.o
-    0x08001c64   0x08001c64   0x0000000c   Code   RO          582    i.svcrt_kernel_get_time  svcrt_task.o
-    0x08001c70   0x08001c70   0x00000030   Code   RO          583    i.svcrt_kernel_tick_handler  svcrt_task.o
-    0x08001ca0   0x08001ca0   0x00000010   Code   RO          945    i.svcrt_port_board_init  svcrt_board.o
-    0x08001cb0   0x08001cb0   0x00000004   Code   RO          946    i.svcrt_port_disable_irq  svcrt_board.o
-    0x08001cb4   0x08001cb4   0x00000004   Code   RO          950    i.svcrt_port_enable_irq  svcrt_board.o
-    0x08001cb8   0x08001cb8   0x00000008   Code   RO          952    i.svcrt_port_get_systick_load  svcrt_board.o
-    0x08001cc0   0x08001cc0   0x00000008   Code   RO          953    i.svcrt_port_get_systick_val  svcrt_board.o
-    0x08001cc8   0x08001cc8   0x00000038   Code   RO          954    i.svcrt_port_irq_init  svcrt_board.o
-    0x08001d00   0x08001d00   0x00000006   Code   RO          955    i.svcrt_port_isb    svcrt_board.o
-    0x08001d06   0x08001d06   0x0000000a   Code   RO          957    i.svcrt_port_set_control  svcrt_board.o
-    0x08001d10   0x08001d10   0x00000006   Code   RO          959    i.svcrt_port_set_psp  svcrt_board.o
-    0x08001d16   0x08001d16   0x00000002   PAD
-    0x08001d18   0x08001d18   0x0000003c   Code   RO          960    i.svcrt_port_start_timer  svcrt_board.o
-    0x08001d54   0x08001d54   0x00000010   Code   RO          961    i.svcrt_port_switch_task  svcrt_board.o
-    0x08001d64   0x08001d64   0x00000004   Code   RO          962    i.svcrt_port_wfe    svcrt_board.o
-    0x08001d68   0x08001d68   0x00000004   Code   RO          963    i.svcrt_port_wfi    svcrt_board.o
-    0x08001d6c   0x08001d6c   0x00000064   Code   RO          163    i.svcrt_register_tasks  main.o
-    0x08001dd0   0x08001dd0   0x00000068   Code   RO          584    i.svcrt_sched_activate  svcrt_task.o
-    0x08001e38   0x08001e38   0x00000034   Code   RO          586    i.svcrt_sched_is_switching  svcrt_task.o
-    0x08001e6c   0x08001e6c   0x000000d8   Code   RO          587    i.svcrt_sched_next  svcrt_task.o
-    0x08001f44   0x08001f44   0x00000040   Code   RO          589    i.svcrt_task_delay_internal  svcrt_task.o
-    0x08001f84   0x08001f84   0x0000002c   Code   RO          590    i.svcrt_task_get_current  svcrt_task.o
-    0x08001fb0   0x08001fb0   0x00000030   Code   RO          591    i.svcrt_task_kill_internal  svcrt_task.o
-    0x08001fe0   0x08001fe0   0x00000050   Code   RO          818    i.svcrt_task_stack_init  svcrt_cfg.o
-    0x08002030   0x08002030   0x00000008   Code   RO          855    i.svcrt_task_wait   oslib.o
-    0x08002038   0x08002038   0x00000044   Code   RO          592    i.svcrt_task_wait_internal  svcrt_task.o
-    0x0800207c   0x0800207c   0x00000034   Code   RO          593    i.svcrt_task_wait_period_internal  svcrt_task.o
-    0x080020b0   0x080020b0   0x00000020   Code   RO         1128    i.uart_drv_close    drvuart.o
-    0x080020d0   0x080020d0   0x00000004   Code   RO         1129    i.uart_drv_ctrl     drvuart.o
-    0x080020d4   0x080020d4   0x000000e8   Code   RO         1130    i.uart_drv_open     drvuart.o
-    0x080021bc   0x080021bc   0x00000014   Code   RO         1131    i.uart_drv_read     drvuart.o
-    0x080021d0   0x080021d0   0x00000034   Code   RO         1132    i.uart_drv_write    drvuart.o
-    0x08002204   0x08002204   0x0000000a   Code   RO         4792    x$fpl$fpinit        fz_wm.l(fpinit.o)
-    0x0800220e   0x0800220e   0x00000010   Data   RO           15    .constdata          system_stm32f4xx_1.o
-    0x0800221e   0x0800221e   0x00000008   Data   RO           16    .constdata          system_stm32f4xx_1.o
-    0x08002226   0x08002226   0x00000002   PAD
-    0x08002228   0x08002228   0x00000020   Data   RO         4850    Region$$Table       anon$$obj.o
+    0x08001514   0x08001514   0x0000010c   Code   RO         3896    i.UART_SetConfig    stm32f4xx_hal_uart.o
+    0x08001620   0x08001620   0x0000000c   Code   RO         1068    i.USART1_IRQHandler  drvuart.o
+    0x0800162c   0x0800162c   0x00000002   Code   RO          512    i.UsageFault_Handler  stm32f4xx_it.o
+    0x0800162e   0x0800162e   0x00000020   Code   RO          993    i.__NVIC_SetPriority  svcrt_board.o
+    0x0800164e   0x0800164e   0x00000020   Code   RO         1194    i.__NVIC_SetPriority  svcrt_port.o
+    0x0800166e   0x0800166e   0x00000020   Code   RO         2587    i.__NVIC_SetPriority  stm32f4xx_hal_cortex.o
+    0x0800168e   0x0800168e   0x0000005e   Code   RO         1069    i.handle_usart_service  drvuart.o
+    0x080016ec   0x080016ec   0x00000040   Code   RO          161    i.led2_blink_task   main.o
+    0x0800172c   0x0800172c   0x0000003c   Code   RO          162    i.led_blink_task    main.o
+    0x08001768   0x08001768   0x00000028   Code   RO         1134    i.led_drv_close     drvled.o
+    0x08001790   0x08001790   0x00000004   Code   RO         1135    i.led_drv_ctrl      drvled.o
+    0x08001794   0x08001794   0x00000070   Code   RO         1136    i.led_drv_open      drvled.o
+    0x08001804   0x08001804   0x00000018   Code   RO         1137    i.led_drv_read      drvled.o
+    0x0800181c   0x0800181c   0x0000005c   Code   RO         1138    i.led_drv_write     drvled.o
+    0x08001878   0x08001878   0x00000050   Code   RO          163    i.main              main.o
+    0x080018c8   0x080018c8   0x0000000c   Code   RO          858    i.svcrt_cfg_load    svcrt_cfg.o
+    0x080018d4   0x080018d4   0x00000040   Code   RO          994    i.svcrt_dev_board_init  svcrt_board.o
+    0x08001914   0x08001914   0x00000050   Code   RO          712    i.svcrt_dev_close_internal  svcrt_dev.o
+    0x08001964   0x08001964   0x00000044   Code   RO          713    i.svcrt_dev_ctrl_internal  svcrt_dev.o
+    0x080019a8   0x080019a8   0x00000030   Code   RO          715    i.svcrt_dev_module_init  svcrt_dev.o
+    0x080019d8   0x080019d8   0x00000012   Code   RO          895    i.svcrt_dev_open    oslib.o
+    0x080019ea   0x080019ea   0x00000002   PAD
+    0x080019ec   0x080019ec   0x0000005c   Code   RO          716    i.svcrt_dev_open_internal  svcrt_dev.o
+    0x08001a48   0x08001a48   0x00000044   Code   RO          717    i.svcrt_dev_read_internal  svcrt_dev.o
+    0x08001a8c   0x08001a8c   0x00000080   Code   RO          718    i.svcrt_dev_register  svcrt_dev.o
+    0x08001b0c   0x08001b0c   0x00000014   Code   RO          897    i.svcrt_dev_write   oslib.o
+    0x08001b20   0x08001b20   0x00000044   Code   RO          720    i.svcrt_dev_write_internal  svcrt_dev.o
+    0x08001b64   0x08001b64   0x0000003c   Code   RO          787    i.svcrt_event_create_internal  svcrt_event.o
+    0x08001ba0   0x08001ba0   0x00000030   Code   RO          788    i.svcrt_event_module_init  svcrt_event.o
+    0x08001bd0   0x08001bd0   0x00000034   Code   RO          789    i.svcrt_event_set_internal  svcrt_event.o
+    0x08001c04   0x08001c04   0x00000054   Code   RO          790    i.svcrt_event_wait_internal  svcrt_event.o
+    0x08001c58   0x08001c58   0x0000001a   Code   RO          828    i.svcrt_fifo_create  svcrt_fifo.o
+    0x08001c72   0x08001c72   0x0000003e   Code   RO          829    i.svcrt_fifo_read   svcrt_fifo.o
+    0x08001cb0   0x08001cb0   0x00000038   Code   RO          830    i.svcrt_fifo_write  svcrt_fifo.o
+    0x08001ce8   0x08001ce8   0x0000000c   Code   RO          587    i.svcrt_kernel_get_time  svcrt_task.o
+    0x08001cf4   0x08001cf4   0x00000030   Code   RO          588    i.svcrt_kernel_tick_handler  svcrt_task.o
+    0x08001d24   0x08001d24   0x0000001c   Code   RO          995    i.svcrt_port_board_init  svcrt_board.o
+    0x08001d40   0x08001d40   0x00000034   Code   RO         1196    i.svcrt_port_delay_us  svcrt_port.o
+    0x08001d74   0x08001d74   0x00000004   Code   RO         1197    i.svcrt_port_disable_irq  svcrt_port.o
+    0x08001d78   0x08001d78   0x00000004   Code   RO         1201    i.svcrt_port_enable_irq  svcrt_port.o
+    0x08001d7c   0x08001d7c   0x00000022   Code   RO         1202    i.svcrt_port_enter_idle  svcrt_port.o
+    0x08001d9e   0x08001d9e   0x00000002   PAD
+    0x08001da0   0x08001da0   0x00000038   Code   RO          997    i.svcrt_port_irq_init  svcrt_board.o
+    0x08001dd8   0x08001dd8   0x00000048   Code   RO         1213    i.svcrt_port_stack_init  svcrt_port.o
+    0x08001e20   0x08001e20   0x0000003c   Code   RO         1214    i.svcrt_port_start_timer  svcrt_port.o
+    0x08001e5c   0x08001e5c   0x00000010   Code   RO         1215    i.svcrt_port_switch_task  svcrt_port.o
+    0x08001e6c   0x08001e6c   0x00000004   Code   RO         1216    i.svcrt_port_wfe    svcrt_port.o
+    0x08001e70   0x08001e70   0x00000004   Code   RO         1217    i.svcrt_port_wfi    svcrt_port.o
+    0x08001e74   0x08001e74   0x000000b8   Code   RO          164    i.svcrt_register_tasks  main.o
+    0x08001f2c   0x08001f2c   0x00000068   Code   RO          589    i.svcrt_sched_activate  svcrt_task.o
+    0x08001f94   0x08001f94   0x00000034   Code   RO          591    i.svcrt_sched_is_switching  svcrt_task.o
+    0x08001fc8   0x08001fc8   0x00000064   Code   RO          592    i.svcrt_sched_next  svcrt_task.o
+    0x0800202c   0x0800202c   0x0000002c   Code   RO          595    i.svcrt_task_get_current  svcrt_task.o
+    0x08002058   0x08002058   0x00000030   Code   RO          596    i.svcrt_task_kill_internal  svcrt_task.o
+    0x08002088   0x08002088   0x00000016   Code   RO          859    i.svcrt_task_stack_init  svcrt_cfg.o
+    0x0800209e   0x0800209e   0x00000008   Code   RO          905    i.svcrt_task_wait   oslib.o
+    0x080020a6   0x080020a6   0x00000002   PAD
+    0x080020a8   0x080020a8   0x00000044   Code   RO          597    i.svcrt_task_wait_internal  svcrt_task.o
+    0x080020ec   0x080020ec   0x00000034   Code   RO          598    i.svcrt_task_wait_period_internal  svcrt_task.o
+    0x08002120   0x08002120   0x00000058   Code   RO          599    i.svcrt_tick_tasks  svcrt_task.o
+    0x08002178   0x08002178   0x00000020   Code   RO         1070    i.uart_drv_close    drvuart.o
+    0x08002198   0x08002198   0x00000004   Code   RO         1071    i.uart_drv_ctrl     drvuart.o
+    0x0800219c   0x0800219c   0x000000e8   Code   RO         1072    i.uart_drv_open     drvuart.o
+    0x08002284   0x08002284   0x00000014   Code   RO         1073    i.uart_drv_read     drvuart.o
+    0x08002298   0x08002298   0x00000034   Code   RO         1074    i.uart_drv_write    drvuart.o
+    0x080022cc   0x080022cc   0x0000000a   Code   RO         4902    x$fpl$fpinit        fz_wm.l(fpinit.o)
+    0x080022d6   0x080022d6   0x00000010   Data   RO           15    .constdata          system_stm32f4xx_1.o
+    0x080022e6   0x080022e6   0x00000008   Data   RO           16    .constdata          system_stm32f4xx_1.o
+    0x080022ee   0x080022ee   0x00000006   Data   RO         1140    .constdata          drvled.o
+    0x080022f4   0x080022f4   0x00000020   Data   RO         4960    Region$$Table       anon$$obj.o
 
 
-    Execution Region RW_IRAM2 (Exec base: 0x10000000, Load base: 0x080022a0, Size: 0x00000000, Max: 0x00010000, ABSOLUTE)
+    Execution Region RW_IRAM2 (Exec base: 0x10000000, Load base: 0x08002364, Size: 0x00000000, Max: 0x00010000, ABSOLUTE)
 
     **** No section assigned to this execution region ****
 
 
-    Execution Region RW_IRAM1 (Exec base: 0x20000000, Load base: 0x08002248, Size: 0x00001400, Max: 0x00030000, ABSOLUTE)
+    Execution Region RW_IRAM1 (Exec base: 0x20000000, Load base: 0x08002314, Size: 0x00002410, Max: 0x00030000, ABSOLUTE)
 
     Exec Addr    Load Addr    Size         Type   Attr      Idx    E Section Name        Object
 
-    0x20000000   0x08002248   0x00000004   Data   RW           17    .data               system_stm32f4xx_1.o
-    0x20000004   0x0800224c   0x00000010   Data   RW          594    .data               svcrt_task.o
-    0x20000014   0x0800225c   0x00000004   Data   RW          705    .data               svcrt_dev.o
-    0x20000018   0x08002260   0x00000004   Data   RW          820    .data               svcrt_cfg.o
-    0x2000001c   0x08002264   0x00000014   Data   RW         1134    .data               drvuart.o
-    0x20000030   0x08002278   0x00000014   Data   RW         1197    .data               drvled.o
-    0x20000044   0x0800228c   0x00000008   Data   RW         1198    .data               drvled.o
-    0x2000004c   0x08002294   0x0000000c   Data   RW         2638    .data               stm32f4xx_hal.o
-    0x20000058        -       0x00000800   Zero   RW          164    .bss                main.o
-    0x20000858        -       0x00000020   Zero   RW          299    .bss                rtc.o
-    0x20000878        -       0x00000048   Zero   RW          425    .bss                usart.o
-    0x200008c0        -       0x000000a0   Zero   RW          704    .bss                svcrt_dev.o
-    0x20000960        -       0x00000140   Zero   RW          762    .bss                svcrt_event.o
-    0x20000aa0        -       0x000001a4   Zero   RW          819    .bss                svcrt_cfg.o
-    0x20000c44        -       0x0000015c   Zero   RW         1133    .bss                drvuart.o
-    0x20000da0        -       0x00000060   Zero   RW         4722    .bss                c_w.l(libspace.o)
-    0x20000e00        -       0x00000200   Zero   RW            2    HEAP                startup_stm32f427xx.o
-    0x20001000        -       0x00000400   Zero   RW            1    STACK               startup_stm32f427xx.o
+    0x20000000   0x08002314   0x00000004   Data   RW           17    .data               system_stm32f4xx_1.o
+    0x20000004   0x08002318   0x00000010   Data   RW          600    .data               svcrt_task.o
+    0x20000014   0x08002328   0x00000004   Data   RW          722    .data               svcrt_dev.o
+    0x20000018   0x0800232c   0x00000004   Data   RW          861    .data               svcrt_cfg.o
+    0x2000001c   0x08002330   0x00000014   Data   RW         1076    .data               drvuart.o
+    0x20000030   0x08002344   0x00000014   Data   RW         1141    .data               drvled.o
+    0x20000044   0x08002358   0x0000000c   Data   RW         2748    .data               stm32f4xx_hal.o
+    0x20000050        -       0x00001800   Zero   RW          165    .bss                main.o
+    0x20001850        -       0x00000020   Zero   RW          301    .bss                rtc.o
+    0x20001870        -       0x00000048   Zero   RW          427    .bss                usart.o
+    0x200018b8        -       0x000000a0   Zero   RW          721    .bss                svcrt_dev.o
+    0x20001958        -       0x00000140   Zero   RW          791    .bss                svcrt_event.o
+    0x20001a98        -       0x000001a4   Zero   RW          860    .bss                svcrt_cfg.o
+    0x20001c3c        -       0x0000015c   Zero   RW         1075    .bss                drvuart.o
+    0x20001d98        -       0x00000018   Zero   RW         1139    .bss                drvled.o
+    0x20001db0        -       0x00000060   Zero   RW         4832    .bss                c_w.l(libspace.o)
+    0x20001e10        -       0x00000200   Zero   RW            2    HEAP                startup_stm32f427xx.o
+    0x20002010        -       0x00000400   Zero   RW            1    STACK               startup_stm32f427xx.o
 
 
 ==============================================================================
@@ -2419,11 +2456,10 @@ Image component sizes
 
       Code (inc. data)   RO Data    RW Data    ZI Data      Debug   Object Name
 
-        60          8          0          0          0        500   context_rvds.o
-       244         24          0         28          0       4607   drvled.o
+       272         28          6         20         24       4863   drvled.o
        446         26          0         20        348       6482   drvuart.o
        232         16          0          0          0       1111   gpio.o
-       404         36          0          0       2048       7084   main.o
+       544         52          0          0       6144       7480   main.o
         46          0          0          0          0       1961   oslib.o
        112         16          0          0         32       1699   rtc.o
         64         26        428          0       1536        864   startup_stm32f427xx.o
@@ -2436,19 +2472,21 @@ Image component sizes
        326         12          0          0          0       3709   stm32f4xx_hal_rtc.o
        368         10          0          0          0       2120   stm32f4xx_hal_uart.o
         10          0          0          0          0       2445   stm32f4xx_it.o
-       326         56          0          0          0      45873   svcrt_board.o
-        92          4          0          4        420       2037   svcrt_cfg.o
+       224         52          0          0          0      34102   svcrt_board.o
+        34          4          0          4        420       2013   svcrt_cfg.o
+        60          8          0          0          0        508   svcrt_context.o
        552         60          0          4        160       6573   svcrt_dev.o
        244         22          0          0        320       3711   svcrt_event.o
        144          0          0          0          0       3141   svcrt_fifo.o
-       932         96          0         16          0      10322   svcrt_task.o
+       282         26          0          0          0      42727   svcrt_port.o
+       840         90          0         16          0       9820   svcrt_task.o
         16          4         24          4          0     721055   system_stm32f4xx_1.o
        164         22          0          0         72       1818   usart.o
 
     ----------------------------------------------------------------------
-      7682        640        486         88       4936     879888   Object Totals
+      7882        676        490         80       9056     910978   Object Totals
          0          0         32          0          0          0   (incl. Generated)
-        12          0          2          0          0          0   (incl. Padding)
+        14          0          0          0          0          0   (incl. Padding)
 
     ----------------------------------------------------------------------
 
@@ -2499,15 +2537,15 @@ Image component sizes
 
       Code (inc. data)   RO Data    RW Data    ZI Data      Debug   
 
-      8290        656        486         88       5032     871408   Grand Totals
-      8290        656        486         88       5032     871408   ELF Image Totals
-      8290        656        486         88          0          0   ROM Totals
+      8490        692        490         80       9152     902498   Grand Totals
+      8490        692        490         80       9152     902498   ELF Image Totals
+      8490        692        490         80          0          0   ROM Totals
 
 ==============================================================================
 
-    Total RO  Size (Code + RO Data)                 8776 (   8.57kB)
-    Total RW  Size (RW Data + ZI Data)              5120 (   5.00kB)
-    Total ROM Size (Code + RO Data + RW Data)       8864 (   8.66kB)
+    Total RO  Size (Code + RO Data)                 8980 (   8.77kB)
+    Total RW  Size (RW Data + ZI Data)              9232 (   9.02kB)
+    Total ROM Size (Code + RO Data + RW Data)       9060 (   8.85kB)
 
 ==============================================================================
 

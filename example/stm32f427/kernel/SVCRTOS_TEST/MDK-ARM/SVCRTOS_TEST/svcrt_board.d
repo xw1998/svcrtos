@@ -36,10 +36,13 @@ svcrtos_test\svcrt_board.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_ua
 svcrtos_test\svcrt_board.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h
 svcrtos_test\svcrt_board.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h
 svcrtos_test\svcrt_board.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h
-svcrtos_test\svcrt_board.o: ../../../../../kernelsrc/include/svcrt_port.h
+svcrtos_test\svcrt_board.o: ../../../../../kernelsrc/include/svcrt_hal.h
+svcrtos_test\svcrt_board.o: ../../../../../kernelsrc/include/svcrt_types.h
 svcrtos_test\svcrt_board.o: ../../../../../kernelsrc/include/svcrt_config.h
 svcrtos_test\svcrt_board.o: ../../../../../board/stm32f427/svcrt_board_config.h
-svcrtos_test\svcrt_board.o: ../../../../../kernelsrc/include/svcrt_types.h
 svcrtos_test\svcrt_board.o: ../../../../../kernelsrc/include/svcrt_dev.h
 svcrtos_test\svcrt_board.o: ../../../../../kernelsrc/include/svcrt_def.h
 svcrtos_test\svcrt_board.o: ../../../../../kernelsrc/include/svcrt_task.h
+svcrtos_test\svcrt_board.o: ..\..\..\..\..\board\stm32f427\drvled.h
+svcrtos_test\svcrt_board.o: ..\..\..\..\..\board\stm32f427\drvuart.h
+svcrtos_test\svcrt_board.o: ../../../../../kernelsrc/include/svcrt_fifo.h

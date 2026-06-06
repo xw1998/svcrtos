@@ -469,3 +469,101 @@ main()
 - [ ] **修改 `stm32f4xx_it.c`**：移除冲突的中断处理器
 
 - [ ] **编译验证**：解决类型兼容性问题（如 `SystemCoreClock` 声明）
+
+---
+
+## 8. 已知问题与修复记录
+
+### 8.1 多任务调度异常（2026.05.30 修复）
+
+**现象**：两个任务同时运行时，task2 只执行一次 `svcrt_task_wait` 后不再被调度，task1 正常运行。
+
+**根因**：`svcrt_sched_activate()` 中的栈溢出检测逻辑不区分任务状态，在任务处于 WAIT 状态时也检查栈底标志，导致误判为栈溢出并将任务标记为 INVALID。
+
+**修复**：只在任务处于 RUNNING 状态时执行栈溢出检测：
+
+```c
+// svcrt_task.c: svcrt_sched_activate()
+if(svcrt_task_table[tid].status == SVCRT_TASK_RUNNING)
+{
+    #if (SVCRT_USE_STACK_CHECK == 1)
+    if(*svcrt_task_table[tid].stack_bottom != SVCRT_STACK_END_FLAG_VAL)
+    {
+        svcrt_task_table[tid].status = SVCRT_TASK_INVALID;
+    }
+    else
+    #endif
+    {
+        svcrt_task_table[tid].status = SVCRT_TASK_READY;
+    }
+}
+// WAIT 状态不做检查，等待唤醒
+```
+
+**相关修复**：`svcrt_tick_tasks()` 中严格分离 `wait_time` 和 `period_time` 两种等待机制，避免互相干扰。
+
+### 8.2 任务等待机制说明
+
+SVCrtOS 支持两种任务等待方式：
+
+| 函数 | 等待机制 | 唤醒条件 |
+|------|---------|---------|
+| `svcrt_task_wait(ms)` | `wait_time` 递减 | `wait_time <= 0` 时唤醒 |
+| `svcrt_task_wait_period()` | `period_time` 递减 | `period_time <= 0` 时唤醒并重载 |
+
+**重要**：两种机制独立运行，同一任务不应混用。`svcrt_tick_tasks()` 会根据 `wait_time > 0` 判断走哪个分支。
+
+---
+
+## 9. 内核架构说明
+
+### 9.1 分层架构
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    应用程序 (App)                        │
+│                  仅包含 svcrt.h                          │
+├─────────────────────────────────────────────────────────┤
+│                    内核 API 层                           │
+│              svcrt_task_wait / svcrt_dev_open           │
+│                  (通过 SVC 调用进入内核)                  │
+├─────────────────────────────────────────────────────────┤
+│                    内核核心层                            │
+│     svcrt_task.c / svcrt_dev.c / svcrt_event.c          │
+│              (架构无关，零芯片依赖)                       │
+├─────────────────────────────────────────────────────────┤
+│                    硬件抽象层                            │
+│                   svcrt_hal.h                           │
+│            (定义 CPU/中断/定时器/上下文接口)              │
+├──────────────────────┬──────────────────────────────────┤
+│     Port 层          │          Board 层                │
+│  svcrt_port.c        │      svcrt_board.c               │
+│ (架构相关实现)        │    (板级初始化+设备注册)          │
+│  context_rvds.S      │      drvled.c / drvuart.c        │
+└──────────────────────┴──────────────────────────────────┘
+```
+
+### 9.2 关键数据结构
+
+**任务控制块 (svcrt_task_t)**：
+
+| 字段 | 说明 |
+|------|------|
+| `stack_ptr` | 当前栈指针（上下文保存位置） |
+| `stack_bottom` | 栈底地址（用于溢出检测） |
+| `status` | 任务状态（INVALID/READY/WAIT/RUNNING） |
+| `priority` | 优先级（数值越小优先级越高） |
+| `wait_time` | 等待时间（tick 数，用于 `svcrt_task_wait`） |
+| `period_time` | 周期时间（tick 数，用于 `svcrt_task_wait_period`） |
+| `touch_tick` | 最后一次被调度的时间戳（用于同优先级轮转） |
+
+### 9.3 调度算法
+
+1. **优先级调度**：每次调度选择 READY/RUNNING 状态中优先级最高（priority 值最小）的任务
+2. **同优先级轮转**：优先级相同时，选择 `touch_tick` 最小的任务（最久未被调度）
+3. **状态转换**：
+   - `READY` → `RUNNING`：被 `svcrt_sched_activate` 选中
+   - `RUNNING` → `READY`：被抢占或主动让出（`svcrt_sched_activate` 中转换）
+   - `RUNNING` → `WAIT`：调用 `svcrt_task_wait` 或 `svcrt_task_wait_period`
+   - `WAIT` → `READY`：`svcrt_tick_tasks` 中等待时间到期
+   - `*` → `INVALID`：栈溢出检测失败或 HardFault

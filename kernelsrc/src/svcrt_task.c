@@ -1,8 +1,9 @@
 /**
-* @brief SVCrtOS 任务管理与调度器
-* @details 实现任务状态管理、优先级调度、SVC服务分发等核心功能
-*          中断入口(SysTick_Handler/HardFault_Handler)位于 board/ 层,
-*          内核仅提供 svcrt_kernel_tick_handler / svcrt_hardfault_handler 供其转发。
+* @brief SVCrtOS ??????????????
+* @details ?????????????????????????SVC???????????????
+*          ??????(SysTick_Handler/HardFault_Handler)??? board/ ??,
+*          ?????? svcrt_kernel_tick_handler / svcrt_hardfault_handler ?????????
+*          ?????????port?? svcrt_port_delay_us() ????????????? SystemCoreClock??
 * @author xw
 * @date 2026.05.03
 */
@@ -10,10 +11,10 @@
 #include "svcrt_cfg.h"
 #include "svcrt_task.h"
 #include "svcrt_event.h"
-#include "svcrt_mpu.h"
+#include "svcrt_hal.h"
 #include "svcrt_dev.h"
 #include "svcrt_def.h"
-#include "svcrt_port.h"
+#include "svcrt_config.h"
 
 uint32 svcrt_kernel_tick = 0;
 int32  svcrt_current_task_id = 0;
@@ -179,15 +180,15 @@ int32 svcrt_sched_activate(int32 new_task, uint32 old_psp)
     {
         svcrt_task_table[tid].stack_ptr = old_psp;
 
-        #if (SVCRT_USE_STACK_CHECK == 1)
-        if(*svcrt_task_table[tid].stack_bottom != SVCRT_STACK_END_FLAG_VAL)
+        if(svcrt_task_table[tid].status == SVCRT_TASK_RUNNING)
         {
-            svcrt_task_table[tid].status = SVCRT_TASK_INVALID;
-        }
-        else
-        #endif
-        {
-            if(svcrt_task_table[tid].status == SVCRT_TASK_RUNNING)
+            #if (SVCRT_USE_STACK_CHECK == 1)
+            if(*svcrt_task_table[tid].stack_bottom != SVCRT_STACK_END_FLAG_VAL)
+            {
+                svcrt_task_table[tid].status = SVCRT_TASK_INVALID;
+            }
+            else
+            #endif
             {
                 svcrt_task_table[tid].status = SVCRT_TASK_READY;
             }
@@ -200,7 +201,7 @@ int32 svcrt_sched_activate(int32 new_task, uint32 old_psp)
         tid = svcrt_current_task_id - 1;
         svcrt_task_table[tid].touch_tick = svcrt_kernel_tick;
         svcrt_task_table[tid].status = SVCRT_TASK_RUNNING;
-        svcrt_mpu_set_app(&svcrt_task_table[tid]);
+        svcrt_port_mpu_set_app(svcrt_task_table[tid].mpu_bar, svcrt_task_table[tid].mpu_asr);
         return svcrt_task_table[tid].stack_ptr;
     }
     else
@@ -246,7 +247,7 @@ int32 svcrt_sched_next(void)
 static void svcrt_tick_tasks(svcrt_task_t *p_task)
 {
     uint32 used_tick = svcrt_kernel_tick;
-    int32 escape_tick = used_tick - p_task->tim_tick;
+    int32 escape_tick = (int32)(used_tick - p_task->tim_tick);
 
     if(p_task->status == SVCRT_TASK_INVALID)
     {
@@ -254,14 +255,10 @@ static void svcrt_tick_tasks(svcrt_task_t *p_task)
     }
 
     p_task->tim_tick = used_tick;
-    p_task->period_time -= escape_tick;
-    if(p_task->period_time < 0)
+
+    if(escape_tick <= 0)
     {
-        p_task->period_time += p_task->period;
-        if(p_task->status == SVCRT_TASK_WAIT)
-        {
-            p_task->status = SVCRT_TASK_READY;
-        }
+        return;
     }
 
     if(p_task->status == SVCRT_TASK_RUNNING)
@@ -274,17 +271,26 @@ static void svcrt_tick_tasks(svcrt_task_t *p_task)
         p_task->wait_time -= escape_tick;
         if(p_task->wait_time <= 0)
         {
+            p_task->wait_time = 0;
             if(p_task->status == SVCRT_TASK_WAIT)
             {
                 p_task->status = SVCRT_TASK_READY;
             }
         }
-        else
+        return;
+    }
+
+    p_task->period_time -= escape_tick;
+    if(p_task->period_time <= 0)
+    {
+        p_task->period_time += p_task->period;
+        if(p_task->period_time <= 0)
         {
-            if(p_task->status != SVCRT_TASK_INVALID)
-            {
-                p_task->status = SVCRT_TASK_WAIT;
-            }
+            p_task->period_time = p_task->period;
+        }
+        if(p_task->status == SVCRT_TASK_WAIT)
+        {
+            p_task->status = SVCRT_TASK_READY;
         }
     }
 }
@@ -330,21 +336,7 @@ void svcrt_task_wait_period_internal(void)
 
 void svcrt_task_delay_internal(uint32 us)
 {
-    int32 tm_start = svcrt_port_get_systick_val();
-    int32 wait_clk = us * (SystemCoreClock / 1000000);
-    int32 tm_end;
-    int32 tm_diff;
-
-    while(wait_clk > 0)
-    {
-        tm_end = svcrt_port_get_systick_val();
-        tm_diff = tm_start - tm_end;
-        if(tm_diff < 0)
-            tm_diff += svcrt_port_get_systick_load();
-        tm_start = tm_end;
-
-        wait_clk -= tm_diff;
-    }
+    svcrt_port_delay_us(us);
 }
 
 void svcrt_sched_switch(void)

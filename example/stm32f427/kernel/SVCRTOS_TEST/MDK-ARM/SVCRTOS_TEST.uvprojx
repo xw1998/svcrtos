@@ -693,16 +693,6 @@
               <FilePath>..\..\..\..\..\board\stm32f427\svcrt_board.c</FilePath>
             </File>
             <File>
-              <FileName>svcrt_mpu.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\board\stm32f427\svcrt_mpu.c</FilePath>
-            </File>
-            <File>
-              <FileName>context_rvds.S</FileName>
-              <FileType>2</FileType>
-              <FilePath>..\..\..\..\..\board\stm32f427\context_rvds.S</FilePath>
-            </File>
-            <File>
               <FileName>drvuart.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\board\stm32f427\drvuart.c</FilePath>
@@ -711,6 +701,16 @@
               <FileName>drvled.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\board\stm32f427\drvled.c</FilePath>
+            </File>
+            <File>
+              <FileName>svcrt_context.S</FileName>
+              <FileType>2</FileType>
+              <FilePath>..\kernelsrc\port\arm\cortex-m4\svcrt_context.S</FilePath>
+            </File>
+            <File>
+              <FileName>svcrt_port.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\kernelsrc\port\arm\cortex-m4\svcrt_port.c</FilePath>
             </File>
           </Files>
         </Group>
