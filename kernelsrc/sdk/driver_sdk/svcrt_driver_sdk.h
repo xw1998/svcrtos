@@ -2,7 +2,11 @@
 * @brief SVCrtOS Driver SDK - 驱动开发接口
 * @details 此文件是驱动开发者需要包含的唯一头文件。
 *          提供驱动接口定义、驱动注册API和设备操作码定义。
-*          svcrt_dev_drv_t 结构与内核 svcrt_dev.h 完全一致，确保二进制兼容
+*          支持两种编译模式：
+*          - SVCRT_DRV_MODE_KERNEL: 内核态模式，驱动编译为静态库与内核链接
+*          - SVCRT_DRV_MODE_USER:   用户态模式，驱动独立编译为固件，通过SVC注册
+*          默认为内核态模式，用户态模式需定义 SVCRT_DRV_USER_MODE 宏。
+*          此文件不依赖任何MCU头文件或内核内部头文件，驱动SDK可独立编译。
 */
 
 #ifndef __SVCRT_DRIVER_SDK_H__
@@ -44,5 +48,19 @@ typedef struct {
 int32 svcrt_drv_register(const char *name, svcrt_dev_drv_t *drv, uint32 dev_num);
 int32 svcrt_drv_unregister(const char *name);
 int32 svcrt_drv_get_count(void);
+
+#ifdef SVCRT_DRV_USER_MODE
+
+#define SVCRT_SVC_DRV_MGR           (0x14)
+
+int32 __svc(SVCRT_SVC_DRV_MGR) svcrt_call_drv_mgr(uint32 *p);
+
+#else
+
+extern int32 svcrt_dev_register(const char *name, svcrt_dev_drv_t *drv, uint32 dev_num);
+extern int32 svcrt_dev_unregister(const char *name);
+extern int32 svcrt_dev_get_count(void);
+
+#endif
 
 #endif

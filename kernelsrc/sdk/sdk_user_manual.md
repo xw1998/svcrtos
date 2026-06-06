@@ -4,10 +4,10 @@
 
 SVCrtOS 提供两套独立的SDK，分别面向**应用开发者**和**驱动开发者**：
 
-| SDK | 目标用户 | 核心文件 | 依赖 |
-|-----|---------|---------|------|
-| **App SDK** | 应用程序开发者 | `svcrt.h` | 无MCU依赖 |
-| **Driver SDK** | 设备驱动开发者 | `svcrt_driver_sdk.h` | 无MCU依赖 |
+| SDK | 目标用户 | 核心文件 | 依赖 | 编译模式 |
+|-----|---------|---------|------|---------|
+| **App SDK** | 应用程序开发者 | `svcrt.h` | 无MCU依赖 | 用户态（SVC调用） |
+| **Driver SDK** | 设备驱动开发者 | `svcrt_driver_sdk.h` | 无MCU依赖 | 内核态/用户态 |
 
 两套SDK均**不依赖任何MCU头文件或内核内部头文件**，开发者只需包含一个头文件即可开始开发。
 
@@ -532,25 +532,50 @@ void AppMain(void)
 
 ### 8. Driver SDK 简介
 
-Driver SDK 是面向SVCrtOS设备驱动开发者的工具包。驱动运行在内核态，可以直接操作硬件寄存器。驱动通过 `svcrt_drv_register()` 动态注册到内核设备表，应用程序通过 `svcrt_dev_open()` 等API使用。
+Driver SDK 是面向SVCrtOS设备驱动开发者的工具包。驱动通过 `svcrt_drv_register()` 动态注册到内核设备表，应用程序通过 `svcrt_dev_open()` 等API使用。
+
+Driver SDK 支持**两种编译模式**，驱动开发者可根据需要选择：
+
+| 模式 | 宏定义 | 运行态 | 编译产物 | 硬件访问 | 适用场景 |
+|------|--------|--------|----------|----------|----------|
+| **内核态** | （默认，无需宏） | 内核态 | 静态库 `.lib` | 直接操作寄存器 | 需要直接操作硬件的高性能驱动 |
+| **用户态** | `SVCRT_DRV_USER_MODE` | 用户态 | 独立固件 `.bin` | 通过内核代理 | 不需直接操作硬件的协议驱动 |
 
 **核心特性：**
 - **动态注册** — 驱动可以在运行时注册/注销，无需修改内核源码
 - **统一接口** — 所有驱动实现相同的 `svcrt_dev_drv_t` 接口
-- **独立开发** — 驱动代码与内核代码完全分离，可独立编译
+- **独立编译** — 驱动SDK不依赖任何MCU头文件或内核内部头文件，可独立编译
+- **双模式架构** — 内核态模式通过 `extern` 直接调用内核函数；用户态模式通过 SVC 0x14 陷入内核完成注册
 
 ### 9. Driver SDK 文件清单
 
 ```
 sdk/driver_sdk/
 ├── svcrt_driver_sdk.h       ← 驱动开发API头文件（唯一需要包含的文件）
-├── svcrt_driver_bridge.c    ← 驱动注册桥接层实现
+├── svcrt_types.h            ← 基础类型定义（被svcrt_driver_sdk.h自动包含）
+├── svcrt_driver_bridge.c    ← 驱动注册桥接层（支持双模式条件编译）
+├── svcrt_drv_main.c         ← 用户态驱动入口（含DrvMain弱定义）
+├── svcrt_drv_start.s        ← 用户态驱动启动汇编入口
+├── svcrt_drv_oslib.c        ← 用户态驱动OS接口封装（SVC调用）
 └── examples/
     ├── example_led_drv.c    ← LED驱动示例
     └── example_uart_drv.c   ← UART驱动示例
 ```
 
-### 10. 快速开始：5步开发一个驱动
+**各文件用途与适用模式：**
+
+| 文件 | 内核态模式 | 用户态模式 | 说明 |
+|------|-----------|-----------|------|
+| `svcrt_driver_sdk.h` | ? 必需 | ? 必需 | 驱动开发唯一需要包含的头文件 |
+| `svcrt_types.h` | ? 必需 | ? 必需 | 基础类型定义，SDK自包含 |
+| `svcrt_driver_bridge.c` | ? 必需 | ? 必需 | 注册桥接层，条件编译切换调用方式 |
+| `svcrt_drv_main.c` | — 不需要 | ? 必需 | 提供 `DrvMain()` 入口和 `main()` |
+| `svcrt_drv_start.s` | — 不需要 | ? 必需 | 用户态启动汇编入口 |
+| `svcrt_drv_oslib.c` | — 不需要 | ? 必需 | 任务等待、事件等OS接口 |
+
+### 10. 快速开始：开发一个驱动
+
+驱动开发的前4步在两种编译模式下完全相同，区别在于第5步的编译方式和入口调用。
 
 #### 步骤1：创建驱动文件
 
@@ -617,7 +642,11 @@ static svcrt_dev_drv_t my_drv = {
 };
 ```
 
-#### 步骤5：实现安装函数并注册
+#### 步骤5：编译与安装（按模式选择）
+
+##### 内核态模式
+
+实现安装函数，在板级初始化时调用：
 
 ```c
 int32 my_drv_install(void)
@@ -626,7 +655,37 @@ int32 my_drv_install(void)
 }
 ```
 
-在系统初始化时调用 `my_drv_install()` 即可将驱动注册到内核。
+**编译配置：**
+- 宏定义：无需额外宏（默认内核态）
+- 编译文件：`my_drv.c` + `svcrt_driver_bridge.c`
+- 头文件路径：`sdk/driver_sdk/`
+- 编译产物：静态库 `.lib`，与内核链接合并
+- 安装方式：在 `board/` 层的 `svcrt_dev_board_init()` 中调用 `my_drv_install()`
+
+##### 用户态模式
+
+实现 `DrvMain()` 函数：
+
+```c
+void DrvMain(void)
+{
+    svcrt_drv_register("MYDEV", &my_drv, 0);
+
+    while(1)
+    {
+        svcrt_task_wait(1000);
+    }
+}
+```
+
+**编译配置：**
+- 宏定义：`SVCRT_DRV_USER_MODE`
+- 编译文件：`my_drv.c` + `svcrt_driver_bridge.c` + `svcrt_drv_oslib.c` + `svcrt_drv_main.c` + `svcrt_drv_start.s`
+- 头文件路径：`sdk/driver_sdk/`
+- 编译产物：独立固件 `.bin`，烧录到指定ROM分区
+- 安装方式：固件启动后自动调用 `DrvMain()`，通过 SVC 0x14 注册驱动
+
+> **注意：** 用户态驱动的 `DrvMain()` 不能返回，必须包含无限循环。可以使用 `svcrt_task_wait()` 让出CPU。
 
 ### 11. Driver SDK API 详解
 
@@ -786,9 +845,140 @@ int32 svcrt_drv_get_count(void);
 | `SVCRT_DRV_TIMEOUT` | -3 | 操作超时 |
 | `SVCRT_DRV_INVALID_PARAM` | -4 | 参数无效 |
 
-### 12. Driver SDK 完整示例
+### 12. Driver SDK 编译模式详解
 
-#### 12.1 SPI驱动示例
+Driver SDK 通过条件编译宏 `SVCRT_DRV_USER_MODE` 切换两种编译模式。两种模式下，驱动开发者编写的驱动代码**完全相同**，只需改变编译配置即可切换模式。
+
+#### 12.1 内核态模式（默认）
+
+**工作原理：**
+
+桥接层 `svcrt_driver_bridge.c` 通过 `extern` 声明直接调用内核函数：
+
+```
+svcrt_drv_register()  →  svcrt_dev_register()    （内核函数，链接时解析）
+svcrt_drv_unregister() →  svcrt_dev_unregister()  （内核函数，链接时解析）
+svcrt_drv_get_count()  →  svcrt_dev_get_count()   （内核函数，链接时解析）
+```
+
+**依赖链：**
+
+```
+svcrt_driver_sdk.h  →  svcrt_types.h  （SDK自包含，无MCU依赖）
+svcrt_driver_bridge.c  →  svcrt_driver_sdk.h  +  extern 内核函数声明
+```
+
+**编译配置（MDK工程）：**
+
+| 配置项 | 值 |
+|--------|-----|
+| 宏定义 | （无需额外宏） |
+| C编译文件 | `你的驱动.c`、`svcrt_driver_bridge.c` |
+| 头文件路径 | `sdk/driver_sdk/` |
+| 编译目标 | 创建库（Create Library），输出 `.lib` |
+
+**集成方式：**
+
+1. 将驱动 `.lib` 添加到内核 MDK 工程的库列表中
+2. 在 `board/` 层的 `svcrt_dev_board_init()` 中调用驱动的安装函数：
+
+```c
+extern int32 my_drv_install(void);
+
+void svcrt_dev_board_init(void)
+{
+    svcrt_dev_register("COM1", &usart_drv, 0);
+    svcrt_dev_register("LED",  &led_drv,  0);
+    my_drv_install();                    // 安装自定义驱动
+}
+```
+
+**优势：**
+- 驱动可直接操作硬件寄存器，零开销
+- 与内核在同一地址空间，性能最优
+
+**限制：**
+- 最终需与内核链接，不能独立运行
+- 驱动bug可能导致整个系统崩溃
+
+#### 12.2 用户态模式（SVCRT_DRV_USER_MODE）
+
+**工作原理：**
+
+桥接层 `svcrt_driver_bridge.c` 通过 SVC 指令陷入内核完成注册：
+
+```
+svcrt_drv_register()  →  __svc(0x14)  →  SVC_Server  →  svcrt_dev_register()
+svcrt_drv_unregister() →  __svc(0x14)  →  SVC_Server  →  svcrt_dev_unregister()
+svcrt_drv_get_count()  →  __svc(0x14)  →  SVC_Server  →  svcrt_dev_get_count()
+```
+
+SVC 0x14 的子功能编码：
+
+| p[0] | 功能 | 参数 |
+|------|------|------|
+| 1 | 注册驱动 | p[1]=name, p[2]=drv指针, p[3]=dev_num |
+| 2 | 注销驱动 | p[1]=name |
+| 3 | 获取设备数 | 无 |
+
+**依赖链：**
+
+```
+svcrt_driver_sdk.h  →  svcrt_types.h  （SDK自包含，无MCU依赖）
+svcrt_driver_bridge.c  →  svcrt_driver_sdk.h  （SVC调用，无内核依赖）
+svcrt_drv_oslib.c      →  svcrt_driver_sdk.h  （SVC调用，无内核依赖）
+svcrt_drv_main.c       →  svcrt_driver_sdk.h  （无内核依赖）
+svcrt_drv_start.s      →  无依赖
+```
+
+**编译配置（MDK工程）：**
+
+| 配置项 | 值 |
+|--------|-----|
+| 宏定义 | `SVCRT_DRV_USER_MODE` |
+| C编译文件 | `你的驱动.c`、`svcrt_driver_bridge.c`、`svcrt_drv_oslib.c`、`svcrt_drv_main.c` |
+| 汇编文件 | `svcrt_drv_start.s` |
+| 头文件路径 | `sdk/driver_sdk/` |
+| 编译目标 | 创建可执行文件（Create Executable），输出 `.bin/.hex` |
+| 链接地址 | 按分区ROM/RAM地址配置scatter文件 |
+
+**用户态驱动可用的OS API：**
+
+通过 `svcrt_drv_oslib.c` 提供，与 App SDK 的接口一致：
+
+| API | 说明 |
+|-----|------|
+| `svcrt_task_wait(ms)` | 挂起指定毫秒 |
+| `svcrt_task_wait_period()` | 等待下一调度周期 |
+| `svcrt_task_delay(us)` | 微秒级忙等 |
+| `svcrt_get_time_ms()` | 获取系统时间 |
+| `svcrt_event_create(name)` | 创建事件 |
+| `svcrt_event_wait(handle, timeout)` | 等待事件 |
+| `svcrt_event_set(handle)` | 触发事件 |
+
+**优势：**
+- 完全独立编译，不依赖内核源码
+- 驱动bug不会导致内核崩溃（MPU隔离）
+- 可独立烧录/替换，无需重新编译内核
+
+**限制：**
+- 不能直接操作硬件寄存器
+- SVC调用有少量开销
+- 需要内核提供硬件操作代理
+
+#### 12.3 模式选择指南
+
+| 场景 | 推荐模式 | 原因 |
+|------|---------|------|
+| UART/SPI/I2C 等需直接操作寄存器的外设驱动 | 内核态 | 需要直接读写寄存器 |
+| LED/GPIO 等简单外设驱动 | 内核态 | 操作简单，直接访问效率高 |
+| 文件系统/网络协议栈等逻辑驱动 | 用户态 | 不需直接操作硬件，可独立升级 |
+| 传感器数据处理/滤波算法 | 用户态 | 纯逻辑处理，MPU隔离更安全 |
+| 第三方闭源驱动 | 用户态 | 不需暴露内核源码即可集成 |
+
+### 13. Driver SDK 完整示例
+
+#### 13.1 SPI驱动示例
 
 ```c
 #include "svcrt_driver_sdk.h"
@@ -876,7 +1066,7 @@ int32 spi_drv_install(void)
 }
 ```
 
-#### 12.2 多实例驱动（同一驱动管理多个设备）
+#### 13.2 多实例驱动（同一驱动管理多个设备）
 
 ```c
 #include "svcrt_driver_sdk.h"
