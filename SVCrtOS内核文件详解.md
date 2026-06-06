@@ -1,51 +1,51 @@
-# SVCrtOS ÄÚºËÎÄ¼þÏê½â
+# SVCrtOS å†…æ ¸æ–‡ä»¶è¯¦è§£
 
-## 1. ¸ÅÊö
+## 1. æ¦‚è¿°
 
-SVCrtOS ÊÇÒ»¸öÃæÏò Cortex-M ÏµÁÐÎ¢¿ØÖÆÆ÷µÄÊµÊ±²Ù×÷ÏµÍ³ÄÚºË£¬²ÉÓÃ **SVC ÏµÍ³µ÷ÓÃ + PendSV ÉÏÏÂÎÄÇÐ»»** µÄ¾­µä¼Ü¹¹£¬ÊµÏÖÓÃ»§Ì¬/ÄÚºËÌ¬·ÖÀë¡£ÄÚºË´úÂë£¨`kernelsrc/`£©ÁãÐ¾Æ¬ÒÀÀµ£¬ËùÓÐÓ²¼þ²Ù×÷Í¨¹ý `svcrt_hal.h` ¶¨ÒåµÄ¶Ë¿Ú½Ó¿ÚÓÉ port ²ãºÍ board ²ãÊµÏÖ¡£
+SVCrtOS æ˜¯ä¸€ä¸ªé¢å‘ Cortex-M ç³»åˆ—å¾®æŽ§åˆ¶å™¨çš„å®žæ—¶æ“ä½œç³»ç»Ÿå†…æ ¸ï¼Œé‡‡ç”¨ **SVC ç³»ç»Ÿè°ƒç”¨ + PendSV ä¸Šä¸‹æ–‡åˆ‡æ¢** çš„ç»å…¸æž¶æž„ï¼Œå®žçŽ°ç”¨æˆ·æ€/å†…æ ¸æ€åˆ†ç¦»ã€‚å†…æ ¸ä»£ç ï¼ˆ`kernelsrc/`ï¼‰é›¶èŠ¯ç‰‡ä¾èµ–ï¼Œæ‰€æœ‰ç¡¬ä»¶æ“ä½œé€šè¿‡ `svcrt_hal.h` å®šä¹‰çš„ç«¯å£æŽ¥å£ç”± port å±‚å’Œ board å±‚å®žçŽ°ã€‚
 
-±¾ÎÄµµÖðÎÄ¼þÏê½âÄÚºËÔ´ÂëµÄÉè¼ÆË¼Â·¡¢Êý¾Ý½á¹¹ºÍº¯ÊýÂß¼­¡£
+æœ¬æ–‡æ¡£é€æ–‡ä»¶è¯¦è§£å†…æ ¸æºç çš„è®¾è®¡æ€è·¯ã€æ•°æ®ç»“æž„å’Œå‡½æ•°é€»è¾‘ã€‚
 
 ---
 
-## 2. ÎÄ¼þ×ÜÀÀ
+## 2. æ–‡ä»¶æ€»è§ˆ
 
 ```
 kernelsrc/
-©À©¤©¤ include/                    # Í·ÎÄ¼þ£¨½Ó¿Ú¶¨Òå£©
-©¦   ©À©¤©¤ svcrt.h                 # Ó¦ÓÃ²ãÍ³Ò»Èë¿Ú£¨Î¨Ò»¶ÔÍâÍ·ÎÄ¼þ£©
-©¦   ©À©¤©¤ svcrt_types.h           # »ù´¡ÀàÐÍ¶¨Òå
-©¦   ©À©¤©¤ svcrt_config.h          # ÄÚºË±àÒëÅäÖÃ£¨ÀàËÆ rtconfig.h£©
-©¦   ©À©¤©¤ svcrt_def.h             # ÄÚºËÄÚ²¿³£Á¿£¨SVCºÅ¡¢¾ä±ú±êÖ¾£©
-©¦   ©À©¤©¤ svcrt_hal.h             # Ó²¼þ³éÏó²ã½Ó¿Ú£¨port ²ãÆõÔ¼£©
-©¦   ©À©¤©¤ svcrt_port.h            # ¼æÈÝ²ã£¨ÖØ¶¨Ïòµ½ svcrt_hal.h£©
-©¦   ©À©¤©¤ svcrt_task.h            # ÈÎÎñ¹ÜÀí£¨TCB¡¢µ÷¶ÈÆ÷½Ó¿Ú£©
-©¦   ©À©¤©¤ svcrt_event.h           # ÊÂ¼þÄ£¿é
-©¦   ©À©¤©¤ svcrt_dev.h             # Éè±¸Çý¶¯¿ò¼Ü
-©¦   ©À©¤©¤ svcrt_fifo.h            # »·ÐÎ»º³åÇø
-©¦   ©À©¤©¤ svcrt_cfg.h             # ÈÎÎñÅäÖÃ¼ÓÔØ
-©¦   ©¸©¤©¤ svcrt_mpu.h             # MPU ÄÚ´æ±£»¤
-©¦
-©À©¤©¤ src/                        # ÄÚºËÔ´ÎÄ¼þ£¨¼Ü¹¹ÎÞ¹Ø£©
-©¦   ©À©¤©¤ svcrt_task.c            # ÈÎÎñµ÷¶ÈÓë SVC ·þÎñ£¨ºËÐÄ£©
-©¦   ©À©¤©¤ svcrt_dev.c             # Éè±¸Çý¶¯¿ò¼Ü
-©¦   ©À©¤©¤ svcrt_event.c           # ÊÂ¼þ¹ÜÀí
-©¦   ©À©¤©¤ svcrt_fifo.c            # FIFO ÊµÏÖ
-©¦   ©À©¤©¤ svcrt_cfg.c             # ÈÎÎñ±íÓëÕ»³õÊ¼»¯
-©¦   ©¸©¤©¤ svcrt_init.c            # Ä¬ÈÏÆô¶¯Èë¿Ú£¨¿ÉÑ¡£©
-©¦
-©¸©¤©¤ port/                       # ¼Ü¹¹ÊÊÅä²ã
-    ©¸©¤©¤ arm/cortex-m4/
-        ©¸©¤©¤ svcrt_port.c        # Cortex-M4 Ó²¼þ³éÏóÊµÏÖ
+â”œâ”€â”€ include/                    # å¤´æ–‡ä»¶ï¼ˆæŽ¥å£å®šä¹‰ï¼‰
+â”‚   â”œâ”€â”€ svcrt.h                 # åº”ç”¨å±‚ç»Ÿä¸€å…¥å£ï¼ˆå”¯ä¸€å¯¹å¤–å¤´æ–‡ä»¶ï¼‰
+â”‚   â”œâ”€â”€ svcrt_types.h           # åŸºç¡€ç±»åž‹å®šä¹‰
+â”‚   â”œâ”€â”€ svcrt_config.h          # å†…æ ¸ç¼–è¯‘é…ç½®ï¼ˆç±»ä¼¼ rtconfig.hï¼‰
+â”‚   â”œâ”€â”€ svcrt_def.h             # å†…æ ¸å†…éƒ¨å¸¸é‡ï¼ˆSVCå·ã€å¥æŸ„æ ‡å¿—ï¼‰
+â”‚   â”œâ”€â”€ svcrt_hal.h             # ç¡¬ä»¶æŠ½è±¡å±‚æŽ¥å£ï¼ˆport å±‚å¥‘çº¦ï¼‰
+â”‚   â”œâ”€â”€ svcrt_port.h            # å…¼å®¹å±‚ï¼ˆé‡å®šå‘åˆ° svcrt_hal.hï¼‰
+â”‚   â”œâ”€â”€ svcrt_task.h            # ä»»åŠ¡ç®¡ç†ï¼ˆTCBã€è°ƒåº¦å™¨æŽ¥å£ï¼‰
+â”‚   â”œâ”€â”€ svcrt_event.h           # äº‹ä»¶æ¨¡å—
+â”‚   â”œâ”€â”€ svcrt_dev.h             # è®¾å¤‡é©±åŠ¨æ¡†æž¶
+â”‚   â”œâ”€â”€ svcrt_fifo.h            # çŽ¯å½¢ç¼“å†²åŒº
+â”‚   â”œâ”€â”€ svcrt_cfg.h             # ä»»åŠ¡é…ç½®åŠ è½½
+â”‚   â””â”€â”€ svcrt_mpu.h             # MPU å†…å­˜ä¿æŠ¤
+â”‚
+â”œâ”€â”€ src/                        # å†…æ ¸æºæ–‡ä»¶ï¼ˆæž¶æž„æ— å…³ï¼‰
+â”‚   â”œâ”€â”€ svcrt_task.c            # ä»»åŠ¡è°ƒåº¦ä¸Ž SVC æœåŠ¡ï¼ˆæ ¸å¿ƒï¼‰
+â”‚   â”œâ”€â”€ svcrt_dev.c             # è®¾å¤‡é©±åŠ¨æ¡†æž¶
+â”‚   â”œâ”€â”€ svcrt_event.c           # äº‹ä»¶ç®¡ç†
+â”‚   â”œâ”€â”€ svcrt_fifo.c            # FIFO å®žçŽ°
+â”‚   â”œâ”€â”€ svcrt_cfg.c             # ä»»åŠ¡è¡¨ä¸Žæ ˆåˆå§‹åŒ–
+â”‚   â””â”€â”€ svcrt_init.c            # é»˜è®¤å¯åŠ¨å…¥å£ï¼ˆå¯é€‰ï¼‰
+â”‚
+â””â”€â”€ port/                       # æž¶æž„é€‚é…å±‚
+    â””â”€â”€ arm/cortex-m4/
+        â””â”€â”€ svcrt_port.c        # Cortex-M4 ç¡¬ä»¶æŠ½è±¡å®žçŽ°
 ```
 
 ---
 
-## 3. Í·ÎÄ¼þÏê½â
+## 3. å¤´æ–‡ä»¶è¯¦è§£
 
-### 3.1 svcrt_types.h ¡ª »ù´¡ÀàÐÍ
+### 3.1 svcrt_types.h â€” åŸºç¡€ç±»åž‹
 
-×îµ×²ãµÄÀàÐÍ¶¨ÒåÎÄ¼þ£¬²»ÒÀÀµÈÎºÎ MCU Í·ÎÄ¼þ£º
+æœ€åº•å±‚çš„ç±»åž‹å®šä¹‰æ–‡ä»¶ï¼Œä¸ä¾èµ–ä»»ä½• MCU å¤´æ–‡ä»¶ï¼š
 
 ```c
 typedef unsigned long  uint32;
@@ -56,120 +56,120 @@ typedef unsigned char  uint8;
 typedef signed   char  int8;
 ```
 
-**Éè¼ÆÒâÍ¼**£ºÄÚºË²»Ê¹ÓÃ `<stdint.h>`£¬±ÜÃâÒýÈë±àÒëÆ÷ÌØ¶¨Í·ÎÄ¼þ£¬±£³Ö×î´ó¿ÉÒÆÖ²ÐÔ¡£
+**è®¾è®¡æ„å›¾**ï¼šå†…æ ¸ä¸ä½¿ç”¨ `<stdint.h>`ï¼Œé¿å…å¼•å…¥ç¼–è¯‘å™¨ç‰¹å®šå¤´æ–‡ä»¶ï¼Œä¿æŒæœ€å¤§å¯ç§»æ¤æ€§ã€‚
 
-### 3.2 svcrt.h ¡ª Ó¦ÓÃ²ãÍ³Ò»Èë¿Ú
+### 3.2 svcrt.h â€” åº”ç”¨å±‚ç»Ÿä¸€å…¥å£
 
-Ó¦ÓÃ³ÌÐòÖ»Ðè `#include "svcrt.h"` ¼´¿ÉÊ¹ÓÃËùÓÐ OS ½Ó¿Ú¡£ËùÓÐº¯ÊýÍ¨¹ý SVC Ö¸Áî½øÈëÄÚºËÌ¬Ö´ÐÐ£º
+åº”ç”¨ç¨‹åºåªéœ€ `#include "svcrt.h"` å³å¯ä½¿ç”¨æ‰€æœ‰ OS æŽ¥å£ã€‚æ‰€æœ‰å‡½æ•°é€šè¿‡ SVC æŒ‡ä»¤è¿›å…¥å†…æ ¸æ€æ‰§è¡Œï¼š
 
-| ½Ó¿Ú·ÖÀà | º¯Êý | SVC ºÅ |
+| æŽ¥å£åˆ†ç±» | å‡½æ•° | SVC å· |
 |---------|------|--------|
-| ÈÎÎñ¹ÜÀí | `svcrt_task_wait(ms)` | 0x11 |
+| ä»»åŠ¡ç®¡ç† | `svcrt_task_wait(ms)` | 0x11 |
 | | `svcrt_task_wait_period()` | 0x11 |
 | | `svcrt_task_delay(us)` | 0x11 |
 | | `svcrt_task_kill()` | 0x11 |
-| ÏµÍ³ÐÅÏ¢ | `svcrt_get_time_ms()` | 0x12 |
+| ç³»ç»Ÿä¿¡æ¯ | `svcrt_get_time_ms()` | 0x12 |
 | | `svcrt_get_cpu_usage()` | 0x12 |
-| ÊÂ¼þ | `svcrt_event_create(name)` | 0x13 |
+| äº‹ä»¶ | `svcrt_event_create(name)` | 0x13 |
 | | `svcrt_event_wait(handle, timeout)` | 0x13 |
 | | `svcrt_event_set(handle)` | 0x13 |
-| Éè±¸IO | `svcrt_dev_open(name, param)` | 0x10 |
+| è®¾å¤‡IO | `svcrt_dev_open(name, param)` | 0x10 |
 | | `svcrt_dev_read/write/close/ctrl` | 0x10 |
 
-**Éè¼ÆÒâÍ¼**£ºÓ¦ÓÃ²ãÍ·ÎÄ¼þ²»±©Â¶ÈÎºÎÄÚºËÄÚ²¿½á¹¹£¨TCB¡¢µ÷¶ÈÆ÷µÈ£©£¬ÊµÏÖ½Ó¿ÚÓëÊµÏÖµÄÍêÈ«¸ôÀë¡£
+**è®¾è®¡æ„å›¾**ï¼šåº”ç”¨å±‚å¤´æ–‡ä»¶ä¸æš´éœ²ä»»ä½•å†…æ ¸å†…éƒ¨ç»“æž„ï¼ˆTCBã€è°ƒåº¦å™¨ç­‰ï¼‰ï¼Œå®žçŽ°æŽ¥å£ä¸Žå®žçŽ°çš„å®Œå…¨éš”ç¦»ã€‚
 
-### 3.3 svcrt_config.h ¡ª ÄÚºË±àÒëÅäÖÃ
+### 3.3 svcrt_config.h â€” å†…æ ¸ç¼–è¯‘é…ç½®
 
-ÀàËÆ RT-Thread µÄ `rtconfig.h`£¬ËùÓÐ¿É²Ã¼ô²ÎÊý¼¯ÖÐ¶¨Òå£º
+ç±»ä¼¼ RT-Thread çš„ `rtconfig.h`ï¼Œæ‰€æœ‰å¯è£å‰ªå‚æ•°é›†ä¸­å®šä¹‰ï¼š
 
-| ÅäÖÃÏî | Ä¬ÈÏÖµ | ËµÃ÷ |
+| é…ç½®é¡¹ | é»˜è®¤å€¼ | è¯´æ˜Ž |
 |--------|--------|------|
-| `SVCRT_CPU_ARCH` | 1 (Cortex-M4) | CPU ¼Ü¹¹Ñ¡Ôñ |
-| `SVCRT_USE_FPU` | 1 | FPU ¸¡µãµ¥Ôª¿ª¹Ø |
-| `SVCRT_USE_MPU` | 1 | MPU ÄÚ´æ±£»¤¿ª¹Ø |
-| `SVCRT_USE_PRIV` | ¸úËæ MPU | ÌØÈ¨Ä£Ê½·ÖÀë |
-| `SVCRT_TASK_MAX_NUM` | 7 | ×î´óÈÎÎñÊý |
-| `SVCRT_TICK_PERIOD_US` | 500 | ÏµÍ³½ÚÅÄÖÜÆÚ£¨Î¢Ãë£© |
-| `SVCRT_EVENT_NUM` | 10 | ×î´óÊÂ¼þÊý |
-| `SVCRT_MAX_EVENT_WAITERS` | 4 | Ã¿ÊÂ¼þ×î´óµÈ´ýÈÎÎñÊý |
-| `SVCRT_DEV_MAX_NUM` | 8 | ×î´óÉè±¸Êý |
-| `SVCRT_USE_CPU_LOAD` | 1 | CPU ¸ºÔØÍ³¼Æ¿ª¹Ø |
-| `SVCRT_USE_STACK_CHECK` | 1 | Õ»Òç³ö¼ì²â¿ª¹Ø |
-| `SVCRT_STACK_END_FLAG` | 0xed01 | Õ»µ×±êÖ¾Öµ |
+| `SVCRT_CPU_ARCH` | 1 (Cortex-M4) | CPU æž¶æž„é€‰æ‹© |
+| `SVCRT_USE_FPU` | 1 | FPU æµ®ç‚¹å•å…ƒå¼€å…³ |
+| `SVCRT_USE_MPU` | 1 | MPU å†…å­˜ä¿æŠ¤å¼€å…³ |
+| `SVCRT_USE_PRIV` | è·Ÿéš MPU | ç‰¹æƒæ¨¡å¼åˆ†ç¦» |
+| `SVCRT_TASK_MAX_NUM` | 7 | æœ€å¤§ä»»åŠ¡æ•° |
+| `SVCRT_TICK_PERIOD_US` | 500 | ç³»ç»ŸèŠ‚æ‹å‘¨æœŸï¼ˆå¾®ç§’ï¼‰ |
+| `SVCRT_EVENT_NUM` | 10 | æœ€å¤§äº‹ä»¶æ•° |
+| `SVCRT_MAX_EVENT_WAITERS` | 4 | æ¯äº‹ä»¶æœ€å¤§ç­‰å¾…ä»»åŠ¡æ•° |
+| `SVCRT_DEV_MAX_NUM` | 8 | æœ€å¤§è®¾å¤‡æ•° |
+| `SVCRT_USE_CPU_LOAD` | 1 | CPU è´Ÿè½½ç»Ÿè®¡å¼€å…³ |
+| `SVCRT_USE_STACK_CHECK` | 1 | æ ˆæº¢å‡ºæ£€æµ‹å¼€å…³ |
+| `SVCRT_STACK_END_FLAG` | 0xed01 | æ ˆåº•æ ‡å¿—å€¼ |
 
-**¸²¸Ç»úÖÆ**£ºÍ¨¹ý±àÒëÑ¡Ïî `-DSVCRT_BOARD_CONFIG=\"svcrt_board_config.h\"` ÔÚÎÄ¼þÄ©Î² `#include` °å¼¶ÅäÖÃ£¬¸²¸ÇÄ¬ÈÏÖµ¡£
+**è¦†ç›–æœºåˆ¶**ï¼šé€šè¿‡ç¼–è¯‘é€‰é¡¹ `-DSVCRT_BOARD_CONFIG=\"svcrt_board_config.h\"` åœ¨æ–‡ä»¶æœ«å°¾ `#include` æ¿çº§é…ç½®ï¼Œè¦†ç›–é»˜è®¤å€¼ã€‚
 
-**Ê±¼ä×ª»»ºê**£º
+**æ—¶é—´è½¬æ¢å®**ï¼š
 ```c
 #define SVCRT_MS_TO_TICK(ms)  ((ms) * 1000 / SVCRT_TICK_PERIOD_US)
-// Àý£ºSVCRT_TICK_PERIOD_US=500 Ê±£¬1ms = 2 ticks
+// ä¾‹ï¼šSVCRT_TICK_PERIOD_US=500 æ—¶ï¼Œ1ms = 2 ticks
 ```
 
-### 3.4 svcrt_def.h ¡ª ÄÚºËÄÚ²¿³£Á¿
+### 3.4 svcrt_def.h â€” å†…æ ¸å†…éƒ¨å¸¸é‡
 
-¶¨Òå SVC µ÷ÓÃºÅºÍ¾ä±ú±êÖ¾£º
+å®šä¹‰ SVC è°ƒç”¨å·å’Œå¥æŸ„æ ‡å¿—ï¼š
 
 ```c
-#define SVCRT_SVC_DEV_IO        (0x10)    // Éè±¸IOÏµÍ³µ÷ÓÃ
-#define SVCRT_SVC_TASK_CTRL     (0x11)    // ÈÎÎñ¿ØÖÆÏµÍ³µ÷ÓÃ
-#define SVCRT_SVC_SYS_INFO      (0x12)    // ÏµÍ³ÐÅÏ¢ÏµÍ³µ÷ÓÃ
-#define SVCRT_SVC_EVENT_CTRL    (0x13)    // ÊÂ¼þ¿ØÖÆÏµÍ³µ÷ÓÃ
+#define SVCRT_SVC_DEV_IO        (0x10)    // è®¾å¤‡IOç³»ç»Ÿè°ƒç”¨
+#define SVCRT_SVC_TASK_CTRL     (0x11)    // ä»»åŠ¡æŽ§åˆ¶ç³»ç»Ÿè°ƒç”¨
+#define SVCRT_SVC_SYS_INFO      (0x12)    // ç³»ç»Ÿä¿¡æ¯ç³»ç»Ÿè°ƒç”¨
+#define SVCRT_SVC_EVENT_CTRL    (0x13)    // äº‹ä»¶æŽ§åˆ¶ç³»ç»Ÿè°ƒç”¨
 
-#define SVCRT_DEV_HANDLE_FLAG   (0x01200000)   // Éè±¸¾ä±ú±êÖ¾
-#define SVCRT_EVENT_HANDLE_FLAG (0x01100000)   // ÊÂ¼þ¾ä±ú±êÖ¾
-#define SVCRT_HANDLE_MASK       (0xfff00000)   // ¾ä±úÀàÐÍÑÚÂë
-#define SVCRT_HANDLE_RELMASK    (0x000fffff)   // ¾ä±úË÷ÒýÑÚÂë
+#define SVCRT_DEV_HANDLE_FLAG   (0x01200000)   // è®¾å¤‡å¥æŸ„æ ‡å¿—
+#define SVCRT_EVENT_HANDLE_FLAG (0x01100000)   // äº‹ä»¶å¥æŸ„æ ‡å¿—
+#define SVCRT_HANDLE_MASK       (0xfff00000)   // å¥æŸ„ç±»åž‹æŽ©ç 
+#define SVCRT_HANDLE_RELMASK    (0x000fffff)   // å¥æŸ„ç´¢å¼•æŽ©ç 
 ```
 
-**¾ä±úÉè¼Æ**£º¾ä±ú = ÀàÐÍ±êÖ¾ | Ë÷Òý¡£Í¨¹ý `handle & SVCRT_HANDLE_MASK` ÅÐ¶ÏÀàÐÍ£¬`handle & SVCRT_HANDLE_RELMASK` »ñÈ¡Ë÷Òý¡£
+**å¥æŸ„è®¾è®¡**ï¼šå¥æŸ„ = ç±»åž‹æ ‡å¿— | ç´¢å¼•ã€‚é€šè¿‡ `handle & SVCRT_HANDLE_MASK` åˆ¤æ–­ç±»åž‹ï¼Œ`handle & SVCRT_HANDLE_RELMASK` èŽ·å–ç´¢å¼•ã€‚
 
-### 3.5 svcrt_hal.h ¡ª Ó²¼þ³éÏó²ã½Ó¿Ú
+### 3.5 svcrt_hal.h â€” ç¡¬ä»¶æŠ½è±¡å±‚æŽ¥å£
 
-ÄÚºËÓëÓ²¼þµÄÍêÕû½âñîÆõÔ¼£¬·ÖÎªÎå¸ö²ã´Î£º
+å†…æ ¸ä¸Žç¡¬ä»¶çš„å®Œæ•´è§£è€¦å¥‘çº¦ï¼Œåˆ†ä¸ºäº”ä¸ªå±‚æ¬¡ï¼š
 
-**1) CPU Ö¸Áî²ã**£º
+**1) CPU æŒ‡ä»¤å±‚**ï¼š
 ```c
-void svcrt_port_wfi(void);     // µÈ´ýÖÐ¶Ï
-void svcrt_port_wfe(void);     // µÈ´ýÊÂ¼þ
-void svcrt_port_isb(void);     // Ö¸ÁîÍ¬²½ÆÁÕÏ
-void svcrt_port_dsb(void);     // Êý¾ÝÍ¬²½ÆÁÕÏ
-void svcrt_port_dmb(void);     // Êý¾ÝÄÚ´æÆÁÕÏ
+void svcrt_port_wfi(void);     // ç­‰å¾…ä¸­æ–­
+void svcrt_port_wfe(void);     // ç­‰å¾…äº‹ä»¶
+void svcrt_port_isb(void);     // æŒ‡ä»¤åŒæ­¥å±éšœ
+void svcrt_port_dsb(void);     // æ•°æ®åŒæ­¥å±éšœ
+void svcrt_port_dmb(void);     // æ•°æ®å†…å­˜å±éšœ
 ```
 
-**2) ÖÐ¶Ï¿ØÖÆ²ã**£º
+**2) ä¸­æ–­æŽ§åˆ¶å±‚**ï¼š
 ```c
-void svcrt_port_disable_irq(void);   // ¹ØÖÐ¶Ï
-void svcrt_port_enable_irq(void);    // ¿ªÖÐ¶Ï
-void svcrt_port_switch_task(void);   // ´¥·¢ PendSV ÈÎÎñÇÐ»»
+void svcrt_port_disable_irq(void);   // å…³ä¸­æ–­
+void svcrt_port_enable_irq(void);    // å¼€ä¸­æ–­
+void svcrt_port_switch_task(void);   // è§¦å‘ PendSV ä»»åŠ¡åˆ‡æ¢
 ```
 
-**3) ÉÏÏÂÎÄ²ã**£º
+**3) ä¸Šä¸‹æ–‡å±‚**ï¼š
 ```c
-void  svcrt_port_set_psp(uint32 val);                    // ÉèÖÃ PSP
-uint32 svcrt_port_get_control(void);                     // ¶Á CONTROL
-void  svcrt_port_set_control(uint32 val);                // Ð´ CONTROL
-uint32 svcrt_port_stack_init(uint32 top, void (*entry)(void));  // ³õÊ¼»¯Õ»Ö¡
-void  svcrt_port_enter_idle(uint32 psp, uint32 priv);    // ÇÐ»»µ½ idle
+void  svcrt_port_set_psp(uint32 val);                    // è®¾ç½® PSP
+uint32 svcrt_port_get_control(void);                     // è¯» CONTROL
+void  svcrt_port_set_control(uint32 val);                // å†™ CONTROL
+uint32 svcrt_port_stack_init(uint32 top, void (*entry)(void));  // åˆå§‹åŒ–æ ˆå¸§
+void  svcrt_port_enter_idle(uint32 psp, uint32 priv);    // åˆ‡æ¢åˆ° idle
 ```
 
-**4) ¶¨Ê±Æ÷²ã**£º
+**4) å®šæ—¶å™¨å±‚**ï¼š
 ```c
-uint32 svcrt_port_get_system_clock(void);   // »ñÈ¡Ö÷Æµ
-uint32 svcrt_port_get_systick_val(void);    // ¶Á SysTick->VAL
-uint32 svcrt_port_get_systick_load(void);   // ¶Á SysTick->LOAD
-void  svcrt_port_start_timer(uint32 us);    // Æô¶¯¶¨Ê±Æ÷
-void  svcrt_port_delay_us(uint32 us);       // Î¢ÃëÃ¦µÈ
+uint32 svcrt_port_get_system_clock(void);   // èŽ·å–ä¸»é¢‘
+uint32 svcrt_port_get_systick_val(void);    // è¯» SysTick->VAL
+uint32 svcrt_port_get_systick_load(void);   // è¯» SysTick->LOAD
+void  svcrt_port_start_timer(uint32 us);    // å¯åŠ¨å®šæ—¶å™¨
+void  svcrt_port_delay_us(uint32 us);       // å¾®ç§’å¿™ç­‰
 ```
 
-**5) °å¼¶²ã**£º
+**5) æ¿çº§å±‚**ï¼š
 ```c
-void svcrt_port_board_init(void);           // °å¿¨³õÊ¼»¯
-void svcrt_port_irq_init(void);             // ÖÐ¶Ï¿ØÖÆÆ÷³õÊ¼»¯
-void svcrt_port_enable_fpu(void);           // FPU Ê¹ÄÜ
-void svcrt_port_set_idle_mpu(...);          // idle MPU ÇøÓò
+void svcrt_port_board_init(void);           // æ¿å¡åˆå§‹åŒ–
+void svcrt_port_irq_init(void);             // ä¸­æ–­æŽ§åˆ¶å™¨åˆå§‹åŒ–
+void svcrt_port_enable_fpu(void);           // FPU ä½¿èƒ½
+void svcrt_port_set_idle_mpu(...);          // idle MPU åŒºåŸŸ
 ```
 
-**MPU ½Ó¿Ú**£¨`SVCRT_USE_MPU=1` Ê±ÓÐÐ§£¬·ñÔòºêÌæ»»Îª¿Õ£©£º
+**MPU æŽ¥å£**ï¼ˆ`SVCRT_USE_MPU=1` æ—¶æœ‰æ•ˆï¼Œå¦åˆ™å®æ›¿æ¢ä¸ºç©ºï¼‰ï¼š
 ```c
 void svcrt_port_mpu_init(void);
 void svcrt_port_mpu_set_region(uint32 rom_addr, uint32 rom_size, uint32 ram_addr, uint32 ram_size);
@@ -177,593 +177,593 @@ void svcrt_port_mpu_set_app(uint32 *mpu_bar, uint32 *mpu_asr);
 void svcrt_port_mpu_reset(void);
 ```
 
-### 3.6 svcrt_task.h ¡ª ÈÎÎñ¹ÜÀí
+### 3.6 svcrt_task.h â€” ä»»åŠ¡ç®¡ç†
 
-**ÈÎÎñ×´Ì¬Ã¶¾Ù**£º
+**ä»»åŠ¡çŠ¶æ€æžšä¸¾**ï¼š
 ```c
 typedef enum {
-    SVCRT_TASK_INVALID,   // ÎÞÐ§£¨Õ»Òç³ö/HardFault/±»kill£©
-    SVCRT_TASK_READY,     // ¾ÍÐ÷£¨¿É±»µ÷¶È£©
-    SVCRT_TASK_WAIT,      // µÈ´ý£¨µÈ´ý³¬Ê±/ÊÂ¼þ/ÖÜÆÚ£©
-    SVCRT_TASK_RUNNING    // ÔËÐÐÖÐ
+    SVCRT_TASK_INVALID,   // æ— æ•ˆï¼ˆæ ˆæº¢å‡º/HardFault/è¢«killï¼‰
+    SVCRT_TASK_READY,     // å°±ç»ªï¼ˆå¯è¢«è°ƒåº¦ï¼‰
+    SVCRT_TASK_WAIT,      // ç­‰å¾…ï¼ˆç­‰å¾…è¶…æ—¶/äº‹ä»¶/å‘¨æœŸï¼‰
+    SVCRT_TASK_RUNNING    // è¿è¡Œä¸­
 } svcrt_task_status_t;
 ```
 
-**SVC µ÷ÓÃÉÏÏÂÎÄ**£¨ÓÉ SVC_Handler ´«µÝ£©£º
+**SVC è°ƒç”¨ä¸Šä¸‹æ–‡**ï¼ˆç”± SVC_Handler ä¼ é€’ï¼‰ï¼š
 ```c
 typedef struct {
-    uint32 r0, r1, r2, r3;   // ²ÎÊý/·µ»ØÖµ
-    uint32 r12, lr, pc, xpsr; // Ó²¼þ×Ô¶¯±£´æ
+    uint32 r0, r1, r2, r3;   // å‚æ•°/è¿”å›žå€¼
+    uint32 r12, lr, pc, xpsr; // ç¡¬ä»¶è‡ªåŠ¨ä¿å­˜
 } svcrt_svc_context_t;
 ```
 
-**ÈÎÎñ¿ØÖÆ¿é (TCB)**£º
+**ä»»åŠ¡æŽ§åˆ¶å— (TCB)**ï¼š
 ```c
 typedef struct {
-    uint32 ram_start;              // RAM ÆðÊ¼µØÖ·
-    uint32 ram_size;               // RAM ´óÐ¡
-    uint32 stack_size;             // Õ»´óÐ¡
-    uint32 rom_start;              // ROM ÆðÊ¼µØÖ·
-    uint32 rom_size;               // ROM ´óÐ¡
-    int32  period;                 // ÖÜÆÚ£¨tick Êý£©
-    uint8  priority;               // ÓÅÏÈ¼¶£¨Ô½Ð¡Ô½¸ß£©
-    uint8  shm_attri;              // ¹²ÏíÄÚ´æÊôÐÔ
-    uint32 stack_top;              // Õ»¶¥µØÖ·
-    uint32 *stack_bottom;          // Õ»µ×Ö¸Õë£¨Òç³ö¼ì²â£©
-    uint32 mpu_bar[8];             // MPU RBAR Öµ£¨MPU ¿ªÆôÊ±£©
-    uint32 mpu_asr[8];             // MPU RASR Öµ£¨MPU ¿ªÆôÊ±£©
-    svcrt_task_status_t status;    // µ±Ç°×´Ì¬
-    int32  period_time;            // ÖÜÆÚÊ£Óà tick
-    int32  wait_time;              // µÈ´ýÊ£Óà tick
-    uint32 tim_tick;               // ÉÏ´Î tick ´¦ÀíÊ±¼ä
-    uint32 touch_tick;             // ÉÏ´Î±»µ÷¶ÈÊ±¼ä
-    uint32 stack_ptr;              // µ±Ç°Õ»Ö¸Õë
+    uint32 ram_start;              // RAM èµ·å§‹åœ°å€
+    uint32 ram_size;               // RAM å¤§å°
+    uint32 stack_size;             // æ ˆå¤§å°
+    uint32 rom_start;              // ROM èµ·å§‹åœ°å€
+    uint32 rom_size;               // ROM å¤§å°
+    int32  period;                 // å‘¨æœŸï¼ˆtick æ•°ï¼‰
+    uint8  priority;               // ä¼˜å…ˆçº§ï¼ˆè¶Šå°è¶Šé«˜ï¼‰
+    uint8  shm_attri;              // å…±äº«å†…å­˜å±žæ€§
+    uint32 stack_top;              // æ ˆé¡¶åœ°å€
+    uint32 *stack_bottom;          // æ ˆåº•æŒ‡é’ˆï¼ˆæº¢å‡ºæ£€æµ‹ï¼‰
+    uint32 mpu_bar[8];             // MPU RBAR å€¼ï¼ˆMPU å¼€å¯æ—¶ï¼‰
+    uint32 mpu_asr[8];             // MPU RASR å€¼ï¼ˆMPU å¼€å¯æ—¶ï¼‰
+    svcrt_task_status_t status;    // å½“å‰çŠ¶æ€
+    int32  period_time;            // å‘¨æœŸå‰©ä½™ tick
+    int32  wait_time;              // ç­‰å¾…å‰©ä½™ tick
+    uint32 tim_tick;               // ä¸Šæ¬¡ tick å¤„ç†æ—¶é—´
+    uint32 touch_tick;             // ä¸Šæ¬¡è¢«è°ƒåº¦æ—¶é—´
+    uint32 stack_ptr;              // å½“å‰æ ˆæŒ‡é’ˆ
 } svcrt_task_t;
 ```
 
-### 3.7 svcrt_dev.h ¡ª Éè±¸Çý¶¯¿ò¼Ü
+### 3.7 svcrt_dev.h â€” è®¾å¤‡é©±åŠ¨æ¡†æž¶
 
-**Çý¶¯½Ó¿Ú½á¹¹**£º
+**é©±åŠ¨æŽ¥å£ç»“æž„**ï¼š
 ```c
 typedef struct {
-    svcrt_drv_open_func    drv_open;    // ´ò¿ªÉè±¸
-    svcrt_drv_close_func   drv_close;   // ¹Ø±ÕÉè±¸
-    svcrt_drv_rw_func      drv_read;    // ¶ÁÉè±¸
-    svcrt_drv_rw_func      drv_write;   // Ð´Éè±¸
-    svcrt_drv_ioctl_func   drv_ctrl;    // ¿ØÖÆÉè±¸
+    svcrt_drv_open_func    drv_open;    // æ‰“å¼€è®¾å¤‡
+    svcrt_drv_close_func   drv_close;   // å…³é—­è®¾å¤‡
+    svcrt_drv_rw_func      drv_read;    // è¯»è®¾å¤‡
+    svcrt_drv_rw_func      drv_write;   // å†™è®¾å¤‡
+    svcrt_drv_ioctl_func   drv_ctrl;    // æŽ§åˆ¶è®¾å¤‡
 } svcrt_dev_drv_t;
 ```
 
-**Éè±¸ÃèÊö·û**£º
+**è®¾å¤‡æè¿°ç¬¦**ï¼š
 ```c
 typedef struct {
-    char dev_name[8];          // Éè±¸Ãû£¨×î³¤7×Ö·û£©
-    svcrt_dev_drv_t *drv;      // Çý¶¯½Ó¿ÚÖ¸Õë
-    uint32 dev_num;            // Éè±¸±àºÅ
+    char dev_name[8];          // è®¾å¤‡åï¼ˆæœ€é•¿7å­—ç¬¦ï¼‰
+    svcrt_dev_drv_t *drv;      // é©±åŠ¨æŽ¥å£æŒ‡é’ˆ
+    uint32 dev_num;            // è®¾å¤‡ç¼–å·
 } svcrt_dev_desc_t;
 ```
 
-### 3.8 svcrt_event.h ¡ª ÊÂ¼þÄ£¿é
+### 3.8 svcrt_event.h â€” äº‹ä»¶æ¨¡å—
 
 ```c
 typedef struct {
-    char name[16];                              // ÊÂ¼þÃû
-    svcrt_task_t *waiting_tasks[SVCRT_MAX_EVENT_WAITERS]; // µÈ´ýÈÎÎñÁÐ±í
+    char name[16];                              // äº‹ä»¶å
+    svcrt_task_t *waiting_tasks[SVCRT_MAX_EVENT_WAITERS]; // ç­‰å¾…ä»»åŠ¡åˆ—è¡¨
 } svcrt_event_obj_t;
 ```
 
-### 3.9 svcrt_fifo.h ¡ª »·ÐÎ»º³åÇø
+### 3.9 svcrt_fifo.h â€” çŽ¯å½¢ç¼“å†²åŒº
 
 ```c
 typedef struct {
-    uint16 magic;       // Ä§Êý 0xf1f0
-    uint16 wt_idx;      // Ð´Ë÷Òý
-    uint16 rd_idx;      // ¶ÁË÷Òý
-    uint16 size;        // Êý¾ÝÇø´óÐ¡
-    uint8  data[1];     // Êý¾ÝÇø£¨ÈáÐÔÊý×é£©
+    uint16 magic;       // é­”æ•° 0xf1f0
+    uint16 wt_idx;      // å†™ç´¢å¼•
+    uint16 rd_idx;      // è¯»ç´¢å¼•
+    uint16 size;        // æ•°æ®åŒºå¤§å°
+    uint8  data[1];     // æ•°æ®åŒºï¼ˆæŸ”æ€§æ•°ç»„ï¼‰
 } svcrt_fifo_t;
 ```
 
-### 3.10 svcrt_cfg.h ¡ª ÈÎÎñÅäÖÃ
+### 3.10 svcrt_cfg.h â€” ä»»åŠ¡é…ç½®
 
 ```c
-extern svcrt_task_t svcrt_task_table[SVCRT_TASK_MAX_NUM];  // È«¾ÖÈÎÎñ±í
-extern int32 svcrt_task_count;                               // ÒÑ×¢²áÈÎÎñÊý
+extern svcrt_task_t svcrt_task_table[SVCRT_TASK_MAX_NUM];  // å…¨å±€ä»»åŠ¡è¡¨
+extern int32 svcrt_task_count;                               // å·²æ³¨å†Œä»»åŠ¡æ•°
 ```
 
 ---
 
-## 4. Ô´ÎÄ¼þÏê½â
+## 4. æºæ–‡ä»¶è¯¦è§£
 
-### 4.1 svcrt_task.c ¡ª ÈÎÎñµ÷¶ÈÓë SVC ·þÎñ£¨ºËÐÄ£©
+### 4.1 svcrt_task.c â€” ä»»åŠ¡è°ƒåº¦ä¸Ž SVC æœåŠ¡ï¼ˆæ ¸å¿ƒï¼‰
 
-ÕâÊÇÄÚºË×îºËÐÄµÄÎÄ¼þ£¬°üº¬µ÷¶ÈÆ÷¡¢SVC ·þÎñ·Ö·¢¡¢tick ´¦ÀíµÈËùÓÐ¹Ø¼üÂß¼­¡£
+è¿™æ˜¯å†…æ ¸æœ€æ ¸å¿ƒçš„æ–‡ä»¶ï¼ŒåŒ…å«è°ƒåº¦å™¨ã€SVC æœåŠ¡åˆ†å‘ã€tick å¤„ç†ç­‰æ‰€æœ‰å…³é”®é€»è¾‘ã€‚
 
-#### 4.1.1 È«¾Ö±äÁ¿
+#### 4.1.1 å…¨å±€å˜é‡
 
 ```c
-uint32 svcrt_kernel_tick = 0;        // ÏµÍ³½ÚÅÄ¼ÆÊýÆ÷
-int32  svcrt_current_task_id = 0;    // µ±Ç°ÔËÐÐÈÎÎñID£¨0=idle, 1~N=ÈÎÎñ£©
-uint16 svcrt_cpu_load_counter = 0;   // CPU ¸ºÔØ¼ÆÊýÆ÷
-uint16 svcrt_cpu_idle_millis = 0;    // CPU ¿ÕÏÐºÁÃëÊý
-static uint32 svcrt_idle_stack_ptr = 0;  // idle ÈÎÎñÕ»Ö¸Õë
+uint32 svcrt_kernel_tick = 0;        // ç³»ç»ŸèŠ‚æ‹è®¡æ•°å™¨
+int32  svcrt_current_task_id = 0;    // å½“å‰è¿è¡Œä»»åŠ¡IDï¼ˆ0=idle, 1~N=ä»»åŠ¡ï¼‰
+uint16 svcrt_cpu_load_counter = 0;   // CPU è´Ÿè½½è®¡æ•°å™¨
+uint16 svcrt_cpu_idle_millis = 0;    // CPU ç©ºé—²æ¯«ç§’æ•°
+static uint32 svcrt_idle_stack_ptr = 0;  // idle ä»»åŠ¡æ ˆæŒ‡é’ˆ
 ```
 
-**ÈÎÎñ ID Ô¼¶¨**£º
-- `0` = idle ÈÎÎñ£¨²»Õ¼ task_table ²ÛÎ»£©
-- `1~N` = ÓÃ»§ÈÎÎñ£¨`task_table[id-1]`£©
+**ä»»åŠ¡ ID çº¦å®š**ï¼š
+- `0` = idle ä»»åŠ¡ï¼ˆä¸å  task_table æ§½ä½ï¼‰
+- `1~N` = ç”¨æˆ·ä»»åŠ¡ï¼ˆ`task_table[id-1]`ï¼‰
 
-#### 4.1.2 svcrt_kernel_tick_handler() ¡ª ÏµÍ³½ÚÅÄ´¦Àí
+#### 4.1.2 svcrt_kernel_tick_handler() â€” ç³»ç»ŸèŠ‚æ‹å¤„ç†
 
-ÓÉ `SysTick_Handler` µ÷ÓÃ£¬Ã¿¸ö tick ÖÜÆÚÖ´ÐÐÒ»´Î£º
-
-```
-svcrt_kernel_tick++           ¡ú µÝÔö½ÚÅÄ¼ÆÊý
-SVCRT_SWITCH_TASK()           ¡ú ´¥·¢ PendSV ¼ì²éÊÇ·ñÐèÒªÇÐ»»
-CPU ¸ºÔØÍ³¼Æ£¨¿ÉÑ¡£©           ¡ú Í³¼Æ·Ç idle Ê±¼äµÄÕ¼±È
-```
-
-**¹Ø¼ü**£º`SVCRT_SWITCH_TASK()` Ö»ÊÇÉèÖÃ PendSV ¹ÒÆðÎ»£¬Êµ¼ÊÇÐ»»ÔÚ PendSV ÖÐ¶ÏÖÐÒì²½Ö´ÐÐ¡£
-
-#### 4.1.3 SVC_Server() ¡ª SVC ÏµÍ³µ÷ÓÃ·þÎñ·Ö·¢
-
-SVC_Handler »ã±àÈë¿ÚÌáÈ¡ SVC ºÅºÍ²ÎÊýºó£¬µ÷ÓÃ´Ëº¯Êý£º
+ç”± `SysTick_Handler` è°ƒç”¨ï¼Œæ¯ä¸ª tick å‘¨æœŸæ‰§è¡Œä¸€æ¬¡ï¼š
 
 ```
-SVC ºÅÌáÈ¡£º((char *)p_svc_ctx->pc)[-2]  ¡ú ´Ó SVC Ö¸Áî»úÆ÷ÂëÖÐÌáÈ¡Á¢¼´Êý
+svcrt_kernel_tick++           â†’ é€’å¢žèŠ‚æ‹è®¡æ•°
+SVCRT_SWITCH_TASK()           â†’ è§¦å‘ PendSV æ£€æŸ¥æ˜¯å¦éœ€è¦åˆ‡æ¢
+CPU è´Ÿè½½ç»Ÿè®¡ï¼ˆå¯é€‰ï¼‰           â†’ ç»Ÿè®¡éž idle æ—¶é—´çš„å æ¯”
 ```
 
-**·Ö·¢±í**£º
+**å…³é”®**ï¼š`SVCRT_SWITCH_TASK()` åªæ˜¯è®¾ç½® PendSV æŒ‚èµ·ä½ï¼Œå®žé™…åˆ‡æ¢åœ¨ PendSV ä¸­æ–­ä¸­å¼‚æ­¥æ‰§è¡Œã€‚
 
-| SVC ºÅ | ×Ó¹¦ÄÜ | ËµÃ÷ |
+#### 4.1.3 SVC_Server() â€” SVC ç³»ç»Ÿè°ƒç”¨æœåŠ¡åˆ†å‘
+
+SVC_Handler æ±‡ç¼–å…¥å£æå– SVC å·å’Œå‚æ•°åŽï¼Œè°ƒç”¨æ­¤å‡½æ•°ï¼š
+
+```
+SVC å·æå–ï¼š((char *)p_svc_ctx->pc)[-2]  â†’ ä»Ž SVC æŒ‡ä»¤æœºå™¨ç ä¸­æå–ç«‹å³æ•°
+```
+
+**åˆ†å‘è¡¨**ï¼š
+
+| SVC å· | å­åŠŸèƒ½ | è¯´æ˜Ž |
 |--------|--------|------|
-| 0x10 (DEV_IO) | p[0]=1: open, 2: read, 3: write, 4: ctrl, 5: close | Éè±¸²Ù×÷ |
-| 0x11 (TASK_CTRL) | r0=1: wait, 2: wait_period, 3: delay, 4: kill | ÈÎÎñ¿ØÖÆ |
-| 0x12 (SYS_INFO) | r0=1: get_time, 2: get_cpu_idle | ÏµÍ³ÐÅÏ¢ |
-| 0x13 (EVENT_CTRL) | p[0]=1: create, 2: wait, 3: set | ÊÂ¼þ²Ù×÷ |
+| 0x10 (DEV_IO) | p[0]=1: open, 2: read, 3: write, 4: ctrl, 5: close | è®¾å¤‡æ“ä½œ |
+| 0x11 (TASK_CTRL) | r0=1: wait, 2: wait_period, 3: delay, 4: kill | ä»»åŠ¡æŽ§åˆ¶ |
+| 0x12 (SYS_INFO) | r0=1: get_time, 2: get_cpu_idle | ç³»ç»Ÿä¿¡æ¯ |
+| 0x13 (EVENT_CTRL) | p[0]=1: create, 2: wait, 3: set | äº‹ä»¶æ“ä½œ |
 
-**²ÎÊý´«µÝ**£º
-- TASK_CTRL£ºr0=×Ó¹¦ÄÜºÅ, r1=²ÎÊý
-- DEV_IO/SYS_INFO/EVENT_CTRL£ºr0 Ö¸Ïò²ÎÊýÊý×é
+**å‚æ•°ä¼ é€’**ï¼š
+- TASK_CTRLï¼šr0=å­åŠŸèƒ½å·, r1=å‚æ•°
+- DEV_IO/SYS_INFO/EVENT_CTRLï¼šr0 æŒ‡å‘å‚æ•°æ•°ç»„
 
-**·µ»ØÖµ**£ºÍ¨¹ýÐÞ¸Ä `p_svc_ctx->r0` ·µ»Ø¸øµ÷ÓÃÕß¡£
+**è¿”å›žå€¼**ï¼šé€šè¿‡ä¿®æ”¹ `p_svc_ctx->r0` è¿”å›žç»™è°ƒç”¨è€…ã€‚
 
-#### 4.1.4 svcrt_hardfault_handler() ¡ª Ó²¼þ´íÎó´¦Àí
-
-```
-if(µ±Ç°ÊÇÓÃ»§ÈÎÎñ)
-    ¡ú ±ê¼ÇÈÎÎñÎª INVALID£¬´¥·¢ÈÎÎñÇÐ»»
-else(µ±Ç°ÊÇ idle)
-    ¡ú ËÀÑ­»·
-```
-
-#### 4.1.5 svcrt_sched_next() ¡ª µ÷¶ÈÆ÷ºËÐÄ
-
-±éÀúËùÓÐÈÎÎñ£¬Ñ¡ÔñÏÂÒ»¸öÓ¦¸ÃÔËÐÐµÄÈÎÎñ£º
+#### 4.1.4 svcrt_hardfault_handler() â€” ç¡¬ä»¶é”™è¯¯å¤„ç†
 
 ```
-for Ã¿¸öÈÎÎñ:
-    1. svcrt_tick_tasks()  ¡ú ¸üÐÂµÈ´ýÊ±¼ä£¬¼ì²éÊÇ·ñ¸Ã»½ÐÑ
-    2. Èç¹ûÈÎÎñÊÇ READY »ò RUNNING:
-        a. ÓÅÏÈ¼¶±Èµ±Ç°×î¸ßÓÅÏÈ¼¶¸ü¸ß ¡ú Ñ¡Ëü
-        b. ÓÅÏÈ¼¶ÏàÍ¬µ« touch_tick ¸üÐ¡ ¡ú Ñ¡Ëü£¨ÂÖ×ª£©
-·µ»Ø: ÈÎÎñË÷Òý (0~N-1)£¬-1 ±íÊ¾ÎÞ¾ÍÐ÷ÈÎÎñ
+if(å½“å‰æ˜¯ç”¨æˆ·ä»»åŠ¡)
+    â†’ æ ‡è®°ä»»åŠ¡ä¸º INVALIDï¼Œè§¦å‘ä»»åŠ¡åˆ‡æ¢
+else(å½“å‰æ˜¯ idle)
+    â†’ æ­»å¾ªçŽ¯
 ```
 
-**µ÷¶È²ßÂÔ**£º
-1. **ÓÅÏÈ¼¶ÇÀÕ¼**£ºÊýÖµÔ½Ð¡ÓÅÏÈ¼¶Ô½¸ß
-2. **Í¬ÓÅÏÈ¼¶ÂÖ×ª**£ºÑ¡×î¾ÃÎ´±»µ÷¶ÈµÄÈÎÎñ£¨`touch_tick` ×îÐ¡£©
+#### 4.1.5 svcrt_sched_next() â€” è°ƒåº¦å™¨æ ¸å¿ƒ
 
-#### 4.1.6 svcrt_tick_tasks() ¡ª ÈÎÎñÊ±¼ä¹ÜÀí
-
-Ã¿¸ö tick ÖÜÆÚÓÉ `svcrt_sched_next` µ÷ÓÃ£¬´¦ÀíÈÎÎñµÄÊ±¼äµÝ¼õºÍ»½ÐÑ£º
+éåŽ†æ‰€æœ‰ä»»åŠ¡ï¼Œé€‰æ‹©ä¸‹ä¸€ä¸ªåº”è¯¥è¿è¡Œçš„ä»»åŠ¡ï¼š
 
 ```
-1. ¼ÆËãÌÓÒÝ tick: escape_tick = kernel_tick - tim_tick
-2. ¸üÐÂ tim_tick
-3. Èç¹û escape_tick <= 0 ¡ú ·µ»Ø£¨Ê±¼äÃ»×ß£©
-4. Èç¹û status == RUNNING ¡ú ·µ»Ø£¨ÔËÐÐÖÐµÄÈÎÎñ²»´¦Àí£©
-5. Èç¹û wait_time > 0:
-    ¡ú wait_time -= escape_tick
-    ¡ú Èç¹û wait_time <= 0: »½ÐÑÎª READY
-    ¡ú ·µ»Ø£¨²»ÔÙ´¦Àí period_time£©
-6. ·ñÔò£¨period Ä£Ê½£©:
-    ¡ú period_time -= escape_tick
-    ¡ú Èç¹û period_time <= 0: ÖØÔØ period£¬»½ÐÑÎª READY
+for æ¯ä¸ªä»»åŠ¡:
+    1. svcrt_tick_tasks()  â†’ æ›´æ–°ç­‰å¾…æ—¶é—´ï¼Œæ£€æŸ¥æ˜¯å¦è¯¥å”¤é†’
+    2. å¦‚æžœä»»åŠ¡æ˜¯ READY æˆ– RUNNING:
+        a. ä¼˜å…ˆçº§æ¯”å½“å‰æœ€é«˜ä¼˜å…ˆçº§æ›´é«˜ â†’ é€‰å®ƒ
+        b. ä¼˜å…ˆçº§ç›¸åŒä½† touch_tick æ›´å° â†’ é€‰å®ƒï¼ˆè½®è½¬ï¼‰
+è¿”å›ž: ä»»åŠ¡ç´¢å¼• (0~N-1)ï¼Œ-1 è¡¨ç¤ºæ— å°±ç»ªä»»åŠ¡
 ```
 
-**ÖØÒªÉè¼Æ**£º`wait_time` ºÍ `period_time` Á½ÖÖµÈ´ý»úÖÆÑÏ¸ñ·ÖÀë£¬Í¨¹ý `wait_time > 0` ÅÐ¶Ï×ßÄÄ¸ö·ÖÖ§£¬±ÜÃâ»¥Ïà¸ÉÈÅ¡£
+**è°ƒåº¦ç­–ç•¥**ï¼š
+1. **ä¼˜å…ˆçº§æŠ¢å **ï¼šæ•°å€¼è¶Šå°ä¼˜å…ˆçº§è¶Šé«˜
+2. **åŒä¼˜å…ˆçº§è½®è½¬**ï¼šé€‰æœ€ä¹…æœªè¢«è°ƒåº¦çš„ä»»åŠ¡ï¼ˆ`touch_tick` æœ€å°ï¼‰
 
-#### 4.1.7 svcrt_sched_is_switching() ¡ª ÅÐ¶ÏÊÇ·ñÐèÒªÇÐ»»
+#### 4.1.6 svcrt_tick_tasks() â€” ä»»åŠ¡æ—¶é—´ç®¡ç†
+
+æ¯ä¸ª tick å‘¨æœŸç”± `svcrt_sched_next` è°ƒç”¨ï¼Œå¤„ç†ä»»åŠ¡çš„æ—¶é—´é€’å‡å’Œå”¤é†’ï¼š
 
 ```
-new_idx = svcrt_sched_next() + 1    ¡ú »ñÈ¡ÏÂÒ»¸öÈÎÎñ ID
+1. è®¡ç®—é€ƒé€¸ tick: escape_tick = kernel_tick - tim_tick
+2. æ›´æ–° tim_tick
+3. å¦‚æžœ escape_tick <= 0 â†’ è¿”å›žï¼ˆæ—¶é—´æ²¡èµ°ï¼‰
+4. å¦‚æžœ status == RUNNING â†’ è¿”å›žï¼ˆè¿è¡Œä¸­çš„ä»»åŠ¡ä¸å¤„ç†ï¼‰
+5. å¦‚æžœ wait_time > 0:
+    â†’ wait_time -= escape_tick
+    â†’ å¦‚æžœ wait_time <= 0: å”¤é†’ä¸º READY
+    â†’ è¿”å›žï¼ˆä¸å†å¤„ç† period_timeï¼‰
+6. å¦åˆ™ï¼ˆperiod æ¨¡å¼ï¼‰:
+    â†’ period_time -= escape_tick
+    â†’ å¦‚æžœ period_time <= 0: é‡è½½ periodï¼Œå”¤é†’ä¸º READY
+```
+
+**é‡è¦è®¾è®¡**ï¼š`wait_time` å’Œ `period_time` ä¸¤ç§ç­‰å¾…æœºåˆ¶ä¸¥æ ¼åˆ†ç¦»ï¼Œé€šè¿‡ `wait_time > 0` åˆ¤æ–­èµ°å“ªä¸ªåˆ†æ”¯ï¼Œé¿å…äº’ç›¸å¹²æ‰°ã€‚
+
+#### 4.1.7 svcrt_sched_is_switching() â€” åˆ¤æ–­æ˜¯å¦éœ€è¦åˆ‡æ¢
+
+```
+new_idx = svcrt_sched_next() + 1    â†’ èŽ·å–ä¸‹ä¸€ä¸ªä»»åŠ¡ ID
 if(new_idx == current_task_id)
-    ¡ú ²»ÐèÒªÇÐ»»£¬¸üÐÂ touch_tick£¬·µ»Ø -1
+    â†’ ä¸éœ€è¦åˆ‡æ¢ï¼Œæ›´æ–° touch_tickï¼Œè¿”å›ž -1
 else
-    ¡ú ÐèÒªÇÐ»»£¬·µ»Ø new_idx
+    â†’ éœ€è¦åˆ‡æ¢ï¼Œè¿”å›ž new_idx
 ```
 
-#### 4.1.8 svcrt_sched_activate() ¡ª Ö´ÐÐÈÎÎñÇÐ»»
+#### 4.1.8 svcrt_sched_activate() â€” æ‰§è¡Œä»»åŠ¡åˆ‡æ¢
 
-ÓÉ PendSV_Handler µ÷ÓÃ£¬±£´æ¾ÉÈÎÎñÉÏÏÂÎÄ£¬¼ÓÔØÐÂÈÎÎñÉÏÏÂÎÄ£º
+ç”± PendSV_Handler è°ƒç”¨ï¼Œä¿å­˜æ—§ä»»åŠ¡ä¸Šä¸‹æ–‡ï¼ŒåŠ è½½æ–°ä»»åŠ¡ä¸Šä¸‹æ–‡ï¼š
 
 ```
-1. ±£´æ¾ÉÈÎÎñ:
-   if(¾ÉÈÎÎñÊÇ idle)
-       ¡ú ±£´æ PSP µ½ svcrt_idle_stack_ptr
+1. ä¿å­˜æ—§ä»»åŠ¡:
+   if(æ—§ä»»åŠ¡æ˜¯ idle)
+       â†’ ä¿å­˜ PSP åˆ° svcrt_idle_stack_ptr
    else
-       ¡ú ±£´æ PSP µ½ task.stack_ptr
-       ¡ú Èç¹û status == RUNNING:
-           Õ»Òç³ö¼ì²â£¨¿ÉÑ¡£©¡ú INVALID
-           ·ñÔò ¡ú READY
-       ¡ú Èç¹û status == WAIT: ²»ÐÞ¸Ä£¨µÈ´ý»½ÐÑ£©
+       â†’ ä¿å­˜ PSP åˆ° task.stack_ptr
+       â†’ å¦‚æžœ status == RUNNING:
+           æ ˆæº¢å‡ºæ£€æµ‹ï¼ˆå¯é€‰ï¼‰â†’ INVALID
+           å¦åˆ™ â†’ READY
+       â†’ å¦‚æžœ status == WAIT: ä¸ä¿®æ”¹ï¼ˆç­‰å¾…å”¤é†’ï¼‰
 
-2. ¼ÓÔØÐÂÈÎÎñ:
+2. åŠ è½½æ–°ä»»åŠ¡:
    svcrt_current_task_id = new_task
-   if(ÐÂÈÎÎñÊÇÓÃ»§ÈÎÎñ)
-       ¡ú ¸üÐÂ touch_tick
-       ¡ú Éè status = RUNNING
-       ¡ú ÉèÖÃ MPU ÇøÓò
-       ¡ú ·µ»Ø task.stack_ptr
+   if(æ–°ä»»åŠ¡æ˜¯ç”¨æˆ·ä»»åŠ¡)
+       â†’ æ›´æ–° touch_tick
+       â†’ è®¾ status = RUNNING
+       â†’ è®¾ç½® MPU åŒºåŸŸ
+       â†’ è¿”å›ž task.stack_ptr
    else(idle)
-       ¡ú ·µ»Ø svcrt_idle_stack_ptr
+       â†’ è¿”å›ž svcrt_idle_stack_ptr
 ```
 
-**¹Ø¼üÐÞ¸´µã**£ºÕ»Òç³ö¼ì²âÖ»ÔÚ `status == RUNNING` Ê±Ö´ÐÐ¡£WAIT ×´Ì¬ÏÂÈÎÎñÕ»¿ÉÄÜ±»Õý³£Ê¹ÓÃ£¨SVC/PendSV Ñ¹Õ»£©£¬´ËÊ±¼ì²éÕ»µ×±êÖ¾»áÎóÅÐ¡£
+**å…³é”®ä¿®å¤ç‚¹**ï¼šæ ˆæº¢å‡ºæ£€æµ‹åªåœ¨ `status == RUNNING` æ—¶æ‰§è¡Œã€‚WAIT çŠ¶æ€ä¸‹ä»»åŠ¡æ ˆå¯èƒ½è¢«æ­£å¸¸ä½¿ç”¨ï¼ˆSVC/PendSV åŽ‹æ ˆï¼‰ï¼Œæ­¤æ—¶æ£€æŸ¥æ ˆåº•æ ‡å¿—ä¼šè¯¯åˆ¤ã€‚
 
-#### 4.1.9 svcrt_task_wait_internal() ¡ª ¶¨Ê±µÈ´ý
-
-```
-1. ¹ØÖÐ¶Ï
-2. ÉèÖÃ wait_time = MS_TO_TICK(ms)
-3. Éè status = WAIT
-4. ´¥·¢ PendSV ÇÐ»»
-5. ¿ªÖÐ¶Ï
-```
-
-ÈÎÎñ±»ÇÐ»»³öÈ¥ºó£¬ÓÉ `svcrt_tick_tasks` ÔÚÃ¿¸ö tick µÝ¼õ `wait_time`£¬µ½ÆÚºó»½ÐÑÎª READY¡£
-
-#### 4.1.10 svcrt_task_wait_period_internal() ¡ª ÖÜÆÚµÈ´ý
+#### 4.1.9 svcrt_task_wait_internal() â€” å®šæ—¶ç­‰å¾…
 
 ```
-1. ¹ØÖÐ¶Ï
-2. Éè status = WAIT£¨²»ÐÞ¸Ä wait_time£¬±£³ÖÎª 0£©
-3. ´¥·¢ PendSV ÇÐ»»
-4. ¿ªÖÐ¶Ï
+1. å…³ä¸­æ–­
+2. è®¾ç½® wait_time = MS_TO_TICK(ms)
+3. è®¾ status = WAIT
+4. è§¦å‘ PendSV åˆ‡æ¢
+5. å¼€ä¸­æ–­
 ```
 
-ÈÎÎñÓÉ `svcrt_tick_tasks` µÄ period ·ÖÖ§¹ÜÀí£¬`period_time` µ½ÆÚºó»½ÐÑ²¢×Ô¶¯ÖØÔØ¡£
+ä»»åŠ¡è¢«åˆ‡æ¢å‡ºåŽ»åŽï¼Œç”± `svcrt_tick_tasks` åœ¨æ¯ä¸ª tick é€’å‡ `wait_time`ï¼Œåˆ°æœŸåŽå”¤é†’ä¸º READYã€‚
 
-#### 4.1.11 svcrt_task_delay_internal() ¡ª Ã¦µÈÑÓÊ±
+#### 4.1.10 svcrt_task_wait_period_internal() â€” å‘¨æœŸç­‰å¾…
+
+```
+1. å…³ä¸­æ–­
+2. è®¾ status = WAITï¼ˆä¸ä¿®æ”¹ wait_timeï¼Œä¿æŒä¸º 0ï¼‰
+3. è§¦å‘ PendSV åˆ‡æ¢
+4. å¼€ä¸­æ–­
+```
+
+ä»»åŠ¡ç”± `svcrt_tick_tasks` çš„ period åˆ†æ”¯ç®¡ç†ï¼Œ`period_time` åˆ°æœŸåŽå”¤é†’å¹¶è‡ªåŠ¨é‡è½½ã€‚
+
+#### 4.1.11 svcrt_task_delay_internal() â€” å¿™ç­‰å»¶æ—¶
 
 ```c
 void svcrt_task_delay_internal(uint32 us)
 {
-    svcrt_port_delay_us(us);  // Ö±½Óµ÷ÓÃ port ²ãÃ¦µÈ
+    svcrt_port_delay_us(us);  // ç›´æŽ¥è°ƒç”¨ port å±‚å¿™ç­‰
 }
 ```
 
-**×¢Òâ**£º´Ëº¯Êý**²»ÈÃ³ö CPU**£¬ÈÎÎñ±£³Ö RUNNING ×´Ì¬£¬½öÊÊÓÃÓÚ¼«¶ÌÑÓÊ±¡£
+**æ³¨æ„**ï¼šæ­¤å‡½æ•°**ä¸è®©å‡º CPU**ï¼Œä»»åŠ¡ä¿æŒ RUNNING çŠ¶æ€ï¼Œä»…é€‚ç”¨äºŽæžçŸ­å»¶æ—¶ã€‚
 
-#### 4.1.12 svcrt_sched_activate_higher() ¡ª ÓÅÏÈ¼¶ÇÀÕ¼¼ì²é
+#### 4.1.12 svcrt_sched_activate_higher() â€” ä¼˜å…ˆçº§æŠ¢å æ£€æŸ¥
 
 ```
-if(µ±Ç°ÊÇÓÃ»§ÈÎÎñ && µ±Ç°ÓÅÏÈ¼¶ > ck_pri)
-    ¡ú ´¥·¢ÇÐ»»£¨±»¸ü¸ßÓÅÏÈ¼¶ÇÀÕ¼£©
-if(µ±Ç°ÊÇ idle)
-    ¡ú ×ÜÊÇ´¥·¢ÇÐ»»
+if(å½“å‰æ˜¯ç”¨æˆ·ä»»åŠ¡ && å½“å‰ä¼˜å…ˆçº§ > ck_pri)
+    â†’ è§¦å‘åˆ‡æ¢ï¼ˆè¢«æ›´é«˜ä¼˜å…ˆçº§æŠ¢å ï¼‰
+if(å½“å‰æ˜¯ idle)
+    â†’ æ€»æ˜¯è§¦å‘åˆ‡æ¢
 ```
 
 ---
 
-### 4.2 svcrt_dev.c ¡ª Éè±¸Çý¶¯¿ò¼Ü
+### 4.2 svcrt_dev.c â€” è®¾å¤‡é©±åŠ¨æ¡†æž¶
 
-#### 4.2.1 Êý¾Ý½á¹¹
+#### 4.2.1 æ•°æ®ç»“æž„
 
 ```c
-static svcrt_dev_desc_t svcrt_dev_list[SVCRT_DEV_MAX_NUM];   // Éè±¸ÃèÊö±í
-static svcrt_dev_hdr_t *svcrt_dev_handles[SVCRT_DEV_MAX_NUM]; // Éè±¸ÊµÀý¾ä±ú
-static int32 svcrt_dev_count = 0;                              // ÒÑ×¢²áÉè±¸Êý
+static svcrt_dev_desc_t svcrt_dev_list[SVCRT_DEV_MAX_NUM];   // è®¾å¤‡æè¿°è¡¨
+static svcrt_dev_hdr_t *svcrt_dev_handles[SVCRT_DEV_MAX_NUM]; // è®¾å¤‡å®žä¾‹å¥æŸ„
+static int32 svcrt_dev_count = 0;                              // å·²æ³¨å†Œè®¾å¤‡æ•°
 ```
 
-#### 4.2.2 ºËÐÄÁ÷³Ì
+#### 4.2.2 æ ¸å¿ƒæµç¨‹
 
-**Éè±¸×¢²á** (`svcrt_dev_register`)£º
+**è®¾å¤‡æ³¨å†Œ** (`svcrt_dev_register`)ï¼š
 ```
-1. ¼ì²éÃû³Æ/Çý¶¯Ö¸ÕëÓÐÐ§ÐÔ
-2. ¼ì²éÉè±¸±íÊÇ·ñÒÑÂú
-3. ¼ì²éÃû³ÆÊÇ·ñÒÑ´æÔÚ
-4. ÌîÈëÉè±¸ÃèÊö·û£¬dev_count++
-```
-
-**Éè±¸´ò¿ª** (`svcrt_dev_open_internal`)£º
-```
-1. °´Ãû³Æ²éÕÒÉè±¸ÃèÊö·û
-2. µ÷ÓÃ drv_open(dev_num, param) »ñÈ¡Éè±¸ÊµÀý
-3. ±£´æÊµÀýÖ¸Õëµ½ handles[]
-4. ·µ»Ø¾ä±ú = SVCRT_DEV_HANDLE_FLAG | Ë÷Òý
+1. æ£€æŸ¥åç§°/é©±åŠ¨æŒ‡é’ˆæœ‰æ•ˆæ€§
+2. æ£€æŸ¥è®¾å¤‡è¡¨æ˜¯å¦å·²æ»¡
+3. æ£€æŸ¥åç§°æ˜¯å¦å·²å­˜åœ¨
+4. å¡«å…¥è®¾å¤‡æè¿°ç¬¦ï¼Œdev_count++
 ```
 
-**Éè±¸¶ÁÐ´** (`svcrt_dev_read/write_internal`)£º
+**è®¾å¤‡æ‰“å¼€** (`svcrt_dev_open_internal`)ï¼š
 ```
-1. ´Ó¾ä±úÌáÈ¡Ë÷Òý£¬ÑéÖ¤ÀàÐÍ±êÖ¾
-2. ¼ì²é handles[idx] ÊÇ·ñÓÐÐ§
-3. µ÷ÓÃ drv_read/drv_write(handles[idx], data, len)
+1. æŒ‰åç§°æŸ¥æ‰¾è®¾å¤‡æè¿°ç¬¦
+2. è°ƒç”¨ drv_open(dev_num, param) èŽ·å–è®¾å¤‡å®žä¾‹
+3. ä¿å­˜å®žä¾‹æŒ‡é’ˆåˆ° handles[]
+4. è¿”å›žå¥æŸ„ = SVCRT_DEV_HANDLE_FLAG | ç´¢å¼•
 ```
 
-**Éè±¸¹Ø±Õ** (`svcrt_dev_close_internal`)£º
+**è®¾å¤‡è¯»å†™** (`svcrt_dev_read/write_internal`)ï¼š
 ```
-1. µ÷ÓÃ drv_close(handles[idx])
-2. Çå¿Õ handles[idx]
+1. ä»Žå¥æŸ„æå–ç´¢å¼•ï¼ŒéªŒè¯ç±»åž‹æ ‡å¿—
+2. æ£€æŸ¥ handles[idx] æ˜¯å¦æœ‰æ•ˆ
+3. è°ƒç”¨ drv_read/drv_write(handles[idx], data, len)
+```
+
+**è®¾å¤‡å…³é—­** (`svcrt_dev_close_internal`)ï¼š
+```
+1. è°ƒç”¨ drv_close(handles[idx])
+2. æ¸…ç©º handles[idx]
 ```
 
 ---
 
-### 4.3 svcrt_event.c ¡ª ÊÂ¼þ¹ÜÀí
+### 4.3 svcrt_event.c â€” äº‹ä»¶ç®¡ç†
 
-#### 4.3.1 Êý¾Ý½á¹¹
+#### 4.3.1 æ•°æ®ç»“æž„
 
 ```c
-static svcrt_event_obj_t svcrt_events[SVCRT_EVENT_NUM];  // ÊÂ¼þ¶ÔÏó³Ø
+static svcrt_event_obj_t svcrt_events[SVCRT_EVENT_NUM];  // äº‹ä»¶å¯¹è±¡æ± 
 ```
 
-#### 4.3.2 ºËÐÄÁ÷³Ì
+#### 4.3.2 æ ¸å¿ƒæµç¨‹
 
-**ÊÂ¼þ´´½¨** (`svcrt_event_create_internal`)£º
+**äº‹ä»¶åˆ›å»º** (`svcrt_event_create_internal`)ï¼š
 ```
-1. ÔÚÊÂ¼þ³ØÖÐÕÒ¿ÕÏÐ²ÛÎ»
-2. ÌîÈëÃû³Æ
-3. ·µ»Ø¾ä±ú = SVCRT_EVENT_HANDLE_FLAG | Ë÷Òý
-```
-
-**ÊÂ¼þµÈ´ý** (`svcrt_event_wait_internal`)£º
-```
-1. ½«µ±Ç°ÈÎÎñ¼ÓÈëÊÂ¼þµÄ waiting_tasks ÁÐ±í
-2. Èç¹û timeout_ms > 0: svcrt_task_wait_internal(timeout_ms)
-3. Èç¹û timeout_ms == 0: svcrt_task_wait_period_internal()
+1. åœ¨äº‹ä»¶æ± ä¸­æ‰¾ç©ºé—²æ§½ä½
+2. å¡«å…¥åç§°
+3. è¿”å›žå¥æŸ„ = SVCRT_EVENT_HANDLE_FLAG | ç´¢å¼•
 ```
 
-**ÊÂ¼þÉèÖÃ** (`svcrt_event_set_internal`)£º
+**äº‹ä»¶ç­‰å¾…** (`svcrt_event_wait_internal`)ï¼š
 ```
-1. ±éÀú waiting_tasks ÁÐ±í
-2. ½«Ã¿¸öµÈ´ýÈÎÎñµÄ×´Ì¬ÉèÎª READY
-3. Çå¿ÕµÈ´ýÁÐ±í
-```
-
----
-
-### 4.4 svcrt_fifo.c ¡ª »·ÐÎ»º³åÇø
-
-**´´½¨** (`svcrt_fifo_create`)£º
-```
-1. ½«»º³åÇøÇ° 8 ×Ö½Ú×÷Îª FIFO Í·²¿
-2. ³õÊ¼»¯ magic/wt_idx/rd_idx/size
-3. Êý¾ÝÇø = buff + 8£¬´óÐ¡ = size - 8
+1. å°†å½“å‰ä»»åŠ¡åŠ å…¥äº‹ä»¶çš„ waiting_tasks åˆ—è¡¨
+2. å¦‚æžœ timeout_ms > 0: svcrt_task_wait_internal(timeout_ms)
+3. å¦‚æžœ timeout_ms == 0: svcrt_task_wait_period_internal()
 ```
 
-**Ð´Èë** (`svcrt_fifo_write`)£º
+**äº‹ä»¶è®¾ç½®** (`svcrt_event_set_internal`)ï¼š
 ```
-Öð×Ö½ÚÐ´Èë£¬wt_idx = (wt_idx + 1) % size
-```
-
-**¶ÁÈ¡** (`svcrt_fifo_read`)£º
-```
-Öð×Ö½Ú¶ÁÈ¡£¬rd_idx = (rd_idx + 1) % size
-µ± rd_idx == wt_idx Ê±Í£Ö¹£¨»º³åÇø¿Õ£©
+1. éåŽ† waiting_tasks åˆ—è¡¨
+2. å°†æ¯ä¸ªç­‰å¾…ä»»åŠ¡çš„çŠ¶æ€è®¾ä¸º READY
+3. æ¸…ç©ºç­‰å¾…åˆ—è¡¨
 ```
 
 ---
 
-### 4.5 svcrt_cfg.c ¡ª ÈÎÎñÅäÖÃ¼ÓÔØ
+### 4.4 svcrt_fifo.c â€” çŽ¯å½¢ç¼“å†²åŒº
 
-**È«¾ÖÈÎÎñ±í**£º
+**åˆ›å»º** (`svcrt_fifo_create`)ï¼š
+```
+1. å°†ç¼“å†²åŒºå‰ 8 å­—èŠ‚ä½œä¸º FIFO å¤´éƒ¨
+2. åˆå§‹åŒ– magic/wt_idx/rd_idx/size
+3. æ•°æ®åŒº = buff + 8ï¼Œå¤§å° = size - 8
+```
+
+**å†™å…¥** (`svcrt_fifo_write`)ï¼š
+```
+é€å­—èŠ‚å†™å…¥ï¼Œwt_idx = (wt_idx + 1) % size
+```
+
+**è¯»å–** (`svcrt_fifo_read`)ï¼š
+```
+é€å­—èŠ‚è¯»å–ï¼Œrd_idx = (rd_idx + 1) % size
+å½“ rd_idx == wt_idx æ—¶åœæ­¢ï¼ˆç¼“å†²åŒºç©ºï¼‰
+```
+
+---
+
+### 4.5 svcrt_cfg.c â€” ä»»åŠ¡é…ç½®åŠ è½½
+
+**å…¨å±€ä»»åŠ¡è¡¨**ï¼š
 ```c
 svcrt_task_t svcrt_task_table[SVCRT_TASK_MAX_NUM];
 int32 svcrt_task_count = 0;
 ```
 
-**svcrt_cfg_load()**£ºÇå¿ÕÈÎÎñ¼ÆÊý£¬ÓÉ `main.c` ÖÐµÄ `svcrt_register_tasks` Ìî³äÈÎÎñ±í¡£
+**svcrt_cfg_load()**ï¼šæ¸…ç©ºä»»åŠ¡è®¡æ•°ï¼Œç”± `main.c` ä¸­çš„ `svcrt_register_tasks` å¡«å……ä»»åŠ¡è¡¨ã€‚
 
-**svcrt_task_stack_init()**£º
+**svcrt_task_stack_init()**ï¼š
 ```
-1. ¼ÆËãÕ»¶¥µØÖ·£¨8 ×Ö½Ú¶ÔÆë£©
-2. ±£´æ stack_bottom ºÍ stack_top
-3. µ÷ÓÃ svcrt_port_stack_init() ³õÊ¼»¯Õ»Ö¡
-4. ±£´æ·µ»ØµÄ stack_ptr
+1. è®¡ç®—æ ˆé¡¶åœ°å€ï¼ˆ8 å­—èŠ‚å¯¹é½ï¼‰
+2. ä¿å­˜ stack_bottom å’Œ stack_top
+3. è°ƒç”¨ svcrt_port_stack_init() åˆå§‹åŒ–æ ˆå¸§
+4. ä¿å­˜è¿”å›žçš„ stack_ptr
 ```
 
 ---
 
-### 4.6 svcrt_port.c ¡ª Cortex-M4 ¼Ü¹¹ÊÊÅä
+### 4.6 svcrt_port.c â€” Cortex-M4 æž¶æž„é€‚é…
 
-ÊµÏÖ `svcrt_hal.h` ÖÐËùÓÐ¼Ü¹¹Ïà¹Øº¯Êý¡£
+å®žçŽ° `svcrt_hal.h` ä¸­æ‰€æœ‰æž¶æž„ç›¸å…³å‡½æ•°ã€‚
 
-#### 4.6.1 Õ»Ö¡³õÊ¼»¯
+#### 4.6.1 æ ˆå¸§åˆå§‹åŒ–
 
-Cortex-M4 Òì³£Õ»Ö¡¸ñÊ½£¨´Ó¸ßµØÖ·µ½µÍµØÖ·£©£º
+Cortex-M4 å¼‚å¸¸æ ˆå¸§æ ¼å¼ï¼ˆä»Žé«˜åœ°å€åˆ°ä½Žåœ°å€ï¼‰ï¼š
 
 ```
-Ó²¼þ×Ô¶¯±£´æ£¨8 word£©:
-  xPSR    = 0x01000000  (Thumb Ä£Ê½)
-  PC      = entry       (ÈÎÎñÈë¿Ú)
-  LR      = 0           (ÎÞ·µ»Ø)
+ç¡¬ä»¶è‡ªåŠ¨ä¿å­˜ï¼ˆ8 wordï¼‰:
+  xPSR    = 0x01000000  (Thumb æ¨¡å¼)
+  PC      = entry       (ä»»åŠ¡å…¥å£)
+  LR      = 0           (æ— è¿”å›ž)
   R12     = 0
   R3~R0   = 0
 
-Èí¼þÊÖ¶¯±£´æ£¨8 word£©:
+è½¯ä»¶æ‰‹åŠ¨ä¿å­˜ï¼ˆ8 wordï¼‰:
   R11~R4  = 0
 ```
 
-¹² 16 word = 64 ×Ö½Ú¡£PSP Ö¸Ïò R4 ±£´æÎ»ÖÃ¡£
+å…± 16 word = 64 å­—èŠ‚ã€‚PSP æŒ‡å‘ R4 ä¿å­˜ä½ç½®ã€‚
 
-#### 4.6.2 idle ÈÎÎñÇÐ»»
+#### 4.6.2 idle ä»»åŠ¡åˆ‡æ¢
 
 ```c
 void svcrt_port_enter_idle(uint32 psp, uint32 use_priv)
 {
     __set_PSP(psp);
-    // CONTROL[1]=1: Ê¹ÓÃ PSP, CONTROL[0]=1: ·ÇÌØÈ¨Ä£Ê½
+    // CONTROL[1]=1: ä½¿ç”¨ PSP, CONTROL[0]=1: éžç‰¹æƒæ¨¡å¼
     __set_CONTROL(0x2 | (use_priv ? 0x1 : 0x0) | __get_CONTROL());
-    __ISB();  // ISB È·±£ CONTROL Ð´ÈëÉúÐ§
+    __ISB();  // ISB ç¡®ä¿ CONTROL å†™å…¥ç”Ÿæ•ˆ
 }
 ```
 
-#### 4.6.3 Î¢ÃëÑÓÊ±
+#### 4.6.3 å¾®ç§’å»¶æ—¶
 
-»ùÓÚ SysTick ÊµÏÖ¾«È·Ã¦µÈ£º
+åŸºäºŽ SysTick å®žçŽ°ç²¾ç¡®å¿™ç­‰ï¼š
 ```
-1. ¼ÇÂ¼ SysTick->VAL ÆðÊ¼Öµ
-2. ¼ÆËãÐèÒªµÈ´ýµÄÊ±ÖÓÖÜÆÚÊý
-3. Ñ­»·¶ÁÈ¡ SysTick->VAL£¬¼ÆËã²îÖµ
-4. ´¦Àí SysTick ÏòÏÂÒç³ö£¨²îÖµÎª¸ºÊ±¼Ó LOAD Öµ£©
-5. ÀÛ¼õµÈ´ýÖÜÆÚÖ±µ½Îª 0
+1. è®°å½• SysTick->VAL èµ·å§‹å€¼
+2. è®¡ç®—éœ€è¦ç­‰å¾…çš„æ—¶é’Ÿå‘¨æœŸæ•°
+3. å¾ªçŽ¯è¯»å– SysTick->VALï¼Œè®¡ç®—å·®å€¼
+4. å¤„ç† SysTick å‘ä¸‹æº¢å‡ºï¼ˆå·®å€¼ä¸ºè´Ÿæ—¶åŠ  LOAD å€¼ï¼‰
+5. ç´¯å‡ç­‰å¾…å‘¨æœŸç›´åˆ°ä¸º 0
 ```
 
-#### 4.6.4 Èõ¶¨Òåº¯Êý
+#### 4.6.4 å¼±å®šä¹‰å‡½æ•°
 
-`svcrt_port_board_init`¡¢`svcrt_port_irq_init` µÈº¯ÊýÔÚ port ²ãÌá¹© `__weak` Ä¬ÈÏÊµÏÖ£¬board ²ã¿É¸²¸Ç¡£
+`svcrt_port_board_init`ã€`svcrt_port_irq_init` ç­‰å‡½æ•°åœ¨ port å±‚æä¾› `__weak` é»˜è®¤å®žçŽ°ï¼Œboard å±‚å¯è¦†ç›–ã€‚
 
 ---
 
-## 5. ÍêÕûµ÷ÓÃÁ´Â·
+## 5. å®Œæ•´è°ƒç”¨é“¾è·¯
 
-### 5.1 ÈÎÎñµÈ´ýÁ÷³Ì
-
-```
-Ó¦ÓÃµ÷ÓÃ svcrt_task_wait(1000)
-  ©¦
-  ©À©¤ __svc(0x11)                    # SVC Ö¸Áî£¬´¥·¢ SVC Òì³£
-  ©¦   ©¸©¤ r0=1(×Ó¹¦ÄÜ), r1=1000(²ÎÊý)
-  ©¦
-  ©À©¤ SVC_Handler (context_rvds.S)   # »ã±àÈë¿Ú
-  ©¦   ©¸©¤ ÌáÈ¡ SVC ºÅ£¬µ÷ÓÃ SVC_Server()
-  ©¦
-  ©À©¤ SVC_Server()                   # C ·Ö·¢º¯Êý
-  ©¦   ©¸©¤ case 0x11: r0=1 ¡ú svcrt_task_wait_internal(1000)
-  ©¦
-  ©À©¤ svcrt_task_wait_internal()
-  ©¦   ©À©¤ ¹ØÖÐ¶Ï
-  ©¦   ©À©¤ wait_time = MS_TO_TICK(1000) = 2000
-  ©¦   ©À©¤ status = WAIT
-  ©¦   ©À©¤ SVCRT_SWITCH_TASK()        # ´¥·¢ PendSV
-  ©¦   ©¸©¤ ¿ªÖÐ¶Ï
-  ©¦
-  ©À©¤ PendSV_Handler (context_rvds.S)
-  ©¦   ©À©¤ ±£´æµ±Ç°ÈÎÎñÉÏÏÂÎÄ£¨R4-R11 ¡ú PSP£©
-  ©¦   ©À©¤ µ÷ÓÃ svcrt_sched_is_switching()
-  ©¦   ©¦   ©¸©¤ svcrt_sched_next() ¡ú Ñ¡ÔñÏÂÒ»¸öÈÎÎñ
-  ©¦   ©À©¤ µ÷ÓÃ svcrt_sched_activate(new_id, old_psp)
-  ©¦   ©¦   ©À©¤ ±£´æ¾ÉÈÎÎñ PSP
-  ©¦   ©¦   ©À©¤ status==WAIT ¡ú ²»ÐÞ¸Ä£¨µÈ´ý»½ÐÑ£©
-  ©¦   ©¦   ©¸©¤ ¼ÓÔØÐÂÈÎÎñ PSP
-  ©¦   ©¸©¤ »Ö¸´ÐÂÈÎÎñÉÏÏÂÎÄ£¨PSP ¡ú R4-R11£©
-  ©¦
-  ©¸©¤ ÐÂÈÎÎñ¿ªÊ¼Ö´ÐÐ
-```
-
-### 5.2 ÈÎÎñ»½ÐÑÁ÷³Ì
+### 5.1 ä»»åŠ¡ç­‰å¾…æµç¨‹
 
 ```
-SysTick ÖÐ¶Ï£¨Ã¿ 500us£©
-  ©¦
-  ©À©¤ SysTick_Handler()
-  ©¦   ©¸©¤ svcrt_kernel_tick_handler()
-  ©¦       ©À©¤ svcrt_kernel_tick++
-  ©¦       ©¸©¤ SVCRT_SWITCH_TASK()     # ´¥·¢ PendSV
-  ©¦
-  ©À©¤ PendSV_Handler()
-  ©¦   ©À©¤ ±£´æµ±Ç°ÈÎÎñÉÏÏÂÎÄ
-  ©¦   ©À©¤ svcrt_sched_is_switching()
-  ©¦   ©¦   ©¸©¤ svcrt_sched_next()
-  ©¦   ©¦       ©¸©¤ svcrt_tick_tasks()  # ±éÀúËùÓÐÈÎÎñ
-  ©¦   ©¦           ©À©¤ wait_time -= escape_tick
-  ©¦   ©¦           ©¸©¤ if wait_time <= 0: status = READY  ¡û »½ÐÑ!
-  ©¦   ©¦
-  ©¦   ©¦   ¡ú Ñ¡ÖÐ¸Õ»½ÐÑµÄÈÎÎñ£¨ÓÅÏÈ¼¶×î¸ß/×î¾ÃÎ´µ÷¶È£©
-  ©¦   ©¦
-  ©¦   ©À©¤ svcrt_sched_activate()
-  ©¦   ©¦   ©À©¤ ¾ÉÈÎÎñ: status==RUNNING ¡ú READY
-  ©¦   ©¦   ©¸©¤ ÐÂÈÎÎñ: status=RUNNING, ¼ÓÔØ PSP
-  ©¦   ©¸©¤ »Ö¸´ÐÂÈÎÎñÉÏÏÂÎÄ
-  ©¦
-  ©¸©¤ ±»»½ÐÑµÄÈÎÎñ¼ÌÐøÖ´ÐÐ svcrt_task_wait() Ö®ºóµÄ´úÂë
+åº”ç”¨è°ƒç”¨ svcrt_task_wait(1000)
+  â”‚
+  â”œâ”€ __svc(0x11)                    # SVC æŒ‡ä»¤ï¼Œè§¦å‘ SVC å¼‚å¸¸
+  â”‚   â””â”€ r0=1(å­åŠŸèƒ½), r1=1000(å‚æ•°)
+  â”‚
+  â”œâ”€ SVC_Handler (context_rvds.S)   # æ±‡ç¼–å…¥å£
+  â”‚   â””â”€ æå– SVC å·ï¼Œè°ƒç”¨ SVC_Server()
+  â”‚
+  â”œâ”€ SVC_Server()                   # C åˆ†å‘å‡½æ•°
+  â”‚   â””â”€ case 0x11: r0=1 â†’ svcrt_task_wait_internal(1000)
+  â”‚
+  â”œâ”€ svcrt_task_wait_internal()
+  â”‚   â”œâ”€ å…³ä¸­æ–­
+  â”‚   â”œâ”€ wait_time = MS_TO_TICK(1000) = 2000
+  â”‚   â”œâ”€ status = WAIT
+  â”‚   â”œâ”€ SVCRT_SWITCH_TASK()        # è§¦å‘ PendSV
+  â”‚   â””â”€ å¼€ä¸­æ–­
+  â”‚
+  â”œâ”€ PendSV_Handler (context_rvds.S)
+  â”‚   â”œâ”€ ä¿å­˜å½“å‰ä»»åŠ¡ä¸Šä¸‹æ–‡ï¼ˆR4-R11 â†’ PSPï¼‰
+  â”‚   â”œâ”€ è°ƒç”¨ svcrt_sched_is_switching()
+  â”‚   â”‚   â””â”€ svcrt_sched_next() â†’ é€‰æ‹©ä¸‹ä¸€ä¸ªä»»åŠ¡
+  â”‚   â”œâ”€ è°ƒç”¨ svcrt_sched_activate(new_id, old_psp)
+  â”‚   â”‚   â”œâ”€ ä¿å­˜æ—§ä»»åŠ¡ PSP
+  â”‚   â”‚   â”œâ”€ status==WAIT â†’ ä¸ä¿®æ”¹ï¼ˆç­‰å¾…å”¤é†’ï¼‰
+  â”‚   â”‚   â””â”€ åŠ è½½æ–°ä»»åŠ¡ PSP
+  â”‚   â””â”€ æ¢å¤æ–°ä»»åŠ¡ä¸Šä¸‹æ–‡ï¼ˆPSP â†’ R4-R11ï¼‰
+  â”‚
+  â””â”€ æ–°ä»»åŠ¡å¼€å§‹æ‰§è¡Œ
 ```
 
-### 5.3 Éè±¸²Ù×÷Á÷³Ì
+### 5.2 ä»»åŠ¡å”¤é†’æµç¨‹
 
 ```
-Ó¦ÓÃµ÷ÓÃ svcrt_dev_write(led, &on, 1)
-  ©¦
-  ©À©¤ __svc(0x10)                    # SVC Ö¸Áî
-  ©¦   ©¸©¤ r0 Ö¸Ïò²ÎÊýÊý×é [5(×Ó¹¦ÄÜ), handle, data, len]
-  ©¦
-  ©À©¤ SVC_Handler ¡ú SVC_Server()
-  ©¦   ©¸©¤ case 0x10: p[0]=5 ¡ú svcrt_dev_write_internal(handle, data, len)
-  ©¦
-  ©À©¤ svcrt_dev_write_internal()
-  ©¦   ©À©¤ ÌáÈ¡Ë÷Òý: idx = handle & 0xfffff
-  ©¦   ©À©¤ ÑéÖ¤ÀàÐÍ: handle & 0xfff00000 == 0x01200000
-  ©¦   ©¸©¤ µ÷ÓÃ drv->drv_write(instance, data, len)
-  ©¦
-  ©¸©¤ drv_write ¡ú led_drv_write()    # °å¼¶ LED Çý¶¯
-      ©¸©¤ GPIOC->BSRR = ...          # ²Ù×÷Ó²¼þ
+SysTick ä¸­æ–­ï¼ˆæ¯ 500usï¼‰
+  â”‚
+  â”œâ”€ SysTick_Handler()
+  â”‚   â””â”€ svcrt_kernel_tick_handler()
+  â”‚       â”œâ”€ svcrt_kernel_tick++
+  â”‚       â””â”€ SVCRT_SWITCH_TASK()     # è§¦å‘ PendSV
+  â”‚
+  â”œâ”€ PendSV_Handler()
+  â”‚   â”œâ”€ ä¿å­˜å½“å‰ä»»åŠ¡ä¸Šä¸‹æ–‡
+  â”‚   â”œâ”€ svcrt_sched_is_switching()
+  â”‚   â”‚   â””â”€ svcrt_sched_next()
+  â”‚   â”‚       â””â”€ svcrt_tick_tasks()  # éåŽ†æ‰€æœ‰ä»»åŠ¡
+  â”‚   â”‚           â”œâ”€ wait_time -= escape_tick
+  â”‚   â”‚           â””â”€ if wait_time <= 0: status = READY  â† å”¤é†’!
+  â”‚   â”‚
+  â”‚   â”‚   â†’ é€‰ä¸­åˆšå”¤é†’çš„ä»»åŠ¡ï¼ˆä¼˜å…ˆçº§æœ€é«˜/æœ€ä¹…æœªè°ƒåº¦ï¼‰
+  â”‚   â”‚
+  â”‚   â”œâ”€ svcrt_sched_activate()
+  â”‚   â”‚   â”œâ”€ æ—§ä»»åŠ¡: status==RUNNING â†’ READY
+  â”‚   â”‚   â””â”€ æ–°ä»»åŠ¡: status=RUNNING, åŠ è½½ PSP
+  â”‚   â””â”€ æ¢å¤æ–°ä»»åŠ¡ä¸Šä¸‹æ–‡
+  â”‚
+  â””â”€ è¢«å”¤é†’çš„ä»»åŠ¡ç»§ç»­æ‰§è¡Œ svcrt_task_wait() ä¹‹åŽçš„ä»£ç 
 ```
 
----
-
-## 6. ÖÐ¶ÏÓÅÏÈ¼¶Óëµ÷¶È¹ØÏµ
+### 5.3 è®¾å¤‡æ“ä½œæµç¨‹
 
 ```
-ÓÅÏÈ¼¶    ÖÐ¶Ï           ×÷ÓÃ
-©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
-0x00     SysTick        ÏµÍ³½ÚÅÄ£¬Çý¶¯µ÷¶È
-0x01     SVC            ÏµÍ³µ÷ÓÃÈë¿Ú
-0x0A     USART1         ÍâÉèÖÐ¶Ï£¨Ê¾Àý£©
-0xFF     PendSV         ÉÏÏÂÎÄÇÐ»»£¨×îµÍÓÅÏÈ¼¶£©
-```
-
-**Éè¼ÆÔ­Àí**£º
-- SysTick ÓÅÏÈ¼¶×î¸ß£¬±£Ö¤½ÚÅÄ¾«¶È
-- SVC ´Î¸ß£¬ÏµÍ³µ÷ÓÃ²»±»ÆäËûÖÐ¶Ï´ò¶Ï
-- PendSV ×îµÍ£¬È·±£ÉÏÏÂÎÄÇÐ»»ÔÚËùÓÐÖÐ¶Ï´¦ÀíÍê³ÉºóÖ´ÐÐ
-
----
-
-## 7. ÄÚ´æ²¼¾Ö
-
-```
-0x20028000 ©°©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©´
-           ©¦   ¹²ÏíÄÚ´æÇø        ©¦ 32KB (SVCRT_SHARE_MEM_SIZE)
-           ©¦   (ÈÎÎñ¼äÍ¨ÐÅ)      ©¦
-0x20028000 ©¸©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¼
-           ©¦                    ©¦
-           ©¦   Ö÷ SRAM          ©¦ 160KB (Ó¦ÓÃ¿ÉÓÃ)
-           ©¦   (ÄÚºË+ÈÎÎñÕ»)    ©¦
-0x20000000 ©¸©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¼
-
-0x10010000 ©°©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©´
-           ©¦   CCM RAM          ©¦ 64KB (½ö CPU ¿É·ÃÎÊ)
-0x10000000 ©¸©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¼
-
-0x08000000 ©°©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©´
-           ©¦   Flash            ©¦ 1MB
-0x08000000 ©¸©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¼
+åº”ç”¨è°ƒç”¨ svcrt_dev_write(led, &on, 1)
+  â”‚
+  â”œâ”€ __svc(0x10)                    # SVC æŒ‡ä»¤
+  â”‚   â””â”€ r0 æŒ‡å‘å‚æ•°æ•°ç»„ [5(å­åŠŸèƒ½), handle, data, len]
+  â”‚
+  â”œâ”€ SVC_Handler â†’ SVC_Server()
+  â”‚   â””â”€ case 0x10: p[0]=5 â†’ svcrt_dev_write_internal(handle, data, len)
+  â”‚
+  â”œâ”€ svcrt_dev_write_internal()
+  â”‚   â”œâ”€ æå–ç´¢å¼•: idx = handle & 0xfffff
+  â”‚   â”œâ”€ éªŒè¯ç±»åž‹: handle & 0xfff00000 == 0x01200000
+  â”‚   â””â”€ è°ƒç”¨ drv->drv_write(instance, data, len)
+  â”‚
+  â””â”€ drv_write â†’ led_drv_write()    # æ¿çº§ LED é©±åŠ¨
+      â””â”€ GPIOC->BSRR = ...          # æ“ä½œç¡¬ä»¶
 ```
 
 ---
 
-## 8. ÅäÖÃÓë²Ã¼ôÖ¸ÄÏ
+## 6. ä¸­æ–­ä¼˜å…ˆçº§ä¸Žè°ƒåº¦å…³ç³»
 
-| ¹¦ÄÜ | ºê¿ª¹Ø | ¹Ø±ÕÓ°Ïì |
+```
+ä¼˜å…ˆçº§    ä¸­æ–­           ä½œç”¨
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+0x00     SysTick        ç³»ç»ŸèŠ‚æ‹ï¼Œé©±åŠ¨è°ƒåº¦
+0x01     SVC            ç³»ç»Ÿè°ƒç”¨å…¥å£
+0x0A     USART1         å¤–è®¾ä¸­æ–­ï¼ˆç¤ºä¾‹ï¼‰
+0xFF     PendSV         ä¸Šä¸‹æ–‡åˆ‡æ¢ï¼ˆæœ€ä½Žä¼˜å…ˆçº§ï¼‰
+```
+
+**è®¾è®¡åŽŸç†**ï¼š
+- SysTick ä¼˜å…ˆçº§æœ€é«˜ï¼Œä¿è¯èŠ‚æ‹ç²¾åº¦
+- SVC æ¬¡é«˜ï¼Œç³»ç»Ÿè°ƒç”¨ä¸è¢«å…¶ä»–ä¸­æ–­æ‰“æ–­
+- PendSV æœ€ä½Žï¼Œç¡®ä¿ä¸Šä¸‹æ–‡åˆ‡æ¢åœ¨æ‰€æœ‰ä¸­æ–­å¤„ç†å®ŒæˆåŽæ‰§è¡Œ
+
+---
+
+## 7. å†…å­˜å¸ƒå±€
+
+```
+0x20028000 â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+           â”‚   å…±äº«å†…å­˜åŒº        â”‚ 32KB (SVCRT_SHARE_MEM_SIZE)
+           â”‚   (ä»»åŠ¡é—´é€šä¿¡)      â”‚
+0x20028000 â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+           â”‚                    â”‚
+           â”‚   ä¸» SRAM          â”‚ 160KB (åº”ç”¨å¯ç”¨)
+           â”‚   (å†…æ ¸+ä»»åŠ¡æ ˆ)    â”‚
+0x20000000 â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+
+0x10010000 â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+           â”‚   CCM RAM          â”‚ 64KB (ä»… CPU å¯è®¿é—®)
+0x10000000 â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+
+0x08000000 â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+           â”‚   Flash            â”‚ 1MB
+0x08000000 â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+```
+
+---
+
+## 8. é…ç½®ä¸Žè£å‰ªæŒ‡å—
+
+| åŠŸèƒ½ | å®å¼€å…³ | å…³é—­å½±å“ |
 |------|--------|---------|
-| FPU Ö§³Ö | `SVCRT_USE_FPU=0` | ²»±£´æ/»Ö¸´¸¡µã¼Ä´æÆ÷£¬½ÚÊ¡Õ»¿Õ¼ä |
-| MPU ±£»¤ | `SVCRT_USE_MPU=0` | ÎÞÄÚ´æ¸ôÀë£¬ÈÎÎñ¿É»¥Ïà·ÃÎÊ |
-| ÌØÈ¨·ÖÀë | `SVCRT_USE_PRIV=0` | ËùÓÐ´úÂëÔÚÌØÈ¨Ä£Ê½ÔËÐÐ |
-| CPU ¸ºÔØ | `SVCRT_USE_CPU_LOAD=0` | ²»Í³¼Æ CPU Ê¹ÓÃÂÊ |
-| Õ»Òç³ö¼ì²â | `SVCRT_USE_STACK_CHECK=0` | ²»¼ì²âÕ»Òç³ö£¬½ÚÊ¡ÔËÐÐÊ±¿ªÏú |
+| FPU æ”¯æŒ | `SVCRT_USE_FPU=0` | ä¸ä¿å­˜/æ¢å¤æµ®ç‚¹å¯„å­˜å™¨ï¼ŒèŠ‚çœæ ˆç©ºé—´ |
+| MPU ä¿æŠ¤ | `SVCRT_USE_MPU=0` | æ— å†…å­˜éš”ç¦»ï¼Œä»»åŠ¡å¯äº’ç›¸è®¿é—® |
+| ç‰¹æƒåˆ†ç¦» | `SVCRT_USE_PRIV=0` | æ‰€æœ‰ä»£ç åœ¨ç‰¹æƒæ¨¡å¼è¿è¡Œ |
+| CPU è´Ÿè½½ | `SVCRT_USE_CPU_LOAD=0` | ä¸ç»Ÿè®¡ CPU ä½¿ç”¨çŽ‡ |
+| æ ˆæº¢å‡ºæ£€æµ‹ | `SVCRT_USE_STACK_CHECK=0` | ä¸æ£€æµ‹æ ˆæº¢å‡ºï¼ŒèŠ‚çœè¿è¡Œæ—¶å¼€é”€ |
 
-**²Ã¼ôÊ¾Àý**£º×îÐ¡ÅäÖÃ£¨ÎÞ FPU¡¢ÎÞ MPU¡¢ÎÞ¸ºÔØÍ³¼Æ£©£º
+**è£å‰ªç¤ºä¾‹**ï¼šæœ€å°é…ç½®ï¼ˆæ—  FPUã€æ—  MPUã€æ— è´Ÿè½½ç»Ÿè®¡ï¼‰ï¼š
 ```c
 #define SVCRT_USE_FPU          0
 #define SVCRT_USE_MPU          0
