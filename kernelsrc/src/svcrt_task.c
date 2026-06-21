@@ -13,6 +13,7 @@
 #include "svcrt_event.h"
 #include "svcrt_hal.h"
 #include "svcrt_dev.h"
+#include "svcrt_sync.h"
 #include "svcrt_def.h"
 #include "svcrt_config.h"
 
@@ -145,7 +146,41 @@ void SVC_Server(svcrt_svc_context_t *p_svc_ctx)
                 p_svc_ctx->r0 = svcrt_dev_get_count();
                 break;
             default:
-                p_svc_ctx->r0 = (-1);
+                p_svc_ctx->r0 = (uint32)(-1);
+                break;
+        }
+        break;
+
+    case SVCRT_SVC_SYNC_CTRL:
+        p = (uint32 *)p_svc_ctx->r0;
+        switch(p[0])
+        {
+            case 1:
+                p_svc_ctx->r0 = svcrt_sem_create_internal((char *)p[1], (int32)p[2]);
+                break;
+            case 2:
+                p_svc_ctx->r0 = svcrt_sem_wait_internal((int32)p[1], (int32)p[2]);
+                break;
+            case 3:
+                p_svc_ctx->r0 = svcrt_sem_post_internal((int32)p[1]);
+                break;
+            case 4:
+                p_svc_ctx->r0 = svcrt_sem_delete_internal((int32)p[1]);
+                break;
+            case 5:
+                p_svc_ctx->r0 = svcrt_mtx_create_internal((char *)p[1]);
+                break;
+            case 6:
+                p_svc_ctx->r0 = svcrt_mtx_lock_internal((int32)p[1], (int32)p[2]);
+                break;
+            case 7:
+                p_svc_ctx->r0 = svcrt_mtx_unlock_internal((int32)p[1]);
+                break;
+            case 8:
+                p_svc_ctx->r0 = svcrt_mtx_delete_internal((int32)p[1]);
+                break;
+            default:
+                p_svc_ctx->r0 = (uint32)(-1);
                 break;
         }
         break;
@@ -202,7 +237,9 @@ int32 svcrt_sched_activate(int32 new_task, uint32 old_psp)
         if(svcrt_task_table[tid].status == SVCRT_TASK_RUNNING)
         {
             #if (SVCRT_USE_STACK_CHECK == 1)
-            if(*svcrt_task_table[tid].stack_bottom != SVCRT_STACK_END_FLAG_VAL)
+            /* ???????PSP ???????????????
+             * ????????????????????????????????????? */
+            if(old_psp < (uint32)svcrt_task_table[tid].stack_bottom)
             {
                 svcrt_task_table[tid].status = SVCRT_TASK_INVALID;
             }
@@ -285,6 +322,13 @@ static void svcrt_tick_tasks(svcrt_task_t *p_task)
         return;
     }
 
+    /* wait_time < 0???????????????????????????? post/unlock ????????
+     * tick ??????????????? period_time ??? */
+    if(p_task->wait_time < 0)
+    {
+        return;
+    }
+
     if(p_task->wait_time > 0)
     {
         p_task->wait_time -= escape_tick;
@@ -347,6 +391,20 @@ void svcrt_task_wait_period_internal(void)
     if(svcrt_current_task_id > 0)
     {
         p_tsk = &svcrt_task_table[svcrt_current_task_id - 1];
+        p_tsk->status = SVCRT_TASK_WAIT;
+        SVCRT_SWITCH_TASK();
+    }
+    SVCRT_ENABLE_IRQ();
+}
+
+void svcrt_task_block_internal(void)
+{
+    svcrt_task_t *p_tsk;
+    SVCRT_DISABLE_IRQ();
+    if(svcrt_current_task_id > 0)
+    {
+        p_tsk = &svcrt_task_table[svcrt_current_task_id - 1];
+        p_tsk->wait_time = -1;          /* ?????????????? post/unlock ???? */
         p_tsk->status = SVCRT_TASK_WAIT;
         SVCRT_SWITCH_TASK();
     }

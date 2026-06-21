@@ -678,6 +678,11 @@
               <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_cfg.c</FilePath>
             </File>
             <File>
+              <FileName>svcrt_sync.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_sync.c</FilePath>
+            </File>
+            <File>
               <FileName>oslib.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\kernelsrc\app\oslib.c</FilePath>
@@ -705,12 +710,12 @@
             <File>
               <FileName>svcrt_context.S</FileName>
               <FileType>2</FileType>
-              <FilePath>..\kernelsrc\port\arm\cortex-m4\svcrt_context.S</FilePath>
+              <FilePath>..\..\..\..\..\kernelsrc\port\arm\cortex-m4\svcrt_context.S</FilePath>
             </File>
             <File>
               <FileName>svcrt_port.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\kernelsrc\port\arm\cortex-m4\svcrt_port.c</FilePath>
+              <FilePath>..\..\..\..\..\kernelsrc\port\arm\cortex-m4\svcrt_port.c</FilePath>
             </File>
           </Files>
         </Group>

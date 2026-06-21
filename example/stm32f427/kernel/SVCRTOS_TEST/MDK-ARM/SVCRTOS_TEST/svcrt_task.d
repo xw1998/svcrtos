@@ -45,3 +45,4 @@ svcrtos_test\svcrt_task.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.
 svcrtos_test\svcrt_task.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h
 svcrtos_test\svcrt_task.o: ../../../../../kernelsrc/include/svcrt_event.h
 svcrtos_test\svcrt_task.o: ../../../../../kernelsrc/include/svcrt_dev.h
+svcrtos_test\svcrt_task.o: ../../../../../kernelsrc/include/svcrt_sync.h

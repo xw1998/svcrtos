@@ -502,6 +502,24 @@ if(svcrt_task_table[tid].status == SVCRT_TASK_RUNNING)
 
 **相关修复**：`svcrt_tick_tasks()` 中严格分离 `wait_time` 和 `period_time` 两种等待机制，避免互相干扰。
 
+### 8.1b 栈溢出检测误判（2026.05.30 修复）
+
+**现象**：引入信号量/互斥锁后，任务通过 SVC 调用同步原语（多层 SVC 嵌套 + FPU 栈帧）时被误判为栈溢出，标记为 INVALID 后不再调度。
+
+**根因**：原栈溢出检测使用"栈底魔术字节"法（检查 `*stack_bottom != SVCRT_STACK_END_FLAG_VAL`），在深调用链下该字节可能被合法栈使用覆盖或判断不可靠，造成误判。
+
+**修复**：改用 **PSP 越界检测**——只有保存的栈指针真正越过栈底地址才判定溢出：
+
+```c
+// svcrt_task.c: svcrt_sched_activate()
+if(old_psp < (uint32)svcrt_task_table[tid].stack_bottom)
+{
+    svcrt_task_table[tid].status = SVCRT_TASK_INVALID;
+}
+```
+
+此方法直接比较实际栈指针与栈底地址，准确且无误判。
+
 ### 8.2 任务等待机制说明
 
 SVCrtOS 支持两种任务等待方式：

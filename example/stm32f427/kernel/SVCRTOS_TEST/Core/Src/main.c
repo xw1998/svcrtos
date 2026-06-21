@@ -22,6 +22,7 @@
 #include "svcrt_cfg.h"
 #include "svcrt_event.h"
 #include "svcrt_dev.h"
+#include "svcrt_sync.h"
 #include "svcrt_task.h"
 #include "svcrt_config.h"
 /* USER CODE END Includes */
@@ -45,12 +46,15 @@
 
 /* USER CODE BEGIN PV */
 #define SVCRT_IDLE_STACK_WORDS    512
-#define SVCRT_LED_STACK_WORDS     512
-#define SVCRT_LED2_STACK_WORDS    512
+#define SVCRT_LED_STACK_WORDS     1024
+#define SVCRT_LED2_STACK_WORDS    1024
 
 static uint32 svcrt_idle_stack[SVCRT_IDLE_STACK_WORDS];
 static uint32 led_task_stack[SVCRT_LED_STACK_WORDS];
 static uint32 led2_task_stack[SVCRT_LED2_STACK_WORDS];
+
+/* ??????????????????? LED ??????υτ?????§Υ?????????????? */
+static int32 g_led_mutex = -1;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -176,9 +180,15 @@ static void led_blink_task(void)
 
     while(1)
     {
-        svcrt_dev_write(led, &on, 0);
+        /* ???????????υτ§Υ?????????????? */
+        svcrt_mutex_lock(g_led_mutex, 0);
+        svcrt_dev_write(led, &on, 1);      /* ???? */
+        svcrt_mutex_unlock(g_led_mutex);
         svcrt_task_wait(1000);
-        svcrt_dev_write(led, &on, 1);
+
+        svcrt_mutex_lock(g_led_mutex, 0);
+        svcrt_dev_write(led, &on, 0);      /* ???? */
+        svcrt_mutex_unlock(g_led_mutex);
         svcrt_task_wait(1000);
     }
 }
@@ -190,9 +200,15 @@ static void led2_blink_task(void)
 
     while(1)
     {
-        svcrt_dev_write(led, &on, 1);
+        /* ??????¦Λ???????????????? */
+        svcrt_mutex_lock(g_led_mutex, 0);
+        svcrt_dev_write(led, &on, 0);      /* ???? */
+        svcrt_mutex_unlock(g_led_mutex);
         svcrt_task_wait(1000);
-        svcrt_dev_write(led, &on, 0);
+
+        svcrt_mutex_lock(g_led_mutex, 0);
+        svcrt_dev_write(led, &on, 1);      /* ???? */
+        svcrt_mutex_unlock(g_led_mutex);
         svcrt_task_wait(1000);
     }
 }
@@ -271,8 +287,12 @@ static void svcrt_register_tasks(void)
 static void svcrt_kernel_init(void)
 {
     svcrt_event_module_init();
+    svcrt_sync_module_init();
     svcrt_dev_module_init();
     svcrt_dev_board_init();
+
+    /* ??????????? LED ?υτ§Υ????????????????????????????????? */
+    g_led_mutex = svcrt_mtx_create_internal("ledmtx");
 
     #if (SVCRT_USE_MPU == 1)
     svcrt_port_mpu_init();

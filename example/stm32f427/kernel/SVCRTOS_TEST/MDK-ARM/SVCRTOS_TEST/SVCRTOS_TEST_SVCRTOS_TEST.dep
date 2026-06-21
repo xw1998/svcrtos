@@ -38,7 +38,7 @@ I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x69F70A12)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x69F70A12)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x69F70A12)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x69F70A12)
-F (../Core/Src/main.c)(0x6A23A2B8)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427-I.\RTE\_SVCRTOS_TEST-IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -D_RTE_ -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\main.o --omf_browse svcrtos_test\main.crf --depend svcrtos_test\main.d)
+F (../Core/Src/main.c)(0x6A376845)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427-I.\RTE\_SVCRTOS_TEST-IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -D_RTE_ -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\main.o --omf_browse svcrtos_test\main.crf --depend svcrtos_test\main.d)
 I (../Core/Inc/main.h)(0x69F712AE)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x69F70A12)
 I (../Core/Inc/stm32f4xx_hal_conf.h)(0x69F71316)
@@ -82,16 +82,17 @@ I (../Core/Inc/spi.h)(0x69F712AD)
 I (../Core/Inc/usart.h)(0x69F712AD)
 I (../Core/Inc/usb_otg.h)(0x69F712AD)
 I (../Core/Inc/gpio.h)(0x69F70B86)
-I (../../../../../kernelsrc/include/svcrt.h)(0x69F739B1)
+I (../../../../../kernelsrc/include/svcrt.h)(0x6A375D9E)
 I (../../../../../kernelsrc/include/svcrt_types.h)(0x69F6B76E)
 I (../../../../../kernelsrc/include/svcrt_hal.h)(0x6A1A92D8)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6A1AAD3F)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6A1AAE2B)
+I (../../../../../kernelsrc/include/svcrt_config.h)(0x6A375D9E)
+I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6A375BD2)
 I (../../../../../kernelsrc/include/svcrt_cfg.h)(0x6A12B23B)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x69F8653A)
-I (../../../../../kernelsrc/include/svcrt_task.h)(0x6A1A93B8)
+I (../../../../../kernelsrc/include/svcrt_def.h)(0x6A375D9E)
+I (../../../../../kernelsrc/include/svcrt_task.h)(0x6A375D9F)
 I (../../../../../kernelsrc/include/svcrt_event.h)(0x69F7004D)
 I (../../../../../kernelsrc/include/svcrt_dev.h)(0x69F737E9)
+I (../../../../../kernelsrc/include/svcrt_sync.h)(0x6A375D9E)
 F (../Core/Src/gpio.c)(0x6A1ACC77)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427-I.\RTE\_SVCRTOS_TEST-IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -D_RTE_ -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\gpio.o --omf_browse svcrtos_test\gpio.crf --depend svcrtos_test\gpio.d)
 I (../Core/Inc/gpio.h)(0x69F70B86)
 I (../Core/Inc/main.h)(0x69F712AE)
@@ -403,14 +404,14 @@ I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x69F70A12)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x69F70A12)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x69F70A12)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x69F70A12)
-F (..\..\..\..\..\kernelsrc\src\svcrt_task.c)(0x6A23A011)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427-I.\RTE\_SVCRTOS_TEST-IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -D_RTE_ -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_task.o --omf_browse svcrtos_test\svcrt_task.crf --depend svcrtos_test\svcrt_task.d)
+F (..\..\..\..\..\kernelsrc\src\svcrt_task.c)(0x6A375DA0)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427-I.\RTE\_SVCRTOS_TEST-IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -D_RTE_ -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_task.o --omf_browse svcrtos_test\svcrt_task.crf --depend svcrtos_test\svcrt_task.d)
 I (../../../../../kernelsrc/include/svcrt_cfg.h)(0x6A12B23B)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x69F8653A)
+I (../../../../../kernelsrc/include/svcrt_def.h)(0x6A375D9E)
 I (../../../../../kernelsrc/include/svcrt_types.h)(0x69F6B76E)
-I (../../../../../kernelsrc/include/svcrt_task.h)(0x6A1A93B8)
+I (../../../../../kernelsrc/include/svcrt_task.h)(0x6A375D9F)
 I (../../../../../kernelsrc/include/svcrt_hal.h)(0x6A1A92D8)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6A1AAD3F)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6A1AAE2B)
+I (../../../../../kernelsrc/include/svcrt_config.h)(0x6A375D9E)
+I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6A375BD2)
 I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x69F70A12)
 I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x69F70A12)
 I (../Drivers/CMSIS/Include/core_cm4.h)(0x69F70A12)
@@ -449,12 +450,13 @@ I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x69F70A12)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x69F70A12)
 I (../../../../../kernelsrc/include/svcrt_event.h)(0x69F7004D)
 I (../../../../../kernelsrc/include/svcrt_dev.h)(0x69F737E9)
+I (../../../../../kernelsrc/include/svcrt_sync.h)(0x6A375D9E)
 F (..\..\..\..\..\kernelsrc\src\svcrt_dev.c)(0x69F7382E)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427-I.\RTE\_SVCRTOS_TEST-IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -D_RTE_ -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_dev.o --omf_browse svcrtos_test\svcrt_dev.crf --depend svcrtos_test\svcrt_dev.d)
 I (../../../../../kernelsrc/include/svcrt_dev.h)(0x69F737E9)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x69F8653A)
+I (../../../../../kernelsrc/include/svcrt_def.h)(0x6A375D9E)
 I (../../../../../kernelsrc/include/svcrt_types.h)(0x69F6B76E)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6A1AAD3F)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6A1AAE2B)
+I (../../../../../kernelsrc/include/svcrt_config.h)(0x6A375D9E)
+I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6A375BD2)
 I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x69F70A12)
 I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x69F70A12)
 I (../Drivers/CMSIS/Include/core_cm4.h)(0x69F70A12)
@@ -493,12 +495,12 @@ I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x69F70A12)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x69F70A12)
 F (..\..\..\..\..\kernelsrc\src\svcrt_event.c)(0x69F702F7)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427-I.\RTE\_SVCRTOS_TEST-IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -D_RTE_ -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_event.o --omf_browse svcrtos_test\svcrt_event.crf --depend svcrtos_test\svcrt_event.d)
 I (../../../../../kernelsrc/include/svcrt_event.h)(0x69F7004D)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x69F8653A)
+I (../../../../../kernelsrc/include/svcrt_def.h)(0x6A375D9E)
 I (../../../../../kernelsrc/include/svcrt_types.h)(0x69F6B76E)
-I (../../../../../kernelsrc/include/svcrt_task.h)(0x6A1A93B8)
+I (../../../../../kernelsrc/include/svcrt_task.h)(0x6A375D9F)
 I (../../../../../kernelsrc/include/svcrt_hal.h)(0x6A1A92D8)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6A1AAD3F)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6A1AAE2B)
+I (../../../../../kernelsrc/include/svcrt_config.h)(0x6A375D9E)
+I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6A375BD2)
 I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x69F70A12)
 I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x69F70A12)
 I (../Drivers/CMSIS/Include/core_cm4.h)(0x69F70A12)
@@ -535,18 +537,18 @@ I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x69F70A12)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x69F70A12)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x69F70A12)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x69F70A12)
-F (..\..\..\..\..\kernelsrc\src\svcrt_fifo.c)(0x69F702F7)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427-I.\RTE\_SVCRTOS_TEST-IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -D_RTE_ -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_fifo.o --omf_browse svcrtos_test\svcrt_fifo.crf --depend svcrtos_test\svcrt_fifo.d)
-I (..\..\..\..\..\kernelsrc\include\svcrt_fifo.h)(0x69F70051)
-I (..\..\..\..\..\kernelsrc\include\svcrt_def.h)(0x69F8653A)
-I (..\..\..\..\..\kernelsrc\include\svcrt_types.h)(0x69F6B76E)
+F (..\..\..\..\..\kernelsrc\src\svcrt_fifo.c)(0x6A375DA0)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427-I.\RTE\_SVCRTOS_TEST-IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -D_RTE_ -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_fifo.o --omf_browse svcrtos_test\svcrt_fifo.crf --depend svcrtos_test\svcrt_fifo.d)
+I (../../../../../kernelsrc/include/svcrt_fifo.h)(0x69F70051)
+I (../../../../../kernelsrc/include/svcrt_def.h)(0x6A375D9E)
+I (../../../../../kernelsrc/include/svcrt_types.h)(0x69F6B76E)
 F (..\..\..\..\..\kernelsrc\src\svcrt_cfg.c)(0x6A1A9409)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427-I.\RTE\_SVCRTOS_TEST-IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -D_RTE_ -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_cfg.o --omf_browse svcrtos_test\svcrt_cfg.crf --depend svcrtos_test\svcrt_cfg.d)
 I (../../../../../kernelsrc/include/svcrt_cfg.h)(0x6A12B23B)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x69F8653A)
+I (../../../../../kernelsrc/include/svcrt_def.h)(0x6A375D9E)
 I (../../../../../kernelsrc/include/svcrt_types.h)(0x69F6B76E)
-I (../../../../../kernelsrc/include/svcrt_task.h)(0x6A1A93B8)
+I (../../../../../kernelsrc/include/svcrt_task.h)(0x6A375D9F)
 I (../../../../../kernelsrc/include/svcrt_hal.h)(0x6A1A92D8)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6A1AAD3F)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6A1AAE2B)
+I (../../../../../kernelsrc/include/svcrt_config.h)(0x6A375D9E)
+I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6A375BD2)
 I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x69F70A12)
 I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x69F70A12)
 I (../Drivers/CMSIS/Include/core_cm4.h)(0x69F70A12)
@@ -583,10 +585,54 @@ I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x69F70A12)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x69F70A12)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x69F70A12)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x69F70A12)
-F (..\..\..\..\..\kernelsrc\app\oslib.c)(0x69F7391A)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427-I.\RTE\_SVCRTOS_TEST-IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -D_RTE_ -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\oslib.o --omf_browse svcrtos_test\oslib.crf --depend svcrtos_test\oslib.d)
-I (..\..\..\..\..\kernelsrc\include\svcrt.h)(0x69F739B1)
-I (..\..\..\..\..\kernelsrc\include\svcrt_types.h)(0x69F6B76E)
-F (..\..\..\..\..\board\stm32f427\svcrt_board.c)(0x6A2389A9)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427-I.\RTE\_SVCRTOS_TEST-IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -D_RTE_ -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_board.o --omf_browse svcrtos_test\svcrt_board.crf --depend svcrtos_test\svcrt_board.d)
+F (..\..\..\..\..\kernelsrc\src\svcrt_sync.c)(0x6A375DA0)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427-I.\RTE\_SVCRTOS_TEST-IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -D_RTE_ -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_sync.o --omf_browse svcrtos_test\svcrt_sync.crf --depend svcrtos_test\svcrt_sync.d)
+I (../../../../../kernelsrc/include/svcrt_sync.h)(0x6A375D9E)
+I (../../../../../kernelsrc/include/svcrt_def.h)(0x6A375D9E)
+I (../../../../../kernelsrc/include/svcrt_types.h)(0x69F6B76E)
+I (../../../../../kernelsrc/include/svcrt_task.h)(0x6A375D9F)
+I (../../../../../kernelsrc/include/svcrt_hal.h)(0x6A1A92D8)
+I (../../../../../kernelsrc/include/svcrt_config.h)(0x6A375D9E)
+I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6A375BD2)
+I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x69F70A12)
+I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x69F70A12)
+I (../Drivers/CMSIS/Include/core_cm4.h)(0x69F70A12)
+I (E:\mdk5\ARM\ARMCC\include\stdint.h)(0x6025237E)
+I (../Drivers/CMSIS/Include/cmsis_version.h)(0x69F70A12)
+I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x69F70A12)
+I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x69F70A12)
+I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x69F70A12)
+I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x69F70A12)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x69F70A12)
+I (../Core/Inc/stm32f4xx_hal_conf.h)(0x69F71316)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x69F70A12)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x69F70A12)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x69F70A12)
+I (E:\mdk5\ARM\ARMCC\include\stddef.h)(0x6025237E)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x69F70A12)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x69F70A12)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x69F70A12)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x69F70A12)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x69F70A12)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x69F70A12)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x69F70A12)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x69F70A12)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x69F70A12)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x69F70A12)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x69F70A12)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x69F70A12)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x69F70A12)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x69F70A12)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x69F70A12)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x69F70A12)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x69F70A12)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x69F70A12)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x69F70A12)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x69F70A12)
+I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x69F70A12)
+F (..\..\..\..\..\kernelsrc\app\oslib.c)(0x6A375D9E)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427-I.\RTE\_SVCRTOS_TEST-IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -D_RTE_ -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\oslib.o --omf_browse svcrtos_test\oslib.crf --depend svcrtos_test\oslib.d)
+I (../../../../../kernelsrc/include/svcrt.h)(0x6A375D9E)
+I (../../../../../kernelsrc/include/svcrt_types.h)(0x69F6B76E)
+F (..\..\..\..\..\board\stm32f427\svcrt_board.c)(0x6A375D9D)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427-I.\RTE\_SVCRTOS_TEST-IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -D_RTE_ -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_board.o --omf_browse svcrtos_test\svcrt_board.crf --depend svcrtos_test\svcrt_board.d)
 I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x69F70A12)
 I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x69F70A12)
 I (../Drivers/CMSIS/Include/core_cm4.h)(0x69F70A12)
@@ -625,22 +671,22 @@ I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x69F70A12)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x69F70A12)
 I (../../../../../kernelsrc/include/svcrt_hal.h)(0x6A1A92D8)
 I (../../../../../kernelsrc/include/svcrt_types.h)(0x69F6B76E)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6A1AAD3F)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6A1AAE2B)
+I (../../../../../kernelsrc/include/svcrt_config.h)(0x6A375D9E)
+I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6A375BD2)
 I (../../../../../kernelsrc/include/svcrt_dev.h)(0x69F737E9)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x69F8653A)
-I (../../../../../kernelsrc/include/svcrt_task.h)(0x6A1A93B8)
+I (../../../../../kernelsrc/include/svcrt_def.h)(0x6A375D9E)
+I (../../../../../kernelsrc/include/svcrt_task.h)(0x6A375D9F)
 I (..\..\..\..\..\board\stm32f427\drvled.h)(0x6A1ACD18)
 I (..\..\..\..\..\board\stm32f427\drvuart.h)(0x69F87B4E)
 I (../../../../../kernelsrc/include/svcrt_fifo.h)(0x69F70051)
 F (..\..\..\..\..\board\stm32f427\drvuart.c)(0x69F87041)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427-I.\RTE\_SVCRTOS_TEST-IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -D_RTE_ -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\drvuart.o --omf_browse svcrtos_test\drvuart.crf --depend svcrtos_test\drvuart.d)
 I (..\..\..\..\..\board\stm32f427\drvuart.h)(0x69F87B4E)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x69F8653A)
+I (../../../../../kernelsrc/include/svcrt_def.h)(0x6A375D9E)
 I (../../../../../kernelsrc/include/svcrt_types.h)(0x69F6B76E)
 I (../../../../../kernelsrc/include/svcrt_fifo.h)(0x69F70051)
 I (../../../../../kernelsrc/include/svcrt_dev.h)(0x69F737E9)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6A1AAD3F)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6A1AAE2B)
+I (../../../../../kernelsrc/include/svcrt_config.h)(0x6A375D9E)
+I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6A375BD2)
 I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x69F70A12)
 I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x69F70A12)
 I (../Drivers/CMSIS/Include/core_cm4.h)(0x69F70A12)
@@ -679,11 +725,11 @@ I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x69F70A12)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x69F70A12)
 F (..\..\..\..\..\board\stm32f427\drvled.c)(0x6A1ACD46)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427-I.\RTE\_SVCRTOS_TEST-IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -D_RTE_ -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\drvled.o --omf_browse svcrtos_test\drvled.crf --depend svcrtos_test\drvled.d)
 I (..\..\..\..\..\board\stm32f427\drvled.h)(0x6A1ACD18)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x69F8653A)
+I (../../../../../kernelsrc/include/svcrt_def.h)(0x6A375D9E)
 I (../../../../../kernelsrc/include/svcrt_types.h)(0x69F6B76E)
 I (../../../../../kernelsrc/include/svcrt_dev.h)(0x69F737E9)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6A1AAD3F)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6A1AAE2B)
+I (../../../../../kernelsrc/include/svcrt_config.h)(0x6A375D9E)
+I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6A375BD2)
 I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x69F70A12)
 I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x69F70A12)
 I (../Drivers/CMSIS/Include/core_cm4.h)(0x69F70A12)
@@ -720,12 +766,12 @@ I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x69F70A12)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x69F70A12)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x69F70A12)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x69F70A12)
-F (..\kernelsrc\port\arm\cortex-m4\svcrt_context.S)(0x6A1AD9FC)(--cpu Cortex-M4.fp.sp -g --apcs=interwork -I.\RTE\_SVCRTOS_TEST-IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include--pd "__UVISION_VERSION SETA 535" --pd "_RTE_ SETA 1" --pd "STM32F427xx SETA 1" --pd "_RTE_ SETA 1"--list svcrt_context.lst --xref -o svcrtos_test\svcrt_context.o --depend svcrtos_test\svcrt_context.d)
-F (..\kernelsrc\port\arm\cortex-m4\svcrt_port.c)(0x6A1ADA0A)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427-I.\RTE\_SVCRTOS_TEST-IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -D_RTE_ -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_port.o --omf_browse svcrtos_test\svcrt_port.crf --depend svcrtos_test\svcrt_port.d)
+F (..\..\..\..\..\kernelsrc\port\arm\cortex-m4\svcrt_context.S)(0x6A375D9F)(--cpu Cortex-M4.fp.sp -g --apcs=interwork -I.\RTE\_SVCRTOS_TEST-IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include--pd "__UVISION_VERSION SETA 535" --pd "_RTE_ SETA 1" --pd "STM32F427xx SETA 1" --pd "_RTE_ SETA 1"--list svcrt_context.lst --xref -o svcrtos_test\svcrt_context.o --depend svcrtos_test\svcrt_context.d)
+F (..\..\..\..\..\kernelsrc\port\arm\cortex-m4\svcrt_port.c)(0x6A375D9F)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427-I.\RTE\_SVCRTOS_TEST-IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -D_RTE_ -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_port.o --omf_browse svcrtos_test\svcrt_port.crf --depend svcrtos_test\svcrt_port.d)
 I (../../../../../kernelsrc/include/svcrt_hal.h)(0x6A1A92D8)
 I (../../../../../kernelsrc/include/svcrt_types.h)(0x69F6B76E)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6A1AAD3F)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6A1AAE2B)
+I (../../../../../kernelsrc/include/svcrt_config.h)(0x6A375D9E)
+I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6A375BD2)
 I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x69F70A12)
 I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x69F70A12)
 I (../Drivers/CMSIS/Include/core_cm4.h)(0x69F70A12)
@@ -762,8 +808,8 @@ I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x69F70A12)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x69F70A12)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x69F70A12)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x69F70A12)
-I (../../../../../kernelsrc/include/svcrt_task.h)(0x6A1A93B8)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x69F8653A)
+I (../../../../../kernelsrc/include/svcrt_task.h)(0x6A375D9F)
+I (../../../../../kernelsrc/include/svcrt_def.h)(0x6A375D9E)
 F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rtc.c)(0x69F70A12)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427-I.\RTE\_SVCRTOS_TEST-IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -D_RTE_ -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_hal_rtc.o --omf_browse svcrtos_test\stm32f4xx_hal_rtc.crf --depend svcrtos_test\stm32f4xx_hal_rtc.d)
 I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x69F70A12)
 I (../Core/Inc/stm32f4xx_hal_conf.h)(0x69F71316)

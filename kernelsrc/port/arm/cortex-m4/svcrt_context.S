@@ -2,7 +2,9 @@
     AREA    |.text|, CODE, READONLY
 
 ;--------------------------------------------------------------
-; PendSV_Handler - Cortex-M4 任务上下文切换
+; PendSV_Handler - Cortex-M4 ???????????л?
+; ?? SVCRT_USE_FPU=1 ?????????/??? FPU ???????????? S16-S31??
+; ?????? EXC_RETURN(LR) ???????????? FPU ???????
 ;--------------------------------------------------------------
 PendSV_Handler		PROC
     EXPORT  PendSV_Handler
@@ -17,12 +19,27 @@ PendSV_Handler		PROC
     BMI     endpend
 
     MRS     R1, PSP
-    STMDB   R1!, {R4-R11}
+
+ IF {FPU} != "SoftVFP"
+    ; ?????????????? FPU??EXC_RETURN bit4=0???????? S16-S31
+    TST     LR, #0x10
+    IT      EQ
+    VSTMDBEQ R1!, {S16-S31}
+ ENDIF
+
+    STMDB   R1!, {R4-R11, LR}
 
     LDR     R2, =svcrt_sched_activate
     BLX     R2
 
-    LDMIA   R0!, {R4-R11}
+    LDMIA   R0!, {R4-R11, LR}
+
+ IF {FPU} != "SoftVFP"
+    TST     LR, #0x10
+    IT      EQ
+    VLDMIAEQ R0!, {S16-S31}
+ ENDIF
+
     MSR     PSP, R0
 
 endpend
@@ -31,7 +48,7 @@ endpend
 
 
 ;--------------------------------------------------------------
-; SVC_Handler - 系统服务调用入口
+; SVC_Handler - ????????????
 ;--------------------------------------------------------------
 SVC_Handler		PROC
     EXPORT  SVC_Handler

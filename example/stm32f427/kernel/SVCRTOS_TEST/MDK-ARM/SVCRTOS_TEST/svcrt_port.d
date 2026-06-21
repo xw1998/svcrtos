@@ -1,4 +1,4 @@
-svcrtos_test\svcrt_port.o: ..\kernelsrc\port\arm\cortex-m4\svcrt_port.c
+svcrtos_test\svcrt_port.o: ..\..\..\..\..\kernelsrc\port\arm\cortex-m4\svcrt_port.c
 svcrtos_test\svcrt_port.o: ../../../../../kernelsrc/include/svcrt_hal.h
 svcrtos_test\svcrt_port.o: ../../../../../kernelsrc/include/svcrt_types.h
 svcrtos_test\svcrt_port.o: ../../../../../kernelsrc/include/svcrt_config.h

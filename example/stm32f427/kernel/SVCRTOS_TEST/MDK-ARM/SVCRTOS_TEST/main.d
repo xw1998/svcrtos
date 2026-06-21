@@ -53,3 +53,4 @@ svcrtos_test\main.o: ../../../../../kernelsrc/include/svcrt_def.h
 svcrtos_test\main.o: ../../../../../kernelsrc/include/svcrt_task.h
 svcrtos_test\main.o: ../../../../../kernelsrc/include/svcrt_event.h
 svcrtos_test\main.o: ../../../../../kernelsrc/include/svcrt_dev.h
+svcrtos_test\main.o: ../../../../../kernelsrc/include/svcrt_sync.h

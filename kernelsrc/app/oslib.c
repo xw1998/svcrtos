@@ -1,6 +1,6 @@
 /**
-* @brief SVCrtOS 操作系统内核功能接口文件
-* @details 供应用程序(分区)使用的OS接口封装，通过SVC指令陷入内核态
+* @brief SVCrtOS ?????????????????
+* @details ????ó???(????)????OS??????????SVC???????????
 * @author xw
 * @date 2026.05.03
 */
@@ -11,6 +11,7 @@ int32  __svc(0x10)  svcrt_call_dev_io(uint32 *p);
 void   __svc(0x11)  svcrt_call_task_ctrl(uint32 fn, uint32 p);
 uint32 __svc(0x12)  svcrt_call_sys_info(uint32 fn);
 int32  __svc(0x13)  svcrt_call_event_ctrl(uint32 *p);
+int32  __svc(0x15)  svcrt_call_sync_ctrl(uint32 *p);
 
 int32 svcrt_dev_open(char *name, uint32 param)
 {
@@ -126,4 +127,71 @@ void svcrt_event_set(int32 handle)
     p[0] = 3;
     p[1] = handle;
     svcrt_call_event_ctrl(p);
+}
+
+int32 svcrt_sem_create(char *name, int32 init_count)
+{
+    uint32 p[3];
+    p[0] = 1;
+    p[1] = (uint32)name;
+    p[2] = (uint32)init_count;
+    return svcrt_call_sync_ctrl(p);
+}
+
+int32 svcrt_sem_wait(int32 handle, int32 timeout)
+{
+    uint32 p[3];
+    p[0] = 2;
+    p[1] = handle;
+    p[2] = (uint32)timeout;
+    return svcrt_call_sync_ctrl(p);
+}
+
+int32 svcrt_sem_post(int32 handle)
+{
+    uint32 p[3];
+    p[0] = 3;
+    p[1] = handle;
+    return svcrt_call_sync_ctrl(p);
+}
+
+int32 svcrt_sem_delete(int32 handle)
+{
+    uint32 p[3];
+    p[0] = 4;
+    p[1] = handle;
+    return svcrt_call_sync_ctrl(p);
+}
+
+int32 svcrt_mutex_create(char *name)
+{
+    uint32 p[3];
+    p[0] = 5;
+    p[1] = (uint32)name;
+    return svcrt_call_sync_ctrl(p);
+}
+
+int32 svcrt_mutex_lock(int32 handle, int32 timeout)
+{
+    uint32 p[3];
+    p[0] = 6;
+    p[1] = handle;
+    p[2] = (uint32)timeout;
+    return svcrt_call_sync_ctrl(p);
+}
+
+int32 svcrt_mutex_unlock(int32 handle)
+{
+    uint32 p[3];
+    p[0] = 7;
+    p[1] = handle;
+    return svcrt_call_sync_ctrl(p);
+}
+
+int32 svcrt_mutex_delete(int32 handle)
+{
+    uint32 p[3];
+    p[0] = 8;
+    p[1] = handle;
+    return svcrt_call_sync_ctrl(p);
 }

@@ -1,6 +1,6 @@
 /**
-* @brief SVCrtOS 环形缓冲区实现
-* @details 提供内核和驱动使用的 FIFO 环形缓冲区
+* @brief SVCrtOS ???λ????????
+* @details ?????????????? FIFO ???λ?????
 * @author xw
 * @date 2026.05.03
 */
@@ -27,14 +27,20 @@ svcrt_fifo_t *svcrt_fifo_create(uint8 *buff, int32 size)
 int32 svcrt_fifo_write(svcrt_fifo_t *fifo, uint8 *pdata, int32 len)
 {
     int32 cnt;
+    uint16 next;
     if(fifo->magic != SVCRT_FIFO_MAGIC)
     {
         return 0;
     }
     for(cnt = 0; cnt < len; cnt++)
     {
+        next = (fifo->wt_idx + 1) % fifo->size;
+        if(next == fifo->rd_idx)
+        {
+            break;          /* FIFO ????????д????????δ?????? */
+        }
         fifo->data[fifo->wt_idx] = pdata[cnt];
-        fifo->wt_idx = (fifo->wt_idx + 1) % fifo->size;
+        fifo->wt_idx = next;
     }
     return cnt;
 }
