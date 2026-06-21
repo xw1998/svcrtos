@@ -1,0 +1,15 @@
+Dependencies for Project 'bled_drv', Target 'BLED_DRV': (DO NOT MODIFY !)
+CompilerVersion: 5060960::V5.06 update 7 (build 960)::.\ARMCC
+F (..\Src\bled_drv.c)(0x6A377800)(--c99 -c --cpu Cortex-M4.fp.sp -g -O0 --apcs=interwork --split_sections -I ..\Src -I ..\..\..\..\..\kernelsrc\sdk\driver_sdk -I ..\..\..\..\..\kernelsrc\include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -DSTM32F427xx -DSVCRT_DRV_USER_MODE-o bled_drv\bled_drv.o --omf_browse bled_drv\bled_drv.crf --depend bled_drv\bled_drv.d)
+I (..\..\..\..\..\kernelsrc\sdk\driver_sdk\svcrt_driver_sdk.h)(0x6A375D9F)
+I (..\..\..\..\..\kernelsrc\sdk\driver_sdk\svcrt_types.h)(0x6A23ACFC)
+F (..\..\..\..\..\kernelsrc\sdk\driver_sdk\svcrt_drv_main.c)(0x6A23ACFC)(--c99 -c --cpu Cortex-M4.fp.sp -g -O0 --apcs=interwork --split_sections -I ..\Src -I ..\..\..\..\..\kernelsrc\sdk\driver_sdk -I ..\..\..\..\..\kernelsrc\include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -DSTM32F427xx -DSVCRT_DRV_USER_MODE-o bled_drv\svcrt_drv_main.o --omf_browse bled_drv\svcrt_drv_main.crf --depend bled_drv\svcrt_drv_main.d)
+I (..\..\..\..\..\kernelsrc\sdk\driver_sdk\svcrt_driver_sdk.h)(0x6A375D9F)
+I (..\..\..\..\..\kernelsrc\sdk\driver_sdk\svcrt_types.h)(0x6A23ACFC)
+F (..\..\..\..\..\kernelsrc\sdk\driver_sdk\svcrt_driver_bridge.c)(0x6A23ACFC)(--c99 -c --cpu Cortex-M4.fp.sp -g -O0 --apcs=interwork --split_sections -I ..\Src -I ..\..\..\..\..\kernelsrc\sdk\driver_sdk -I ..\..\..\..\..\kernelsrc\include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -DSTM32F427xx -DSVCRT_DRV_USER_MODE-o bled_drv\svcrt_driver_bridge.o --omf_browse bled_drv\svcrt_driver_bridge.crf --depend bled_drv\svcrt_driver_bridge.d)
+I (..\..\..\..\..\kernelsrc\sdk\driver_sdk\svcrt_driver_sdk.h)(0x6A375D9F)
+I (..\..\..\..\..\kernelsrc\sdk\driver_sdk\svcrt_types.h)(0x6A23ACFC)
+F (..\..\..\..\..\kernelsrc\sdk\driver_sdk\svcrt_drv_oslib.c)(0x6A23ACFC)(--c99 -c --cpu Cortex-M4.fp.sp -g -O0 --apcs=interwork --split_sections -I ..\Src -I ..\..\..\..\..\kernelsrc\sdk\driver_sdk -I ..\..\..\..\..\kernelsrc\include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -DSTM32F427xx -DSVCRT_DRV_USER_MODE-o bled_drv\svcrt_drv_oslib.o --omf_browse bled_drv\svcrt_drv_oslib.crf --depend bled_drv\svcrt_drv_oslib.d)
+I (..\..\..\..\..\kernelsrc\sdk\driver_sdk\svcrt_driver_sdk.h)(0x6A375D9F)
+I (..\..\..\..\..\kernelsrc\sdk\driver_sdk\svcrt_types.h)(0x6A23ACFC)
+F (..\..\..\..\..\kernelsrc\sdk\driver_sdk\svcrt_drv_start.s)(0x6A37786D)(--cpu Cortex-M4.fp.sp -g --apcs=interwork -IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include--pd "__UVISION_VERSION SETA 535" --pd "STM32F427xx SETA 1"--list svcrt_drv_start.lst --xref -o bled_drv\svcrt_drv_start.o --depend bled_drv\svcrt_drv_start.d)

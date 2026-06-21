@@ -1,6 +1,6 @@
 /**
-* @brief SVCrtOS ???λ????????
-* @details ?????????????? FIFO ???λ?????
+* @brief SVCrtOS 环形缓冲区（FIFO）实现
+* @details 提供用于内核与驱动间数据传输的 FIFO 环形缓冲区。
 * @author xw
 * @date 2026.05.03
 */
@@ -37,7 +37,7 @@ int32 svcrt_fifo_write(svcrt_fifo_t *fifo, uint8 *pdata, int32 len)
         next = (fifo->wt_idx + 1) % fifo->size;
         if(next == fifo->rd_idx)
         {
-            break;          /* FIFO ????????д????????δ?????? */
+            break;          /* FIFO 已满，停止写入以避免覆盖尚未读取的数据 */
         }
         fifo->data[fifo->wt_idx] = pdata[cnt];
         fifo->wt_idx = next;

@@ -49,9 +49,18 @@
 #define SVCRT_LED_STACK_WORDS     1024
 #define SVCRT_LED2_STACK_WORDS    1024
 
+/* 外部分区固件入口地址（与各自 scatter 的 ROM 基址一致）
+ * 启动汇编 DRVSTART/APPSTART 位于分区基址，+1 表示 Thumb 模式 */
+#define BLED_DRV_ENTRY            (0x08060000u | 1u)
+#define BLED_APP_ENTRY            (0x08080000u | 1u)
+#define SVCRT_EXT_DRV_STACK_WORDS 512
+#define SVCRT_EXT_APP_STACK_WORDS 512
+
 static uint32 svcrt_idle_stack[SVCRT_IDLE_STACK_WORDS];
 static uint32 led_task_stack[SVCRT_LED_STACK_WORDS];
 static uint32 led2_task_stack[SVCRT_LED2_STACK_WORDS];
+static uint32 ext_drv_stack[SVCRT_EXT_DRV_STACK_WORDS];
+static uint32 ext_app_stack[SVCRT_EXT_APP_STACK_WORDS];
 
 /* ??????????????????? LED ??????豸?????д?????????????? */
 static int32 g_led_mutex = -1;
@@ -281,6 +290,47 @@ static void svcrt_register_tasks(void)
     svcrt_task_stack_init(p_task, led2_blink_task,
                           led2_task_stack, sizeof(led2_task_stack));
 
+    svcrt_task_count++;
+
+    /* ===== 注册外部分区固件任务 ===== */
+    /* 外部蓝灯驱动（BLED_DRV），优先级 9（高于 app，先注册设备） */
+    ext_drv_stack[0] = SVCRT_STACK_END_FLAG_VAL;
+    p_task = &svcrt_task_table[svcrt_task_count];
+    p_task->ram_start   = (uint32)ext_drv_stack;
+    p_task->ram_size    = sizeof(ext_drv_stack);
+    p_task->stack_size  = sizeof(ext_drv_stack);
+    p_task->rom_start   = 0;
+    p_task->rom_size    = 0;
+    p_task->period      = SVCRT_MS_TO_TICK(1000);
+    p_task->priority    = 9;
+    p_task->shm_attri   = 0;
+    p_task->status      = SVCRT_TASK_READY;
+    p_task->period_time = p_task->period;
+    p_task->wait_time   = 0;
+    p_task->tim_tick    = 0;
+    p_task->touch_tick  = 0;
+    svcrt_task_stack_init(p_task, (void (*)(void))BLED_DRV_ENTRY,
+                          ext_drv_stack, sizeof(ext_drv_stack));
+    svcrt_task_count++;
+
+    /* 外部蓝灯应用（BLED_APP），优先级 10 */
+    ext_app_stack[0] = SVCRT_STACK_END_FLAG_VAL;
+    p_task = &svcrt_task_table[svcrt_task_count];
+    p_task->ram_start   = (uint32)ext_app_stack;
+    p_task->ram_size    = sizeof(ext_app_stack);
+    p_task->stack_size  = sizeof(ext_app_stack);
+    p_task->rom_start   = 0;
+    p_task->rom_size    = 0;
+    p_task->period      = SVCRT_MS_TO_TICK(1000);
+    p_task->priority    = 10;
+    p_task->shm_attri   = 0;
+    p_task->status      = SVCRT_TASK_READY;
+    p_task->period_time = p_task->period;
+    p_task->wait_time   = 0;
+    p_task->tim_tick    = 0;
+    p_task->touch_tick  = 0;
+    svcrt_task_stack_init(p_task, (void (*)(void))BLED_APP_ENTRY,
+                          ext_app_stack, sizeof(ext_app_stack));
     svcrt_task_count++;
 }
 

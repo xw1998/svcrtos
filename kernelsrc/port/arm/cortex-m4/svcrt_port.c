@@ -1,9 +1,9 @@
 /**
-* @brief SVCrtOS Cortex-M4 ????????
-* @details ??? svcrt_hal.h ???????????м??????????
-*          ??????CPU????????ж????????????????
-*          ????????????????MPU???????
-*          ???????????CMSIS?????????????????κγ???HAL??
+* @brief SVCrtOS Cortex-M4 移植层实现
+* @details 实现 svcrt_hal.h 中声明的所有硬件抽象接口，包括：
+*          CPU 控制、中断开关、寄存器访问、任务栈帧初始化、
+*          系统时钟与微秒延时、MPU 配置等。
+*          仅依赖 CMSIS 内核头文件，不依赖任何芯片厂商的 HAL 库。
 * @author xw
 * @date 2026.05.03
 */
@@ -17,7 +17,7 @@
 #endif
 
 /* ============================================================
- * CPU????
+ * CPU 控制
  * ============================================================ */
 void svcrt_port_wfi(void)  { __WFI(); }
 void svcrt_port_wfe(void)  { __WFE(); }
@@ -27,7 +27,7 @@ void svcrt_port_dsb(void)  { __DSB(); }
 void svcrt_port_dmb(void)  { __DMB(); }
 
 /* ============================================================
- * ?ж?????
+ * 中断开关
  * ============================================================ */
 void svcrt_port_disable_irq(void)
 {
@@ -45,7 +45,7 @@ void svcrt_port_switch_task(void)
 }
 
 /* ============================================================
- * ???????
+ * 寄存器访问
  * ============================================================ */
 void svcrt_port_set_psp(uint32 val)
 {
@@ -77,9 +77,9 @@ uint32 svcrt_port_stack_init(uint32 stack_top, void (*entry)(void))
     *(--p_sp) = 0;                 /* R1 */
     *(--p_sp) = 0;                 /* R0 */
 
-    /* ????????????R4-R11 + EXC_RETURN(LR)
-     * EXC_RETURN = 0xFFFFFFFD: ???? Thread ??????? PSP?????? FPU ??????
-     * PendSV ?л????? LR ?? bit4 ?ж?????? S16-S31?? */
+    /* 第二部分：上下文切换时手动保存/恢复的 R4-R11 + EXC_RETURN(LR)
+     * EXC_RETURN = 0xFFFFFFFD: 异常返回到 Thread 模式、使用 PSP、且无 FPU 扩展帧。
+     * PendSV 切换时通过 LR 的 bit4 判断是否需要保存/恢复 S16-S31。 */
     *(--p_sp) = 0xFFFFFFFD;        /* LR (EXC_RETURN) */
     *(--p_sp) = 0;                 /* R11 */
     *(--p_sp) = 0;                 /* R10 */
@@ -109,7 +109,7 @@ void svcrt_port_enter_idle(uint32 psp, uint32 use_priv)
 }
 
 /* ============================================================
- * ???????
+ * 系统时钟与延时
  * ============================================================ */
 uint32 svcrt_port_get_system_clock(void)
 {
@@ -152,7 +152,7 @@ void svcrt_port_delay_us(uint32 us)
 }
 
 /* ============================================================
- * ?弶???????壬??board?????
+ * 板级初始化默认实现，可被 board 层覆盖
  * ============================================================ */
 __weak void svcrt_port_board_init(void)
 {
@@ -185,7 +185,7 @@ __weak void svcrt_port_set_idle_mpu(uint32 task_func, uint32 stack_addr, uint32 
 }
 
 /* ============================================================
- * MPU????
+ * MPU 配置
  * ============================================================ */
 #if (SVCRT_USE_MPU == 1)
 

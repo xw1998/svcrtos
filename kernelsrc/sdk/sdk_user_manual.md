@@ -1283,3 +1283,86 @@ static int32 my_drv_read(svcrt_dev_hdr_t *obj, uint8 *pdata, int32 len)
 | `SVCRT_DRV_INVALID_PARAM` | -4 | ??????Ч |
 | `svcrt_dev_open` ???? -1 | -1 | ?豸δ??? |
 | `svcrt_event_create` ???? -1 | -1 | ??????? |
+
+---
+
+## 第三部分：外部分区固件运行机制（重要）
+
+App SDK 与 Driver SDK 的用户态固件以**独立 .bin** 形式烧录到专属 ROM 分区，由内核加载运行。这一节说明让外部固件正确运行必须满足的三个条件，初次集成时极易踩坑。
+
+### A. 内核必须注册外部分区入口为任务
+
+内核**不会自动扫描或加载** ROM 里的外部固件。必须在内核启动时（`svcrt_register_tasks`）显式把外部分区的入口地址注册为任务：
+
+```c
+/* 外部固件入口 = 分区 ROM 基址 | 1（Thumb 模式）
+ * 启动汇编 APPSTART/DRVSTART 由 scatter 的 *.o(RESET,+First) 放在分区最前 */
+#define BLED_DRV_ENTRY  (0x08060000u | 1u)
+
+static uint32 ext_drv_stack[512];
+
+ext_drv_stack[0] = SVCRT_STACK_END_FLAG_VAL;
+p_task = &svcrt_task_table[svcrt_task_count];
+p_task->priority = 9;
+p_task->status   = SVCRT_TASK_READY;
+/* ... 其余字段初始化 ... */
+svcrt_task_stack_init(p_task, (void (*)(void))BLED_DRV_ENTRY,
+                      ext_drv_stack, sizeof(ext_drv_stack));
+svcrt_task_count++;
+```
+
+> 任务栈由**内核侧**分配（外部 scatter 的 ARM_LIB_STACK 在此场景不被用作任务栈）。
+> 任务被调度时 PC 跳到分区基址，执行启动汇编 → `__main` → `main` → `AppMain`/`DrvMain`。
+
+### B. 启动汇编必须经 `__main`（C 运行时初始化）
+
+**这是最关键、最易踩坑的一点。** 外部固件的全局/静态变量分两类：
+
+| 段 | 内容 | 是否需要初始化 |
+|----|------|--------------|
+| `.data` | 带初值的全局变量（如**驱动接口表 `svcrt_dev_drv_t`** 的函数指针） | 必须从 Flash 拷贝到 RAM |
+| `.bss`  | 零初值全局变量 | 必须清零 |
+
+链接器把 `.data` 的初值放在 Flash 的 Load 区，运行时需拷贝到 RAM 的 Exec 区。**若启动汇编直接 `LDR R0,=main; BLX R0`，会跳过 C 运行时的 scatter loading**，导致：
+- 驱动接口表 `drv` 全是**随机函数指针** → 注册后 App 调用即 **HardFault**
+- `.bss` 未清零 → 全局状态错乱
+
+**正确做法**：启动汇编跳转到 C 库入口 `__main`，它会自动完成 `.data` 拷贝 + `.bss` 清零（scatter loading），再调用 `main`：
+
+```asm
+    AREA    |RESET|, CODE, READONLY
+DRVSTART    PROC
+    EXPORT DRVSTART
+    IMPORT  __main
+            NOP
+            NOP
+            LDR R0, = __main      ; ← 必须经 __main，而非直接跳 main
+            BX  R0
+            B   .
+            ENDP
+            ALIGN
+            END
+```
+
+SDK 提供的 `svcrt_app_start.s` / `svcrt_drv_start.s` 已采用此方式，开发者无需修改。
+
+### C. 分区地址必须互不重叠
+
+内核、各驱动固件、各应用固件的 ROM 与 RAM 区必须严格错开。示例分配：
+
+| 固件 | ROM | RAM |
+|------|-----|-----|
+| 内核 | 0x08000000 | 0x20000000 起 |
+| 驱动固件 | 0x08060000 | 0x2001A000 |
+| 应用固件 | 0x08080000 | 0x2001C000 |
+
+地址需在三处保持一致：固件的 **scatter file**、内核注册时的 **入口宏**、（应用的）**app_config.c 分区表**。
+
+### 排错速查
+
+| 现象 | 可能原因 |
+|------|---------|
+| 烧录后外部固件完全不运行（只有内核任务） | 内核未注册外部分区入口（条件 A） |
+| 外部固件一运行就 HardFault / 复位 | 启动汇编未经 `__main`，.data/.bss 未初始化（条件 B） |
+| App `svcrt_dev_open` 返回 -1 | 对应 Driver 固件未烧录或未注册设备 |
+| 多固件随机崩溃 | ROM/RAM 分区地址重叠（条件 C） |

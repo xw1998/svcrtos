@@ -1,0 +1,10 @@
+--cpu=Cortex-M4.fp.sp
+"bled_drv\bled_drv.o"
+"bled_drv\svcrt_drv_main.o"
+"bled_drv\svcrt_driver_bridge.o"
+"bled_drv\svcrt_drv_oslib.o"
+"bled_drv\svcrt_drv_start.o"
+--strict --scatter ".\bled_drv.sct"
+--summary_stderr --info summarysizes --map --load_addr_map_info --xref --callgraph --symbols
+--info sizes --info totals --info unused --info veneers
+--list "bled_drv.map" -o BLED_DRV\bled_drv.axf
