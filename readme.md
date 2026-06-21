@@ -1,236 +1,287 @@
 # SVCrtOS
 
-SVCrtOS ��һ������ ARM Cortex-M ϵ��΢�������İ�ȫʵʱ����ϵͳ��RTOS�������� SVC��Supervisor Call��ʵ����Ȩ�����룬���� MPU �����ڴ汣����֧�ֶ�����������Ⱥ�ͳһ�豸������ܡ�
+SVCrtOS 是一个面向 ARM Cortex-M 系列微控制器的安全实时操作系统（RTOS），采用 SVC（Supervisor Call）实现特权级隔离，利用 MPU 进行内存保护，支持多任务分区调度和统一设备驱动框架。
 
-## ��������
+## 核心特性
 
-- **SVC ��Ȩ����**���û�����ͨ�� SVC ϵͳ���ý����ں�̬���ں�̬������Ӳ���������û������޷�ֱ�ӷ���
-- **MPU �ڴ汣��**������ Cortex-M MPU ʵ������� ROM/RAM �ռ���룬��ֹԽ�����
-- **���ȼ� + ʱ��Ƭ����**��֧�ֶ����ȼ���ռ��ͬ���ȼ�ʱ��Ƭ��ת
-- **�¼���������**���������¼�ͬ��ԭ�֧�ֳ�ʱ�ȴ�
-- **�ź����뻥����**�������ź��� + �����ȼ��̳еĻ���������ֹ���ȼ���ת
-- **�豸�������**��ͳһ�豸 I/O �ӿڣ�open/close/read/write/ctrl����֧�����������Ϳɰ�װ����
-- **FIFO ������**�����λ������������ں˺�����������ݴ���
-- **ջ������**��ͨ�� PSP Խ��������ջ���
-- **CPU ����ͳ��**��ʵʱͳ�� CPU ������
-- **FPU ֧��**��Cortex-M4F/M7 ����Ĵ�����S16-S31�������Զ�����/�ָ�
-- **˫ SDK �ܹ�**��������Ӧ�� SDK ������ SDK��֧�ֱ���Ϊ���������̼�
-- **�ں���оƬ����**������ RT-Thread ���Ƶķֲ�ܹ����ں���оƬ��������ֲֻ���޸� board/ Ŀ¼
+- **SVC 特权隔离**：用户任务通过 SVC 系统调用进入内核态，内核态代码受硬件保护，用户任务无法直接访问
+- **MPU 内存保护**：利用 Cortex-M MPU 实现任务间 ROM/RAM 空间隔离，防止越界访问
+- **优先级 + 时间片调度**：支持多优先级抢占和同优先级时间片轮转
+- **事件驱动机制**：轻量级事件同步原语，支持超时等待
+- **信号量与互斥锁**：计数信号量 + 带优先级继承的互斥锁，防止优先级反转
+- **设备驱动框架**：统一设备 I/O 接口（open/close/read/write/ctrl），支持内置驱动
+- **独立驱动固件**：驱动可编译为完全独立的固件烧录到专属 ROM 分区，与内核解耦，支持独立升级；App 仅凭设备名即可访问，无需知道驱动实现或地址
+- **FIFO 缓冲区**：环形缓冲区，用于内核和驱动间的数据传输
+- **栈溢出检测**：通过 PSP 越界检测任务栈溢出
+- **CPU 负载统计**：实时统计 CPU 空闲率
+- **FPU 支持**：Cortex-M4F/M7 浮点寄存器（S16-S31）按需自动保存/恢复
+- **双 SDK 架构**：独立的应用 SDK 和驱动 SDK，支持编译为独立分区固件
+- **内核与芯片解耦**：采用 RT-Thread 类似的分层架构，内核零芯片依赖，移植只需修改 board/ 目录
 
-## ֧�� CPU �ܹ�
+## 支持 CPU 架构
 
-| �ܹ� | FPU | MPU | ��ע |
+| 架构 | FPU | MPU | 备注 |
 |------|-----|-----|------|
-| Cortex-M3 | - | - | ��С���� |
-| Cortex-M4 | �� | �� | �Ƽ�ʹ�� |
-| Cortex-M7 | �� | �� | ������ |
+| Cortex-M3 | - | - | 最小配置 |
+| Cortex-M4 | 有 | 有 | 推荐使用 |
+| Cortex-M7 | 有 | 有 | 高性能 |
 
-## Ŀ¼�ṹ
+## 目录结构
 
 ```
 SVCRTOS/
-������ kernelsrc/                      # �� �ں�Դ�루��оƬ������
-��   ������ include/                    # �ں�ͷ�ļ�
-��   ��   ������ svcrt.h                 # Ӧ�� API
-��   ��   ������ svcrt_config.h          # �������ã��ɱ��弶���ø��ǣ�
-��   ��   ������ svcrt_port.h            # Ӳ������ӿڣ�����������оƬ������
-��   ��   ������ svcrt_types.h           # �������Ͷ���
-��   ��   ������ ...                     # �����ں��ڲ�ͷ�ļ�
-��   ������ src/                        # �ں�Դ�ļ�����C����Ӳ��������
-��   ��   ������ svcrt_init.c            # �ں��������ʼ��
-��   ��   ������ svcrt_task.c            # ������� + SVC �ַ�
-��   ��   ������ svcrt_event.c           # �¼�����
-��   ��   ������ svcrt_fifo.c            # FIFO ���λ�����
-��   ��   ������ svcrt_dev.c             # �豸�������
-��   ��   ������ svcrt_cfg.c             # �������ü���
-��   ������ app/                        # Ӧ��ģ��
-��   ������ sdk/                        # SDK ������
-��   ��   ������ app_sdk/                # App SDK
-��   ��   ������ driver_sdk/             # Driver SDK
-��   ������ components/                 # ��ѡ���
-��
-������ board/                          # �� �弶��ֲ�㣨оƬ��أ�
-��   ������ stm32f427/                  # STM32F427 ��ֲʾ��
-��       ������ svcrt_board.c           # ��ֲ�ӿ� + �ж���� + �����豸ע��
-��       ������ svcrt_board_config.h    # �弶���ø��ǣ���Ƶ���ڴ��ַ�ȣ�
-��       ������ drvuart.c/h             # UART ������HAL�⣩
-��       ������ drvled.c/h              # LED ������HAL�⣩
-��
-������ kernelsrc/port/arm/cortex-m4/   # �� CPU �ܹ���ֲ�㣨�������л�/������
-��   ������ svcrt_context.S             # PendSV �������л���ࣨ�� FPU �Ĵ�����
-��   ������ svcrt_port.c                # ����ջ֡��ʼ������ EXC_RETURN��
-��
-������ example/                        # ����ʾ��
-    ������ stm32f427/                  # MDK ����
+├── kernelsrc/                      # ★ 内核源码（零芯片依赖）
+│   ├── include/                    # 内核头文件
+│   │   ├── svcrt.h                 # 应用 API
+│   │   ├── svcrt_config.h          # 集中配置（可被板级配置覆盖）
+│   │   ├── svcrt_port.h            # 硬件抽象接口（纯声明，无芯片依赖）
+│   │   ├── svcrt_types.h           # 基础类型定义
+│   │   └── ...                     # 其他内核内部头文件
+│   ├── src/                        # 内核源文件（纯C，无硬件操作）
+│   │   ├── svcrt_init.c            # 内核启动与初始化
+│   │   ├── svcrt_task.c            # 任务调度 + SVC 分发
+│   │   ├── svcrt_event.c           # 事件管理
+│   │   ├── svcrt_fifo.c            # FIFO 环形缓冲区
+│   │   ├── svcrt_dev.c             # 设备驱动框架
+│   │   └── svcrt_cfg.c             # 任务配置加载
+│   ├── app/                        # 应用模板
+│   ├── sdk/                        # SDK 开发包
+│   │   ├── app_sdk/                # App SDK
+│   │   └── driver_sdk/             # Driver SDK
+│   └── components/                 # 可选组件
+│
+├── board/                          # ★ 板级移植层（芯片相关）
+│   └── stm32f427/                  # STM32F427 移植示例
+│       ├── svcrt_board.c           # 移植接口 + 中断入口 + 板载设备注册
+│       ├── svcrt_board_config.h    # 板级配置覆盖（主频、内存地址等）
+│       ├── drvuart.c/h             # UART 驱动（HAL库）
+│       └── drvled.c/h              # LED 驱动（HAL库）
+│
+├── kernelsrc/port/arm/cortex-m4/   # ★ CPU 架构移植层（上下文切换/启动）
+│   ├── svcrt_context.S             # PendSV 上下文切换汇编（含 FPU 寄存器）
+│   └── svcrt_port.c                # 任务栈帧初始化（含 EXC_RETURN）
+│
+└── example/                        # 工程示例
+    └── stm32f427/                  # MDK 工程
 ```
 
-**�ܹ�����ԭ��**
-- `kernelsrc/` = ���ںˣ��������κ�оƬͷ�ļ�����ֱ�Ӳ����κ�Ӳ���Ĵ���
-- `board/` = оƬ��أ���ֲ����оƬֻ�贴���µ� `board/<оƬ>/` Ŀ¼
-- `svcrt_port.h` = �ں���Ӳ����Ψһ��ϵ㣬����������
+**架构解耦原则：**
+- `kernelsrc/` = 纯内核，不包含任何芯片头文件，不直接操作任何硬件寄存器
+- `board/` = 芯片相关，移植到新芯片只需创建新的 `board/<芯片>/` 目录
+- `svcrt_port.h` = 内核与硬件的唯一耦合点，纯函数声明
 
-## ϵͳ�ܹ�
+## 系统架构
 
 ```
-������������������������������������������������������������������������������������������������������������������������������������������������
-��                  �û��� (Unprivileged)                                ��
-��  ��������������������������������  ��������������������������������  ��������������������������������               ��
-��  ��  App Task1   ��  ��  App Task2   ��  ��  App TaskN   ��               ��
-��  ��  (svcrt.h)   ��  ��  (svcrt.h)   ��  ��  (svcrt.h)   ��               ��
-��  ���������������Щ���������������  ���������������Щ���������������  ���������������Щ���������������               ��
-��         ��  SVC 0x10~0x13  ��                 ��                        ��
-���������������������੤���������������������������������੤���������������������������������੤������������������������������������������������
-��         �������������������������������������੤����������������������������������                        ��
-��           �ں� kernelsrc/ (��оƬ����)                                 ��
-��  ��������������������������������  ��������������������������������  ��������������������������������               ��
-��  ��  �������    ��  ��  �¼�����    ��  ��  �豸���    ��               ��
-��  ��������������������������������  ��������������������������������  ��������������������������������               ��
-��  ��������������������������������  ��������������������������������                                  ��
-��  ��  FIFO ����   ��  ��  ���ü���   ��                                   ��
-��  ��������������������������������  ��������������������������������                                  ��
-������������������������������������������������������������������������������������������������������������������������������������������������
-��        svcrt_port.h (Ӳ������ӿڣ�������)                             ��
-������������������������������������������������������������������������������������������������������������������������������������������������
-��        board/<оƬ>/ (�弶��ֲ��)                                      ��
-��   svcrt_board.c / svcrt_mpu.c / ���� / �ж����                      ��
-������������������������������������������������������������������������������������������������������������������������������������������������
+┌──────────────────────────────────────────────────────────────────────┐
+│                  用户层 (Unprivileged)                                │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐               │
+│  │  App Task1   │  │  App Task2   │  │  App TaskN   │               │
+│  │  (svcrt.h)   │  │  (svcrt.h)   │  │  (svcrt.h)   │               │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘               │
+│         │  SVC 0x10~0x13  │                 │                        │
+├─────────┼─────────────────┼─────────────────┼────────────────────────┤
+│         └─────────────────┼─────────────────┘                        │
+│           内核 kernelsrc/ (零芯片依赖)                                 │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐               │
+│  │  任务调度    │  │  事件管理    │  │  设备框架    │               │
+│  └──────────────┘  └──────────────┘  └──────────────┘               │
+│  ┌──────────────┐  ┌──────────────┘                                  │
+│  │  FIFO 缓冲   │  │  配置加载   │                                   │
+│  └──────────────┘  └──────────────┘                                  │
+├──────────────────────────────────────────────────────────────────────┤
+│        svcrt_port.h (硬件抽象接口，纯声明)                             │
+├──────────────────────────────────────────────────────────────────────┤
+│        board/<芯片>/ (板级移植层)                                      │
+│   svcrt_board.c / svcrt_mpu.c / 驱动 / 中断入口                      │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-## Ӧ�� API
+## 应用 API
 
-�û�������� `svcrt.h` ����ʹ�����в���ϵͳ�ӿڣ����е���ͨ�� SVC ָ�������ں�ִ̬�С�
+用户程序包含 `svcrt.h` 即可使用所有操作系统接口，所有调用通过 SVC 指令陷入内核态执行。
 
-### �������
+### 任务管理
 
-| API | ˵�� |
+| API | 说明 |
 |-----|------|
-| `svcrt_task_wait(ms)` | �ȴ�ָ�����루�������ȣ� |
-| `svcrt_task_wait_period()` | �ȴ���ǰ���ڽ��� |
-| `svcrt_task_delay(us)` | ΢�뼶æ����ʱ |
-| `svcrt_task_kill()` | ��ֹ��ǰ���� |
+| `svcrt_task_wait(ms)` | 等待指定毫秒（阻塞调度） |
+| `svcrt_task_wait_period()` | 等待当前周期结束 |
+| `svcrt_task_delay(us)` | 微秒级忙等延时 |
+| `svcrt_task_kill()` | 终止当前任务 |
 
-### �豸����
+### 设备操作
 
-| API | ˵�� |
+| API | 说明 |
 |-----|------|
-| `svcrt_dev_open(name, param)` | ���豸�����ؾ�� |
-| `svcrt_dev_close(handle)` | �ر��豸���ͷž�� |
-| `svcrt_dev_read(handle, buf, len)` | ���豸��ȡ���� |
-| `svcrt_dev_write(handle, buf, len)` | ���豸д������ |
-| `svcrt_dev_ctrl(handle, code, value)` | �豸�������� |
+| `svcrt_dev_open(name, param)` | 打开设备，返回句柄 |
+| `svcrt_dev_close(handle)` | 关闭设备，释放句柄 |
+| `svcrt_dev_read(handle, buf, len)` | 从设备读取数据 |
+| `svcrt_dev_write(handle, buf, len)` | 向设备写入数据 |
+| `svcrt_dev_ctrl(handle, code, value)` | 设备控制命令 |
 
-### �¼���ϵͳ��Ϣ
+### 事件与系统信息
 
-| API | ˵�� |
+| API | 说明 |
 |-----|------|
-| `svcrt_event_create(name)` | ���������¼� |
-| `svcrt_event_wait(handle, timeout)` | �ȴ��¼����ɳ�ʱ�� |
-| `svcrt_event_set(handle)` | �����¼� |
-| `svcrt_get_time_ms()` | ��ȡϵͳ����ʱ�䣨ms�� |
-| `svcrt_get_cpu_usage()` | ��ȡ CPU ������ |
+| `svcrt_event_create(name)` | 创建命名事件 |
+| `svcrt_event_wait(handle, timeout)` | 等待事件（可超时） |
+| `svcrt_event_set(handle)` | 触发事件 |
+| `svcrt_get_time_ms()` | 获取系统运行时间（ms） |
+| `svcrt_get_cpu_usage()` | 获取 CPU 空闲率 |
 
-### �ź����뻥����
+### 信号量与互斥锁
 
-| API | ˵�� |
+| API | 说明 |
 |-----|------|
-| `svcrt_sem_create(name, init)` | ���������ź��� |
-| `svcrt_sem_wait(handle, timeout)` | �ȴ��ź�����������һ/���� |
-| `svcrt_sem_post(handle)` | �ͷ��ź��������ѵȴ���/������һ�� |
-| `svcrt_sem_delete(handle)` | ɾ���ź��� |
-| `svcrt_mutex_create(name)` | ���������� |
-| `svcrt_mutex_lock(handle, timeout)` | ������֧�����ȼ��̳У� |
-| `svcrt_mutex_unlock(handle)` | �������������߿ɽ����� |
-| `svcrt_mutex_delete(handle)` | ɾ�������� |
+| `svcrt_sem_create(name, init)` | 创建计数信号量 |
+| `svcrt_sem_wait(handle, timeout)` | 等待信号量（计数减一/挂起） |
+| `svcrt_sem_post(handle)` | 释放信号量（唤醒等待者/计数加一） |
+| `svcrt_sem_delete(handle)` | 删除信号量 |
+| `svcrt_mutex_create(name)` | 创建互斥锁 |
+| `svcrt_mutex_lock(handle, timeout)` | 加锁（支持优先级继承） |
+| `svcrt_mutex_unlock(handle)` | 解锁（仅持有者可解锁） |
+| `svcrt_mutex_delete(handle)` | 删除互斥锁 |
 
-## ���������ӿ�
+## 驱动开发接口
 
-����������ֻ����� `svcrt_driver_sdk.h`��ʵ�� `svcrt_dev_drv_t` �ӿں���� `svcrt_drv_register()` ע�᣺
+SVCrtOS 的驱动有两种部署形态，**核心亮点是「独立驱动」——驱动可以编译为完全独立的固件，与内核解耦、独立烧录、独立升级**：
+
+| 形态 | 编译方式 | 部署 | 适用场景 |
+|------|---------|------|---------|
+| 内置驱动 | 随内核一起编译 | 与内核同一固件 | 板载固定外设 |
+| **独立驱动** | **单独编译为 .bin/.hex** | **烧录到专属 ROM 分区** | **可热插拔/独立升级的驱动** |
+
+### 独立驱动（External Driver）
+
+独立驱动是一个**自带启动代码、自带分散加载脚本、独立编译链接**的固件，烧录到内核之外的专属 ROM/RAM 分区。内核把该分区入口注册为任务后调度运行，驱动在用户态执行，通过 SVC `0x14` 向内核注册设备。注册后，**任何 App（无论内置还是独立固件）都可以用设备名打开它**，完全不需要知道驱动的实现或地址。
+
+```
+┌─────────────────────┐   ┌─────────────────────┐   ┌─────────────────────┐
+│   内核固件           │   │  独立驱动固件 BLED   │   │  独立应用固件 BLED   │
+│   (ROM 分区 0)       │   │  (ROM 分区 1)        │   │  (ROM 分区 2)        │
+│                     │   │                     │   │                     │
+│  任务调度/设备框架   │   │  DrvMain()          │   │  AppMain()          │
+│         ▲           │   │   ├ 注册 "BLED"     │   │   ├ open("BLED")    │
+│         │ SVC 0x14  │?──┼───┘ (svcrt_drv_     │   │   └ write(...)      │
+│         │ 注册设备   │   │      register)      │   │         │           │
+│         │           │   │                     │   │         │ SVC 0x10  │
+│         └───────────┼───┼─────────────────────┼───┼─────────┘ 设备 IO   │
+│      内核查表分发到驱动函数指针，三个固件互不依赖地址                      │
+└─────────────────────┘   └─────────────────────┘   └─────────────────────┘
+```
+
+驱动开发者只需包含 `svcrt_driver_sdk.h`，实现 `svcrt_dev_drv_t` 接口，并在 `DrvMain()` 中注册：
 
 ```c
-static svcrt_dev_drv_t my_drv = {
-    my_drv_open,
-    my_drv_close,
-    my_drv_read,
-    my_drv_write,
-    my_drv_ctrl
+#include "svcrt_driver_sdk.h"
+
+/* 1. 实现 5 个标准设备接口 */
+static svcrt_dev_drv_t bled_drv = {
+    bled_drv_open,
+    bled_drv_close,
+    bled_drv_read,
+    bled_drv_write,
+    bled_drv_ctrl
 };
 
-int32 my_drv_install(void)
+/* 2. 独立固件入口：注册设备名后即可被任意 App 使用 */
+void DrvMain(void)
 {
-    return svcrt_drv_register("MYDEV", &my_drv, 0);
+    svcrt_drv_register("BLED", &bled_drv, 0);   /* SVC 0x14 注册到内核 */
+
+    while(1)
+    {
+        svcrt_task_wait(1000);   /* 驱动可常驻做后台维护，也可注册后退出 */
+    }
 }
 ```
 
-## �ں����ò���
+应用侧无需关心驱动是内置还是独立固件，统一用设备名访问：
 
-�������ò��������� `svcrt_config.h` �й�����оƬ��ز�����ͨ���弶�����ļ����ǡ�
+```c
+int32 h = svcrt_dev_open("BLED", 0);   /* 内核查表，自动路由到独立驱动 */
+int32 on = 1;
+svcrt_dev_write(h, &on, 1);            /* 点亮蓝灯 */
+```
 
-| ������ | Ĭ��ֵ | ˵�� |
+> **独立驱动注意事项**：
+> 1. 启动汇编必须经 C 库入口 `__main` 完成 `.data` 拷贝、`.bss` 清零，否则 `bled_drv` 函数指针表为随机值，注册后调用会 HardFault。
+> 2. 驱动固件、应用固件、内核固件的 ROM/RAM 分区地址必须互不重叠（由各自的分散加载脚本 `.sct` 约定）。
+> 3. 在 MPU 隔离环境下，独立驱动若需直接访问外设寄存器，需由内核授予对应外设区域权限。
+>
+> 完整可运行示例见 `example/stm32f427/driver_sdk/BLED_DRV/`（独立驱动）与 `example/stm32f427/app_sdk/BLED_APP/`（独立应用），端到端说明见 `example/stm32f427/BLUE_LED_E2E_README.md`。
+
+## 内核配置参数
+
+所有配置参数集中在 `svcrt_config.h` 中管理，芯片相关参数可通过板级配置文件覆盖。
+
+| 参数名 | 默认值 | 说明 |
 |--------|--------|------|
-| `SVCRT_CPU_ARCH` | `SVCRT_ARCH_CORTEX_M4` | CPU �ܹ�ѡ�� |
-| `SVCRT_USE_FPU` | 1 (M4/M7) | ���㵥Ԫʹ�� |
-| `SVCRT_USE_MPU` | 1 (M4/M7) | MPU �ڴ汣��ʹ�� |
-| `SVCRT_USE_PRIV` | 1 (����MPU) | ��Ȩ������ʹ�� |
-| `SVCRT_TASK_MAX_NUM` | 7 | ����������� |
-| `SVCRT_TICK_PERIOD_US` | 500 | �δ����ڣ�΢�룩 |
-| `SVCRT_EVENT_NUM` | 10 | �¼��������� |
-| `SVCRT_DEV_MAX_NUM` | 8 | ����豸���� |
-| `SVCRT_USE_CPU_LOAD` | 1 | CPU ����ͳ�ƿ��� |
-| `SVCRT_USE_STACK_CHECK` | 1 | ջ�����⿪�� |
-| `SVCRT_SHARE_MEM_ADDR` | 0x20028000 | �����ڴ��ַ���弶���ø��ǣ� |
-| `SVCRT_SHARE_MEM_SIZE` | 0x8000 | �����ڴ��С���弶���ø��ǣ� |
-| `SVCRT_SYSTEM_CLOCK_HZ` | 168000000 | ϵͳ��Ƶ���弶���ø��ǣ� |
+| `SVCRT_CPU_ARCH` | `SVCRT_ARCH_CORTEX_M4` | CPU 架构选择 |
+| `SVCRT_USE_FPU` | 1 (M4/M7) | 浮点单元使能 |
+| `SVCRT_USE_MPU` | 1 (M4/M7) | MPU 内存保护使能 |
+| `SVCRT_USE_PRIV` | 1 (依赖MPU) | 特权级分离使能 |
+| `SVCRT_TASK_MAX_NUM` | 7 | 最大任务数量 |
+| `SVCRT_TICK_PERIOD_US` | 500 | 滴答周期（微秒） |
+| `SVCRT_EVENT_NUM` | 10 | 事件对象数量 |
+| `SVCRT_DEV_MAX_NUM` | 8 | 最大设备数量 |
+| `SVCRT_USE_CPU_LOAD` | 1 | CPU 负载统计开关 |
+| `SVCRT_USE_STACK_CHECK` | 1 | 栈溢出检测开关 |
+| `SVCRT_SHARE_MEM_ADDR` | 0x20028000 | 共享内存地址（板级配置覆盖） |
+| `SVCRT_SHARE_MEM_SIZE` | 0x8000 | 共享内存大小（板级配置覆盖） |
+| `SVCRT_SYSTEM_CLOCK_HZ` | 168000000 | 系统主频（板级配置覆盖） |
 
-## ������ֲ
+## 快速移植
 
-SVCrtOS ����ֲ���κ� ARM Cortex-M MCU��ֻ���� `board/` Ŀ¼�´����µ�оƬ��ֲĿ¼��
+SVCrtOS 可移植到任何 ARM Cortex-M MCU，只需在 `board/` 目录下创建新的芯片移植目录。
 
-1. **�����弶Ŀ¼**��`board/<���оƬ>/`
-2. **���� `svcrt_board_config.h`**������оƬ����Ƶ���ڴ��ַ
-3. **ʵ�� `svcrt_board.c`**��ʵ�� `svcrt_port.h` �е����нӿں��� + �ж���� + MPU ������M3 ��������
-4. **��ֲ�����Ļ��**���ο� `kernelsrc/port/arm/cortex-m4/svcrt_context.S`����ͬ�ں˰汾������ FPU ������
-5. **��д��������**��UART��LED ��
+1. **创建板级目录**：`board/<你的芯片>/`
+2. **创建 `svcrt_board_config.h`**：设置芯片的主频和内存地址
+3. **实现 `svcrt_board.c`**：实现 `svcrt_port.h` 中的所有接口函数 + 中断入口 + MPU 操作（M3 可跳过）
+4. **移植上下文汇编**：参考 `kernelsrc/port/arm/cortex-m4/svcrt_context.S`（不同内核版本需适配 FPU 处理）
+5. **编写板载驱动**：UART、LED 等
 
-**�ؼ���kernelsrc/ Ŀ¼�����κ��޸ģ�**
+**关键：kernelsrc/ 目录无需任何修改！**
 
-��ϸ��ֲ������ο� [��ֲ�ֲ�](kernelsrc/porting_manual.md)��
+详细移植步骤请参考 [移植手册](kernelsrc/porting_manual.md)。
 
-## �ⲿ�����̼����û�̬ App / Driver��
+## 外部分区固件（用户态 App / Driver）
 
-���˰�����ֱ�ӱ�����ںˣ�SVCrtOS ��֧�ְ�Ӧ�ú���������Ϊ**�����̼�**��¼��ר�� ROM ���������ں˵������У�ʵ�ֹ̼����������������
+除了把任务直接编译进内核，SVCrtOS 还支持把应用和驱动编译为**独立固件**烧录到专属 ROM 分区，由内核调度运行，实现固件解耦与独立升级。
 
-����ʾ���� `example/stm32f427/app_sdk/`��Ӧ�ã���`example/stm32f427/driver_sdk/`���������Լ����ƶ˵���ʾ�� `example/stm32f427/BLUE_LED_E2E_README.md`��
+完整示例见 `example/stm32f427/app_sdk/`（应用）、`example/stm32f427/driver_sdk/`（驱动）以及蓝灯端到端示例 `example/stm32f427/BLUE_LED_E2E_README.md`。
 
-����Ҫ�㣨��� [SDK �û��ֲ�](kernelsrc/sdk/sdk_user_manual.md) �������֣���
-1. �ں˲ཫ�ⲿ������ڵ�ַע��Ϊ����`��� = ������ַ | 1`��
-2. �ⲿ�̼����������뾭 C ����� `__main` ��� `.data` ������`.bss` ���㣬���������ӿں���ָ���Ϊ���ֵ���� HardFault
-3. �ںˡ����̼��� ROM/RAM ������ַ���뻥���ص�
+集成要点（详见 [SDK 用户手册](kernelsrc/sdk/sdk_user_manual.md) 第三部分）：
+1. 内核侧将外部分区入口地址注册为任务（`入口 = 分区基址 | 1`）
+2. 外部固件启动汇编必须经 C 库入口 `__main` 完成 `.data` 拷贝、`.bss` 清零，否则驱动接口函数指针表为随机值导致 HardFault
+3. 内核、各固件的 ROM/RAM 分区地址必须互不重叠
 
-## ��������
+## 启动流程
 
 ```
 main()
-  ������ svcrt_port_board_init()      // Ӳ�����ڳ�ʼ����board��ʵ�֣�
-  ������ svcrt_cfg_load()             // �����������ñ�
-  ������ svcrt_port_irq_init()        // �ж����ȼ����ã�board��ʵ�֣�
-  ������ svcrt_kernel_init()          // �ں�ģ���ʼ�����¼�/�豸/MPU�ȣ�
-  ������ svcrt_port_start_timer()     // ���� SysTick��board��ʵ�֣�
-  ������ svcrt_start_idle()           // �л��� PSP��������Ȩģʽ
-        ������ WFI ѭ��               // �ȴ���һ���������
+  ├── svcrt_port_board_init()      // 硬件早期初始化（board层实现）
+  ├── svcrt_cfg_load()             // 加载任务配置表
+  ├── svcrt_port_irq_init()        // 中断优先级配置（board层实现）
+  ├── svcrt_kernel_init()          // 内核模块初始化（事件/设备/MPU等）
+  ├── svcrt_port_start_timer()     // 启动 SysTick（board层实现）
+  └── svcrt_start_idle()           // 切换到 PSP，进入特权模式
+        └── WFI 循环               // 等待第一个任务就绪
 ```
 
-## �����淶
+## 命名规范
 
-SVCrtOS ����ͳһ�������淶���ο� FreeRTOS / RT-Thread ���
+SVCrtOS 采用统一的命名规范，参考 FreeRTOS / RT-Thread 风格：
 
-| ��� | ��ʽ | ʾ�� |
+| 类别 | 格式 | 示例 |
 |------|------|------|
-| Ӧ�ò� API | `svcrt_ģ��_����` | `svcrt_task_wait()`, `svcrt_dev_open()` |
-| �ں��ڲ����� | `svcrt_ģ��_����_internal` | `svcrt_task_wait_internal()` |
-| ���������� | `svcrt_sched_����` | `svcrt_sched_next()`, `svcrt_sched_activate()` |
-| ��ֲ�㺯�� | `svcrt_port_����` | `svcrt_port_board_init()` |
-| �弶ʵ���ļ� | `svcrt_board.c` | ��ֲ�ӿ�ʵ�� + �ж���� |
-| �ṹ������ | `svcrt_ģ��_t` | `svcrt_task_t`, `svcrt_fifo_t`, `svcrt_dev_drv_t` |
-| ö�ٳ��� | `SVCRT_ģ��_״̬` | `SVCRT_TASK_READY`, `SVCRT_TASK_WAIT` |
-| �곣�� | `SVCRT_��д����` | `SVCRT_FIFO_MAGIC`, `SVCRT_DEV_HANDLE_FLAG` |
-| ���ú� | `SVCRT_USE_����` | `SVCRT_USE_FPU`, `SVCRT_USE_MPU` |
+| 应用层 API | `svcrt_模块_动作` | `svcrt_task_wait()`, `svcrt_dev_open()` |
+| 内核内部函数 | `svcrt_模块_动作_internal` | `svcrt_task_wait_internal()` |
+| 调度器函数 | `svcrt_sched_动作` | `svcrt_sched_next()`, `svcrt_sched_activate()` |
+| 移植层函数 | `svcrt_port_动作` | `svcrt_port_board_init()` |
+| 板级实现文件 | `svcrt_board.c` | 移植接口实现 + 中断入口 |
+| 结构体类型 | `svcrt_模块_t` | `svcrt_task_t`, `svcrt_fifo_t`, `svcrt_dev_drv_t` |
+| 枚举常量 | `SVCRT_模块_状态` | `SVCRT_TASK_READY`, `SVCRT_TASK_WAIT` |
+| 宏常量 | `SVCRT_大写描述` | `SVCRT_FIFO_MAGIC`, `SVCRT_DEV_HANDLE_FLAG` |
+| 配置宏 | `SVCRT_USE_特性` | `SVCRT_USE_FPU`, `SVCRT_USE_MPU` |
