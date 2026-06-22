@@ -5,20 +5,20 @@
 ## 架构链路
 
 ```
-┌──────────────────┐   svcrt_dev_open("BLED")    ┌──────────────────┐
-│   BLED_APP        │ ─────────────────────────?  │   SVCrtOS 内核    │
-│ (用户态应用固件)  │   svcrt_dev_write(...)       │   设备框架        │
-│  0x08080000       │ ?─────────────────────────  │   (设备表/句柄)   │
-└──────────────────┘                              └────────┬─────────┘
-                                                            │ 调用驱动接口
-                                              SVC 0x14 注册  │
-┌──────────────────┐   svcrt_drv_register("BLED")          ▼
-│   BLED_DRV        │ ─────────────────────────?  ┌──────────────────┐
-│ (用户态驱动固件)  │                              │  bled_drv 接口    │
-│  0x08060000       │   直接操作 PC2 寄存器 ──────?│  GPIOC->BSRR      │
-└──────────────────┘                              └──────────────────┘
-                                                            │
-                                                            ▼
++------------------+   svcrt_dev_open("BLED")    +------------------+
+|   BLED_APP        | --------------------------> |   SVCrtOS 内核    |
+| (用户态应用固件)  |   svcrt_dev_write(...)       |   设备框架        |
+|  0x08080000       | <-------------------------- |   (设备表/句柄)   |
++------------------+                              +--------+---------+
+                                                            | 调用驱动接口
+                                              SVC 0x14 注册  |
++------------------+   svcrt_drv_register("BLED")          v
+|   BLED_DRV        | --------------------------> +------------------+
+| (用户态驱动固件)  |                              |  bled_drv 接口    |
+|  0x08060000       |   直接操作 PC2 寄存器 ----->|  GPIOC->BSRR      |
++------------------+                              +------------------+
+                                                            |
+                                                            v
                                                       RGB 灯珠蓝色(PC2)
 ```
 
@@ -26,19 +26,19 @@
 
 ```
 example/stm32f427/
-├── driver_sdk/BLED_DRV/          # 外部蓝灯驱动
-│   ├── MDK-ARM/
-│   │   ├── bled_drv.uvprojx
-│   │   └── bled_drv.sct          # ROM 0x08060000, RAM 0x2001A000
-│   └── Src/bled_drv.c            # 裸寄存器驱动 PC2，注册 "BLED"
-│
-└── app_sdk/BLED_APP/             # 外部蓝灯应用
-    ├── MDK-ARM/
-    │   ├── bled_app.uvprojx
-    │   └── bled_app.sct          # ROM 0x08080000, RAM 0x2001C000
-    └── Src/
-        ├── bled_app.c            # open("BLED") + 周期闪烁
-        └── app_config.c          # 分区配置
++-- driver_sdk/BLED_DRV/          # 外部蓝灯驱动
+|   +-- MDK-ARM/
+|   |   +-- bled_drv.uvprojx
+|   |   +-- bled_drv.sct          # ROM 0x08060000, RAM 0x2001A000
+|   +-- Src/bled_drv.c            # 裸寄存器驱动 PC2，注册 "BLED"
+|
++-- app_sdk/BLED_APP/             # 外部蓝灯应用
+    +-- MDK-ARM/
+    |   +-- bled_app.uvprojx
+    |   +-- bled_app.sct          # ROM 0x08080000, RAM 0x2001C000
+    +-- Src/
+        +-- bled_app.c            # open("BLED") + 周期闪烁
+        +-- app_config.c          # 分区配置
 ```
 
 ## 分区地址表
@@ -64,7 +64,7 @@ example/stm32f427/
 
 RCC_AHB1ENR |= (1u << 2);              // 使能 GPIOC 时钟
 GPIOC_MODER  |= (0x1u << (2*2));       // PC2 输出
-GPIOC_BSRR = (1u << (16 + 2));         // PC2 低 → 蓝灯亮（共阳）
+GPIOC_BSRR = (1u << (16 + 2));         // PC2 低 -> 蓝灯亮（共阳）
 ```
 
 驱动在 `DrvMain()` 中通过 SVC 0x14 注册设备：
@@ -113,7 +113,7 @@ svcrt_task_stack_init(p_task, (void (*)(void))BLED_DRV_ENTRY,
     BX  R0
 ```
 
-**原因**：`bled_drv` 是带初值的全局结构体（.data 段），其 5 个函数指针的初值存在 Flash，需由 C 运行时 scatter loading 拷贝到 RAM。若启动汇编直接 `LDR R0,=main; BLX R0` 跳过 `__main`，`bled_drv` 在 RAM 中是随机值，注册的驱动接口全是垃圾指针，App 调用 `svcrt_dev_write` 时跳到非法地址 → HardFault / 复位。
+**原因**：`bled_drv` 是带初值的全局结构体（.data 段），其 5 个函数指针的初值存在 Flash，需由 C 运行时 scatter loading 拷贝到 RAM。若启动汇编直接 `LDR R0,=main; BLX R0` 跳过 `__main`，`bled_drv` 在 RAM 中是随机值，注册的驱动接口全是垃圾指针，App 调用 `svcrt_dev_write` 时跳到非法地址 -> HardFault / 复位。
 
 > 本示例最初正是因为缺少这一步导致外部固件一运行就崩溃，改用 `__main` 后端到端打通。
 
@@ -121,8 +121,8 @@ svcrt_task_stack_init(p_task, (void (*)(void))BLED_DRV_ENTRY,
 
 ### 编译（各自独立）
 
-1. Keil 打开 `BLED_DRV/MDK-ARM/bled_drv.uvprojx` → 编译 → fromelf 生成 `bled_drv.bin`
-2. Keil 打开 `BLED_APP/MDK-ARM/bled_app.uvprojx` → 编译 → fromelf 生成 `bled_app.bin`
+1. Keil 打开 `BLED_DRV/MDK-ARM/bled_drv.uvprojx` -> 编译 -> fromelf 生成 `bled_drv.bin`
+2. Keil 打开 `BLED_APP/MDK-ARM/bled_app.uvprojx` -> 编译 -> fromelf 生成 `bled_app.bin`
 
 ### 烧录顺序
 
@@ -134,8 +134,8 @@ svcrt_task_stack_init(p_task, (void (*)(void))BLED_DRV_ENTRY,
 
 ### 运行现象
 
-- 内核启动 → 加载驱动分区 → BLED_DRV 注册 "BLED" 设备
-- 内核加载应用分区 → BLED_APP 打开 "BLED" → 周期点亮/熄灭
+- 内核启动 -> 加载驱动分区 -> BLED_DRV 注册 "BLED" 设备
+- 内核加载应用分区 -> BLED_APP 打开 "BLED" -> 周期点亮/熄灭
 - **现象**：RGB 灯珠**蓝色**以 0.8 秒节奏闪烁（同时红/绿由内核任务驱动）
 
 ## 数据流总结
@@ -144,11 +144,11 @@ App 的一次 `svcrt_dev_write(bled, &on, 1)` 完整路径：
 
 ```
 App: svcrt_dev_write()
-  → SVC 0x10 (DEV_IO, 子功能3=write)
-  → 内核 SVC_Server → svcrt_dev_write_internal()
-  → 查设备表找到 "BLED" → 调用 bled_drv.drv_write()
-  → bled_drv_write() → bled_set(1)
-  → GPIOC_BSRR = (1<<(16+2)) → PC2 拉低 → 蓝灯亮
+  -> SVC 0x10 (DEV_IO, 子功能3=write)
+  -> 内核 SVC_Server -> svcrt_dev_write_internal()
+  -> 查设备表找到 "BLED" -> 调用 bled_drv.drv_write()
+  -> bled_drv_write() -> bled_set(1)
+  -> GPIOC_BSRR = (1<<(16+2)) -> PC2 拉低 -> 蓝灯亮
 ```
 
-整个过程跨越了**应用固件 → 内核 → 驱动固件 → 硬件**四层，体现 SVCrtOS 用户态/内核态分离与设备框架解耦的设计。
+整个过程跨越了**应用固件 -> 内核 -> 驱动固件 -> 硬件**四层，体现 SVCrtOS 用户态/内核态分离与设备框架解耦的设计。
