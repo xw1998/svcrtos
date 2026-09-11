@@ -19,6 +19,9 @@
 #include "svcrt_mq.h"
 #include "svcrt_timer.h"
 #include "svcrt_fault.h"
+#include "svcrt_ptable.h"
+#include "svcrt_loader.h"
+
 
 volatile uint32 svcrt_interrupt_nest = 0;
 uint32 svcrt_kernel_tick = 0;
@@ -288,6 +291,31 @@ void SVC_Server(void *p_svc_ctx)
             break;
         case 4:
             SVCRT_SVC_RET(p_svc_ctx, svcrt_timer_delete_internal((int32)p[1]));
+            break;
+        default:
+            SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+            break;
+        }
+        break;
+
+    case SVCRT_SVC_APP_MGR:
+        p = (uint32 *)SVCRT_SVC_ARG(p_svc_ctx, 0);
+        switch(p[0])
+        {
+        case 1:     /* 获取共享内存中的分区表地址 */
+            SVCRT_SVC_RET(p_svc_ctx, (uint32)svcrt_ptable_get());
+            break;
+        case 2:     /* 从设备流式加载 App 镜像到空闲槽位 */
+            SVCRT_SVC_RET(p_svc_ctx, (uint32)svcrt_loader_load_dev((int32)p[1], p[2]));
+            break;
+        case 3:     /* 启动槽位中的 App */
+            SVCRT_SVC_RET(p_svc_ctx, (uint32)svcrt_loader_start(p[1]));
+            break;
+        case 4:     /* 停止槽位中的 App */
+            SVCRT_SVC_RET(p_svc_ctx, (uint32)svcrt_loader_stop(p[1]));
+            break;
+        case 5:     /* 查询槽位状态 */
+            SVCRT_SVC_RET(p_svc_ctx, svcrt_loader_state(p[1]));
             break;
         default:
             SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));

@@ -272,6 +272,37 @@ void svcrt_port_mpu_reset(void);
  * @brief svcrt_spin.h 基于本文件的原子接口实现，此处统一引入，
  *        便于内核与板级驱动代码只包含 svcrt_hal.h 即可使用。
  * ============================================================ */
+/* ============================================================
+ * Flash 接口层
+ * @brief 片内 Flash 擦除/编程（供 Loader 写入 App 镜像）
+ *        由 board 层实现（如 board/stm32f427/drvflash.c）。
+ *        Flash 已映射到地址空间，读取不需要本组接口。
+ * ============================================================ */
+
+/**
+* @brief 擦除 Flash 区间（按扇区擦除，自动对齐到扇区边界）
+* @param addr 起始地址
+* @param size 字节长度
+* @return 0=成功，-1=失败
+*/
+int32  svcrt_port_flash_erase(uint32 addr, uint32 size);
+
+/**
+* @brief 写入 Flash（按字节编程，写入前该区间必须已擦除）
+* @param addr 起始地址
+* @param data 数据指针
+* @param len  字节长度
+* @return 0=成功，-1=失败
+*/
+int32  svcrt_port_flash_write(uint32 addr, const uint8 *data, uint32 len);
+
+/**
+* @brief 获取指定地址所在扇区的大小（字节）
+* @param addr Flash 地址
+* @return 扇区大小；地址非法返回 0
+*/
+uint32 svcrt_port_flash_sector_size(uint32 addr);
+
 #include "svcrt_spin.h"
 
 #endif

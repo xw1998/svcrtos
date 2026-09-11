@@ -25,6 +25,8 @@
 #include "svcrt_sync.h"
 #include "svcrt_task.h"
 #include "svcrt_config.h"
+#include "svcrt_ptable.h"
+#include "svcrt_partition.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -49,10 +51,11 @@
 #define SVCRT_LED_STACK_WORDS     1024
 #define SVCRT_LED2_STACK_WORDS    1024
 
-/* 外部分区固件入口地址（与各自 scatter 的 ROM 基址一致）
- * 启动汇编 DRVSTART/APPSTART 位于分区基址，+1 表示 Thumb 模式 */
-#define BLED_DRV_ENTRY            (0x08060000u | 1u)
-#define BLED_APP_ENTRY            (0x08080000u | 1u)
+/* 外部分区固件入口地址：由 config/svcrt_partition.h 自动推导，
+ * 启动汇编 DRVSTART/APPSTART 位于各分区基址，+1 表示 Thumb 模式。
+ * 修改分区大小后无需改动此处。 */
+#define BLED_DRV_ENTRY            (DRIVER_POOL_BASE | 1u)
+#define BLED_APP_ENTRY            (APP_SLOT0_BASE   | 1u)
 #define SVCRT_EXT_DRV_STACK_WORDS 512
 #define SVCRT_EXT_APP_STACK_WORDS 512
 
@@ -336,6 +339,8 @@ static void svcrt_register_tasks(void)
 
 static void svcrt_kernel_init(void)
 {
+    svcrt_ptable_init();
+
     svcrt_event_module_init();
     svcrt_sync_module_init();
     svcrt_dev_module_init();

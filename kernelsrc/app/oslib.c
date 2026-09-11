@@ -310,3 +310,43 @@ int32 svcrt_task_stack_info(int32 task_id, uint32 *out3)
 {
     return svcrt_call_task_ctrl_arg2(10, (uint32)task_id, (uint32)out3);
 }
+
+/* ============================================================
+ * App 镜像管理与分区查询（SVC 0x18 子命令 1~5）
+ * ============================================================ */
+int32  __svc(0x18)  svcrt_call_app_mgr(uint32 *p);
+
+uint32 svcrt_partition_table_addr(void)
+{
+    uint32 p[6];
+    p[0] = 1; p[1] = 0; p[2] = 0; p[3] = 0; p[4] = 0; p[5] = 0;
+    return (uint32)svcrt_call_app_mgr(p);
+}
+
+int32 svcrt_app_load(int32 dev, uint32 image_len)
+{
+    uint32 p[6];
+    p[0] = 2; p[1] = (uint32)dev; p[2] = image_len; p[3] = 0; p[4] = 0; p[5] = 0;
+    return svcrt_call_app_mgr(p);
+}
+
+int32 svcrt_app_start(uint32 slot)
+{
+    uint32 p[6];
+    p[0] = 3; p[1] = slot; p[2] = 0; p[3] = 0; p[4] = 0; p[5] = 0;
+    return svcrt_call_app_mgr(p);
+}
+
+int32 svcrt_app_stop(uint32 slot)
+{
+    uint32 p[6];
+    p[0] = 4; p[1] = slot; p[2] = 0; p[3] = 0; p[4] = 0; p[5] = 0;
+    return svcrt_call_app_mgr(p);
+}
+
+uint32 svcrt_app_status(uint32 slot)
+{
+    uint32 p[6];
+    p[0] = 5; p[1] = slot; p[2] = 0; p[3] = 0; p[4] = 0; p[5] = 0;
+    return (uint32)svcrt_call_app_mgr(p);
+}

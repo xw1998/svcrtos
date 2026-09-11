@@ -379,4 +379,48 @@ int32  svcrt_sched_lock_count(void);
 int32  svcrt_task_stack_info(int32 task_id, uint32 *out3);
 /** @} */
 
+/** @defgroup appmgr App 镜像与分区管理
+ *  @{ */
+
+/**
+* @brief 获取共享内存中的分区表地址
+* @return 分区表（svcrt_partition_table_t）在共享内存中的地址
+* @details 返回 svcrt_share.h 中定义的结构体地址，可读取 Flash/RAM
+*          分区与槽位运行状态。App / Loader 工程不应包含
+*          config/svcrt_partition.h，布局信息请通过本接口在运行期获取。
+*/
+uint32 svcrt_partition_table_addr(void);
+
+/**
+* @brief 从设备加载 App 镜像到空闲槽位
+* @param dev       已打开的设备句柄（数据从镜像头开始）
+* @param image_len 期望镜像总长（含头），传 0 表示由镜像头决定
+* @return 成功返回槽位号(>=0)，失败返回负错误码（见 svcrt_loader.h）
+* @note 镜像会先擦后写并做 CRC 回读校验。
+*/
+int32  svcrt_app_load(int32 dev, uint32 image_len);
+
+/**
+* @brief 启动槽位中的 App
+* @param slot 槽位号
+* @return 成功返回任务号(>0)，失败返回负错误码
+*/
+int32  svcrt_app_start(uint32 slot);
+
+/**
+* @brief 停止槽位中的 App（镜像保留在 Flash）
+* @param slot 槽位号
+* @return 0=成功，负值为错误码
+*/
+int32  svcrt_app_stop(uint32 slot);
+
+/**
+* @brief 查询槽位状态
+* @param slot 槽位号
+* @return 0=空（EMPTY）,1=已加载（LOADED）,2=运行中（RUNNING）；
+*         槽位非法返回 0xffffffff
+*/
+uint32 svcrt_app_status(uint32 slot);
+/** @} */
+
 #endif

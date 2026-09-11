@@ -70,9 +70,9 @@
             <nStopU2X>0</nStopU2X>
           </BeforeCompile>
           <BeforeMake>
-            <RunUserProg1>0</RunUserProg1>
+            <RunUserProg1>1</RunUserProg1>
             <RunUserProg2>0</RunUserProg2>
-            <UserProg1Name></UserProg1Name>
+            <UserProg1Name>python ..\..\..\..\..\tools\gen_scatter.py --target app --output ..\..\..\..\..\build\app.sct</UserProg1Name>
             <UserProg2Name></UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
@@ -202,7 +202,7 @@
             <TextAddressRange>0x08020000</TextAddressRange>
             <DataAddressRange>0x20010000</DataAddressRange>
             <pXoBase></pXoBase>
-            <ScatterFile>.\app_demo.sct</ScatterFile>
+            <ScatterFile>..\..\..\..\..\build\app.sct</ScatterFile>
             <IncludeLibs></IncludeLibs>
             <IncludeLibsPath></IncludeLibsPath>
             <Misc></Misc>
