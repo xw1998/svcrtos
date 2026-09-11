@@ -9,17 +9,58 @@
 #define __SVCRT_CONFIG_H__
 
 /* ============================================================
- * CPU 架构选择
- * @brief 选择目标 CPU 架构，决定上下文切换等移植层的实现。
- *        实际实现由对应 port 目录提供，这里只做编译期选择。
+ * 板级配置优先加载
+ * @brief 板级配置可覆盖 SVCRT_CPU_ARCH / SVCRT_ARCH_CORE、主频、
+ *        内存地址等参数，因此必须在架构派生与默认值之前加载。
+ *        通过编译选项 -DSVCRT_BOARD_CONFIG=<chip_header.h> 指定。
  * ============================================================ */
-#ifndef SVCRT_CPU_ARCH
-#define SVCRT_CPU_ARCH            1
+#ifdef SVCRT_BOARD_CONFIG
+#include SVCRT_BOARD_CONFIG
 #endif
 
-#define SVCRT_ARCH_CORTEX_M3      0
-#define SVCRT_ARCH_CORTEX_M4      1
-#define SVCRT_ARCH_CORTEX_M7      2
+/* ============================================================
+ * 自旋锁 / 临界区
+ * @brief 内核与驱动侧自旋锁（svcrt_spin.h）
+ * ============================================================ */
+#ifndef SVCRT_USE_SPINLOCK
+#define SVCRT_USE_SPINLOCK        1
+#endif
+
+/* ============================================================
+ * 调度器锁（用户态临界区）
+ * @brief 用户任务通过 SVC 调用 svcrt_sched_lock/unlock，
+ *        禁止任务切换（不关中断），相当于 RT-Thread 的 rt_enter_critical
+ * ============================================================ */
+#ifndef SVCRT_USE_SCHED_LOCK
+#define SVCRT_USE_SCHED_LOCK      1
+#endif
+
+/* ============================================================
+ * 任务栈使用量分析
+ * @brief 运行时统计每个任务的峰值栈用量（高水位法）：
+ *        1) 创建时用 SVCRT_STACK_FILL_PATTERN 填充整段栈；
+ *        2) 查询时扫描未被覆盖的图案区得到已用峰值；
+ *        3) 上下文切换时记录最低栈指针，二者取大值。
+ * ============================================================ */
+#ifndef SVCRT_USE_STACK_USAGE
+#define SVCRT_USE_STACK_USAGE     1
+#endif
+
+#ifndef SVCRT_STACK_FILL_PATTERN
+#define SVCRT_STACK_FILL_PATTERN  (0xcdcdcdcd)
+#endif
+
+#include "svcrt_arch.h"
+
+/* ============================================================
+ * CPU 架构选择（架构抽象层）
+ * @brief 架构族 / 具体核心 / 能力宏统一由 svcrt_arch.h 提供，
+ *        本文件只负责据此派生内核功能开关的默认值。
+ *        选择方式（二选一，板级配置或编译选项均可）：
+ *          1) SVCRT_ARCH_CORE = SVCRT_CPU_CORE_xxx（推荐，支持 ARM/RISC-V/LoongArch）
+ *          2) SVCRT_CPU_ARCH  = 0/1/2（兼容旧工程，仅 Cortex-M3/M4/M7）
+ *        新架构实现放在 kernelsrc/port/<族>/<核心>/，详见 port/README.md
+ * ============================================================ */
 
 /* ============================================================
  * FPU 浮点单元使能
@@ -27,7 +68,7 @@
  *        需与目标 CPU 实际硬件一致；M4F/M7 有 FPU，M3 无 FPU。
  * ============================================================ */
 #ifndef SVCRT_USE_FPU
-#define SVCRT_USE_FPU             1
+#define SVCRT_USE_FPU             SVCRT_ARCH_HAS_FPU
 #endif
 
 /* ============================================================
@@ -36,7 +77,7 @@
  *        需与目标 CPU 实际硬件一致；启用后每次切换会重配 MPU 区域。
  * ============================================================ */
 #ifndef SVCRT_USE_MPU
-#define SVCRT_USE_MPU             1
+#define SVCRT_USE_MPU             SVCRT_ARCH_HAS_MPU
 #endif
 
 /* ============================================================
@@ -70,6 +111,28 @@
  * 设备框架最大设备数
  * ============================================================ */
 #define SVCRT_DEV_MAX_NUM         (8)
+
+/* ============================================================
+ * 消息队列配置
+ * ============================================================ */
+#define SVCRT_USE_MQ              1
+#define SVCRT_MQ_NUM              (8)
+#define SVCRT_MQ_DEPTH            (8)
+#define SVCRT_MQ_MSG_WORDS        (4)
+
+/* ============================================================
+ * 软定时器配置
+ * ============================================================ */
+#define SVCRT_USE_TIMER           1
+#define SVCRT_TIMER_NUM           (8)
+#define SVCRT_TIMER_TASK_PRI      (200)
+#define SVCRT_TIMER_TASK_STACK_WORDS  (96)
+
+/* ============================================================
+ * 故障记录与任务恢复配置
+ * ============================================================ */
+#define SVCRT_USE_FAULT_RECOVER   1
+#define SVCRT_FAULT_RECORD_NUM    (8)
 
 /* ============================================================
  * CPU 负载统计开关
@@ -107,11 +170,8 @@
 
 /* ============================================================
  * 板级配置文件挂载点
- * @brief 通过编译选项 -DSVCRT_BOARD_CONFIG=<chip_header.h> 指定，
- *        用于让板级配置覆盖本文件的默认参数。
+ * @brief 已移至本文件开头（架构选择之前）加载，
+ *        以便板级配置能覆盖 SVCRT_ARCH_CORE 并参与能力派生。
  * ============================================================ */
-#ifdef SVCRT_BOARD_CONFIG
-#include SVCRT_BOARD_CONFIG
-#endif
 
 #endif

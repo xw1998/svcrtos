@@ -874,11 +874,11 @@ ARM Macro Assembler    Page 14
               00000000 
 Command Line: --debug --xref --diag_suppress=9931 --cpu=Cortex-M4.fp.sp --apcs=
 interwork --depend=svcrtos_test\startup_stm32f427xx.d -osvcrtos_test\startup_st
-m32f427xx.o -I.\RTE\_SVCRTOS_TEST -IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Inc
-lude -IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx
-\Include --predefine="__UVISION_VERSION SETA 535" --predefine="_RTE_ SETA 1" --
-predefine="STM32F427xx SETA 1" --predefine="_RTE_ SETA 1" --list=startup_stm32f
-427xx.lst startup_stm32f427xx.s
+m32f427xx.o -I.\RTE\_SVCRTOS_TEST -ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMS
+IS\6.1.0\CMSIS\Core\Include -ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4x
+x_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include --predefine="__UVISION_V
+ERSION SETA 541" --predefine="STM32F427xx SETA 1" --predefine="_RTE_ SETA 1" --
+list=startup_stm32f427xx.lst startup_stm32f427xx.s
 
 
 

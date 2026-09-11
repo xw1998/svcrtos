@@ -45,9 +45,82 @@ void svcrt_port_disable_irq(void);
 void svcrt_port_enable_irq(void);
 void svcrt_port_switch_task(void);
 
+uint8  svcrt_port_in_isr(void);
+uint32 svcrt_port_syscall_num(void *p_exc_ctx);
+
+/**
+* @brief 读取系统调用上下文中的第 idx 个参数（0~3）
+* @param p_exc_ctx 系统调用入口传给内核的上下文指针
+* @param idx       参数序号（0 对应 a0/r0）
+* @return 参数值
+* @details 各架构的栈帧/trap 帧布局不同，由 port 层负责解析，
+*          内核只通过本接口与上面的宏访问参数，不感知任何寄存器布局。
+*/
+uint32 svcrt_port_svc_get_arg(void *p_exc_ctx, uint32 idx);
+
+/**
+* @brief 写回系统调用返回值（第 0 个参数寄存器）
+* @param p_exc_ctx 系统调用上下文指针
+* @param value     返回值
+*/
+void   svcrt_port_svc_set_ret(void *p_exc_ctx, uint32 value);
+
+/* 系统调用上下文统一访问宏：内核代码只使用这三个宏 */
+#define SVCRT_SVC_ARG(p_ctx, idx)    svcrt_port_svc_get_arg((void *)(p_ctx), (uint32)(idx))
+#define SVCRT_SVC_RET(p_ctx, val)    svcrt_port_svc_set_ret((void *)(p_ctx), (uint32)(val))
+#define SVCRT_SVC_NUM(p_ctx)         svcrt_port_syscall_num((void *)(p_ctx))
+
 #define SVCRT_DISABLE_IRQ()    svcrt_port_disable_irq()
 #define SVCRT_ENABLE_IRQ()     svcrt_port_enable_irq()
 #define SVCRT_SWITCH_TASK()    svcrt_port_switch_task()
+
+/**
+* @brief 进入临界区（保存中断使能状态并关中断）
+* @return 进入前的中断状态，必须原样传给 svcrt_port_exit_critical
+* @details 与 SVCRT_DISABLE_IRQ 的区别：本接口保存并恢复状态，
+*          支持嵌套，且适配 RISC-V/LoongArch 等需要保存状态寄存器的架构。
+*          新代码建议优先使用本接口。
+*/
+uint32 svcrt_port_enter_critical(void);
+
+/**
+* @brief 退出临界区（恢复此前保存的中断状态）
+* @param state svcrt_port_enter_critical 的返回值
+*/
+void   svcrt_port_exit_critical(uint32 state);
+
+#define SVCRT_ENTER_CRITICAL()       svcrt_port_enter_critical()
+#define SVCRT_EXIT_CRITICAL(state)   svcrt_port_exit_critical(state)
+
+/* ============================================================
+ * 原子操作与多核支持
+ * @brief 自旋锁（svcrt_spin.h）依赖的架构相关原语，由 port 层实现：
+ *        - ARM Cortex-M：LDREX/STREX 独占访问
+ *        - RISC-V：AMO 原子指令或 LR/SC 指令对
+ *        - LoongArch：LL/SC 指令对
+ *        单核移植可仅返回成功，但为将来 SMP 扩展建议直接实现原子语义。
+ * ============================================================ */
+
+/**
+* @brief 比较并交换（原子操作）
+* @param p_addr    目标地址（必须 4 字节对齐）
+* @param expect    期望的当前值
+* @param new_value 期望成立时写入的新值
+* @return 1=交换成功，0=当前值与 expect 不符（未修改）
+*/
+uint32 svcrt_port_atomic_cas(volatile uint32 *p_addr, uint32 expect, uint32 new_value);
+
+/**
+* @brief 获取当前 CPU 编号（单核恒返回 0，多核返回硬件核号）
+* @return CPU 编号
+*/
+uint32 svcrt_port_cpu_id(void);
+
+/**
+* @brief 自旋等待提示（降低自旋总线压力，可插入 NOP/WFE/PAUSE）
+*/
+void   svcrt_port_spin_hint(void);
+
 
 /* ============================================================
  * 上下文层
@@ -94,7 +167,7 @@ uint32 svcrt_port_stack_init(uint32 stack_top, void (*entry)(void));
 * @param psp        空闲任务栈顶地址
 * @param use_priv   是否使用特权分离模式
 */
-void svcrt_port_enter_idle(uint32 psp, uint32 use_priv);
+void svcrt_port_enter_idle(uint32 stack_ptr, uint32 use_priv);
 
 /* ============================================================
  * 定时器层
@@ -112,16 +185,19 @@ void svcrt_port_enter_idle(uint32 psp, uint32 use_priv);
 uint32 svcrt_port_get_system_clock(void);
 
 /**
-* @brief 获取SysTick当前计数值
-* @return SysTick->VAL 或等效值
+* @brief 获取系统节拍定时器当前计数值（自由递减计数器）
+* @return 当前计数值
+* @details ARM 为 SysTick->VAL，RISC-V 可为 mtime 低 32 位，
+*          LoongArch 可为恒定频率定时器计数，由 port 层映射。
 */
-uint32 svcrt_port_get_systick_val(void);
+uint32 svcrt_port_get_timer_counter(void);
 
 /**
-* @brief 获取SysTick重载值
-* @return SysTick->LOAD 或等效值
+* @brief 获取系统节拍定时器重载值（计数上限）
+* @return 重载值
+* @details ARM 为 SysTick->LOAD，其他架构为等效周期值。
 */
-uint32 svcrt_port_get_systick_load(void);
+uint32 svcrt_port_get_timer_reload(void);
 
 /**
 * @brief 启动系统节拍定时器
@@ -178,16 +254,24 @@ void svcrt_port_set_idle_mpu(uint32 task_func, uint32 stack_addr, uint32 stack_s
 
 void svcrt_port_mpu_init(void);
 void svcrt_port_mpu_set_region(uint32 rom_addr, uint32 rom_size, uint32 ram_addr, uint32 ram_size);
-void svcrt_port_mpu_set_app(uint32 *mpu_bar, uint32 *mpu_asr);
+void svcrt_port_mpu_set_app(const svcrt_arch_mpu_t *p_mpu);
 void svcrt_port_mpu_reset(void);
 
 #else
 
 #define svcrt_port_mpu_init()
 #define svcrt_port_mpu_set_region(rom_addr, rom_size, ram_addr, ram_size)
-#define svcrt_port_mpu_set_app(mpu_bar, mpu_asr)
+#define svcrt_port_mpu_set_app(p_mpu)
 #define svcrt_port_mpu_reset()
 
 #endif
+
+
+/* ============================================================
+ * 自旋锁 API（内核/驱动侧）
+ * @brief svcrt_spin.h 基于本文件的原子接口实现，此处统一引入，
+ *        便于内核与板级驱动代码只包含 svcrt_hal.h 即可使用。
+ * ============================================================ */
+#include "svcrt_spin.h"
 
 #endif

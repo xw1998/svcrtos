@@ -13,6 +13,8 @@ SVCrtOS 是一个面向 ARM Cortex-M 系列微控制器的安全实时操作系�
 - **独立驱动固件**：驱动可编译为完全独立的固件烧录到专属 ROM 分区，与内核解耦，支持独立升级；App 仅凭设备名即可访问，无需知道驱动实现或地址
 - **FIFO 缓冲区**：环形缓冲区，用于内核和驱动间的数据传输
 - **栈溢出检测**：通过 PSP 越界检测任务栈溢出
+- **任务栈用量分析**：栈填充 + 最低栈指针双手段统计每任务峰值用量，为裁剪栈空间提供依据
+- **自旋锁与调度器锁**：内核/驱动侧自旋锁（原子 CAS + 关中断变体，面向 SMP 扩展），用户态调度器锁（禁止任务切换的轻量临界区）
 - **CPU 负载统计**：实时统计 CPU 空闲率
 - **FPU 支持**：Cortex-M4F/M7 浮点寄存器（S16-S31）按需自动保存/恢复
 - **双 SDK 架构**：独立的应用 SDK 和驱动 SDK，支持编译为独立分区固件
@@ -20,11 +22,37 @@ SVCrtOS 是一个面向 ARM Cortex-M 系列微控制器的安全实时操作系�
 
 ## 支持 CPU 架构
 
-| 架构 | FPU | MPU | 备注 |
+| 架构 | FPU | MPU | 移植层状态 |
 |------|-----|-----|------|
-| Cortex-M3 | - | - | 最小配置 |
-| Cortex-M4 | 有 | 有 | 推荐使用 |
-| Cortex-M7 | 有 | 有 | 高性能 |
+| Cortex-M3 | - | 有 | 已实现 |
+| Cortex-M4 | 有 | 有 | 已实现（推荐） |
+| Cortex-M7 | 有 | 有 | 已实现（复用 M4 移植层约定） |
+| RISC-V（RV32/RV64） | 按核心 | PMP | 抽象层已就绪，移植实现待补 |
+| LoongArch（LA32/LA64） | 按核心 | TLB/地址窗口 | 抽象层已就绪，移植实现待补 |
+
+### 架构抽象层
+
+内核与指令集之间只有一层契约，全部收敛在 `kernelsrc/include/svcrt_arch.h`（架构描述与派生能力）
+与 `svcrt_hal.h`（端口接口声明）两个头文件中：
+
+1. **两级架构描述**：`SVCRT_ARCH_FAMILY_xxx`（架构族）+ `SVCRT_CPU_CORE_xxx`（具体核心），
+   由 `SVCRT_ARCH_CORE` 或兼容旧工程的 `SVCRT_CPU_ARCH` 选择；FPU / MPU / 特权级 / SVC 号位宽
+   等能力默认值由核心自动派生
+2. **系统调用上下文不透明**：内核 `SVC_Server(void *)` 只通过
+   `SVCRT_SVC_NUM / SVCRT_SVC_ARG / SVCRT_SVC_RET` 三个宏访问调用号、参数与返回值，
+   栈帧布局完全由 port 层解析（Cortex-M 用硬件压栈帧，RISC-V / LoongArch 用各自 trap 帧）
+3. **上下文切换三接口**：`svcrt_port_stack_init()`（栈帧初始化）、
+   `svcrt_port_switch_task()`（触发切换）、`svcrt_port_enter_idle()`（启动首个上下文）
+4. **内存保护统一描述**：`svcrt_arch_mpu_t`（`region_base` / `region_attr` 两组寄存器）
+   承载每任务的隔离上下文，Cortex-M 映射到 `RBAR/RASR`，RISC-V 映射到 `pmpaddr/pmpcfg`，
+   LoongArch 映射到 TLB / 地址窗口，内核不感知具体机制
+5. **临界区状态化**：`svcrt_port_enter_critical()/exit_critical()` 保存并恢复中断状态、支持嵌套，
+   适配需要保存 `mstatus.MIE`（RISC-V）、`CRMD.IE`（LoongArch）的架构
+6. **时钟统一命名**：`svcrt_port_get_timer_counter()/get_timer_reload()` 屏蔽
+   SysTick / mtime / 恒定频率定时器差异
+
+新增架构只需在 `kernelsrc/port/<族>/<核心>/` 下实现上述接口，**内核源码零改动**；
+完整步骤与验收清单见 [移植层说明](kernelsrc/port/README.md)。
 
 ## 目录结构
 
@@ -33,6 +61,7 @@ SVCRTOS/
 ├── kernelsrc/                      # ★ 内核源码（零芯片依赖）
 │   ├── include/                    # 内核头文件
 │   │   ├── svcrt.h                 # 应用 API
+│   │   ├── svcrt_arch.h            # ★ 架构抽象层（架构族/核心/能力派生/MPU 上下文）
 │   │   ├── svcrt_config.h          # 集中配置（可被板级配置覆盖）
 │   │   ├── svcrt_port.h            # 硬件抽象接口（纯声明，无芯片依赖）
 │   │   ├── svcrt_types.h           # 基础类型定义
@@ -57,9 +86,12 @@ SVCRTOS/
 │       ├── drvuart.c/h             # UART 驱动（HAL库）
 │       └── drvled.c/h              # LED 驱动（HAL库）
 │
-├── kernelsrc/port/arm/cortex-m4/   # ★ CPU 架构移植层（上下文切换/启动）
-│   ├── svcrt_context.S             # PendSV 上下文切换汇编（含 FPU 寄存器）
-│   └── svcrt_port.c                # 任务栈帧初始化（含 EXC_RETURN）
+├── kernelsrc/port/                 # ★ CPU 架构移植层：port/<架构族>/<核心>/
+│   ├── README.md                   # 移植层说明与新架构移植指南
+│   ├── arm/cortex-m3/              # Cortex-M3（无 FPU）
+│   └── arm/cortex-m4/              # Cortex-M4
+│       ├── svcrt_context.S         # PendSV 上下文切换汇编（含 FPU 寄存器）
+│       └── svcrt_port.c            # 系统调用上下文/栈帧/临界区/定时器/MPU 实现
 │
 └── example/                        # 工程示例
     └── stm32f427/                  # MDK 工程
@@ -68,7 +100,8 @@ SVCRTOS/
 **架构解耦原则：**
 - `kernelsrc/` = 纯内核，不包含任何芯片头文件，不直接操作任何硬件寄存器
 - `board/` = 芯片相关，移植到新芯片只需创建新的 `board/<芯片>/` 目录
-- `svcrt_port.h` = 内核与硬件的唯一耦合点，纯函数声明
+- `svcrt_port.h` / `svcrt_hal.h` = 内核与硬件的唯一耦合点，纯函数声明
+- `svcrt_arch.h` = 架构描述与能力派生；新增架构只需在 `port/<架构族>/<核心>/` 下实现接口，内核零改动
 
 ## 系统架构
 
@@ -142,6 +175,47 @@ SVCRTOS/
 | `svcrt_mutex_lock(handle, timeout)` | 加锁（支持优先级继承） |
 | `svcrt_mutex_unlock(handle)` | 解锁（仅持有者可解锁） |
 | `svcrt_mutex_delete(handle)` | 删除互斥锁 |
+
+### 消息队列（SVC 0x16）
+
+| API | 说明 |
+|-----|------|
+| `svcrt_mq_create(name)` | 创建消息队列（容量 `SVCRT_MQ_DEPTH`，单条 `SVCRT_MQ_MSG_WORDS` 字） |
+| `svcrt_mq_send(h, buf, len_words, timeout)` | 发送消息（拷贝语义，满时阻塞可超时） |
+| `svcrt_mq_recv(h, buf, len_words, timeout)` | 接收消息（空时阻塞可超时） |
+| `svcrt_mq_delete(h)` | 删除消息队列 |
+
+返回值约定：0=成功，1=超时，-1=错误。
+
+### 软定时器（SVC 0x17）
+
+| API | 说明 |
+|-----|------|
+| `svcrt_timer_create(name)` | 创建定时器 |
+| `svcrt_timer_start(h, period_ms, mode, cb, arg)` | 启动；mode 为单次/周期 |
+| `svcrt_timer_stop(h)` | 停止 |
+| `svcrt_timer_delete(h)` | 删除 |
+
+到期回调统一在内核自动注册的定时器服务任务上下文中执行（优先级 `SVCRT_TIMER_TASK_PRI`），tick 中断只做倒计时与唤醒，不执行用户回调，保证 SVC 特权隔离不被破坏。
+
+### 任务诊断与故障恢复（SVC 0x11 扩展 + 0x12 扩展）
+
+| API | 说明 |
+|-----|------|
+| `svcrt_task_status_get(task_id)` | 查询任务状态（READY/WAIT/RUNNING/INVALID） |
+| `svcrt_task_recover_req(task_id)` | 请求任务故障恢复（两阶段：重建栈帧后重新调度） |
+| `svcrt_fault_record_count()` | 查询故障记录条数 |
+| `svcrt_fault_record_read(index, out3)` | 读取第 index 条记录（类型/任务号/tick） |
+
+HardFault/栈溢出自动写入故障环形记录（容量 `SVCRT_FAULT_RECORD_NUM`，记满覆盖最旧）；使能 `SVCRT_USE_FAULT_RECOVER` 后故障任务自动重建恢复，不再永久丢失任务槽位。
+
+### 中断上下文安全 API（特权态直调，不经 SVC）
+
+| API | 说明 |
+|-----|------|
+| `svcrt_sem_post_from_isr(h)` | 在 ISR 中释放信号量（唤醒任务，不切换） |
+| `svcrt_event_set_from_isr(h)` | 在 ISR 中触发事件 |
+| `svcrt_mq_send_from_isr(h, buf, len)` | 在 ISR 中发送消息（满则丢弃返回 -1） |
 
 ## 驱动开发接口
 
@@ -226,11 +300,37 @@ svcrt_dev_write(h, &on, 1);            /* 点亮蓝灯 */
 | `SVCRT_TICK_PERIOD_US` | 500 | 滴答周期（微秒） |
 | `SVCRT_EVENT_NUM` | 10 | 事件对象数量 |
 | `SVCRT_DEV_MAX_NUM` | 8 | 最大设备数量 |
+| `SVCRT_USE_SPINLOCK` | 1 | 自旋锁开关（svcrt_spin.h） |
+| `SVCRT_USE_SCHED_LOCK` | 1 | 用户态调度器锁开关（SVC 0x11 子命令 7~9） |
+| `SVCRT_USE_STACK_USAGE` | 1 | 任务栈峰值用量统计开关 |
+| `SVCRT_STACK_FILL_PATTERN` | 0xcdcdcdcd | 栈填充图案（用于水位统计） |
 | `SVCRT_USE_CPU_LOAD` | 1 | CPU 负载统计开关 |
 | `SVCRT_USE_STACK_CHECK` | 1 | 栈溢出检测开关 |
 | `SVCRT_SHARE_MEM_ADDR` | 0x20028000 | 共享内存地址（板级配置覆盖） |
 | `SVCRT_SHARE_MEM_SIZE` | 0x8000 | 共享内存大小（板级配置覆盖） |
 | `SVCRT_SYSTEM_CLOCK_HZ` | 168000000 | 系统主频（板级配置覆盖） |
+| `SVCRT_USE_MQ` / `SVCRT_MQ_NUM` | 1 / 8 | 消息队列开关与数量 |
+| `SVCRT_MQ_DEPTH` / `SVCRT_MQ_MSG_WORDS` | 8 / 4 | 队列深度与单条消息长度（字） |
+| `SVCRT_USE_TIMER` / `SVCRT_TIMER_NUM` | 1 / 8 | 软定时器开关与数量 |
+| `SVCRT_TIMER_TASK_PRI` | 200 | 定时器服务任务优先级 |
+| `SVCRT_TIMER_TASK_STACK_WORDS` | 96 | 定时器服务任务栈大小（字） |
+| `SVCRT_USE_FAULT_RECOVER` | 1 | 任务故障自动恢复开关 |
+| `SVCRT_FAULT_RECORD_NUM` | 8 | 故障记录环形缓冲容量 |
+
+## API 文档
+
+内核头文件采用 Doxygen 注释风格，可一键生成 API 参考：
+
+```bash
+python tools/gen_api_doc.py          # 有 Doxygen 时生成 HTML，否则生成 Markdown
+python tools/gen_api_doc.py --md     # 强制生成 Markdown
+```
+
+- 已安装 Doxygen：输出 `docs/api/html/index.html`（带交叉引用、调用关系图）
+- 未安装 Doxygen：输出 `docs/api/SVCrtOS_API参考.md`（内置解析器，零依赖）
+
+> 说明：内核源码存在 GBK / UTF-8 混用，脚本会先在系统临时目录生成 UTF-8 副本再生成文档，
+> 不会修改仓库内任何源文件；配置见根目录 `Doxyfile`。
 
 ## 快速移植
 

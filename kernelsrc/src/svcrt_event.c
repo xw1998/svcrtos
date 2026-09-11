@@ -21,6 +21,13 @@ void svcrt_event_module_init(void)
     }
 }
 
+int32 svcrt_event_set_from_isr(int32 event_handle)
+{
+    /* 中断上下文安全：set 内部不阻塞 */
+    svcrt_event_set_internal(event_handle);
+    return 0;
+}
+
 int32 svcrt_event_create_internal(char *name)
 {
     int32 i;
@@ -60,6 +67,7 @@ int32 svcrt_event_wait_internal(int32 event_handle, int32 timeout_ms)
         if(svcrt_events[idx].waiting_tasks[j] == 0)
         {
             svcrt_events[idx].waiting_tasks[j] = p_tsk;
+            p_tsk->wake_reason = 0;
             break;
         }
     }
@@ -87,6 +95,7 @@ void svcrt_event_set_internal(int32 event_handle)
     {
         if(svcrt_events[idx].waiting_tasks[j] != 0)
         {
+            svcrt_events[idx].waiting_tasks[j]->wake_reason = 0;
             svcrt_events[idx].waiting_tasks[j]->status = SVCRT_TASK_READY;
             svcrt_events[idx].waiting_tasks[j] = 0;
         }

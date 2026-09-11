@@ -19,28 +19,21 @@ typedef enum {
     SVCRT_TASK_RUNNING
 } svcrt_task_status_t;
 
-/**
-* @brief SVC 调用时硬件压栈的上下文结构
-* @details 进入 SVC_Handler 后，硬件已将以下寄存器压入调用者栈帧。
-*          SVC_Server() 通过指向该结构的指针读取调用参数（r0~r3）和返回地址（pc），
-*          并可将返回值写回 r0。pc 用于回溯取出 SVC 立即数（SVC 号）。
-*/
-typedef struct {
-    uint32 r0;
-    uint32 r1;
-    uint32 r2;
-    uint32 r3;
-    uint32 r12;
-    uint32 lr;
-    uint32 pc;
-    uint32 xpsr;
-} svcrt_svc_context_t;
+/* ============================================================
+ * 系统调用上下文（架构无关）
+ * @brief SVC_Server 只接收不透明的上下文指针，参数与返回值统一通过
+ *        SVCRT_SVC_ARG / SVCRT_SVC_RET 宏访问（见 svcrt_hal.h）。
+ *        各架构的栈帧布局定义在 kernelsrc/port/<族>/<核心>/，
+ *        内核不再包含任何寄存器排布，移植新架构无需改动本文件。
+ * ============================================================ */
+void SVC_Server(void *p_svc_ctx);
+
 
 /**
 * @brief 任务控制块（TCB）
 * @details 保存一个任务的全部运行信息：内存区域、优先级、栈、状态、调度计时等。
 *          所有任务的 TCB 排成 svcrt_task_table 数组。其中 stack_ptr 在任务被切走时
-*          保存其 PSP，切回时据此恢复现场；mpu_bar/mpu_asr 是该任务的 MPU 区域快照。
+*          保存其 PSP，切回时据此恢复现场；mpu 是该任务的 MPU 区域快照。
 */
 typedef struct {
     uint32 ram_start;
@@ -55,8 +48,7 @@ typedef struct {
     uint32 stack_top;
     uint32 *stack_bottom;
     #if (SVCRT_USE_MPU == 1)
-    uint32 mpu_bar[8];
-    uint32 mpu_asr[8];
+    svcrt_arch_mpu_t mpu;           /* 架构无关的 MPU 区域上下文（见 svcrt_arch.h） */
     #endif
     svcrt_task_status_t status;
     int32  period_time;
@@ -64,6 +56,12 @@ typedef struct {
     uint32 tim_tick;
     uint32 touch_tick;
     uint32 stack_ptr;
+    uint8  recover_pending;                         /* 故障恢复待处理标记（两阶段恢复） */
+    void (*entry)(void);                            /* 任务入口（恢复重建用） */
+    uint8  wake_reason;                             /* 0=被唤醒 1=超时唤醒 */
+    #if (SVCRT_USE_STACK_USAGE == 1)
+    uint32 stack_peak_low;                          /* 历史最低栈指针，用于峰值栈用量统计 */
+    #endif
 } svcrt_task_t;
 
 #if (SVCRT_USE_STACK_CHECK == 1)
@@ -76,8 +74,23 @@ typedef struct {
 extern uint16 svcrt_cpu_idle_millis;
 #endif
 
+extern volatile uint32 svcrt_interrupt_nest;
 extern uint32 svcrt_kernel_tick;
 extern int32  svcrt_current_task_id;
+#if (SVCRT_USE_SCHED_LOCK == 1)
+/* 调度器锁：>0 表示当前禁止任务切换（用户任务经 SVC 调用 svcrt_sched_lock） */
+extern volatile uint32 svcrt_sched_lock_nest;
+
+void   svcrt_sched_lock_internal(void);
+uint32 svcrt_sched_unlock_internal(void);
+int32  svcrt_sched_lock_count_internal(void);
+#endif
+
+#if (SVCRT_USE_STACK_USAGE == 1)
+/* 查询任务栈信息：out3[0]=总字节，out3[1]=峰值已用字节，out3[2]=剩余字节 */
+int32  svcrt_task_stack_info_internal(int32 task_id, uint32 *out3);
+#endif
+
 
 int32  svcrt_sched_next(void);
 svcrt_task_t *svcrt_task_get_current(void);
@@ -90,6 +103,8 @@ void svcrt_task_wait_period_internal(void);
 void svcrt_task_block_internal(void);
 void svcrt_task_delay_internal(uint32 us);
 void svcrt_task_kill_internal(void);
+int32  svcrt_task_status_get_internal(int32 task_id);
+int32  svcrt_task_recover(int32 task_id);
 
 void svcrt_sched_activate_higher(uint8 ck_pri);
 

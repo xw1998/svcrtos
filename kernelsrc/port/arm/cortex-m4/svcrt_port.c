@@ -27,8 +27,75 @@ void svcrt_port_dsb(void)  { __DSB(); }
 void svcrt_port_dmb(void)  { __DMB(); }
 
 /* ============================================================
+ * 原子操作与多核支持（自旋锁底层原语）
+ * @brief Cortex-M3/M4 使用 LDREX/STREX 独占访问实现原子 CAS。
+ *        单核系统 CPU ID 恒为 0；自旋提示用 NOP 降低总线压力。
+ *        移植到 RISC-V / LoongArch 时，请用 AMO / LR-SC / LL-SC
+ *        指令重写本组接口，内核与自旋锁实现无需任何改动。
+ * ============================================================ */
+
+/**
+* @brief 比较并交换（原子操作）
+* @param p_addr    目标地址（4 字节对齐）
+* @param expect    期望值
+* @param new_value 期望成立时写入的新值
+* @return 1=成功，0=当前值不是 expect（未修改）
+*/
+uint32 svcrt_port_atomic_cas(volatile uint32 *p_addr, uint32 expect, uint32 new_value)
+{
+    uint32 old;
+
+    do
+    {
+        old = __LDREXW((volatile uint32 *)p_addr);
+        if(old != expect)
+        {
+            __CLREX();
+            return 0u;
+        }
+    } while(__STREXW(new_value, (volatile uint32 *)p_addr) != 0u);
+
+    return 1u;
+}
+
+/**
+* @brief 获取当前 CPU 编号
+* @return 单核 MCU 固定返回 0，多核移植时返回硬件核号
+*/
+uint32 svcrt_port_cpu_id(void)
+{
+    return 0u;
+}
+
+/**
+* @brief 自旋等待提示
+* @note 单核无总线争用，用 NOP 即可；多核可改为 __WFE() 降低功耗与争用。
+*/
+void svcrt_port_spin_hint(void)
+{
+    __NOP();
+}
+
+
+/* ============================================================
  * 中断开关
  * ============================================================ */
+uint8 svcrt_port_in_isr(void)
+{
+    return (__get_IPSR() != 0) ? 1 : 0;
+}
+
+uint32 svcrt_port_syscall_num(void *p_exc_ctx)
+{
+    /* Cortex-M: SVC 指令带 8 位立即数作为系统调用号，
+     * 位于硬件压栈的栈帧返回地址 PC 之前 1 字节。
+     * 对应 SVCRT_ARCH_SVC_NUM_BITS = 8。 */
+    uint32 *p_frame = (uint32 *)p_exc_ctx;
+    /* 栈帧中 PC 位于索引 6（R0,R1,R2,R3,R12,LR,PC,xPSR），
+     * SVC 指令的低 8 位立即数位于 PC 之前 1 字节。 */
+    return (uint32)((char *)p_frame[6])[-2];
+}
+
 void svcrt_port_disable_irq(void)
 {
     __disable_irq();
@@ -37,6 +104,43 @@ void svcrt_port_disable_irq(void)
 void svcrt_port_enable_irq(void)
 {
     __enable_irq();
+}
+
+/**
+* @brief 进入临界区，保存 PRIMASK 并关中断
+* @return 进入前的中断状态
+*/
+uint32 svcrt_port_enter_critical(void)
+{
+    uint32 primask = __get_PRIMASK();
+    __disable_irq();
+    return primask;
+}
+
+/**
+* @brief 退出临界区，恢复进入前的中断状态
+*/
+void svcrt_port_exit_critical(uint32 state)
+{
+    __set_PRIMASK(state);
+}
+
+/**
+* @brief 读取系统调用参数（0~3，对应 R0~R3）
+* @details Cortex-M 硬件压栈顺序为 R0,R1,R2,R3,R12,LR,PC,xPSR，
+*          使用栈帧指针直接索引即可。
+*/
+uint32 svcrt_port_svc_get_arg(void *p_exc_ctx, uint32 idx)
+{
+    return ((uint32 *)p_exc_ctx)[idx];
+}
+
+/**
+* @brief 写回系统调用返回值（R0）
+*/
+void svcrt_port_svc_set_ret(void *p_exc_ctx, uint32 value)
+{
+    ((uint32 *)p_exc_ctx)[0] = value;
 }
 
 void svcrt_port_switch_task(void)
@@ -93,9 +197,9 @@ uint32 svcrt_port_stack_init(uint32 stack_top, void (*entry)(void))
     return (uint32)p_sp;
 }
 
-void svcrt_port_enter_idle(uint32 psp, uint32 use_priv)
+void svcrt_port_enter_idle(uint32 stack_ptr, uint32 use_priv)
 {
-    svcrt_port_set_psp(psp);
+    svcrt_port_set_psp(stack_ptr);
 
     if(use_priv)
     {
@@ -116,12 +220,12 @@ uint32 svcrt_port_get_system_clock(void)
     return (uint32)SystemCoreClock;
 }
 
-uint32 svcrt_port_get_systick_val(void)
+uint32 svcrt_port_get_timer_counter(void)
 {
     return SysTick->VAL;
 }
 
-uint32 svcrt_port_get_systick_load(void)
+uint32 svcrt_port_get_timer_reload(void)
 {
     return SysTick->LOAD;
 }
@@ -134,17 +238,17 @@ void svcrt_port_start_timer(uint32 tick_period_us)
 
 void svcrt_port_delay_us(uint32 us)
 {
-    int32 tm_start = (int32)svcrt_port_get_systick_val();
+    int32 tm_start = (int32)svcrt_port_get_timer_counter();
     int32 wait_clk = (int32)(us * (SystemCoreClock / 1000000));
     int32 tm_end;
     int32 tm_diff;
 
     while(wait_clk > 0)
     {
-        tm_end = (int32)svcrt_port_get_systick_val();
+        tm_end = (int32)svcrt_port_get_timer_counter();
         tm_diff = tm_start - tm_end;
         if(tm_diff < 0)
-            tm_diff += (int32)svcrt_port_get_systick_load();
+            tm_diff += (int32)svcrt_port_get_timer_reload();
         tm_start = tm_end;
 
         wait_clk -= tm_diff;
@@ -259,7 +363,7 @@ void svcrt_port_mpu_set_region(uint32 rom_addr, uint32 rom_size, uint32 ram_addr
     SVCRT_ISB();
 }
 
-void svcrt_port_mpu_set_app(uint32 *mpu_bar, uint32 *mpu_asr)
+void svcrt_port_mpu_set_app(const svcrt_arch_mpu_t *p_mpu)
 {
     int32 rnr = 0;
 
@@ -269,8 +373,8 @@ void svcrt_port_mpu_set_app(uint32 *mpu_bar, uint32 *mpu_asr)
     for(rnr = 0; rnr < 4; rnr++)
     {
         MPU->RNR  = rnr;
-        MPU->RBAR = mpu_bar[rnr];
-        MPU->RASR = mpu_asr[rnr];
+        MPU->RBAR = p_mpu->region_base[rnr];
+        MPU->RASR = p_mpu->region_attr[rnr];
     }
 
     MPU->CTRL = MPU_CTRL_ENABLE_Msk | MPU_CTRL_PRIVDEFENA_Msk;

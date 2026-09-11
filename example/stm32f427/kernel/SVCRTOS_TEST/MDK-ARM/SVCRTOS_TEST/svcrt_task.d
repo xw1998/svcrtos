@@ -9,7 +9,7 @@ svcrtos_test\svcrt_task.o: ../../../../../board/stm32f427/svcrt_board_config.h
 svcrtos_test\svcrt_task.o: ../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h
 svcrtos_test\svcrt_task.o: ../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h
 svcrtos_test\svcrt_task.o: ../Drivers/CMSIS/Include/core_cm4.h
-svcrtos_test\svcrt_task.o: E:\mdk5\ARM\ARMCC\Bin\..\include\stdint.h
+svcrtos_test\svcrt_task.o: D:\Keil_v5\ARM\ARMCC\Bin\..\include\stdint.h
 svcrtos_test\svcrt_task.o: ../Drivers/CMSIS/Include/cmsis_version.h
 svcrtos_test\svcrt_task.o: ../Drivers/CMSIS/Include/cmsis_compiler.h
 svcrtos_test\svcrt_task.o: ../Drivers/CMSIS/Include/cmsis_armcc.h
@@ -21,7 +21,7 @@ svcrtos_test\svcrt_task.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc
 svcrtos_test\svcrt_task.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h
 svcrtos_test\svcrt_task.o: ../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h
 svcrtos_test\svcrt_task.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h
-svcrtos_test\svcrt_task.o: E:\mdk5\ARM\ARMCC\Bin\..\include\stddef.h
+svcrtos_test\svcrt_task.o: D:\Keil_v5\ARM\ARMCC\Bin\..\include\stddef.h
 svcrtos_test\svcrt_task.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h
 svcrtos_test\svcrt_task.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h
 svcrtos_test\svcrt_task.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h
@@ -43,6 +43,12 @@ svcrtos_test\svcrt_task.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uar
 svcrtos_test\svcrt_task.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h
 svcrtos_test\svcrt_task.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h
 svcrtos_test\svcrt_task.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h
+svcrtos_test\svcrt_task.o: ../../../../../kernelsrc/include/svcrt_arch.h
+svcrtos_test\svcrt_task.o: ../../../../../kernelsrc/include/svcrt_spin.h
+svcrtos_test\svcrt_task.o: ../../../../../kernelsrc/include/svcrt_hal.h
 svcrtos_test\svcrt_task.o: ../../../../../kernelsrc/include/svcrt_event.h
 svcrtos_test\svcrt_task.o: ../../../../../kernelsrc/include/svcrt_dev.h
 svcrtos_test\svcrt_task.o: ../../../../../kernelsrc/include/svcrt_sync.h
+svcrtos_test\svcrt_task.o: ../../../../../kernelsrc/include/svcrt_mq.h
+svcrtos_test\svcrt_task.o: ../../../../../kernelsrc/include/svcrt_timer.h
+svcrtos_test\svcrt_task.o: ../../../../../kernelsrc/include/svcrt_fault.h

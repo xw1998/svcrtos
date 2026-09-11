@@ -1,0 +1,60 @@
+# ============================================================================
+# SVCrtOS Doxygen 配置
+# ----------------------------------------------------------------------------
+# 说明：
+#   1. 内核源码主体为 GBK 编码，本文档 与 *.md 为 UTF-8，二者混用会导致
+#      Doxygen 输出乱码。因此请勿直接运行 doxygen Doxyfile，
+#      统一通过 tools/gen_api_doc.py 生成：
+#         python tools/gen_api_doc.py
+#      该脚本会先把源码转换为 UTF-8 临时树（docs/.gen_utf8），再调用 Doxygen，
+#      未安装 Doxygen 时自动改用内置的 Markdown API 参考生成器。
+#   2. 若确实要手动运行 Doxygen，请先执行脚本的转码步骤，或把 INPUT 指向
+#      已转码的目录并把 INPUT_ENCODING 设为 UTF-8。
+# ============================================================================
+
+PROJECT_NAME           = "SVCrtOS"
+PROJECT_BRIEF          = "面向 ARM Cortex-M / RISC-V / LoongArch 的 SVC 特权隔离实时操作系统"
+PROJECT_NUMBER         = "1.0"
+OUTPUT_DIRECTORY       = docs/api
+OUTPUT_LANGUAGE        = Chinese
+DOXYFILE_ENCODING      = UTF-8
+
+# Doxygen 输入目录（由 gen_api_doc.py 生成的 UTF-8 临时树）
+INPUT                  = docs/.gen_utf8
+INPUT_ENCODING         = UTF-8
+FILE_PATTERNS          = *.h *.c *.md
+RECURSIVE              = YES
+EXCLUDE_PATTERNS       = */docs/*
+
+USE_MDFILE_AS_MAINPAGE = docs/.gen_utf8/readme.md
+
+# 输出配置
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+GENERATE_LATEX         = NO
+GENERATE_XML           = NO
+GENERATE_TREEVIEW      = YES
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = NO
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+
+# 解析选项
+EXTRACT_ALL            = YES
+EXTRACT_STATIC         = YES
+EXTRACT_PRIVATE        = NO
+HIDE_UNDOC_MEMBERS     = NO
+HIDE_UNDOC_CLASSES     = NO
+JAVADOC_AUTOBRIEF      = YES
+QT_AUTOBRIEF           = YES
+MULTILINE_CPP_IS_BRIEF = NO
+TAB_SIZE               = 4
+OPTIMIZE_OUTPUT_FOR_C  = YES
+MARKDOWN_SUPPORT       = YES
+AUTOLINK_SUPPORT       = YES
+SORT_MEMBER_DOCS       = NO
+
+# 图表（保持零外部依赖）
+HAVE_DOT               = NO
+CLASS_DIAGRAMS         = NO
+UML_LOOK               = NO

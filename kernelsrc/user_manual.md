@@ -421,3 +421,136 @@ int32 count = svcrt_drv_get_count();
 #define SVCRT_USE_CPU_LOAD     0
 #define SVCRT_USE_STACK_CHECK  0
 ```
+
+---
+
+## 11. 自旋锁、临界区与栈用量分析
+
+### 11.1 自旋锁（内核 / 驱动侧）
+
+自旋锁用于保护**极短**的临界区（微秒级），可运行于任务上下文或中断上下文，
+接口定义在 `kernelsrc/include/svcrt_spin.h`。它基于 port 层原子 CAS 实现，
+在单核 Cortex-M 上退化为"原子标志位 + 可选中关中断"，
+移植到 RISC-V / LoongArch 时只需实现 `svcrt_port_atomic_cas()` 等三个 port 接口，
+内核与自旋锁代码无需改动。
+
+```c
+#include "svcrt_hal.h"      /* 已自动包含 svcrt_spin.h */
+
+SVCRT_SPINLOCK_DEFINE(g_dev_lock);      /* 定义并初始化一把全局锁 */
+
+/* 任务上下文中保护共享数据 */
+void dev_write_reg(uint32 value)
+{
+    uint32 state;
+
+    svcrt_spin_lock_irqsave(&g_dev_lock, &state);
+    /* ... 访问共享寄存器/共享变量 ... */
+    svcrt_spin_unlock_irqrestore(&g_dev_lock, state);
+}
+
+/* 中断服务程序中访问同一份数据：必须使用 irqsave 变体 */
+void EXTI0_IRQHandler(void)
+{
+    uint32 state;
+
+    svcrt_spin_lock_irqsave(&g_dev_lock, &state);
+    /* ... 与任务共享的数据 ... */
+    svcrt_spin_unlock_irqrestore(&g_dev_lock, state);
+}
+```
+
+| 接口 | 说明 |
+|------|------|
+| `SVCRT_SPINLOCK_DEFINE(name)` | 定义并初始化全局自旋锁 |
+| `svcrt_spin_init(lock)` | 初始化（或复位）一把锁 |
+| `svcrt_spin_lock(lock)` | 阻塞自旋直到获取 |
+| `svcrt_spin_trylock(lock)` | 非阻塞尝试获取，返回 1/0 |
+| `svcrt_spin_unlock(lock)` | 释放（同一 CPU 重入时按嵌套计数递减） |
+| `svcrt_spin_lock_irqsave(lock, &state)` | 关中断 + 加锁（中断与任务共用数据的标准做法） |
+| `svcrt_spin_unlock_irqrestore(lock, state)` | 解锁 + 恢复中断状态 |
+| `svcrt_spin_is_locked(lock)` | 查询锁是否被持有 |
+
+> 注意事项：
+> 1. 持锁期间禁止调用任何可能引起阻塞或任务切换的接口；
+> 2. 中断与任务共用同一把锁时，任务侧必须使用 `irqsave` 变体，否则单核上会自死锁；
+> 3. 同一 CPU 重复获取同一把锁会累加嵌套计数，解锁次数须与之匹配；
+> 4. 可用 `SVCRT_USE_SPINLOCK` 配置开关关闭（关闭后头文件内容整体不编译）。
+
+### 11.2 调度器锁（用户态临界区）
+
+用户任务无法直接关中断，若需要保护一段**较长**的共享数据访问（不想长时间关中断），
+可使用调度器锁：它只禁止任务切换，不关闭中断，等价于 RT-Thread 的 `rt_enter_critical`。
+
+```c
+void app_task(void)
+{
+    while(1)
+    {
+        svcrt_sched_lock();         /* 进入临界区：期间不会被其他任务抢占 */
+        shared_counter++;
+        shared_table[shared_counter & 0x0f] = svcrt_get_time_ms();
+        svcrt_sched_unlock();       /* 退出临界区：恢复任务切换 */
+
+        svcrt_task_wait(10);
+    }
+}
+```
+
+| API | 说明 |
+|-----|------|
+| `svcrt_sched_lock()` | 进入临界区（可嵌套，计数加一） |
+| `svcrt_sched_unlock()` | 退出临界区（计数归零时恢复调度） |
+| `svcrt_sched_lock_count()` | 查询当前嵌套层数（0 表示不在临界区） |
+
+> 注意事项：
+> 1. 临界区内**不得调用阻塞接口**（`svcrt_task_wait`、`svcrt_sem_wait` 等）。
+>    内核会忽略该次阻塞请求，并记录一条 `SVCRT_FAULT_SCHEDLOCK` 故障记录，
+>    可经 `svcrt_fault_record_read()` 查询定位问题代码；
+> 2. 中断仍可正常响应，因此与中断共享的数据仍需配合自旋锁或原子访问。
+
+### 11.3 任务栈用量分析
+
+开启 `SVCRT_USE_STACK_USAGE`（默认开启）后，内核会在任务创建/重建时用
+`SVCRT_STACK_FILL_PATTERN` 填充整段任务栈，并记录上下文切换时的最低栈指针，
+从而给出每个任务的**峰值栈用量**，用于裁剪栈空间、排查栈溢出隐患。
+
+```c
+void app_task(void)
+{
+    uint32 stack[3];
+
+    while(1)
+    {
+        if(svcrt_task_stack_info(2, stack) == 0)   /* 查询 2 号任务 */
+        {
+            /* stack[0]=栈总字节数, stack[1]=峰值已用, stack[2]=剩余 */
+            if(stack[2] < stack[0] / 5)            /* 剩余不足 20% 时告警 */
+            {
+                svcrt_dev_write(uart, "stack low!\r\n", 13);
+            }
+        }
+        svcrt_task_wait(1000);
+    }
+}
+```
+
+调试建议：
+
+- 在系统跑满所有业务场景后读取峰值，按"峰值 × 1.3"左右设置任务栈大小，避免拍脑袋；
+- 峰值接近栈总大小时，说明该任务存在栈溢出风险（配合 `SVCRT_USE_STACK_CHECK` 使用）；
+- 定时器服务任务、空闲任务也会计入任务表，可一并查询其用量。
+
+### 11.4 API 文档生成
+
+内核头文件已按 Doxygen 风格注释，可一键生成 API 参考：
+
+```bash
+python tools/gen_api_doc.py          # 有 Doxygen 时生成 HTML，否则生成 Markdown
+python tools/gen_api_doc.py --md     # 强制生成 Markdown（零依赖）
+```
+
+- 有 Doxygen：`docs/api/html/index.html`
+- 无 Doxygen：`docs/api/SVCrtOS_API参考.md`
+
+详见 `docs/README.md`（含源码 GBK/UTF-8 混用的处理说明）。

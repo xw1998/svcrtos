@@ -23,6 +23,9 @@
 #include "svcrt_hal.h"
 #include "svcrt_dev.h"
 #include "svcrt_sync.h"
+#include "svcrt_mq.h"
+#include "svcrt_timer.h"
+#include "svcrt_fault.h"
 #include "svcrt_config.h"
 
 static void svcrt_start_idle_default(void);
@@ -66,8 +69,14 @@ static void svcrt_kernel_init_default(void)
 {
     svcrt_event_module_init();
     svcrt_sync_module_init();
+    svcrt_mq_module_init();
+    svcrt_timer_module_init();
+    svcrt_fault_module_init();
     svcrt_dev_module_init();
     svcrt_dev_board_init();
+
+    /* 内置定时器服务任务：须在 cfg_load 之后、调度启动之前注册 */
+    svcrt_timer_task_install();
 
     #if (SVCRT_USE_MPU == 1)
     svcrt_port_mpu_init();

@@ -140,6 +140,7 @@ int32 svcrt_sem_wait_internal(int32 handle, int32 timeout_ms)
     }
     SVCRT_ENABLE_IRQ();
 
+    p_tsk->wake_reason = 0;
     if(timeout_ms > 0)
         svcrt_task_wait_internal(timeout_ms);
     else
@@ -163,6 +164,7 @@ int32 svcrt_sem_post_internal(int32 handle)
     if(p_wake != 0)
     {
         p_wake->wait_time = 0;
+        p_wake->wake_reason = 0;
         p_wake->status = SVCRT_TASK_READY;
     }
     else
@@ -172,6 +174,12 @@ int32 svcrt_sem_post_internal(int32 handle)
     SVCRT_ENABLE_IRQ();
     SVCRT_SWITCH_TASK();
     return 0;
+}
+
+int32 svcrt_sem_post_from_isr(int32 handle)
+{
+    /* 中断上下文安全：post 内部不阻塞，仅关中断修改状态并触发切换 */
+    return svcrt_sem_post_internal(handle);
 }
 
 int32 svcrt_sem_delete_internal(int32 handle)
@@ -264,6 +272,7 @@ int32 svcrt_mtx_lock_internal(int32 handle, int32 timeout_ms)
     }
     SVCRT_ENABLE_IRQ();
 
+    p_tsk->wake_reason = 0;
     if(timeout_ms > 0)
         svcrt_task_wait_internal(timeout_ms);
     else
@@ -301,6 +310,7 @@ int32 svcrt_mtx_unlock_internal(int32 handle)
         svcrt_mtxs[idx].owner         = p_next;
         svcrt_mtxs[idx].orig_priority = p_next->priority;
         p_next->wait_time = 0;
+        p_next->wake_reason = 0;
         p_next->status = SVCRT_TASK_READY;
     }
     else

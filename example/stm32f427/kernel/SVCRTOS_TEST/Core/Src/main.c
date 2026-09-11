@@ -246,10 +246,10 @@ static void svcrt_register_tasks(void)
     #if (SVCRT_USE_MPU == 1)
     {
         int32 i;
-        for(i = 0; i < 8; i++)
+        for(i = 0; i < SVCRT_MPU_REGION_MAX; i++)
         {
-            p_task->mpu_bar[i] = 0;
-            p_task->mpu_asr[i] = 0;
+            p_task->mpu.region_base[i] = 0;
+            p_task->mpu.region_attr[i] = 0;
         }
     }
     #endif
@@ -279,10 +279,10 @@ static void svcrt_register_tasks(void)
     #if (SVCRT_USE_MPU == 1)
     {
         int32 i;
-        for(i = 0; i < 8; i++)
+        for(i = 0; i < SVCRT_MPU_REGION_MAX; i++)
         {
-            p_task->mpu_bar[i] = 0;
-            p_task->mpu_asr[i] = 0;
+            p_task->mpu.region_base[i] = 0;
+            p_task->mpu.region_attr[i] = 0;
         }
     }
     #endif

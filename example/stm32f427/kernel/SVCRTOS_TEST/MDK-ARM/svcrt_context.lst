@@ -85,11 +85,11 @@ ARM Macro Assembler    Page 2
               00000000 
 Command Line: --debug --xref --diag_suppress=9931 --cpu=Cortex-M4.fp.sp --apcs=
 interwork --depend=svcrtos_test\svcrt_context.d -osvcrtos_test\svcrt_context.o 
--I.\RTE\_SVCRTOS_TEST -IE:\mdk5\pack\ARM\CMSIS\5.8.0\CMSIS\Core\Include -IE:\md
-k5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include --p
-redefine="__UVISION_VERSION SETA 535" --predefine="_RTE_ SETA 1" --predefine="S
-TM32F427xx SETA 1" --predefine="_RTE_ SETA 1" --list=svcrt_context.lst ..\..\..
-\..\..\kernelsrc\port\arm\cortex-m4\svcrt_context.S
+-I.\RTE\_SVCRTOS_TEST -ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMS
+IS\Core\Include -ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0
+\Drivers\CMSIS\Device\ST\STM32F4xx\Include --predefine="__UVISION_VERSION SETA 
+541" --predefine="STM32F427xx SETA 1" --predefine="_RTE_ SETA 1" --list=svcrt_c
+ontext.lst ..\..\..\..\..\kernelsrc\port\arm\cortex-m4\svcrt_context.S
 
 
 
