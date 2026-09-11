@@ -52,3 +52,7 @@ svcrtos_test\svcrt_task.o: ../../../../../kernelsrc/include/svcrt_sync.h
 svcrtos_test\svcrt_task.o: ../../../../../kernelsrc/include/svcrt_mq.h
 svcrtos_test\svcrt_task.o: ../../../../../kernelsrc/include/svcrt_timer.h
 svcrtos_test\svcrt_task.o: ../../../../../kernelsrc/include/svcrt_fault.h
+svcrtos_test\svcrt_task.o: ../../../../../kernelsrc/include/svcrt_ptable.h
+svcrtos_test\svcrt_task.o: ../../../../../kernelsrc/include/svcrt_share.h
+svcrtos_test\svcrt_task.o: ../../../../../kernelsrc/include/svcrt_app_image.h
+svcrtos_test\svcrt_task.o: ../../../../../kernelsrc/include/svcrt_loader.h

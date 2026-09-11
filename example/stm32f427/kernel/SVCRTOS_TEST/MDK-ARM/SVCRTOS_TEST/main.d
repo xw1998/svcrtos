@@ -57,3 +57,7 @@ svcrtos_test\main.o: ../../../../../kernelsrc/include/svcrt_task.h
 svcrtos_test\main.o: ../../../../../kernelsrc/include/svcrt_event.h
 svcrtos_test\main.o: ../../../../../kernelsrc/include/svcrt_dev.h
 svcrtos_test\main.o: ../../../../../kernelsrc/include/svcrt_sync.h
+svcrtos_test\main.o: ../../../../../kernelsrc/include/svcrt_ptable.h
+svcrtos_test\main.o: ../../../../../kernelsrc/include/svcrt_share.h
+svcrtos_test\main.o: ../../../../../kernelsrc/include/svcrt_app_image.h
+svcrtos_test\main.o: ../../../../../config/svcrt_partition.h
