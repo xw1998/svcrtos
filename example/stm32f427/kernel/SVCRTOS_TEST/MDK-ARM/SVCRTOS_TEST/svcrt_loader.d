@@ -51,4 +51,5 @@ svcrtos_test\svcrt_loader.o: ../../../../../kernelsrc/include/svcrt_dev.h
 svcrtos_test\svcrt_loader.o: ../../../../../kernelsrc/include/svcrt_def.h
 svcrtos_test\svcrt_loader.o: ../../../../../kernelsrc/include/svcrt_cfg.h
 svcrtos_test\svcrt_loader.o: ../../../../../kernelsrc/include/svcrt_task.h
+svcrtos_test\svcrt_loader.o: ../../../../../kernelsrc/include/svcrt_fault.h
 svcrtos_test\svcrt_loader.o: ../../../../../config/svcrt_partition.h

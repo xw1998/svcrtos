@@ -49,3 +49,4 @@ svcrtos_test\svcrt_board.o: ../../../../../kernelsrc/include/svcrt_task.h
 svcrtos_test\svcrt_board.o: ..\..\..\..\..\board\stm32f427\drvled.h
 svcrtos_test\svcrt_board.o: ..\..\..\..\..\board\stm32f427\drvuart.h
 svcrtos_test\svcrt_board.o: ../../../../../kernelsrc/include/svcrt_fifo.h
+svcrtos_test\svcrt_board.o: ../../../../../kernelsrc/include/svcrt_fault.h

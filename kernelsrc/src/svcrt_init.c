@@ -1,8 +1,10 @@
 /**
-* @brief SVCrtOS 内核启动与初始化（提供默认弱实现）
-* @details 本文件提供默认的内核启动 main() 入口及初始化流程。
-*          若应用使用 CubeMX 生成的 main.c，可自行实现强符号 main() 覆盖此处的弱实现。
-*          覆盖时需按相同顺序调用各初始化步骤，否则内核无法正常启动。
+* @brief SVCrtOS 内核启动与初始化（单一权威实现）
+* @details 本文件只提供 svcrt_kernel_module_init()：内核各模块的初始化顺序在此唯一确定。
+*          内核【不提供 main() 入口】，入口一律由工程侧 main() 提供——
+*          同一个映像里存在两个 main 时，AC6 会因辅助符号 __ARM_use_no_argv
+*          重复定义而链接失败（L6200E: by svcrt_init.o and main.o），
+*          即“弱 main 可被工程 main 覆盖”在 AC6 下并不成立。
 *
 *          应用自定义 main() 时建议遵循以下启动顺序：
 *          1) HAL 初始化 + 时钟配置 + 外设初始化（CubeMX 生成部分）
@@ -36,43 +38,7 @@
 #include "svcrt_config.h"
 #include "svcrt_init.h"
 
-static void svcrt_start_idle_default(void);
-static uint32 svcrt_idle_stack_default[100];
-
-__weak int main(void)
-{
-    svcrt_port_board_init();
-
-    svcrt_cfg_load();
-
-    svcrt_port_irq_init();
-
-    svcrt_kernel_module_init();
-
-    svcrt_port_start_timer(SVCRT_TICK_PERIOD_US);
-
-    svcrt_start_idle_default();
-    return 0;
-}
-
-static void svcrt_start_idle_default(void)
-{
-    uint32 psp = (uint32)(svcrt_idle_stack_default + 99);
-    psp &= ~0x7u;
-
-    #if (SVCRT_USE_MPU == 1)
-    svcrt_port_set_idle_mpu((uint32)svcrt_start_idle_default, (uint32)svcrt_idle_stack_default, sizeof(svcrt_idle_stack_default));
-    #endif
-
-    svcrt_port_enter_idle(psp, SVCRT_USE_PRIV);
-
-    while(1)
-    {
-        SVCRT_WFI();
-    }
-}
-
-/* 内核模块初始化：唯一权威顺序实现（弱 main 与工程 main 都调用它） */
+/* 内核模块初始化：唯一权威顺序实现（任何工程的 main 都只调用它） */
 void svcrt_kernel_module_init(void)
 {
     svcrt_event_module_init();

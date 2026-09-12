@@ -44,3 +44,4 @@ svcrtos_test\drvflash.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_e
 svcrtos_test\drvflash.o: ../../../../../kernelsrc/include/svcrt_arch.h
 svcrtos_test\drvflash.o: ../../../../../kernelsrc/include/svcrt_spin.h
 svcrtos_test\drvflash.o: ../../../../../kernelsrc/include/svcrt_hal.h
+svcrtos_test\drvflash.o: ../../../../../config/svcrt_partition.h

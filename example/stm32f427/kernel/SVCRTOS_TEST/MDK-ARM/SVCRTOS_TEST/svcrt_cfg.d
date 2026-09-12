@@ -46,3 +46,5 @@ svcrtos_test\svcrt_cfg.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_
 svcrtos_test\svcrt_cfg.o: ../../../../../kernelsrc/include/svcrt_arch.h
 svcrtos_test\svcrt_cfg.o: ../../../../../kernelsrc/include/svcrt_spin.h
 svcrtos_test\svcrt_cfg.o: ../../../../../kernelsrc/include/svcrt_hal.h
+svcrtos_test\svcrt_cfg.o: ../../../../../kernelsrc/include/svcrt_fault.h
+svcrtos_test\svcrt_cfg.o: ../../../../../kernelsrc/include/svcrt_init.h
