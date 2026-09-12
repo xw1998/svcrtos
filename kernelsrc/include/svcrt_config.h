@@ -2,6 +2,9 @@
 * @brief SVCrtOS 内核集中配置文件
 * @details 借鉴 RT-Thread 的 rtconfig.h 思路，把内核所有可裁剪、可调参数集中在此管理。
 *          板级配置可通过 SVCRT_BOARD_CONFIG 宏指向的头文件覆盖这里的默认值。
+*          覆盖规则：本文件里**所有可裁剪开关与可调参数**都必须用 #ifndef 包住，
+*          否则板级配置重定义时会报宏重定义，等于覆盖不了；
+*          由这些参数派生出来的宏（如 SVCRT_MS_TO_TICK）不包，它不是配置项。
 * @note 本文件不包含任何芯片相关头文件，也不直接操作任何硬件寄存器。
 */
 
@@ -95,58 +98,102 @@
 /* ============================================================
  * 任务与调度相关参数
  * ============================================================ */
+#ifndef SVCRT_TASK_MAX_NUM
 #define SVCRT_TASK_MAX_NUM        (32)   /* 任务（含内核服务任务）上限；
                                           * 每个任务约 80 字节 TCB，调大时受
                                           * SVCRT_TASK_TABLE_RAM_MAX 预算约束 */
+#endif
+#ifndef SVCRT_TASK_TABLE_RAM_MAX
 #define SVCRT_TASK_TABLE_RAM_MAX  (1024 * 8)   /* 任务表 TCB 数组的 RAM 预算上限（字节） */
+#endif
+#ifndef SVCRT_TICK_PERIOD_US
 #define SVCRT_TICK_PERIOD_US      (500)
+#endif
+#ifndef SVCRT_EVENT_NUM
 #define SVCRT_EVENT_NUM           (10)
+#endif
+#ifndef SVCRT_MAX_EVENT_WAITERS
 #define SVCRT_MAX_EVENT_WAITERS   (4)
+#endif
 
 /* 信号量、互斥锁及其等待者数量 */
+#ifndef SVCRT_SEM_NUM
 #define SVCRT_SEM_NUM             (8)
+#endif
+#ifndef SVCRT_MTX_NUM
 #define SVCRT_MTX_NUM             (8)
+#endif
+#ifndef SVCRT_MAX_SYNC_WAITERS
 #define SVCRT_MAX_SYNC_WAITERS    (4)
+#endif
 
 #define SVCRT_MS_TO_TICK(ms)      ((ms) * 1000 / SVCRT_TICK_PERIOD_US)
 
 /* ============================================================
  * 设备框架最大设备数
  * ============================================================ */
+#ifndef SVCRT_DEV_MAX_NUM
 #define SVCRT_DEV_MAX_NUM         (8)
+#endif
 
 /* ============================================================
  * 消息队列配置
  * ============================================================ */
+#ifndef SVCRT_USE_MQ
 #define SVCRT_USE_MQ              1
+#endif
+#ifndef SVCRT_MQ_NUM
 #define SVCRT_MQ_NUM              (8)
+#endif
+#ifndef SVCRT_MQ_DEPTH
 #define SVCRT_MQ_DEPTH            (8)
+#endif
+#ifndef SVCRT_MQ_MSG_WORDS
 #define SVCRT_MQ_MSG_WORDS        (4)
+#endif
 
 /* ============================================================
  * 软定时器配置
  * ============================================================ */
+#ifndef SVCRT_USE_TIMER
 #define SVCRT_USE_TIMER           1
+#endif
+#ifndef SVCRT_TIMER_NUM
 #define SVCRT_TIMER_NUM           (8)
+#endif
+#ifndef SVCRT_TIMER_TASK_PRI
 #define SVCRT_TIMER_TASK_PRI      (200)
+#endif
+#ifndef SVCRT_TIMER_TASK_STACK_WORDS
 #define SVCRT_TIMER_TASK_STACK_WORDS  (96)
+#endif
 
 /* ============================================================
  * 故障记录与任务恢复配置
  * ============================================================ */
+#ifndef SVCRT_USE_FAULT_RECOVER
 #define SVCRT_USE_FAULT_RECOVER   1
+#endif
+#ifndef SVCRT_FAULT_RECORD_NUM
 #define SVCRT_FAULT_RECORD_NUM    (8)
+#endif
 
 /* ============================================================
  * CPU 负载统计开关
  * ============================================================ */
+#ifndef SVCRT_USE_CPU_LOAD
 #define SVCRT_USE_CPU_LOAD        1
+#endif
 
 /* ============================================================
  * 栈溢出检测开关与栈底标志值
  * ============================================================ */
+#ifndef SVCRT_USE_STACK_CHECK
 #define SVCRT_USE_STACK_CHECK     1
+#endif
+#ifndef SVCRT_STACK_END_FLAG
 #define SVCRT_STACK_END_FLAG      (0xed01)
+#endif
 
 /* ============================================================
  * 共享内存配置

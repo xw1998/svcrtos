@@ -292,13 +292,17 @@ svcrt_dev_write(h, &on, 1);            /* 点亮蓝灯 */
 
 | 参数名 | 默认值 | 说明 |
 |--------|--------|------|
-| `SVCRT_CPU_ARCH` | `SVCRT_ARCH_CORTEX_M4` | CPU 架构选择 |
-| `SVCRT_USE_FPU` | 1 (M4/M7) | 浮点单元使能 |
-| `SVCRT_USE_MPU` | 1 (M4/M7) | MPU 内存保护使能 |
-| `SVCRT_USE_PRIV` | 1 (依赖MPU) | 特权级分离使能 |
-| `SVCRT_TASK_MAX_NUM` | 7 | 最大任务数量 |
+| `SVCRT_CPU_ARCH` | 由架构头派生（本板 `SVCRT_ARCH_CORTEX_M4`） | CPU 架构选择 |
+| `SVCRT_USE_FPU` | 由架构派生，本板 1 | 浮点单元使能 |
+| `SVCRT_USE_MPU` | 由架构派生，本板 0 | MPU 内存保护使能（**未接线**，见 `kernelsrc/src/svcrt_mpu.c` 的 @warning） |
+| `SVCRT_USE_PRIV` | 依赖 `SVCRT_USE_MPU`，本板 0 | 特权级分离使能 |
+| `SVCRT_TASK_MAX_NUM` | 32 | 最大任务数量（受下一行 RAM 预算约束） |
+| `SVCRT_TASK_TABLE_RAM_MAX` | 8192 | TCB 数组的 RAM 预算上限（字节，超出则编译报错） |
 | `SVCRT_TICK_PERIOD_US` | 500 | 滴答周期（微秒） |
 | `SVCRT_EVENT_NUM` | 10 | 事件对象数量 |
+| `SVCRT_MAX_EVENT_WAITERS` | 4 | 单个事件的等待者上限 |
+| `SVCRT_SEM_NUM` / `SVCRT_MTX_NUM` | 8 / 8 | 信号量 / 互斥锁对象数量 |
+| `SVCRT_MAX_SYNC_WAITERS` | 4 | 单个信号量/互斥锁的等待者上限 |
 | `SVCRT_DEV_MAX_NUM` | 8 | 最大设备数量 |
 | `SVCRT_USE_SPINLOCK` | 1 | 自旋锁开关（svcrt_spin.h） |
 | `SVCRT_USE_SCHED_LOCK` | 1 | 用户态调度器锁开关（SVC 0x11 子命令 7~9） |
@@ -315,6 +319,7 @@ svcrt_dev_write(h, &on, 1);            /* 点亮蓝灯 */
 | `SVCRT_TIMER_TASK_STACK_WORDS` | 96 | 定时器服务任务栈大小（字） |
 | `SVCRT_USE_FAULT_RECOVER` | 1 | 任务故障自动恢复开关 |
 | `SVCRT_FAULT_RECORD_NUM` | 8 | 故障记录环形缓冲容量 |
+| `SVCRT_USE_STACK_CHECK` / `SVCRT_STACK_END_FLAG` | 1 / 0xed01 | 栈溢出检测开关与栈底保护字 |
 
 ## API 文档
 
