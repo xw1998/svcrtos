@@ -55,6 +55,11 @@ void svcrt_ptable_init(void)
         pt->slot_task_id[i]  = 0;
         pt->slot_crash_cnt[i] = 0;
     }
+
+    pt->driver_state     = SVCRT_APP_SLOT_EMPTY;
+    pt->driver_entry     = 0;
+    pt->driver_task_id   = 0;
+    pt->driver_crash_cnt = 0;
 }
 
 svcrt_partition_table_t *svcrt_ptable_get(void)

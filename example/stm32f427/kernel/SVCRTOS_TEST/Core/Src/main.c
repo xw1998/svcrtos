@@ -345,6 +345,12 @@ static void svcrt_kernel_init(void)
 
     /* 扫描槽位：把 Flash 中已存在且校验通过的 App 镜像认定为可启动，
      * 使“先烧录镜像、再上电运行”的最小闭环成立 */
+    /* 驱动区：先于 App 扫描并启动（驱动优先级更高，App 依赖的驱动服务应先就绪） */
+    if((svcrt_loader_scan_driver() > 0u) && (DRIVER_AUTO_START != 0))
+    {
+        svcrt_loader_start_driver();
+    }
+
     if((svcrt_loader_scan() > 0u) && (APP_AUTO_START != 0))
     {
         svcrt_loader_start(0u);

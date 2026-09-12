@@ -31,6 +31,8 @@
 /* 分区容量必须装得下任务栈：编译期就把配置错误暴露出来 */
 typedef char svcrt_loader_app_stack_check[
     (APP_TASK_STACK_SIZE <= APP_RAM_SIZE) ? 1 : -1];
+typedef char svcrt_loader_driver_stack_check[
+    (DRIVER_TASK_STACK_SIZE <= DRIVER_RAM_SIZE) ? 1 : -1];
 
 /* 设备流式加载的分块缓冲 */
 static uint8  svcrt_loader_chunk[SVCRT_LOADER_CHUNK_SIZE];
@@ -351,6 +353,58 @@ int32 svcrt_loader_load_dev_hdr(int32 dev, const svcrt_app_header_t *p_hdr, uint
     return (int32)slot;
 }
 
+/* 认定一段分区内的内容，得到一个可用入口。
+ * 支持两种共存的格式：
+ *   1) 安装路径：带 256 字节头 + CRC32 的 .svcapp，入口 = 基址 + entry_offset；
+ *   2) 开发路径：Keil 直接下载的裸镜像（无镜像头），入口 = 分区基址（ARM 置 Thumb 位）。
+ *      开发期靠它保住“固定地址烧录 + MDK 下断点调试”的闭环；
+ *      发布固件时应把 APP_ALLOW_RAW_IMAGE 关掉，只接受 .svcapp。
+ * 返回 0=有效（*out_entry 为入口），-1=空或无效。 */
+static int32 svcrt_loader_identify(uint32 region_base, uint32 region_size, uint32 *out_entry)
+{
+    const svcrt_app_header_t *p_hdr = (const svcrt_app_header_t *)region_base;
+    uint32 total;
+
+    if(p_hdr->magic == SVCRT_APP_MAGIC)
+    {
+        if((p_hdr->hw_compat_id != SVCRT_HW_COMPAT_ID) || (p_hdr->image_size == 0u))
+        {
+            return -1;
+        }
+
+        total = SVCRT_APP_HEADER_SIZE + p_hdr->image_size;
+        if(total > region_size)
+        {
+            return -1;
+        }
+
+        /* Flash 已映射，直接按地址复算 CRC */
+        if(svcrt_loader_image_crc((const uint8 *)p_hdr, total) != p_hdr->crc32)
+        {
+            return -1;
+        }
+
+        *out_entry = svcrt_loader_entry_addr(region_base, p_hdr->entry_offset);
+        return 0;
+    }
+
+    /* 非镜像头：擦除态（0xFFFFFFFF）或全零视为空 */
+    if((p_hdr->magic == 0xFFFFFFFFu) || (p_hdr->magic == 0x00000000u))
+    {
+        return -1;
+    }
+
+    #if (APP_ALLOW_RAW_IMAGE == 1)
+    *out_entry = region_base;
+    #if (SVCRT_ARCH_IS_ARM == 1)
+    *out_entry |= 1u;               /* Cortex-M：Thumb 指令集标志位 */
+    #endif
+    return 0;
+    #else
+    return -1;
+    #endif
+}
+
 uint32 svcrt_loader_scan(void)
 {
     svcrt_partition_table_t *pt = svcrt_ptable_get();
@@ -359,42 +413,86 @@ uint32 svcrt_loader_scan(void)
 
     for(i = 0u; i < pt->app_max_count && i < 8u; i++)
     {
-        const svcrt_app_header_t *p_hdr =
-            (const svcrt_app_header_t *)(pt->app_user_base + i * pt->app_slot_size);
-        uint32 total;
+        uint32 base = pt->app_user_base + i * pt->app_slot_size;
+        uint32 entry;
 
-        if(p_hdr->magic != SVCRT_APP_MAGIC)
+        if(svcrt_loader_identify(base, pt->app_slot_size, &entry) == 0)
         {
-            continue;                           /* 空槽位：Flash 为擦除值 0xFF */
+            svcrt_ptable_set_slot(i, SVCRT_APP_SLOT_LOADED, entry, 0u);
+            found++;
         }
-
-        if((p_hdr->hw_compat_id != SVCRT_HW_COMPAT_ID) || (p_hdr->image_size == 0u))
+        else if(((const svcrt_app_header_t *)base)->magic != 0xFFFFFFFFu)
         {
+            /* 有内容但认定失败：标记为不可用，避免被误启动 */
             svcrt_ptable_set_slot(i, SVCRT_APP_SLOT_INVALID, 0u, 0u);
-            continue;
         }
-
-        total = SVCRT_APP_HEADER_SIZE + p_hdr->image_size;
-        if(total > pt->app_slot_size)
-        {
-            svcrt_ptable_set_slot(i, SVCRT_APP_SLOT_INVALID, 0u, 0u);
-            continue;
-        }
-
-        /* Flash 已映射，直接按地址复算 CRC */
-        if(svcrt_loader_image_crc((const uint8 *)p_hdr, total) != p_hdr->crc32)
-        {
-            svcrt_ptable_set_slot(i, SVCRT_APP_SLOT_INVALID, 0u, 0u);
-            continue;
-        }
-
-        svcrt_ptable_set_slot(i, SVCRT_APP_SLOT_LOADED,
-                              svcrt_loader_entry_addr(pt->app_user_base + i * pt->app_slot_size,
-                                                      p_hdr->entry_offset), 0u);
-        found++;
     }
 
     return found;
+}
+
+uint32 svcrt_loader_scan_driver(void)
+{
+    svcrt_partition_table_t *pt = svcrt_ptable_get();
+    uint32 entry;
+
+    if(svcrt_loader_identify(pt->driver_pool_base, pt->driver_pool_size, &entry) == 0)
+    {
+        pt->driver_entry = entry;
+        pt->driver_state = SVCRT_APP_SLOT_LOADED;
+        return 1u;
+    }
+
+    if(((const svcrt_app_header_t *)pt->driver_pool_base)->magic != 0xFFFFFFFFu)
+    {
+        pt->driver_entry = 0u;
+        pt->driver_state = SVCRT_APP_SLOT_INVALID;
+    }
+
+    return 0u;
+}
+
+int32 svcrt_loader_start_driver(void)
+{
+    svcrt_partition_table_t *pt = svcrt_ptable_get();
+    uint32 stack_bottom;
+    int32 task_id;
+
+    if(pt->driver_state != SVCRT_APP_SLOT_LOADED)
+    {
+        return SVCRT_LOADER_ERR_STATE;
+    }
+
+    if(pt->driver_entry == 0u)
+    {
+        return SVCRT_LOADER_ERR_STATE;
+    }
+
+    /* 与 App 同一套路：栈从驱动 RAM 区顶部切出，App 端 .sct 的 ARM_LIB_STACK
+     * 指向同一地址（见 gen_scatter.py 的 driver target）。 */
+    stack_bottom = (DRIVER_RAM_BASE + DRIVER_RAM_SIZE) - DRIVER_TASK_STACK_SIZE;
+
+    task_id = svcrt_task_register((void (*)(void))pt->driver_entry,
+                                  (uint32 *)stack_bottom,
+                                  (uint32)DRIVER_TASK_STACK_SIZE,
+                                  (uint8)DRIVER_TASK_PRIORITY,
+                                  (uint32)DRIVER_TASK_PERIOD_MS);
+    if(task_id <= 0)
+    {
+        return SVCRT_LOADER_ERR_TASK;
+    }
+
+    svcrt_task_table[task_id - 1].ram_start = DRIVER_RAM_BASE;
+    svcrt_task_table[task_id - 1].ram_size  = DRIVER_RAM_SIZE;
+    svcrt_task_table[task_id - 1].rom_start = pt->driver_pool_base;
+    svcrt_task_table[task_id - 1].rom_size  = pt->driver_pool_size;
+
+    pt->driver_task_id = (uint32)task_id;
+    pt->driver_state   = SVCRT_APP_SLOT_RUNNING;
+
+    svcrt_sched_activate_higher((uint8)DRIVER_TASK_PRIORITY);
+
+    return task_id;
 }
 
 int32 svcrt_loader_on_fault(int32 task_id)
@@ -438,7 +536,29 @@ int32 svcrt_loader_on_fault(int32 task_id)
         return 0;       /* 未达上限：由调用方安排恢复（重启该 App） */
     }
 
-    return -1;          /* 不属于任何 App 槽位（内核任务）：沿用默认处理 */
+    if(pt->driver_task_id == (uint32)task_id)
+    {
+        pt->driver_crash_cnt++;
+
+        #if (APP_CRASH_RESTART_MAX > 0)
+        if(pt->driver_crash_cnt >= (uint32)APP_CRASH_RESTART_MAX)
+        {
+            SVCRT_DISABLE_IRQ();
+            svcrt_task_table[task_id - 1].recover_pending = 0u;
+            svcrt_task_table[task_id - 1].status          = SVCRT_TASK_INVALID;
+            SVCRT_ENABLE_IRQ();
+
+            pt->driver_state   = SVCRT_APP_SLOT_INVALID;
+            pt->driver_task_id = 0u;
+            svcrt_fault_record(SVCRT_FAULT_APPDISABLED, task_id);
+            return 1;
+        }
+        #endif
+
+        return 0;
+    }
+
+    return -1;          /* 不属于任何 App 槽位/驱动区（内核任务）：沿用默认处理 */
 }
 
 int32 svcrt_loader_start(uint32 slot)

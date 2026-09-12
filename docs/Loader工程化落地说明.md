@@ -150,6 +150,30 @@ App 任务发生 HardFault 时，原有逻辑是**无条件重建栈帧重启**�
 芯片侧最划算的做法是 **RTC 备份寄存器**（STM32F427 有 20 个 4 字节备份寄存器，
 跨复位与掉电保持，且无 Flash 写损耗），后续可作为板级接口接入。
 
+## 5.4 两条并存的路径：开发调试 vs 发布安装
+
+**开发期「固定地址烧录 + MDK 下断点调试」是硬需求，不能被安装流程取代。**
+两条路用的是**同一个链接基址**（都源于 `config/svcrt_partition.h`），因此调试态与发布态的代码布局完全一致。
+
+| | 开发调试路径 | 发布/安装路径 |
+|---|---|---|
+| 产物 | 裸镜像（`.axf` / `.bin`，无镜像头） | `.svcapp`（256B 头 + CRC32） |
+| 落位 | Keil 直接 Download 到分区固定地址 | 安装任务经 COM1 流式写入 |
+| 入口 | 分区基址（\|1，即 `APPSTART`） | 基址 + `entry_offset` |
+| 校验 | 无（开发期不逐镜像校验） | 魔数 + 硬件兼容签名 + CRC32 |
+| App | APP_DEMO / BLED_APP 工程直接编译调试 | 打包后由安装任务写入 |
+| 驱动 | BLED_DRV / DRV_DEMO 工程直接编译调试 | 待支持 |
+
+实现方式：`svcrt_loader_identify()` 对同一个分区先试「带头 .svcapp」，不成立再看是不是擦除态；
+不是擦除态且 `APP_ALLOW_RAW_IMAGE = 1` 时，当作开发期裸镜像，入口取分区基址。
+
+- **开发期**：`APP_ALLOW_RAW_IMAGE = 1`（默认）—— 直接用 Keil 下载到 `0x08080000` / `DRIVER_POOL` 即可下断点调试
+- **发布固件**：把 `APP_ALLOW_RAW_IMAGE` 置 0 —— 只接受带镜像头的 `.svcapp`，裸镜像会被判为 `INVALID`
+- 驱动区同样支持：`svcrt_loader_scan_driver()` / `svcrt_loader_start_driver()`，
+  栈从 `DRIVER_RAM` 顶部切出，参数取 `DRIVER_TASK_*`
+
+> 调试时建议同时关掉 `APP_AUTO_START` / `INSTALLER_ENABLE`，避免内核在调试会话中抢先启动槽位。
+
 ## 6. 硬编码清理
 
 `example/.../SVCRTOS_TEST/Core/Src/main.c` 中：

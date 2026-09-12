@@ -60,6 +60,21 @@ int32 svcrt_loader_load_dev(int32 dev, uint32 image_len);
 uint32 svcrt_loader_scan(void);
 
 /**
+* @brief 扫描驱动区（DRIVER_POOL），认定其中的驱动镜像
+* @return 1=驱动镜像有效且可启动，0=无有效驱动
+* @details 与 App 槽位共用同一套认定规则：带头的 .svcapp 或开发期裸镜像。
+*/
+uint32 svcrt_loader_scan_driver(void);
+
+/**
+* @brief 启动驱动区的驱动（单驱动：DRIVER_POOL 内一个入口）
+* @return 成功返回任务号（>0），失败返回 SVCRT_LOADER_ERR_x
+* @details 栈从 DRIVER_RAM 区顶部切出（与 App 同一套路），
+*          参数取 DRIVER_TASK_PRIORITY / STACK_SIZE / PERIOD_MS。
+*/
+int32 svcrt_loader_start_driver(void);
+
+/**
 * @brief 从设备流式加载（镜像头已由调用方读出）
 * @param dev       已打开的设备句柄，位置正好在镜像头之后
 * @param p_hdr     已读出的镜像头（调用方已完成魔数同步）

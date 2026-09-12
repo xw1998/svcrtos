@@ -62,6 +62,12 @@ typedef struct {
     uint32 slot_entry[8];       /* 每个槽位 App 的入口地址（0 表示无效） */
     uint32 slot_task_id[8];     /* 每个槽位 App 对应的任务号（0 表示未启动） */
     uint32 slot_crash_cnt[8];   /* 每个槽位的连续故障重启次数（达上限则禁用该 App） */
+
+    /* ---- 驱动区运行期状态（单驱动：DRIVER_POOL 内一个入口） ---- */
+    uint32 driver_state;        /* SVCRT_APP_SLOT_x */
+    uint32 driver_entry;        /* 驱动入口地址（0 表示无效） */
+    uint32 driver_task_id;      /* 驱动任务号（0 表示未启动） */
+    uint32 driver_crash_cnt;    /* 驱动连续故障重启次数 */
 } svcrt_partition_table_t;
 
 #endif /* __SVCRT_SHARE_H__ */
