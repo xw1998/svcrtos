@@ -331,8 +331,17 @@ void svcrt_hardfault_handler(void)
     {
         svcrt_fault_record(SVCRT_FAULT_HARDFAULT, svcrt_current_task_id);
         #if (SVCRT_USE_FAULT_RECOVER == 1)
-        /* 任务级故障恢复：重建栈帧并重新调度，等效于任务复位重启 */
-        svcrt_task_recover(svcrt_current_task_id);
+        /* 任务级故障恢复：重建栈帧并重新调度，等效于任务复位重启。
+         * 但连续故障达到 APP_CRASH_RESTART_MAX 的 App 会被禁用（不再重启），
+         * 避免一个坏应用把整机拖进“崩溃-重启”死循环。 */
+        if(svcrt_loader_on_fault(svcrt_current_task_id) != 0)
+        {
+            SVCRT_SWITCH_TASK();
+        }
+        else
+        {
+            svcrt_task_recover(svcrt_current_task_id);
+        }
         #else
         svcrt_task_table[svcrt_current_task_id - 1].status = SVCRT_TASK_INVALID;
         SVCRT_SWITCH_TASK();

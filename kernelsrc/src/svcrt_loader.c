@@ -22,6 +22,7 @@
 #include "svcrt_dev.h"
 #include "svcrt_cfg.h"
 #include "svcrt_task.h"
+#include "svcrt_fault.h"
 #include "svcrt_partition.h"    /* 内核专属：读取槽位 / 任务运行参数 */
 
 /* 设备流式加载的分块缓冲（避免整镜像驻留 RAM） */
@@ -226,6 +227,9 @@ int32 svcrt_loader_load_buffer(const uint8 *image, uint32 image_len)
         return SVCRT_LOADER_ERR_CRC;
     }
 
+    /* 新镜像写入成功：清零故障计数（重新安装 = 重新开始） */
+    pt->slot_crash_cnt[slot] = 0u;
+
     svcrt_ptable_set_slot(slot, SVCRT_APP_SLOT_LOADED,
                           svcrt_loader_entry_addr(slot_base, p_hdr->entry_offset), 0u);
 
@@ -338,6 +342,9 @@ int32 svcrt_loader_load_dev_hdr(int32 dev, const svcrt_app_header_t *p_hdr, uint
         return SVCRT_LOADER_ERR_CRC;
     }
 
+    /* 新镜像写入成功：清零故障计数（重新安装 = 重新开始） */
+    pt->slot_crash_cnt[slot] = 0u;
+
     svcrt_ptable_set_slot(slot, SVCRT_APP_SLOT_LOADED,
                           svcrt_loader_entry_addr(slot_base, hdr.entry_offset), 0u);
 
@@ -388,6 +395,50 @@ uint32 svcrt_loader_scan(void)
     }
 
     return found;
+}
+
+int32 svcrt_loader_on_fault(int32 task_id)
+{
+    svcrt_partition_table_t *pt = svcrt_ptable_get();
+    uint32 i;
+
+    if(task_id <= 0)
+    {
+        return -1;
+    }
+
+    for(i = 0u; i < pt->app_max_count && i < 8u; i++)
+    {
+        if(pt->slot_task_id[i] != (uint32)task_id)
+        {
+            continue;
+        }
+
+        pt->slot_crash_cnt[i]++;
+
+        #if (APP_CRASH_RESTART_MAX > 0)
+        if(pt->slot_crash_cnt[i] >= (uint32)APP_CRASH_RESTART_MAX)
+        {
+            /* 连续故障达到上限：禁用该 App —— 不再重启，并让它脱离调度。
+             * 槽位置 INVALID（而非 EMPTY），以便宿主/上位机通过 svcrt_app_status()
+             * 区分“被禁用的应用”与“空槽位”；重新安装即可清零计数、重新启用。 */
+            SVCRT_DISABLE_IRQ();
+            svcrt_task_table[task_id - 1].recover_pending = 0u;
+            svcrt_task_table[task_id - 1].status          = SVCRT_TASK_INVALID;
+            SVCRT_ENABLE_IRQ();
+
+            svcrt_ptable_set_slot(i, SVCRT_APP_SLOT_INVALID, pt->slot_entry[i], 0u);
+
+            /* 记一条可诊断的故障：上位机可用 svcrt_fault_record_read() 看到“被禁用”的原因 */
+            svcrt_fault_record(SVCRT_FAULT_APPDISABLED, task_id);
+            return 1;
+        }
+        #endif
+
+        return 0;       /* 未达上限：由调用方安排恢复（重启该 App） */
+    }
+
+    return -1;          /* 不属于任何 App 槽位（内核任务）：沿用默认处理 */
 }
 
 int32 svcrt_loader_start(uint32 slot)

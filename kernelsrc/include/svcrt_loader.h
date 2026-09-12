@@ -71,6 +71,19 @@ uint32 svcrt_loader_scan(void);
 int32 svcrt_loader_load_dev_hdr(int32 dev, const svcrt_app_header_t *p_hdr, uint32 image_len);
 
 /**
+* @brief 按“崩溃重启上限”策略处理 App 任务故障
+* @param task_id 发生故障的任务号
+* @return 1=已达上限并已禁用该 App，0=未达上限（调用方应恢复/重启该 App），
+*         -1=不属于任何 App 槽位（内核任务，调用方沿用默认处理）
+* @details 计数按槽位累计：故障一次加一，达到 APP_CRASH_RESTART_MAX 后
+*          将该槽位置为 INVALID 并让任务脱离调度（不再重启）。
+*          重新安装镜像时计数清零。
+* @note 计数保存在共享 RAM，掉电即清零，因此当前可挡住“App 反复崩溃重启”，
+*       但擋不住“崩溃导致整机复位”的启动环——那需要把计数持久化（如备份寄存器）。
+*/
+int32 svcrt_loader_on_fault(int32 task_id);
+
+/**
 * @brief 把已加载的槽位拉起为任务
 * @param slot 槽位号
 * @return 成功返回任务号（>0），失败返回 SVCRT_LOADER_ERR_x

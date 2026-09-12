@@ -50,9 +50,10 @@ void svcrt_ptable_init(void)
 
     for(i = 0; i < 8u; i++)
     {
-        pt->slot_state[i]   = SVCRT_APP_SLOT_EMPTY;
-        pt->slot_entry[i]   = 0;
-        pt->slot_task_id[i] = 0;
+        pt->slot_state[i]    = SVCRT_APP_SLOT_EMPTY;
+        pt->slot_entry[i]    = 0;
+        pt->slot_task_id[i]  = 0;
+        pt->slot_crash_cnt[i] = 0;
     }
 }
 

@@ -127,6 +127,29 @@ stack_bottom = stack_top - APP_TASK_STACK_SIZE
 掉电安全：写入期间槽位为 **`INSTALLING`**，只有全部写完且 CRC 复核通过才置 `LOADED`；
 中断安装留下的半成品会被 `svcrt_loader_scan()` 依 CRC 判为 `INVALID`，不会被启动。
 
+## 5.3 故障围栏：崩溃重启上限（3 次后禁用）
+
+App 任务发生 HardFault 时，原有逻辑是**无条件重建栈帧重启**（两阶段恢复：`svcrt_task_recover()` 先脱离调度，
+`svcrt_task_recover_pending()` 下次调度扫描时重建栈帧），一个持续崩溃的应用会把整机拖进“崩溃-重启”死循环。
+现按策略收敛：
+
+```
+故障 → 计数 +1
+  ├─ 未达 APP_CRASH_RESTART_MAX  → 重启该 App（沿用两阶段恢复）
+  └─ 达到上限                    → 禁用该 App：槽位置 INVALID、任务脱离调度、不再重启
+```
+
+- 策略项：`APP_CRASH_RESTART_MAX`（默认 3，0 表示不限次自动重启），位于 `config/svcrt_partition.h`
+- 计数存放在分区表的 `slot_crash_cnt[8]`，**按槽位累计**；重新安装镜像时清零
+- 禁用时额外记一条 `SVCRT_FAULT_APPDISABLED(6)`，上位机可用 `svcrt_fault_record_read()` 查到原因
+- 槽位置为 `INVALID` 而不是 `EMPTY`，宿生可通过 `svcrt_app_status()` 区分“被禁用的应用”与“空槽位”
+- 内核任务（不属于任何槽位）返回 `-1`，沿用默认处理，不受该策略影响
+
+**边界（重要）**：计数保存在共享 RAM，掉电即清零。因此它能挡住“App 反复崩溃重启”，
+但挡不住“崩溃导致整机复位”的启动环。要彻底堵住启动环，需把计数持久化——
+芯片侧最划算的做法是 **RTC 备份寄存器**（STM32F427 有 20 个 4 字节备份寄存器，
+跨复位与掉电保持，且无 Flash 写损耗），后续可作为板级接口接入。
+
 ## 6. 硬编码清理
 
 `example/.../SVCRTOS_TEST/Core/Src/main.c` 中：
@@ -184,7 +207,9 @@ python tools/pack_app.py --verify build/APP_DEMO/APP_DEMO.svcapp
    当前内核未读取该表（真实布局由 `.sct` 决定），建议后续改为由分区头派生或直接移除；
 6. 槽位状态仍只存在于共享 RAM，掉电即丢失（`svcrt_loader_scan()` 可依 CRC 重新认定，`INSTALLING` 也靠它兜住），
    但版本/回滚等运行期状态无法持久化——需要把槽位元数据持久化到 Flash。
-7. **SVC 边界仍非零信任**：内核当前仍直接解引用用户传入的指针（`p = (uint32 *)SVCRT_SVC_ARG(...)`），
+7. **故障围栏已完成“重启上限”一档**；尚需补：关键结构 magic/CRC 自检、独立看门狗（挡住 App 关中断/死循环）
+8. **SVC 边界仍非零信任**：内核当前仍直接解引用用户传入的指针（`p = (uint32 *)SVCRT_SVC_ARG(...)`），
    且对象句柄是裸索引、没有归属校验。这是无 MPU 平台唯一能拿到的“软件保护域”，应作为下一步重点。
-8. 驱动镜像尚未纳入加载/安装路径（`svcrt_loader_*` 目前只处理 App 槽位）。
-9. 上述 `.sct` 改动尚未在 Keil 里做过一次真实构建，需在板上验证后方可视为定稿。
+9. 驱动镜像尚未纳入加载/安装路径（`svcrt_loader_*` 目前只处理 App 槽位）。
+10. 崩溃计数尚未持久化（需板级备份寄存器或 Flash 元数据），启动环仍挡不住。
+11. 上述 `.sct` 改动尚未在 Keil 里做过一次真实构建，需在板上验证后方可视为定稿。

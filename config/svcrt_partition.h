@@ -50,6 +50,7 @@
 #define APP_TASK_STACK_SIZE  (1024 * 4)      /* App 任务栈大小（字节） */
 #define APP_TASK_PERIOD_MS   1000            /* App 任务周期（ms） */
 #define APP_AUTO_START       1               /* 上电扫描到有效 App 镜像后是否自动启动（1=自动） */
+#define APP_CRASH_RESTART_MAX 3              /* 连续故障重启上限：达到后禁用该 App 槽位（0=不限次自动重启） */
 
 /* 驱动区：驱动任务运行参数（栈同样从 DRIVER_RAM 区顶部切出，由内核推导） */
 #define DRIVER_TASK_PRIORITY    9                /* 驱动任务优先级（默认高于 App） */

@@ -17,7 +17,8 @@ typedef enum {
     SVCRT_FAULT_STACKOVF  = 2,      /* 任务栈溢出 */
     SVCRT_FAULT_TASKKILL  = 3,      /* 任务被终止 */
     SVCRT_FAULT_RECOVER   = 4,      /* 任务故障恢复 */
-    SVCRT_FAULT_SCHEDLOCK = 5       /* 调度器锁定期间调用阻塞接口（编程错误） */
+    SVCRT_FAULT_SCHEDLOCK = 5,      /* 调度器锁定期间调用阻塞接口（编程错误） */
+    SVCRT_FAULT_APPDISABLED = 6     /* App 连续故障达上限被禁用（不再重启） */
 } svcrt_fault_type_t;
 
 /* 单条故障记录（3 个字，与 svcrt_fault_record_read 的 out3 对应） */
