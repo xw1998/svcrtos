@@ -1045,6 +1045,10 @@ static void svcrt_task_recover_mark(int32 task_id)
     svcrt_task_release_resources(task_id);
 
     SVCRT_DISABLE_IRQ();
+    /* 自身优先级按基准复位：故障时它可能正被继承提升，
+     * 而收尸已把它从所有等待关系里摘除，若不复位，恢复后它会带着
+     * 提升来的高优先级一直运行。 */
+    p_task->priority        = p_task->base_priority;
     p_task->recover_pending = 1;
     p_task->status          = SVCRT_TASK_INVALID;
     SVCRT_ENABLE_IRQ();

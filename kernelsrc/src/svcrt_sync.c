@@ -192,10 +192,26 @@ static void svcrt_mtx_propagate(void)
     }
 }
 
-/* 兼容旧调用点：按锁 idx 的持有者重算优先级（内部为上面那个全局重算） */
+/* 等待者退出（超时/参数错误/被杀）后回收优先级继承。
+ * 这里必须“全量重算所有 owner + 重新传播”，不能只重算该锁的直接 owner：
+ * 链式提升会把优先级传递给链上的中间持有者（T1 等 T2 的 M1、T2 又在等
+ * T3 的 M2 时 T3 也会被提升），只重算 T2 会让 T3 永久滞留在被提升的优先级。
+ * 全量重算先把所有人拉回基准，再按当前等待关系重新建立合法的继承。 */
 static void svcrt_mtx_recalc_priority(int32 idx)
 {
-    svcrt_mtx_recalc_task_priority(svcrt_mtxs[idx].owner);
+    int32 i;
+
+    (void)idx;                          /* 全量回收，不依赖具体是哪把锁 */
+
+    for(i = 0; i < SVCRT_MTX_NUM; i++)
+    {
+        if(svcrt_mtxs[i].used != 0)
+        {
+            svcrt_mtx_recalc_task_priority(svcrt_mtxs[i].owner);
+        }
+    }
+
+    svcrt_mtx_propagate();
 }
 
 /* 把等待队列里的任务全部唤醒（用于对象被删除等“等待目标已消失”的场景）。
