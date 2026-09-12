@@ -37,6 +37,5 @@ void  svcrt_fault_module_init(void);
 void  svcrt_fault_record(uint32 type, int32 task_id);
 const svcrt_fault_record_t *svcrt_fault_record_get(int32 index);   /* index 从 0 开始，越界返回 0 */
 int32 svcrt_fault_record_count_internal(void);
-int32 svcrt_fault_record_read_internal(int32 index, uint32 *out3);
 
 #endif

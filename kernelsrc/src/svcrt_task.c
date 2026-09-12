@@ -651,12 +651,6 @@ void svcrt_task_delay_internal(uint32 us)
     svcrt_port_delay_us(us);
 }
 
-void svcrt_sched_switch(void)
-{
-    SVCRT_SWITCH_TASK();
-    SVCRT_WFE();
-}
-
 void svcrt_task_kill_internal(void)
 {
     if(svcrt_current_task_id > 0)

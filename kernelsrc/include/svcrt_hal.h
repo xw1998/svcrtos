@@ -231,12 +231,6 @@ void svcrt_port_board_init(void);
 void svcrt_port_irq_init(void);
 
 /**
-* @brief FPU使能
-* @details 当 SVCRT_USE_FPU=1 时由port层实现
-*/
-void svcrt_port_enable_fpu(void);
-
-/**
 * @brief 设置空闲任务MPU区域
 * @details 当 SVCRT_USE_MPU=1 时由port层实现
 * @param task_func 任务函数地址

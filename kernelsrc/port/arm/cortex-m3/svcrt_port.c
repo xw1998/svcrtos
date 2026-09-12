@@ -264,9 +264,6 @@ __weak void svcrt_port_irq_init(void)
     NVIC_SetPriority(SVCall_IRQn,  0x01);
 }
 
-__weak void svcrt_port_enable_fpu(void)
-{
-}
 
 __weak void svcrt_port_set_idle_mpu(uint32 task_func, uint32 stack_addr, uint32 stack_size)
 {

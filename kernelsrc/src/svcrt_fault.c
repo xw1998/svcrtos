@@ -64,20 +64,3 @@ int32 svcrt_fault_record_count_internal(void)
 {
     return svcrt_fault_total;
 }
-
-int32 svcrt_fault_record_read_internal(int32 index, uint32 *out3)
-{
-    const svcrt_fault_record_t *p_rec;
-
-    if(out3 == 0)
-        return -1;
-
-    p_rec = svcrt_fault_record_get(index);
-    if(p_rec == 0)
-        return -1;
-
-    out3[0] = p_rec->type;
-    out3[1] = (uint32)p_rec->task_id;
-    out3[2] = p_rec->tick;
-    return 0;
-}

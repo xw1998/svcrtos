@@ -6,7 +6,8 @@
 *          （见 svcrt_ptable.h），本模块不硬编码任何地址。
 *
 *          支持两种来源：
-*          1) 内存缓冲区（svcrt_loader_load_buffer）——调试 / 自测最快路径；
+*          1) 内存缓冲区（svcrt_loader_load_buffer）——预留给内核自测 / 后续 OTA 复用；
+*             ⚠ 当前内核内没有任何调用者（安装走设备流式路径），改动时勿据此判断其可用性；
 *          2) 设备流式读取（svcrt_loader_load_dev）——从 UART / SD 等设备接收。
 *
 * @note 本文件属于内核内部接口；对外经 SVC 0x18（APP_MGR）暴露给用户态。
