@@ -38,8 +38,17 @@ typedef struct {
     uint32 crc32;               /* 镜像校验值 */
 
     uint8  signature[64];       /* 预留：数字签名 */
-    uint8  reserved[192];       /* 预留：填充至 256 字节 */
+    uint8  reserved[160];       /* 预留：填充至 256 字节 */
 } svcrt_app_header_t;
+
+/**
+* @brief 镜像头尺寸静态校验
+* @details 头结构与 SVCRT_APP_HEADER_SIZE 必须严格一致：打包工具与 Loader 分别按
+*          “结构体布局”和“固定长度宏”解释镜像，一旦不一致就会静默错位。
+*          此断言让不一致在编译期直接暴露。
+*/
+typedef char svcrt_app_header_size_check[
+    (sizeof(svcrt_app_header_t) == SVCRT_APP_HEADER_SIZE) ? 1 : -1];
 
 #if (defined(__cplusplus))
 extern "C" {

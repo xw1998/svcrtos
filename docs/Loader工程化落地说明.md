@@ -10,6 +10,7 @@
 |---|---|
 | `config/svcrt_partition.h` | 全工程唯一地址源头：芯片 4 参数 + 分区策略 + 全部派生地址 |
 | `tools/gen_scatter.py` | 由配置头生成各工程 `.sct`，支持 `--target/--output/--check/--dump/--header` |
+| `tools/pack_app.py` | 把 Keil 的 `.axf`/`.bin` 打包为 `.svcapp`（256 字节头 + CRC32），支持 `--info/--verify` |
 | `kernelsrc/include/svcrt_share.h` | 共享内存分区表结构（运行期接口，运行于 Loader/App 亦可读） |
 | `kernelsrc/include/svcrt_app_image.h` | App 镜像 256 字节头 + CRC32 声明 |
 | `kernelsrc/include/svcrt_ptable.h` / `src/svcrt_ptable.c` | 分区表运行期初始化与槽位状态维护 |
@@ -105,9 +106,40 @@ Loader / App 工程**不包含** `config/svcrt_partition.h`，布局经 SVC 0x18
 - 脚本验收：`gen_scatter.py --check/--dump` 通过；改 `CHIP_FLASH_SIZE` 为 2MB 后 `APP_SLOT0` 自动变 1536KB；
 - 5 个 `.uvprojx` 经 XML 解析校验合法。
 
-## 8. 遗留待办
+## 8. 镜像打包工具（`tools/pack_app.py`）
 
-1. **打包工具 `tools/pack_app.py` 尚未实现**：需把 App 工程的 `.axf/.bin` 转换为带 256 字节头与 CRC 的 `.svcapp` 镜像，Loader 才有可加载物；
-2. `board/stm32f427/svcrt_board_config.h` 中 `SVCRT_SHARE_MEM_ADDR = 0x20028000` 为旧值且已超出 128KB RAM，当前内核未引用该宏（分区表现在由 `SHARE_RAM_BASE` 决定），建议后续统一清理；
+把 App / 驱动工程的编译产物打包成 Loader 可加载的 `.svcapp`。地址、槽位容量、
+`hw_compat_id` 全部由 `config/svcrt_partition.h` 推导，不硬编码。
+
+```bash
+# 由 .axf 打包（推荐，自动从符号表解析入口偏移）
+python tools/pack_app.py --axf build/APP_DEMO/APP_DEMO.axf \
+    --type app --version 1.0.0 --name "LED 闪烁示例" --out build/APP_DEMO/APP_DEMO.svcapp
+
+# 由 .bin 打包（需显式给出入口偏移）
+python tools/pack_app.py --bin build/BLED_DRV/bled_drv.bin \
+    --type driver --version 1.0.0 --entry-offset 0x0 --out build/BLED_DRV/BLED_DRV.svcapp
+
+# 查看 / 校验
+python tools/pack_app.py --info   build/APP_DEMO/APP_DEMO.svcapp
+python tools/pack_app.py --verify build/APP_DEMO/APP_DEMO.svcapp
+```
+
+**入口符号约定**：镜像入口是「任务型函数」（内部循环调用 `svcrt_task_wait` 等）。
+
+| 符号 | 说明 |
+|---|---|
+| `APPSTART` / `DRVSTART`（默认，推荐） | SDK 启动入口，先执行 C 运行库初始化（`.data` 拷贝、`.bss` 清零）再进入 `AppMain`/`DrvMain`。**镜像含初始化全局变量时必须用它** |
+| `AppMain` / `DrvMain` | 直接进入业务函数，跳过运行时初始化，仅当镜像无需初始化全局变量时可用 |
+
+工具会自动校验「ELF 镜像基址 == 分区槽位基址」，不一致直接报错并提示检查 `.sct`——
+这是防止链接布局与打包布局悄悄错位的关键护栏。
+
+## 9. 遗留待办
+
+1. `board/stm32f427/svcrt_board_config.h` 中 `SVCRT_SHARE_MEM_ADDR = 0x20028000` 为旧值且已超出 128KB RAM，当前内核未引用该宏（分区表现在由 `SHARE_RAM_BASE` 决定），建议后续统一清理；
 3. 各工程 `MDK-ARM` 目录下遗留的 `app_demo.sct` / `bled_app.sct` / `bled_drv.sct` / `drv_demo.sct` 已不再被引用，可删除；
-4. App 镜像运行在 `APP_RAM_BASE`，但当前单区间闭环未对 App 做 MPU 隔离（`SVCRT_USE_MPU = 0`），后续多区间时需补齐。
+4. App 镜像运行在 `APP_RAM_BASE`，但当前单区间闭环未对 App 做 MPU 隔离（`SVCRT_USE_MPU = 0`），后续多区间时需补齐；
+5. `example/.../APP_DEMO/Src/app_config.c` 中的 `ram_start/rom_start`（`0x20010000` / `0x08020000`）是旧布局残留，
+   当前内核未读取该表（真实布局由 `.sct` 决定），建议后续改为由分区头派生或直接移除；
+6. 槽位状态仍只存在于共享 RAM，掉电即丢失——这是走向「像手机一样装应用」的下一道门槛，需要持久化槽位元数据。
