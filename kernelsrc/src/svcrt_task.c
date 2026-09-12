@@ -22,6 +22,92 @@
 #include "svcrt_ptable.h"
 #include "svcrt_mpu.h"
 #include "svcrt_loader.h"
+#include "svcrt_partition.h"    /* 用户可见内存窗口（共享区/App RAM/驱动 RAM/固件区） */
+
+/* ------------------------------------------------------------------
+ * 用户指针校验（SVC 可信边界）
+ * SVC 分发把用户寄存器里的值直接当指针解引用（参数块、消息缓冲区、
+ * 设备名、定时器回调……），不做校验时用户态可借这些接口读写内核任意地址、
+ * 或让内核在特权态执行任意函数。
+ * 这里按“地址必须落在用户可见窗口内”做最低限度校验：
+ *   RAM 窗口：SHARE / APP_RAM / DRIVER_RAM（可写缓冲区允许的范围）
+ *   固件窗口：DRIVER_POOL / APP_USER（用户代码与只读常量所在）
+ * 内核 RAM（任务表、内核栈）与内核 Flash 一律拒绝。
+ * ------------------------------------------------------------------ */
+static uint8 svcrt_kernel_in_window(uint32 start, uint32 end, uint32 base, uint32 size)
+{
+    uint32 limit = base + size;
+
+    if(limit <= base)                   /* 分区宏异常时不要误放行 */
+    {
+        return 0u;
+    }
+    return ((start >= base) && (end <= limit)) ? 1u : 0u;
+}
+
+static uint8 svcrt_kernel_ptr_ram_ok(const void *p, uint32 len)
+{
+    uint32 start = (uint32)p;
+    uint32 end   = start + len;
+
+    if(p == 0 || end < start)           /* 空指针或长度回绕 */
+    {
+        return 0u;
+    }
+    if(svcrt_kernel_in_window(start, end, SHARE_RAM_BASE, SHARE_RAM_SIZE) != 0u)
+    {
+        return 1u;
+    }
+    if(svcrt_kernel_in_window(start, end, APP_RAM_BASE, APP_RAM_SIZE) != 0u)
+    {
+        return 1u;
+    }
+    if(svcrt_kernel_in_window(start, end, DRIVER_RAM_BASE, DRIVER_RAM_SIZE) != 0u)
+    {
+        return 1u;
+    }
+    return 0u;
+}
+
+static uint8 svcrt_kernel_ptr_flash_ok(const void *p, uint32 len)
+{
+    uint32 start = (uint32)p;
+    uint32 end   = start + len;
+
+    if(p == 0 || end < start)
+    {
+        return 0u;
+    }
+    if(svcrt_kernel_ptr_ram_ok(p, len) != 0u)
+    {
+        return 1u;
+    }
+    if(svcrt_kernel_in_window(start, end, DRIVER_POOL_BASE, DRIVER_POOL_SIZE) != 0u)
+    {
+        return 1u;
+    }
+    if(svcrt_kernel_in_window(start, end, APP_USER_BASE, APP_USER_SIZE) != 0u)
+    {
+        return 1u;
+    }
+    return 0u;
+}
+
+/* SVC 参数块（sub-cmd + 参数数组）必须位于用户可见 RAM */
+static uint8 svcrt_kernel_svc_args_ok(const void *p, uint32 len)
+{
+    return svcrt_kernel_ptr_ram_ok(p, len);
+}
+
+/* 消息缓冲区：字数必须在 [1, SVCRT_MQ_MSG_WORDS] 内，且整块位于用户可见 RAM */
+static uint8 svcrt_kernel_mq_buf_ok(const void *p, int32 len_words)
+{
+    if(len_words <= 0 || len_words > SVCRT_MQ_MSG_WORDS)
+    {
+        return 0u;
+    }
+    return svcrt_kernel_ptr_ram_ok(p, (uint32)len_words * 4u);
+}
 
 
 volatile uint32 svcrt_interrupt_nest = 0;
@@ -79,6 +165,12 @@ void SVC_Server(void *p_svc_ctx)
     {
     case SVCRT_SVC_EVENT_CTRL:
         p = (uint32 *)SVCRT_SVC_ARG(p_svc_ctx, 0);
+        /* 用户参数块必须先校验再解引用：内核 RAM / 内核 Flash 一律拒绝 */
+        if(svcrt_kernel_svc_args_ok(p, 16u) == 0u)
+        {
+            SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+            break;
+        }
         switch(p[0])
         {
             case 1:
@@ -179,6 +271,12 @@ void SVC_Server(void *p_svc_ctx)
 
     case SVCRT_SVC_DEV_IO:
         p = (uint32 *)SVCRT_SVC_ARG(p_svc_ctx, 0);
+        /* 用户参数块必须先校验再解引用：内核 RAM / 内核 Flash 一律拒绝 */
+        if(svcrt_kernel_svc_args_ok(p, 16u) == 0u)
+        {
+            SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+            break;
+        }
         switch(p[0])
         {
             case 1:
@@ -204,6 +302,12 @@ void SVC_Server(void *p_svc_ctx)
 
     case SVCRT_SVC_DRV_MGR:
         p = (uint32 *)SVCRT_SVC_ARG(p_svc_ctx, 0);
+        /* 用户参数块必须先校验再解引用：内核 RAM / 内核 Flash 一律拒绝 */
+        if(svcrt_kernel_svc_args_ok(p, 16u) == 0u)
+        {
+            SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+            break;
+        }
         switch(p[0])
         {
             case 1:
@@ -223,6 +327,12 @@ void SVC_Server(void *p_svc_ctx)
 
     case SVCRT_SVC_SYNC_CTRL:
         p = (uint32 *)SVCRT_SVC_ARG(p_svc_ctx, 0);
+        /* 用户参数块必须先校验再解引用：内核 RAM / 内核 Flash 一律拒绝 */
+        if(svcrt_kernel_svc_args_ok(p, 16u) == 0u)
+        {
+            SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+            break;
+        }
         switch(p[0])
         {
             case 1:
@@ -257,15 +367,33 @@ void SVC_Server(void *p_svc_ctx)
 
     case SVCRT_SVC_MQ_CTRL:
         p = (uint32 *)SVCRT_SVC_ARG(p_svc_ctx, 0);
+        /* 用户参数块必须先校验再解引用：内核 RAM / 内核 Flash 一律拒绝 */
+        if(svcrt_kernel_svc_args_ok(p, 16u) == 0u)
+        {
+            SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+            break;
+        }
         switch(p[0])
         {
         case 1:
             SVCRT_SVC_RET(p_svc_ctx, svcrt_mq_create_internal((char *)p[1]));
             break;
         case 2:
+            if(svcrt_kernel_svc_args_ok(p, 24u) == 0u ||
+               svcrt_kernel_mq_buf_ok((const void *)p[2], (int32)p[3]) == 0u)
+            {
+                SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                break;
+            }
             SVCRT_SVC_RET(p_svc_ctx, svcrt_mq_send_internal((int32)p[1], (uint32 *)p[2], (int32)p[3], (int32)p[4]));
             break;
         case 3:
+            if(svcrt_kernel_svc_args_ok(p, 24u) == 0u ||
+               svcrt_kernel_mq_buf_ok((const void *)p[2], (int32)p[3]) == 0u)
+            {
+                SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                break;
+            }
             SVCRT_SVC_RET(p_svc_ctx, svcrt_mq_recv_internal((int32)p[1], (uint32 *)p[2], (int32)p[3], (int32)p[4]));
             break;
         case 4:
@@ -279,12 +407,26 @@ void SVC_Server(void *p_svc_ctx)
 
     case SVCRT_SVC_TIMER_CTRL:
         p = (uint32 *)SVCRT_SVC_ARG(p_svc_ctx, 0);
+        /* 用户参数块必须先校验再解引用：内核 RAM / 内核 Flash 一律拒绝 */
+        if(svcrt_kernel_svc_args_ok(p, 16u) == 0u)
+        {
+            SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+            break;
+        }
         switch(p[0])
         {
         case 1:
             SVCRT_SVC_RET(p_svc_ctx, svcrt_timer_create_internal((char *)p[1]));
             break;
         case 2:
+            /* 回调会在内核特权态执行：函数指针与参数指针都必须位于用户可见区域 */
+            if(svcrt_kernel_svc_args_ok(p, 24u) == 0u ||
+               svcrt_kernel_ptr_flash_ok((const void *)p[4], 2u) == 0u ||
+               svcrt_kernel_ptr_ram_ok((const void *)p[5], 1u) == 0u)
+            {
+                SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                break;
+            }
             SVCRT_SVC_RET(p_svc_ctx, svcrt_timer_start_internal((int32)p[1], p[2], (uint8)p[3],
                                                        (void (*)(void *))p[4], (void *)p[5]));
             break;
@@ -302,6 +444,12 @@ void SVC_Server(void *p_svc_ctx)
 
     case SVCRT_SVC_APP_MGR:
         p = (uint32 *)SVCRT_SVC_ARG(p_svc_ctx, 0);
+        /* 用户参数块必须先校验再解引用：内核 RAM / 内核 Flash 一律拒绝 */
+        if(svcrt_kernel_svc_args_ok(p, 16u) == 0u)
+        {
+            SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+            break;
+        }
         switch(p[0])
         {
         case 2:     /* 从设备流式加载 App 镜像到空闲槽位 */
@@ -727,6 +875,7 @@ void svcrt_task_release_resources(int32 task_id)
     state = SVCRT_ENTER_CRITICAL();
     svcrt_sync_release_task(task_id);
     svcrt_mq_release_task(task_id);
+    svcrt_event_release_task(task_id);
     SVCRT_EXIT_CRITICAL(state);
 }
 
