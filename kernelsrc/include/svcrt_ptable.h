@@ -53,8 +53,21 @@ int32 svcrt_ptable_read_header(uint32 slot, svcrt_app_header_t *out);
 * @param entry   入口地址（直接赋值，清空槽位时传 0）
 * @param task_id 任务号（直接赋值，未启动时传 0）
 * @return 0=成功，-1=槽位非法
+* @note 三个字段在自旋锁保护下作为一组更新：故障处理路径（可能运行在异常
+*       上下文）与安装任务都可能同时改写同一个槽位，否则读者会看到
+*       state/entry/task_id 互相不匹配的中间态。
 */
 int32 svcrt_ptable_set_slot(uint32 slot, uint32 state, uint32 entry, uint32 task_id);
+
+/**
+* @brief 原子读取一个槽位的状态三元组
+* @param slot     槽位号
+* @param p_state  输出状态（可为 0）
+* @param p_entry  输出入口地址（可为 0）
+* @param p_task_id 输出任务号（可为 0）
+* @return 0=成功，-1=槽位非法
+*/
+int32 svcrt_ptable_get_slot(uint32 slot, uint32 *p_state, uint32 *p_entry, uint32 *p_task_id);
 
 #if (defined(__cplusplus))
 }

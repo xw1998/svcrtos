@@ -26,8 +26,11 @@
 #undef  SVCRT_USE_PRIV
 #define SVCRT_USE_PRIV            0
 
-/* 开发调试旁路：允许槽位内直接烧录的裸镜像（配合固定地址烧录 + MDK 断点调试）。
- * 发布固件时删掉本行即可回到“只接受带 CRC 的 .svcapp”的安全默认。 */
+/* Development bypass: let the kernel treat a raw image burned directly
+ * at the slot base as runnable, so the fixed-address flash + MDK
+ * breakpoint workflow keeps working. Release firmware must reset it to 0
+ * and accept only CRC-checked .svcapp packages. */
+#undef  APP_ALLOW_RAW_IMAGE
 #define APP_ALLOW_RAW_IMAGE       1
 
 #endif

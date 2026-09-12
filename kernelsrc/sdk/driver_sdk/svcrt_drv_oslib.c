@@ -6,11 +6,12 @@
 */
 
 #include "svcrt_driver_sdk.h"
+#include "svcrt_svc_call.h"
 
-int32  __svc(0x10)  svcrt_call_dev_io(uint32 *p);
-void   __svc(0x11)  svcrt_call_task_ctrl(uint32 fn, uint32 p);
-uint32 __svc(0x12)  svcrt_call_sys_info(uint32 fn);
-int32  __svc(0x13)  svcrt_call_event_ctrl(uint32 *p);
+SVCRT_SVC_DECL_1(int32, 0x10, svcrt_call_dev_io, uint32 *);
+SVCRT_SVC_DECL_V2(0x11, svcrt_call_task_ctrl, uint32, uint32);
+SVCRT_SVC_DECL_1(uint32, 0x12, svcrt_call_sys_info, uint32);
+SVCRT_SVC_DECL_1(int32, 0x13, svcrt_call_event_ctrl, uint32 *);
 
 void svcrt_task_wait(uint32 ms)
 {

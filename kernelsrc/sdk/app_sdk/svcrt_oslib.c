@@ -6,12 +6,13 @@
 */
 
 #include "svcrt.h"
+#include "svcrt_svc_call.h"
 
-int32  __svc(0x10)  svcrt_call_dev_io(uint32 *p);
-void   __svc(0x11)  svcrt_call_task_ctrl(uint32 fn, uint32 p);
-uint32 __svc(0x12)  svcrt_call_sys_info(uint32 fn);
-int32  __svc(0x13)  svcrt_call_event_ctrl(uint32 *p);
-int32  __svc(0x15)  svcrt_call_sync_ctrl(uint32 *p);
+SVCRT_SVC_DECL_1(int32, 0x10, svcrt_call_dev_io, uint32 *);
+SVCRT_SVC_DECL_V2(0x11, svcrt_call_task_ctrl, uint32, uint32);
+SVCRT_SVC_DECL_1(uint32, 0x12, svcrt_call_sys_info, uint32);
+SVCRT_SVC_DECL_1(int32, 0x13, svcrt_call_event_ctrl, uint32 *);
+SVCRT_SVC_DECL_1(int32, 0x15, svcrt_call_sync_ctrl, uint32 *);
 
 int32 svcrt_dev_open(char *name, uint32 param)
 {
@@ -185,10 +186,10 @@ int32 svcrt_mutex_delete(int32 handle)
 /* ============================================================
  * 消息队列 / 软定时器 / 任务与故障查询（P0 扩展）
  * ============================================================ */
-int32  __svc(0x16)  svcrt_call_mq_ctrl(uint32 *p);
-int32  __svc(0x17)  svcrt_call_timer_ctrl(uint32 *p);
-int32  __svc(0x11)  svcrt_call_task_ctrl_ret(uint32 fn, uint32 p);
-uint32 __svc(0x12)  svcrt_call_sys_info_ext(uint32 fn, uint32 a1, uint32 a2);
+SVCRT_SVC_DECL_1(int32, 0x16, svcrt_call_mq_ctrl, uint32 *);
+SVCRT_SVC_DECL_1(int32, 0x17, svcrt_call_timer_ctrl, uint32 *);
+SVCRT_SVC_DECL_2(int32, 0x11, svcrt_call_task_ctrl_ret, uint32, uint32);
+SVCRT_SVC_DECL_3(uint32, 0x12, svcrt_call_sys_info_ext, uint32, uint32, uint32);
 
 int32 svcrt_mq_create(char *name)
 {
@@ -275,7 +276,7 @@ int32 svcrt_fault_record_read(int32 index, uint32 *out3)
  * ============================================================ */
 
 /* 3 参数版本的任务控制调用：r0=子命令，r1/r2=参数 */
-int32  __svc(0x11)  svcrt_call_task_ctrl_arg2(uint32 fn, uint32 a1, uint32 a2);
+SVCRT_SVC_DECL_3(int32, 0x11, svcrt_call_task_ctrl_arg2, uint32, uint32, uint32);
 
 void svcrt_sched_lock(void)
 {
@@ -300,7 +301,7 @@ int32 svcrt_task_stack_info(int32 task_id, uint32 *out3)
 /* ============================================================
  * App 镜像管理与分区查询（SVC 0x18 子命令 2~5）
  * ============================================================ */
-int32  __svc(0x18)  svcrt_call_app_mgr(uint32 *p);
+SVCRT_SVC_DECL_1(int32, 0x18, svcrt_call_app_mgr, uint32 *);
 
 int32 svcrt_app_load(int32 dev, uint32 image_len)
 {

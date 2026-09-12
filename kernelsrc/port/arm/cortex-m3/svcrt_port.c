@@ -292,13 +292,20 @@ __weak void svcrt_port_set_idle_mpu(uint32 task_func, uint32 stack_addr, uint32 
  * ============================================================ */
 #if (SVCRT_USE_MPU == 1)
 
+/* Idle-task MPU context, captured by svcrt_port_mpu_set_region() at startup.
+ * A task switch rewrites every region register, so the kernel re-applies this
+ * context on each switch back to the idle task (svcrt_mpu_set_idle()). */
+static svcrt_arch_mpu_t svcrt_mpu_idle_ctx;
+
 void svcrt_port_mpu_init(void)
 {
     int32 i;
+
     if(MPU->TYPE == 0)
     {
         return;
     }
+
     SVCRT_DMB();
     MPU->CTRL = 0;
 
@@ -308,23 +315,23 @@ void svcrt_port_mpu_init(void)
         MPU->RBAR = 0;
         MPU->RASR = 0;
     }
+
     MPU->CTRL = MPU_CTRL_ENABLE_Msk | MPU_CTRL_PRIVDEFENA_Msk;
     SVCRT_DSB();
     SVCRT_ISB();
 }
 
-/* 换算覆盖 size 字节所需的最小 MPU 区域对应的 SIZE 域值（RASR bits[5:1]）。
- * MPU 区域大小必须是 2 的幂且不小于 32 字节，SIZE = log2(区域大小) - 1。
- * 原实现用 for(reg_idx = 4; reg_idx < 32; reg_idx++)
- *   if((1 << (reg_idx + 1)) >= size)
- * 来找这个值：size > 2^31 时会走到 reg_idx == 31，算出 `1 << 32`，
- * 对 32 位 int 是未定义行为。这里改为：
- *   - 入参先封顶到 2GB（32 位地址空间的一半，实际工程不可能超过）；
- *   - 全程无符号移位，移位量最大 31；
- *   - 循环上界留出余量，任何输入都不会产生 32 位移位。 */
+/* Smallest MPU SIZE field (RASR bits[5:1]) that covers `size` bytes.
+ * An MPU region is a power of two and at least 32 bytes, so SIZE = log2(size) - 1.
+ * The previous version searched with
+ *     for(reg_idx = 4; reg_idx < 32; reg_idx++)
+ *         if((1 << (reg_idx + 1)) >= size)
+ * which reaches reg_idx == 31 when size > 2^31 and evaluates `1 << 32`, i.e.
+ * undefined behaviour on a 32-bit int. This version clamps the input to 2GB,
+ * uses unsigned shifts only, and keeps the shift count <= 31. */
 static uint32 svcrt_mpu_size_field(uint32 size)
 {
-    uint32 field = 4u;                  /* 最小区域 32 字节 */
+    uint32 field = 4u;                  /* smallest region: 32 bytes */
 
     if(size > 0x80000000u)
     {
@@ -339,42 +346,76 @@ static uint32 svcrt_mpu_size_field(uint32 size)
     return field;
 }
 
+/* Encode one region into the architecture independent context.
+ * Returns 0 on success, -1 on a bad index or unknown attribute kind. */
+int32 svcrt_port_mpu_encode(svcrt_arch_mpu_t *p_mpu, uint32 idx, uint32 base, uint32 size,
+                            svcrt_mpu_mem_t mem)
+{
+    uint32 attr;
+    uint32 region;
+
+    if((p_mpu == 0) || (idx >= SVCRT_MPU_REGION_MAX) || (size == 0u))
+    {
+        return -1;
+    }
+
+    region = svcrt_mpu_size_field(size);
+
+    /* A region base must be aligned to the region size: round down. */
+    base = base & ~((1u << (1u + region)) - 1u);
+
+    switch(mem)
+    {
+        case SVCRT_MPU_MEM_ROM:
+            attr = 0x06020001u;     /* AP=0b110: read-only for both, XN=0 */
+            break;
+
+        case SVCRT_MPU_MEM_RAM:
+            attr = 0x13060001u;     /* AP=0b011: read-write, XN=1 */
+            break;
+
+        case SVCRT_MPU_MEM_PERIPH_RO:
+            attr = 0x12060001u;     /* AP=0b010: unprivileged read-only, XN=1 */
+            break;
+
+        case SVCRT_MPU_MEM_PERIPH_RW:
+            attr = 0x13060001u;     /* AP=0b011: unprivileged read-write, XN=1 */
+            break;
+
+        default:
+            return -1;
+    }
+
+    p_mpu->region_base[idx] = base;
+    p_mpu->region_attr[idx] = attr | (region << 1);
+    return 0;
+}
+
+/* Startup path, called by the board through svcrt_port_set_idle_mpu():
+ * capture the idle task windows (code + stack) and apply them. */
 void svcrt_port_mpu_set_region(uint32 rom_addr, uint32 rom_size, uint32 ram_addr, uint32 ram_size)
 {
-    /* AP=0b010：非特权【可读写】。原值 0x13 的 AP 域是 0b011（非特权限读），
-     * 非特权任务写自己的 RAM 会直接触发 MemManage；XN=1 数据区不可执行。 */
-    uint32 ram_asr = 0x12060001;
-    uint32 rom_asr = 0x06020001;
-    uint32 rom_region;
-    uint32 ram_region;
-
+    /* AP encoding on ARMv7-M (see CMSIS ARM_MPU_AP_FULL=3, ARM_MPU_AP_URO=2):
+     * 0b011 = privileged and unprivileged read-write,
+     * 0b010 = privileged read-write, unprivileged read-only,
+     * 0b110 = read-only for both.
+     * The data window must be writable by the task, so AP=0b011 with XN=1.
+     * An earlier change had flipped it to 0b010 thinking 0b011 was read-only;
+     * that would fault on an unprivileged task's first store to its own RAM. */
     if(MPU->TYPE == 0)
     {
         return;
     }
 
-    rom_region = svcrt_mpu_size_field(rom_size);
-    ram_region = svcrt_mpu_size_field(ram_size);
+    (void)svcrt_port_mpu_encode(&svcrt_mpu_idle_ctx, 0u, rom_addr, rom_size, SVCRT_MPU_MEM_ROM);
+    (void)svcrt_port_mpu_encode(&svcrt_mpu_idle_ctx, 1u, ram_addr, ram_size, SVCRT_MPU_MEM_RAM);
+    svcrt_port_mpu_set_app(&svcrt_mpu_idle_ctx);
+}
 
-    /* 区域基址必须按区域大小对齐：向下取整到 2^(rom_region+1) 的边界。
-     * svcrt_mpu_size_field 保证 rom_region/ram_region <= 30，
-     * 因此这里的移位量最大 31，不会出现 1<<32。 */
-    rom_addr = rom_addr & ~((1u << (1u + rom_region)) - 1u);
-    ram_addr = ram_addr & ~((1u << (1u + ram_region)) - 1u);
-
-    SVCRT_DMB();
-    MPU->CTRL = 0;
-    MPU->RNR  = 0;
-    MPU->RBAR = rom_addr;
-    MPU->RASR = rom_asr | (rom_region << 1);
-
-    MPU->RNR  = 1;
-    MPU->RBAR = ram_addr;
-    MPU->RASR = ram_asr | (ram_region << 1);
-
-    MPU->CTRL = MPU_CTRL_ENABLE_Msk | MPU_CTRL_PRIVDEFENA_Msk;
-    SVCRT_DSB();
-    SVCRT_ISB();
+/* Re-apply the captured idle context (called on every switch to idle). */
+void svcrt_port_mpu_set_idle(void)
+{
+    svcrt_port_mpu_set_app(&svcrt_mpu_idle_ctx);
 }
 
 void svcrt_port_mpu_set_app(const svcrt_arch_mpu_t *p_mpu)
@@ -384,8 +425,9 @@ void svcrt_port_mpu_set_app(const svcrt_arch_mpu_t *p_mpu)
     SVCRT_DMB();
     MPU->CTRL = 0;
 
-    /* init/reset 清的是 0~7 共 8 个区域，切换时只写前 4 个会留下残影：
-     * 4~7 号区域仍保留上一个任务的配置，形成越权窗口。这里一并清掉。 */
+    /* svcrt_port_mpu_init()/reset() clear regions 0~7, so writing only the
+     * first few would leave stale windows from the previous task in 4~7.
+     * Clear them here as well. */
     for(rnr = 0; rnr < 8; rnr++)
     {
         MPU->RNR = rnr;
@@ -410,6 +452,7 @@ void svcrt_port_mpu_set_app(const svcrt_arch_mpu_t *p_mpu)
 void svcrt_port_mpu_reset(void)
 {
     int32 rnr = 0;
+
     SVCRT_DMB();
     MPU->CTRL = 0;
 

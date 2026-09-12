@@ -13,6 +13,7 @@
 #define __SVCRT_DRIVER_SDK_H__
 
 #include "svcrt_types.h"
+#include "svcrt_svc_call.h"
 
 #define SVCRT_DEV_CTRL_OPEN          (0x0001)
 #define SVCRT_DEV_CTRL_CLOSE         (0x0002)
@@ -53,7 +54,7 @@ int32 svcrt_drv_get_count(void);
 
 #define SVCRT_SVC_DRV_MGR           (0x14)
 
-int32 __svc(SVCRT_SVC_DRV_MGR) svcrt_call_drv_mgr(uint32 *p);
+SVCRT_SVC_DECL_1(int32, SVCRT_SVC_DRV_MGR, svcrt_call_drv_mgr, uint32 *);
 
 /* 以下任务/事件接口由 svcrt_drv_oslib.c 提供 SVC 封装 */
 void   svcrt_task_wait(uint32 ms);

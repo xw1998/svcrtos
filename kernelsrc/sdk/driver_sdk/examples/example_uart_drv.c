@@ -1,9 +1,12 @@
-/**
-* @brief SVCrtOS Driver SDK - ???UART????
-* @details ??§à?????????????????????? svcrt_dev_drv_t ?????????????
-*          ???????????????????¦Ë??????????¦Ë??????§à? HAL/LL ?????¨À?
-*          ????????????2??????????????????¨¢????????
-*/
+/* SVCrtOS Driver SDK - UART example driver.
+ *
+ * Skeleton driver that shows how a device object is laid out and how the
+ * svcrt_dev_drv_t entry table is filled in. The interrupt-handling part is
+ * chip-specific: the RX ring buffer is filled by the UART RX interrupt, and
+ * every TODO marks the place where the chip-specific code belongs.
+ *
+ * UART_DRV_MAX_INST instances are supported, 2 by default.
+ */
 
 #include "svcrt_driver_sdk.h"
 
@@ -12,10 +15,10 @@
 
 typedef struct {
     svcrt_dev_hdr_t hdr;
-    uint32  uart_id;                    /* ????????? */
-    uint32  baudrate;                   /* ????????? */
-    uint8   opened;                     /* ?????? */
-    uint8   rx_buf[UART_RX_BUF_SIZE];   /* ??????‰Í??????§Ø???? */
+    uint32  uart_id;                    /* instance id */
+    uint32  baudrate;                   /* baud rate in bps */
+    uint8   opened;                     /* nonzero once opened */
+    uint8   rx_buf[UART_RX_BUF_SIZE];   /* RX ring buffer, filled by the ISR */
     uint16  rx_head;
     uint16  rx_tail;
 } uart_dev_obj_t;
@@ -36,10 +39,10 @@ static svcrt_dev_hdr_t *uart_drv_open(uint32 dev_id, uint32 param)
     p->rx_tail        = 0;
     p->opened         = 1;
 
-    /* TODO(???): ??????? UART ????
-     * - ???? GPIO ????? TX/RX
-     * - ???¨°????? p->baudrate
-     * - ??? UART ?? RX ?§Ø? */
+    /* TODO(chip): bring up the UART:
+     * - configure the TX/RX pins
+     * - program the baud rate from p->baudrate
+     * - enable the RX interrupt and connect it to the ring buffer above */
 
     return (svcrt_dev_hdr_t *)p;
 }
@@ -48,7 +51,7 @@ static int32 uart_drv_close(svcrt_dev_hdr_t *obj)
 {
     uart_dev_obj_t *p = (uart_dev_obj_t *)obj;
     p->opened = 0;
-    /* TODO(???): ??? UART ???áé?????§Ø? */
+    /* TODO(chip): release the UART and disable its RX interrupt */
     return SVCRT_DRV_OK;
 }
 
@@ -62,7 +65,7 @@ static int32 uart_drv_read(svcrt_dev_hdr_t *obj, uint8 *pdata, int32 len)
     if(!p->opened)
         return SVCRT_DRV_ERROR;
 
-    /* ????????????¦Ë?????????????? RX ?§Ø???? */
+    /* drain the ring buffer; the producer is the UART RX interrupt */
     while(cnt < len && p->rx_head != p->rx_tail)
     {
         pdata[cnt++] = p->rx_buf[p->rx_tail];
@@ -83,7 +86,7 @@ static int32 uart_drv_write(svcrt_dev_hdr_t *obj, uint8 *pdata, int32 len)
 
     for(cnt = 0; cnt < len; cnt++)
     {
-        /* TODO(???): ??????????????§Õ?? pdata[cnt]
+        /* TODO(chip): wait for room in the TX FIFO, then write pdata[cnt]:
          * while(!(UARTx->SR & TXE)); UARTx->DR = pdata[cnt]; */
         (void)pdata;
     }
@@ -97,7 +100,7 @@ static int32 uart_drv_ctrl(svcrt_dev_hdr_t *obj, uint32 code, uint32 value)
     {
     case SVCRT_DEV_CTRL_SET_BAUD:
         p->baudrate = value;
-        /* TODO(???): ???????¨°????? */
+        /* TODO(chip): reprogram the baud rate divider */
         return SVCRT_DRV_OK;
     case SVCRT_DEV_CTRL_GET_STATUS:
         return (int32)p->baudrate;

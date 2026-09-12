@@ -765,6 +765,11 @@ int32 svcrt_sched_activate(int32 new_task, uint32 old_psp)
     else
     {
         svcrt_current_task_id = 0;
+
+        /* A task switch rewrites every MPU region register, so the idle task
+         * needs its own context restored here (captured at startup by the
+         * board through svcrt_port_set_idle_mpu()). */
+        svcrt_mpu_set_idle();
         return svcrt_idle_stack_ptr;
     }
 }

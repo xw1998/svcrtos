@@ -14,6 +14,17 @@
 #include "svcrt_share.h"
 #include "svcrt_app_image.h"
 #include "svcrt_partition.h"    /* 内核专属：全工程唯一地址源头 */
+#include "svcrt_spin.h"
+
+/* Guards the (state, entry, task_id) triple of every slot.
+ *
+ * Two writers can meet here: the installer task (normal task context) and the
+ * crash policy in svcrt_loader_on_fault(), which runs from exception context.
+ * Without the lock a reader could observe state = LOADED together with a stale
+ * entry or task id. The irqsave variant is used because the fault path runs
+ * with exceptions masked already - disabling interrupts makes a nested take
+ * safe (the lock stays re-entrant per CPU, see svcrt_spin_lock_irqsave). */
+static svcrt_spinlock_t svcrt_ptable_lock = SVCRT_SPINLOCK_INIT;
 
 /* 共享内存中的分区表实例（按绝对地址访问，不占用链接器分配的 RAM） */
 static svcrt_partition_table_t *svcrt_ptable_ptr(void)
@@ -103,15 +114,50 @@ int32 svcrt_ptable_read_header(uint32 slot, svcrt_app_header_t *out)
 int32 svcrt_ptable_set_slot(uint32 slot, uint32 state, uint32 entry, uint32 task_id)
 {
     svcrt_partition_table_t *pt = svcrt_ptable_get();
+    uint32 irq_state;
 
     if(slot >= pt->app_max_count || slot >= 8u)
     {
         return -1;
     }
 
+    svcrt_spin_lock_irqsave(&svcrt_ptable_lock, &irq_state);
+
     pt->slot_state[slot]   = state;
     pt->slot_entry[slot]   = entry;
     pt->slot_task_id[slot] = task_id;
+
+    svcrt_spin_unlock_irqrestore(&svcrt_ptable_lock, irq_state);
+
+    return 0;
+}
+
+int32 svcrt_ptable_get_slot(uint32 slot, uint32 *p_state, uint32 *p_entry, uint32 *p_task_id)
+{
+    svcrt_partition_table_t *pt = svcrt_ptable_get();
+    uint32 irq_state;
+
+    if(slot >= pt->app_max_count || slot >= 8u)
+    {
+        return -1;
+    }
+
+    svcrt_spin_lock_irqsave(&svcrt_ptable_lock, &irq_state);
+
+    if(p_state != 0)
+    {
+        *p_state = pt->slot_state[slot];
+    }
+    if(p_entry != 0)
+    {
+        *p_entry = pt->slot_entry[slot];
+    }
+    if(p_task_id != 0)
+    {
+        *p_task_id = pt->slot_task_id[slot];
+    }
+
+    svcrt_spin_unlock_irqrestore(&svcrt_ptable_lock, irq_state);
 
     return 0;
 }

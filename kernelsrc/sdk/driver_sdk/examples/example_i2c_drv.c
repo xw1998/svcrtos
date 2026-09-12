@@ -1,14 +1,16 @@
-/**
-* @brief SVCrtOS Driver SDK - ???I2C????
-* @details ??§à??????? I2C ????????????????
-*          ??? ctrl ????????????????????read/write ????????????
-*          ???????????????????¦Ë??????????§à?????
-*
-* ??????????
-*   I2C_CTRL_SET_ADDR    0x0100  ???? 7 ¦Ë??????
-*   I2C_CTRL_SET_REG     0x0101  ??????????????????¦Æ?§Õ????????????
-*   I2C_CTRL_SET_SPEED   0x0102  ????????????????100k/????400k??
-*/
+/* SVCrtOS Driver SDK - I2C example driver.
+ *
+ * Skeleton driver for an I2C master. Bus transactions are triggered through
+ * ctrl(): the caller first selects the 7-bit slave address and the target
+ * register address, then issues read()/write(). The register-level transfer
+ * itself is left as TODO so this file can be copied as a template; every TODO
+ * marks the exact place where the chip-specific code belongs.
+ *
+ * Control codes:
+ *   I2C_CTRL_SET_ADDR    0x0100  set the 7-bit slave address
+ *   I2C_CTRL_SET_REG     0x0101  set the register address used by read()/write()
+ *   I2C_CTRL_SET_SPEED   0x0102  set the bus speed (100k, typically 400k)
+ */
 
 #include "svcrt_driver_sdk.h"
 
@@ -21,9 +23,9 @@
 typedef struct {
     svcrt_dev_hdr_t hdr;
     uint32  i2c_id;
-    uint32  speed;          /* ???????? Hz */
-    uint8   slave_addr;     /* 7 ¦Ë?????? */
-    uint8   reg_addr;       /* ??????????? */
+    uint32  speed;          /* bus speed in Hz */
+    uint8   slave_addr;     /* 7-bit slave address */
+    uint8   reg_addr;       /* register address used by read()/write() */
     uint8   opened;
 } i2c_dev_obj_t;
 
@@ -37,16 +39,16 @@ static svcrt_dev_hdr_t *i2c_drv_open(uint32 dev_id, uint32 param)
 
     p = &i2c_objs[dev_id];
     p->i2c_id         = dev_id;
-    p->speed          = param ? param : 100000;   /* ??? 100kHz */
+    p->speed          = param ? param : 100000;   /* default 100 kHz */
     p->slave_addr     = 0;
     p->reg_addr       = 0;
     p->hdr.block_size = 1;
     p->opened         = 1;
 
-    /* TODO(???): ????? I2C ????
-     * - ???? SCL/SDA GPIO?????????????
-     * - ??????????????????? p->speed
-     * - ??? I2C */
+    /* TODO(chip): bring up the I2C controller:
+     * - configure the SCL/SDA pins and their alternate function
+     * - derive the clock divider from p->speed
+     * - enable the peripheral */
 
     return (svcrt_dev_hdr_t *)p;
 }
@@ -55,7 +57,7 @@ static int32 i2c_drv_close(svcrt_dev_hdr_t *obj)
 {
     i2c_dev_obj_t *p = (i2c_dev_obj_t *)obj;
     p->opened = 0;
-    /* TODO(???): ??? I2C ???? */
+    /* TODO(chip): release the I2C controller */
     return SVCRT_DRV_OK;
 }
 
@@ -68,10 +70,10 @@ static int32 i2c_drv_read(svcrt_dev_hdr_t *obj, uint8 *pdata, int32 len)
     if(!p->opened)
         return SVCRT_DRV_ERROR;
 
-    /* TODO(???): I2C ?????
-     * - START + (slave_addr<<1 | W) + reg_addr
-     * - ??? START + (slave_addr<<1 | R)
-     * - ??? len ???? pdata????????? NACK
+    /* TODO(chip): full register read sequence:
+     * - START + (slave_addr << 1 | W) + reg_addr
+     * - repeated START + (slave_addr << 1 | R)
+     * - read len bytes into pdata, NACK after the last byte
      * - STOP */
     (void)pdata;
     return len;
@@ -86,9 +88,9 @@ static int32 i2c_drv_write(svcrt_dev_hdr_t *obj, uint8 *pdata, int32 len)
     if(!p->opened)
         return SVCRT_DRV_ERROR;
 
-    /* TODO(???): I2C §Õ???
-     * - START + (slave_addr<<1 | W) + reg_addr
-     * - §Õ?? len ??? pdata
+    /* TODO(chip): full register write sequence:
+     * - START + (slave_addr << 1 | W) + reg_addr
+     * - write len bytes from pdata
      * - STOP */
     (void)pdata;
     return len;
@@ -107,7 +109,7 @@ static int32 i2c_drv_ctrl(svcrt_dev_hdr_t *obj, uint32 code, uint32 value)
         return SVCRT_DRV_OK;
     case I2C_CTRL_SET_SPEED:
         p->speed = value;
-        /* TODO(???): ???????? I2C ???? */
+        /* TODO(chip): reprogram the I2C clock divider for the new speed */
         return SVCRT_DRV_OK;
     case SVCRT_DEV_CTRL_GET_STATUS:
         return (int32)p->slave_addr;

@@ -12,6 +12,7 @@
 #include "svcrt_hal.h"
 #include "svcrt_config.h"
 #include "svcrt_fault.h"
+#include "svcrt_mpu.h"
 #include "svcrt_init.h"
 
 svcrt_task_t svcrt_task_table[SVCRT_TASK_MAX_NUM];
@@ -69,16 +70,10 @@ int32 svcrt_task_register(void (*entry)(void), uint32 *stack_bottom, uint32 stac
     p_task->wake_reason = 0;
     p_task->recover_pending = 0;
 
-    #if (SVCRT_USE_MPU == 1)
-    {
-        int32 i;
-        for(i = 0; i < SVCRT_MPU_REGION_MAX; i++)
-        {
-            p_task->mpu.region_base[i] = 0;
-            p_task->mpu.region_attr[i] = 0;
-        }
-    }
-    #endif
+    /* Fill the MPU context (no-op when SVCRT_USE_MPU == 0).
+     * The loader calls this again after rewriting rom_start / ram_size for
+     * App and Driver tasks, because those windows are only known then. */
+    svcrt_mpu_build_task(p_task);
 
     svcrt_task_stack_init(p_task, entry, stack_bottom, stack_size);
 

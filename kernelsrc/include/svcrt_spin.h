@@ -46,8 +46,10 @@ typedef struct {
     volatile uint32 nest;        /* 同 CPU 重入层数，0 表示未持有         */
 } svcrt_spinlock_t;
 
-/** @brief 自旋锁静态初始化值（用于定义全局锁对象） */
-#define SVCRT_SPINLOCK_INIT          { 0u, 0u, 0u }
+/** @brief Static initialiser for a global lock object.
+ *  @note Must match svcrt_spin_init(): owner 0xffffffff means "no owner", so a
+ *        freshly defined lock cannot be mistaken for one held by CPU 0. */
+#define SVCRT_SPINLOCK_INIT          { 0u, 0xffffffffu, 0u }
 
 /**
 * @brief 定义并初始化一把全局自旋锁

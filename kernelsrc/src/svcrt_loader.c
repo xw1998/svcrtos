@@ -22,6 +22,7 @@
 #include "svcrt_dev.h"
 #include "svcrt_cfg.h"
 #include "svcrt_task.h"
+#include "svcrt_mpu.h"
 #include "svcrt_fault.h"
 #include "svcrt_partition.h"    /* 内核专属：读取槽位 / 任务运行参数 */
 
@@ -175,6 +176,37 @@ static int32 svcrt_loader_check_header(const svcrt_app_header_t *p_hdr)
     return 0;
 }
 
+/* ============================================================
+ * Streaming install flow control
+ * @details While a flash sector is erased (0.5~2 s on STM32F4) or a chunk is
+ *          programmed, the CPU cannot fetch from flash, so the UART interrupt
+ *          does not run and any byte arriving in that window is lost (the
+ *          USART receive path holds a single byte). A sender that streams the
+ *          whole file without pausing therefore loses bytes on any image of
+ *          more than a few KB.
+ *
+ *          Protocol: the device sends one ACK (0x06) after the header has been
+ *          erased + committed, and after each payload chunk has been
+ *          programmed. The host sends the next unit only after it sees that
+ *          ACK, so it never transmits while the device is blocked in flash.
+ *          See tools/send_image.py for the host implementation.
+ *
+ *          A sender that ignores the ACKs (a plain file dump to the port)
+ *          still works, it just keeps the old lossy behaviour.
+ * ============================================================ */
+#define SVCRT_LOADER_ACK_BYTE    (0x06u)
+
+static void svcrt_loader_ack(int32 dev)
+{
+    uint8 ack = SVCRT_LOADER_ACK_BYTE;
+
+    /* Queue the ACK after the flash work of this unit is finished. The TX path
+     * is interrupt driven, so the byte may leave the device slightly later -
+     * that is fine and cannot dead-lock: the host is waiting, and the device
+     * only re-enters flash once the next chunk has arrived. */
+    (void)svcrt_dev_write_internal(dev, &ack, 1);
+}
+
 /* 从设备读取指定长度（重试有限次，避免非阻塞读返回 0 时空转） */
 static int32 svcrt_loader_read_dev(int32 dev, uint8 *buf, uint32 len)
 {
@@ -315,7 +347,12 @@ int32 svcrt_loader_load_dev(int32 dev, uint32 image_len)
     return svcrt_loader_load_dev_hdr(dev, &hdr, image_len);
 }
 
-/* 把负载流式写入已擦除的分区（头 + 分块负载），返回 0 或 SVCRT_LOADER_ERR_x */
+/* Stream the payload into an already erased region (header + chunked payload).
+ * Returns 0 or SVCRT_LOADER_ERR_x.
+ *
+ * One ACK is sent back to the host per committed unit, and the host sends the
+ * next unit only after seeing it. That keeps the wire quiet while the device is
+ * blocked in flash, which is what removes the ORE byte loss described above. */
 static int32 svcrt_loader_stream_payload(int32 dev, uint32 base, const svcrt_app_header_t *p_hdr)
 {
     uint32 written = 0u;
@@ -324,6 +361,9 @@ static int32 svcrt_loader_stream_payload(int32 dev, uint32 base, const svcrt_app
     {
         return SVCRT_LOADER_ERR_FLASH;
     }
+
+    /* Erase is done and the header is committed: the host may start sending. */
+    svcrt_loader_ack(dev);
 
     while(written < p_hdr->image_size)
     {
@@ -346,6 +386,9 @@ static int32 svcrt_loader_stream_payload(int32 dev, uint32 base, const svcrt_app
         }
 
         written += want;
+
+        /* This chunk is in flash: let the host send the next one. */
+        svcrt_loader_ack(dev);
     }
 
     return 0;
@@ -682,6 +725,9 @@ int32 svcrt_loader_start_driver(void)
     svcrt_task_table[task_id - 1].rom_start = pt->driver_pool_base;
     svcrt_task_table[task_id - 1].rom_size  = pt->driver_pool_size;
 
+    /* Windows are final now: build this task's MPU context from them. */
+    svcrt_mpu_build_task(&svcrt_task_table[task_id - 1]);
+
     pt->driver_task_id = (uint32)task_id;
     pt->driver_state   = SVCRT_APP_SLOT_RUNNING;
 
@@ -722,6 +768,11 @@ int32 svcrt_loader_on_fault(int32 task_id)
             SVCRT_ENABLE_IRQ();
 
             svcrt_ptable_set_slot(i, SVCRT_APP_SLOT_INVALID, pt->slot_entry[i], 0u);
+
+            /* This task will never be scheduled again: drop its MPU
+             * windows immediately instead of leaving a stale context in the
+             * hardware until the next task switch. */
+            svcrt_mpu_reset();
 
             /* 记一条可诊断的故障：上位机可用 svcrt_fault_record_read() 看到“被禁用”的原因 */
             svcrt_fault_record(SVCRT_FAULT_APPDISABLED, task_id);
@@ -766,6 +817,7 @@ int32 svcrt_loader_start(uint32 slot)
     uint32 entry;
     uint32 stack_top;
     uint32 stack_bottom;
+    uint32 slot_state;
     int32 task_id;
 
     if(slot >= pt->app_max_count)
@@ -773,12 +825,18 @@ int32 svcrt_loader_start(uint32 slot)
         return SVCRT_LOADER_ERR_PARAM;
     }
 
-    if(pt->slot_state[slot] != SVCRT_APP_SLOT_LOADED)
+    /* State and entry must be read as one unit: the crash policy may be
+     * rewriting this slot from exception context right now. */
+    if(svcrt_ptable_get_slot(slot, &slot_state, &entry, 0) != 0)
+    {
+        return SVCRT_LOADER_ERR_PARAM;
+    }
+
+    if(slot_state != SVCRT_APP_SLOT_LOADED)
     {
         return SVCRT_LOADER_ERR_STATE;
     }
 
-    entry = pt->slot_entry[slot];
     if(entry == 0u)
     {
         return SVCRT_LOADER_ERR_STATE;
@@ -812,6 +870,9 @@ int32 svcrt_loader_start(uint32 slot)
     svcrt_task_table[task_id - 1].rom_start = slot_base;
     svcrt_task_table[task_id - 1].rom_size  = (svcrt_ptable_read_header(slot, &hdr) == 0)
                                               ? hdr.image_size : 0u;
+
+    /* Windows are final now: build this task's MPU context from them. */
+    svcrt_mpu_build_task(&svcrt_task_table[task_id - 1]);
 
     svcrt_ptable_set_slot(slot, SVCRT_APP_SLOT_RUNNING, entry, (uint32)task_id);
 

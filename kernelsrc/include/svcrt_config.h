@@ -96,6 +96,30 @@
 #endif
 
 /* ============================================================
+ * MPU peripheral windows (only used when SVCRT_USE_MPU == 1)
+ * @details Unprivileged tasks may reach peripheral registers only through
+ *          these two windows. 0 = window disabled by default; the real
+ *          ranges are chip characteristics and come from the board config,
+ *          the kernel does not know any peripheral address.
+ *          SVCRT_MPU_PERIPH_RW: 1 = unprivileged read/write, 0 = readonly.
+ * ============================================================ */
+#ifndef SVCRT_MPU_PERIPH_BASE
+#define SVCRT_MPU_PERIPH_BASE     (0u)
+#endif
+#ifndef SVCRT_MPU_PERIPH_SIZE
+#define SVCRT_MPU_PERIPH_SIZE     (0u)
+#endif
+#ifndef SVCRT_MPU_PERIPH2_BASE
+#define SVCRT_MPU_PERIPH2_BASE    (0u)
+#endif
+#ifndef SVCRT_MPU_PERIPH2_SIZE
+#define SVCRT_MPU_PERIPH2_SIZE    (0u)
+#endif
+#ifndef SVCRT_MPU_PERIPH_RW
+#define SVCRT_MPU_PERIPH_RW       (0)
+#endif
+
+/* ============================================================
  * 任务与调度相关参数
  * ============================================================ */
 #ifndef SVCRT_TASK_MAX_NUM

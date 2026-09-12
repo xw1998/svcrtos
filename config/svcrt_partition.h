@@ -123,7 +123,47 @@
 /* ---- 硬件兼容签名（App 与内核 ABI 匹配校验用） ----
  * 高 16 位：芯片型号标识；低 16 位：内核接口版本。
  * App 打包时应写入相同值，内核加载时校验，不匹配则拒绝加载。 */
-#define SVCRT_HW_COMPAT_ID   (0x42700001u)   /* 0x4270 = STM32F427，0x0001 = ABI v1 */
+#define SVCRT_HW_COMPAT_ID   (0x42700001u)   /* 0x4270 = STM32F427, 0x0001 = ABI v1 */
+
+/* ============================================================
+ * 八、MPU isolation windows (derived; do not edit by hand)
+ * @details svcrt_mpu.c builds every task's MPU context from these windows
+ *          only, so the project still has exactly one place where addresses
+ *          are defined.
+ *          An MPU region must be a power of two in size and aligned to that
+ *          size; the compile-time check below enforces both for all windows.
+ * ============================================================ */
+#define SVCRT_MPU_KERNEL_ROM_BASE   (KERNEL_BASE)
+#define SVCRT_MPU_KERNEL_ROM_SIZE   (KERNEL_SIZE)
+#define SVCRT_MPU_DRIVER_ROM_BASE   (DRIVER_POOL_BASE)
+#define SVCRT_MPU_DRIVER_ROM_SIZE   (DRIVER_POOL_SIZE)
+#define SVCRT_MPU_APP_ROM_BASE      (APP_USER_BASE)
+#define SVCRT_MPU_APP_ROM_SIZE      (APP_USER_SIZE)
+#define SVCRT_MPU_DRIVER_RAM_BASE   (DRIVER_RAM_BASE)
+#define SVCRT_MPU_DRIVER_RAM_SIZE   (DRIVER_RAM_SIZE)
+#define SVCRT_MPU_APP_RAM_BASE      (APP_RAM_BASE)
+#define SVCRT_MPU_APP_RAM_SIZE      (APP_RAM_SIZE)
+#define SVCRT_MPU_SHARE_RAM_BASE    (SHARE_RAM_BASE)
+#define SVCRT_MPU_SHARE_RAM_SIZE    (SHARE_RAM_SIZE)
+
+/* Power-of-two and alignment self-check: the array size is the product of the
+ * individual results, so a single failure makes it negative and the compiler
+ * refuses the file. */
+#define SVCRT_IS_POW2(x)            (((x) != 0) && (((x) & ((x) - 1)) == 0))
+typedef char svcrt_mpu_window_check[
+      (SVCRT_IS_POW2(KERNEL_SIZE)                ? 1 : -1)
+    * (SVCRT_IS_POW2(DRIVER_POOL_SIZE)           ? 1 : -1)
+    * (SVCRT_IS_POW2(APP_SLOT_SIZE)              ? 1 : -1)
+    * (SVCRT_IS_POW2(APP_RAM_SIZE)               ? 1 : -1)
+    * (SVCRT_IS_POW2(DRIVER_RAM_SIZE)            ? 1 : -1)
+    * (SVCRT_IS_POW2(SHARE_RAM_SIZE)             ? 1 : -1)
+    * (((KERNEL_BASE      % KERNEL_SIZE)      == 0) ? 1 : -1)
+    * (((DRIVER_POOL_BASE % DRIVER_POOL_SIZE) == 0) ? 1 : -1)
+    * (((APP_USER_BASE    % APP_SLOT_SIZE)    == 0) ? 1 : -1)
+    * (((APP_RAM_BASE     % APP_RAM_SIZE)     == 0) ? 1 : -1)
+    * (((DRIVER_RAM_BASE  % DRIVER_RAM_SIZE)  == 0) ? 1 : -1)
+    * (((SHARE_RAM_BASE   % SHARE_RAM_SIZE)   == 0) ? 1 : -1)
+    * 1];
 
 /* ============================================================
  * 五、安装器策略（方案A：内核内安装任务）

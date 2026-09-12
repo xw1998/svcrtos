@@ -2,9 +2,9 @@
     AREA    |.text|, CODE, READONLY
 
 ;--------------------------------------------------------------
-; PendSV_Handler - Cortex-M4 ???????????§Ý?
-; ?? SVCRT_USE_FPU=1 ?????????/??? FPU ???????????? S16-S31??
-; ?????? EXC_RETURN(LR) ???????????? FPU ???????
+; PendSV_Handler - Cortex-M4 task context switch.
+; When SVCRT_USE_FPU=1 a task may own an FPU extended frame, which also
+; holds S16-S31; EXC_RETURN (LR) says which frame the interrupted code used.
 ;--------------------------------------------------------------
 PendSV_Handler		PROC
     EXPORT  PendSV_Handler
@@ -21,7 +21,7 @@ PendSV_Handler		PROC
     MRS     R1, PSP
 
  IF {FPU} != "SoftVFP"
-    ; ?????????????? FPU??EXC_RETURN bit4=0???????? S16-S31
+    ; extended frame in use (EXC_RETURN bit4=0): save S16-S31 as well
     TST     LR, #0x10
     IT      EQ
     VSTMDBEQ R1!, {S16-S31}
@@ -48,7 +48,7 @@ endpend
 
 
 ;--------------------------------------------------------------
-; SVC_Handler - ????????????
+; SVC_Handler - system service call entry.
 ;--------------------------------------------------------------
 
 ;--------------------------------------------------------------

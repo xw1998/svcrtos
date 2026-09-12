@@ -261,12 +261,27 @@ void svcrt_port_mpu_set_region(uint32 rom_addr, uint32 rom_size, uint32 ram_addr
 void svcrt_port_mpu_set_app(const svcrt_arch_mpu_t *p_mpu);
 void svcrt_port_mpu_reset(void);
 
+/* Encode one region into the architecture independent context.
+ * @param p_mpu target context
+ * @param idx   region index (0 .. SVCRT_MPU_REGION_MAX-1)
+ * @param base  region base address (rounded down to the region size)
+ * @param size  bytes to cover (rounded up to a power of two)
+ * @param mem   memory attribute kind
+ * @return 0 on success, -1 on bad parameters */
+int32 svcrt_port_mpu_encode(svcrt_arch_mpu_t *p_mpu, uint32 idx, uint32 base, uint32 size,
+                            svcrt_mpu_mem_t mem);
+
+/* Re-apply the idle-task context captured by svcrt_port_mpu_set_region(). */
+void svcrt_port_mpu_set_idle(void);
+
 #else
 
 #define svcrt_port_mpu_init()
 #define svcrt_port_mpu_set_region(rom_addr, rom_size, ram_addr, ram_size)
 #define svcrt_port_mpu_set_app(p_mpu)
 #define svcrt_port_mpu_reset()
+#define svcrt_port_mpu_encode(p_mpu, idx, base, size, mem)   (-1)
+#define svcrt_port_mpu_set_idle()
 
 #endif
 
