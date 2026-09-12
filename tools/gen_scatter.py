@@ -186,9 +186,19 @@ BANNER = """\
 """
 
 
-def emit(region_name, base, size, ram_base, ram_size, out, ccm=None,
-         stack_size=0, heap_size=0):
-    """输出一个映像的分散加载描述"""
+def emit(region_name, base, size, ram_base, ram_size, out, ccm=None, stack_size=0):
+    """输出一个映像的分散加载描述
+
+    栈的约定（必须与内核 svcrt_loader_start 严格一致）：
+        栈顶 = ram_base + ram_size
+        栈底 = 栈顶 - stack_size
+    RW/ZI 区被限制在 [ram_base, 栈底)，所以编译期就撞不到栈；
+    ARM_LIB_STACK 指向的正是内核会设置的栈顶，__main 设置 SP 后
+    与内核推导值完全一致（不会出现“双份栈”）。
+    """
+    if stack_size > ram_size:
+        raise SystemExit("RAM 区过小：栈 %d 字节超出区域 %d 字节" % (stack_size, ram_size))
+    rw_size = ram_size - stack_size
     out.write(BANNER)
     out.write("\n")
     out.write("LR_%s 0x%08X 0x%08X  {\n" % (region_name, base, size))
@@ -198,20 +208,16 @@ def emit(region_name, base, size, ram_base, ram_size, out, ccm=None,
     out.write("   .ANY (+RO)\n")
     out.write("   .ANY (+XO)\n")
     out.write("  }\n")
-    out.write("  RW_%s 0x%08X 0x%08X  {\n" % (region_name, ram_base, ram_size))
+    out.write("  RW_%s 0x%08X 0x%08X  {   ; 上限已扣除栈区，编译期不会侵占栈\n"
+              % (region_name, ram_base, rw_size))
     out.write("   .ANY (+RW +ZI)\n")
     out.write("  }\n")
-    # 栈放在 RAM 区最高地址（向下生长），堆紧邻栈下方，二者严格不重叠
+    # 栈：RAM 区最高地址，向下生长（与内核 svcrt_loader_start 推导的栈顶一致）
     if stack_size:
-        out.write("  ARM_LIB_STACK 0x%08X EMPTY -0x%X {   ; 栈 %d 字节（高地址，向下生长）\n  }\n"
+        out.write("  ARM_LIB_STACK 0x%08X EMPTY -0x%X {   ; 栈 %d 字节（与内核推导的栈顶一致）\n  }\n"
                   % (ram_base + ram_size, stack_size, stack_size))
-    if heap_size:
-        heap_base = ram_base + ram_size - stack_size - heap_size
-        if heap_base < ram_base:
-            raise SystemExit("RAM 区过小：栈(%d) + 堆(%d) 超出 %d 字节"
-                             % (stack_size, heap_size, ram_size))
-        out.write("  ARM_LIB_HEAP  0x%08X EMPTY  0x%X {   ; 堆 %d 字节\n  }\n"
-                  % (heap_base, heap_size, heap_size))
+    # 不再生成 ARM_LIB_HEAP：堆会与受栈保护的 RW 区重叠。
+    # 应用不应依赖 malloc；确需堆时请改由内核内存服务提供。
     if ccm and ccm[1] > 0:
         out.write("  RW_CCM 0x%08X 0x%08X  {   ; CCM/TCM 快速 RAM\n" % (ccm[0], ccm[1]))
         out.write("   .ANY (+RW +ZI)\n")
@@ -233,11 +239,11 @@ def gen_target(layout, target, out_path):
         elif target == "driver":
             emit("DRIVER", v("DRIVER_POOL_BASE"), v("DRIVER_POOL_SIZE"),
                  v("DRIVER_RAM_BASE"), v("DRIVER_RAM_SIZE"), out,
-                 stack_size=0x800)
+                 stack_size=v("DRIVER_TASK_STACK_SIZE"))
         elif target == "app":
             emit("APP", v("APP_SLOT0_BASE"), v("APP_SLOT0_SIZE"),
                  v("APP_RAM_BASE"), v("APP_RAM_SIZE"), out,
-                 stack_size=0x800, heap_size=0x800)
+                 stack_size=v("APP_TASK_STACK_SIZE"))
         elif target == "boot":
             if v("BOOT_SIZE") <= 0:
                 raise SystemExit("BOOT_SIZE 为 0，未划分 Bootloader 区（如需 Boot，请先在配置头中设置 BOOT_SIZE）")

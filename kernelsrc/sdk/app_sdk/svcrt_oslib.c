@@ -298,16 +298,9 @@ int32 svcrt_task_stack_info(int32 task_id, uint32 *out3)
 }
 
 /* ============================================================
- * App 镜像管理与分区查询（SVC 0x18 子命令 1~5）
+ * App 镜像管理与分区查询（SVC 0x18 子命令 2~5）
  * ============================================================ */
 int32  __svc(0x18)  svcrt_call_app_mgr(uint32 *p);
-
-uint32 svcrt_partition_table_addr(void)
-{
-    uint32 p[6];
-    p[0] = 1; p[1] = 0; p[2] = 0; p[3] = 0; p[4] = 0; p[5] = 0;
-    return (uint32)svcrt_call_app_mgr(p);
-}
 
 int32 svcrt_app_load(int32 dev, uint32 image_len)
 {

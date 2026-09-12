@@ -60,6 +60,17 @@ int32 svcrt_loader_load_dev(int32 dev, uint32 image_len);
 uint32 svcrt_loader_scan(void);
 
 /**
+* @brief 从设备流式加载（镜像头已由调用方读出）
+* @param dev       已打开的设备句柄，位置正好在镜像头之后
+* @param p_hdr     已读出的镜像头（调用方已完成魔数同步）
+* @param image_len 期望镜像总长（含头），传 0 表示由镜像头决定
+* @return 成功返回槽位号（>=0），失败返回 SVCRT_LOADER_ERR_x
+* @details 供安装任务使用：先逐字节同步到镜像头魔数，再把头交给本函数继续
+*          流式写入负载，避免整镜像驻留 RAM。
+*/
+int32 svcrt_loader_load_dev_hdr(int32 dev, const svcrt_app_header_t *p_hdr, uint32 image_len);
+
+/**
 * @brief 把已加载的槽位拉起为任务
 * @param slot 槽位号
 * @return 成功返回任务号（>0），失败返回 SVCRT_LOADER_ERR_x

@@ -25,6 +25,7 @@
 #define SVCRT_APP_SLOT_LOADED     (1u)    /* 已写入镜像并通过校验 */
 #define SVCRT_APP_SLOT_RUNNING    (2u)    /* 已注册为任务并运行 */
 #define SVCRT_APP_SLOT_INVALID    (3u)    /* 槽位有内容但校验失败（魔数/兼容签名/CRC 不符） */
+#define SVCRT_APP_SLOT_INSTALLING (4u)    /* 正在安装：写入未完成，不可启动（掉电后由 CRC 判定为 INVALID） */
 
 /**
 * @brief 分区表（存放于共享内存起始处）

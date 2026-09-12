@@ -51,6 +51,11 @@
 #define APP_TASK_PERIOD_MS   1000            /* App 任务周期（ms） */
 #define APP_AUTO_START       1               /* 上电扫描到有效 App 镜像后是否自动启动（1=自动） */
 
+/* 驱动区：驱动任务运行参数（栈同样从 DRIVER_RAM 区顶部切出，由内核推导） */
+#define DRIVER_TASK_PRIORITY    9                /* 驱动任务优先级（默认高于 App） */
+#define DRIVER_TASK_STACK_SIZE  (1024 * 1)       /* 驱动任务栈大小（字节） */
+#define DRIVER_TASK_PERIOD_MS   1000             /* 驱动任务周期（ms） */
+
 /* ============================================================
  * 三、以下全部自动推导，禁止手改
  * ============================================================ */
@@ -81,6 +86,19 @@
  * 高 16 位：芯片型号标识；低 16 位：内核接口版本。
  * App 打包时应写入相同值，内核加载时校验，不匹配则拒绝加载。 */
 #define SVCRT_HW_COMPAT_ID   (0x42700001u)   /* 0x4270 = STM32F427，0x0001 = ABI v1 */
+
+/* ============================================================
+ * 五、安装器策略（方案A：内核内安装任务）
+ * @details 由内核常驻任务从设备流式接收 .svcapp 并安装到空闲槽位，
+ *          使闭环从“烧录器刷固件”变为“设备自己安装”。
+ * ============================================================ */
+#define INSTALLER_ENABLE         1               /* 1=启用内核内安装任务 */
+#define INSTALLER_DEV_NAME       "COM1"          /* 镜像接收设备名 */
+#define INSTALLER_DEV_ARG        115200          /* 设备打开参数（波特率） */
+#define INSTALLER_TASK_PRIORITY  12              /* 安装任务优先级（低于 App，不抢 CPU） */
+#define INSTALLER_TASK_STACK_SIZE (1024 * 2)     /* 安装任务栈大小（字节，取自内核 RAM） */
+#define INSTALLER_TASK_PERIOD_MS 50              /* 无数据时的轮询间隔（ms） */
+#define INSTALLER_AUTO_START     1               /* 安装完成后是否自动启动该 App */
 
 /* ---- 一致性自检（编译期，配置错误在编译阶段就暴露） ---- */
 #if (KERNEL_RAM_SIZE <= 0)

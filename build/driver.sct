@@ -11,9 +11,9 @@ LR_DRIVER 0x08040000 0x00040000  {
    .ANY (+RO)
    .ANY (+XO)
   }
-  RW_DRIVER 0x20018000 0x00004000  {
+  RW_DRIVER 0x20018000 0x00003C00  {   ; 上限已扣除栈区，编译期不会侵占栈
    .ANY (+RW +ZI)
   }
-  ARM_LIB_STACK 0x2001C000 EMPTY -0x800 {   ; 栈 2048 字节（高地址，向下生长）
+  ARM_LIB_STACK 0x2001C000 EMPTY -0x400 {   ; 栈 1024 字节（与内核推导的栈顶一致）
   }
 }

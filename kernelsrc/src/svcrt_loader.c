@@ -27,9 +27,11 @@
 /* 设备流式加载的分块缓冲（避免整镜像驻留 RAM） */
 #define SVCRT_LOADER_CHUNK_SIZE   (512u)
 
-/* App 任务的静态栈（单区间最小闭环：仅一个 App 槽位） */
-static uint32 svcrt_loader_app_stack[APP_TASK_STACK_SIZE / 4u];
+/* 分区容量必须装得下任务栈：编译期就把配置错误暴露出来 */
+typedef char svcrt_loader_app_stack_check[
+    (APP_TASK_STACK_SIZE <= APP_RAM_SIZE) ? 1 : -1];
 
+/* 设备流式加载的分块缓冲 */
 static uint8  svcrt_loader_chunk[SVCRT_LOADER_CHUNK_SIZE];
 
 /* ============================================================
@@ -203,8 +205,12 @@ int32 svcrt_loader_load_buffer(const uint8 *image, uint32 image_len)
 
     slot_base = pt->app_user_base + slot * pt->app_slot_size;
 
+    /* 进入安装态：写入未完成前不允许被启动；掉电中断则由 CRC 校验判为 INVALID */
+    svcrt_ptable_set_slot(slot, SVCRT_APP_SLOT_INSTALLING, 0u, 0u);
+
     if(svcrt_port_flash_erase(slot_base, total) != 0)
     {
+        svcrt_ptable_set_slot(slot, SVCRT_APP_SLOT_EMPTY, 0u, 0u);
         return SVCRT_LOADER_ERR_FLASH;
     }
 
@@ -229,6 +235,24 @@ int32 svcrt_loader_load_buffer(const uint8 *image, uint32 image_len)
 int32 svcrt_loader_load_dev(int32 dev, uint32 image_len)
 {
     svcrt_app_header_t hdr;
+
+    if(dev < 0)
+    {
+        return SVCRT_LOADER_ERR_PARAM;
+    }
+
+    if(svcrt_loader_read_dev(dev, (uint8 *)&hdr, SVCRT_APP_HEADER_SIZE) != (int32)SVCRT_APP_HEADER_SIZE)
+    {
+        return SVCRT_LOADER_ERR_SIZE;
+    }
+
+    return svcrt_loader_load_dev_hdr(dev, &hdr, image_len);
+}
+
+int32 svcrt_loader_load_dev_hdr(int32 dev, const svcrt_app_header_t *p_hdr, uint32 image_len)
+{
+    /* 头已由调用方（如安装任务）读出并已完成魔数同步，这里只需继续流式写入负载 */
+    svcrt_app_header_t hdr = *p_hdr;
     svcrt_partition_table_t *pt;
     uint32 total;
     uint32 slot;
@@ -239,11 +263,6 @@ int32 svcrt_loader_load_dev(int32 dev, uint32 image_len)
     if(dev < 0)
     {
         return SVCRT_LOADER_ERR_PARAM;
-    }
-
-    if(svcrt_loader_read_dev(dev, (uint8 *)&hdr, SVCRT_APP_HEADER_SIZE) != (int32)SVCRT_APP_HEADER_SIZE)
-    {
-        return SVCRT_LOADER_ERR_SIZE;
     }
 
     ret = svcrt_loader_check_header(&hdr);
@@ -273,8 +292,12 @@ int32 svcrt_loader_load_dev(int32 dev, uint32 image_len)
 
     slot_base = pt->app_user_base + slot * pt->app_slot_size;
 
+    /* 进入安装态：写入未完成前不允许被启动；掉电中断则由 CRC 校验判为 INVALID */
+    svcrt_ptable_set_slot(slot, SVCRT_APP_SLOT_INSTALLING, 0u, 0u);
+
     if(svcrt_port_flash_erase(slot_base, total) != 0)
     {
+        svcrt_ptable_set_slot(slot, SVCRT_APP_SLOT_EMPTY, 0u, 0u);
         return SVCRT_LOADER_ERR_FLASH;
     }
 
@@ -370,7 +393,11 @@ uint32 svcrt_loader_scan(void)
 int32 svcrt_loader_start(uint32 slot)
 {
     svcrt_partition_table_t *pt = svcrt_ptable_get();
+    svcrt_app_header_t hdr;
+    uint32 slot_base;
     uint32 entry;
+    uint32 stack_top;
+    uint32 stack_bottom;
     int32 task_id;
 
     if(slot >= pt->app_max_count)
@@ -389,15 +416,34 @@ int32 svcrt_loader_start(uint32 slot)
         return SVCRT_LOADER_ERR_STATE;
     }
 
+    /* 栈不是另外分配的缓冲区，而是从 App 自己的 RAM 区顶部切出来的：
+     *   stack_top    = APP_RAM_BASE + APP_RAM_SIZE
+     *   stack_bottom = stack_top - APP_TASK_STACK_SIZE
+     * 该地址与 App 端 .sct 中 ARM_LIB_STACK 指向的栈顶完全一致（见 gen_scatter.py），
+     * 因此 __main 设置 SP 后与内核推导值一致，不存在“双份栈”。
+     * 地址只在 config/svcrt_partition.h 定义一次，此处全部派生。 */
+    stack_top    = APP_RAM_BASE + APP_RAM_SIZE;
+    stack_bottom = stack_top - APP_TASK_STACK_SIZE;
+
     task_id = svcrt_task_register((void (*)(void))entry,
-                                  svcrt_loader_app_stack,
-                                  (uint32)sizeof(svcrt_loader_app_stack),
+                                  (uint32 *)stack_bottom,
+                                  (uint32)APP_TASK_STACK_SIZE,
                                   (uint8)APP_TASK_PRIORITY,
                                   (uint32)APP_TASK_PERIOD_MS);
     if(task_id <= 0)
     {
         return SVCRT_LOADER_ERR_TASK;
     }
+
+    slot_base = pt->app_user_base + slot * pt->app_slot_size;
+
+    /* 修正 TCB 的区域描述：任务的可访问范围是整个 App 分区，而不是只有栈。
+     * 这是为后续 MPU 隔离预留的元数据（AnOs 的 kerAppInitMpu 就是按这组值配 MPU）。 */
+    svcrt_task_table[task_id - 1].ram_start = APP_RAM_BASE;
+    svcrt_task_table[task_id - 1].ram_size  = APP_RAM_SIZE;
+    svcrt_task_table[task_id - 1].rom_start = slot_base;
+    svcrt_task_table[task_id - 1].rom_size  = (svcrt_ptable_read_header(slot, &hdr) == 0)
+                                              ? hdr.image_size : 0u;
 
     svcrt_ptable_set_slot(slot, SVCRT_APP_SLOT_RUNNING, entry, (uint32)task_id);
 

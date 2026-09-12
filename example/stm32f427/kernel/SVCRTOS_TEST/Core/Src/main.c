@@ -27,6 +27,7 @@
 #include "svcrt_config.h"
 #include "svcrt_ptable.h"
 #include "svcrt_loader.h"
+#include "svcrt_installer.h"
 #include "svcrt_partition.h"
 /* USER CODE END Includes */
 
@@ -348,6 +349,9 @@ static void svcrt_kernel_init(void)
     {
         svcrt_loader_start(0u);
     }
+
+    /* 安装任务：常驻接收镜像流，使 App 落位从“烧录器刷固件”变为“设备自己安装” */
+    svcrt_installer_init();
 
     svcrt_event_module_init();
     svcrt_sync_module_init();

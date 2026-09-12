@@ -302,9 +302,6 @@ void SVC_Server(void *p_svc_ctx)
         p = (uint32 *)SVCRT_SVC_ARG(p_svc_ctx, 0);
         switch(p[0])
         {
-        case 1:     /* 获取共享内存中的分区表地址 */
-            SVCRT_SVC_RET(p_svc_ctx, (uint32)svcrt_ptable_get());
-            break;
         case 2:     /* 从设备流式加载 App 镜像到空闲槽位 */
             SVCRT_SVC_RET(p_svc_ctx, (uint32)svcrt_loader_load_dev((int32)p[1], p[2]));
             break;

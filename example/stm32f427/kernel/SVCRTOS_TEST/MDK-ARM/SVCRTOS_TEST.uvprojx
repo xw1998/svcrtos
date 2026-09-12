@@ -709,6 +709,11 @@
               <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_loader.c</FilePath>
             </File>
             <File>
+              <FileName>svcrt_installer.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_installer.c</FilePath>
+            </File>
+            <File>
               <FileName>oslib.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\kernelsrc\app\oslib.c</FilePath>

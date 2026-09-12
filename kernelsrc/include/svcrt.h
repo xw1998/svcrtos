@@ -383,15 +383,6 @@ int32  svcrt_task_stack_info(int32 task_id, uint32 *out3);
  *  @{ */
 
 /**
-* @brief 获取共享内存中的分区表地址
-* @return 分区表（svcrt_partition_table_t）在共享内存中的地址
-* @details 返回 svcrt_share.h 中定义的结构体地址，可读取 Flash/RAM
-*          分区与槽位运行状态。App / Loader 工程不应包含
-*          config/svcrt_partition.h，布局信息请通过本接口在运行期获取。
-*/
-uint32 svcrt_partition_table_addr(void);
-
-/**
 * @brief 从设备加载 App 镜像到空闲槽位
 * @param dev       已打开的设备句柄（数据从镜像头开始）
 * @param image_len 期望镜像总长（含头），传 0 表示由镜像头决定

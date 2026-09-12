@@ -46,16 +46,22 @@ RAM（128KB，`CHIP_RAM_SIZE`）：
 
 | 子命令 | 功能 | 参数（`args[]`） |
 |---|---|---|
-| 1 | 获取分区表地址 | 无 |
 | 2 | 从设备加载 App 镜像 | `args[1]=dev`，`args[2]=image_len` |
 | 3 | 启动 App | `args[1]=slot` |
 | 4 | 停止 App | `args[1]=slot` |
 | 5 | 查询槽位状态 | `args[1]=slot` |
 
+> 原先的「子命令 1：返回分区表地址」**已移除**。把共享内存地址交给用户态，
+> 意味着 App 能篡改自己的 `slot_state` 伪造“已加载”，也能改写其它槽位记录。
+> 分区表现在只由内核/安装器通过 `svcrt_ptable_get()` 访问，用户态只能用
+> `svcrt_app_status()` 这类查询接口。
+
 ### 3.2 用户 API
 
-`svcrt_partition_table_addr()`、`svcrt_app_load(dev, image_len)`、`svcrt_app_start(slot)`、
+`svcrt_app_load(dev, image_len)`、`svcrt_app_start(slot)`、
 `svcrt_app_stop(slot)`、`svcrt_app_status(slot)`（`svcrt.h` 声明，`oslib.c` / `svcrt_oslib.c` 实现）。
+
+（`svcrt_partition_table_addr()` 已收回，不再对内提供。）
 
 返回错误码：`0..`=槽位号；负数见 `svcrt_loader.h`（-1 参数、-2 魔数、-3 兼容签名、-4 长度、
 -5 CRC、-6 Flash、-7 无空闲槽位、-8 任务注册失败、-9 状态不允许）。
@@ -86,6 +92,40 @@ RAM（128KB，`CHIP_RAM_SIZE`）：
 | SVCRTOS_TEST | kernel | `build/kernel.sct` |
 | APP_DEMO / BLED_APP | app | `build/app.sct` |
 | BLED_DRV / DRV_DEMO | driver | `build/driver.sct` |
+
+## 5.1 栈模型：从 App 自己的 RAM 区切出（与 AnOs 一致）
+
+栈**不是**内核另外分配的缓冲区，而是从 App 自己的 RAM 区顶部切出来的：
+
+```
+stack_top    = APP_RAM_BASE + APP_RAM_SIZE
+stack_bottom = stack_top - APP_TASK_STACK_SIZE
+```
+
+- 内核侧：`svcrt_loader_start()` 按上式推导后交给 `svcrt_task_register()`，并在栈底写入哨兵字；
+- App 侧：`gen_scatter.py` 生成 `ARM_LIB_STACK 0x20020000 EMPTY -0x1000`，
+  即 `__main` 设置 SP 后与内核推导值**完全一致**——不存在“双份栈”，
+  也因此保住了 **`.data` 拷贝 / `.bss` 清零**（不必像 AnOs 那样跳 `main` 而放弃运行时初始化）；
+- **链接期强制**：`RW_APP` 的上限已扣除栈区（`APP_RAM_SIZE - APP_TASK_STACK_SIZE`），
+  App 的 RW/ZI 一旦要撞栈，**链接阶段就失败**，不依赖开发者自觉（AnOs 是把整块 RAM 给 RW/ZI，靠约定）；
+- 驱动区同理，使用 `DRIVER_TASK_STACK_SIZE`；App/驱动均不再生成 `ARM_LIB_HEAP`（堆会与受保护的 RW 区重叠）。
+
+配套字段：注册后内核会把 TCB 的 `ram_start/ram_size/rom_start/rom_size` 修正为**整个 App 分区**，
+而不是只有栈——这是为后续 MPU 隔离预留的元数据。
+
+## 5.2 安装任务（方案A：设备自己安装）
+
+常驻内核任务把“烧录器刷固件”变成“设备自己安装”，配置项集中在
+`config/svcrt_partition.h` 的「安装器策略」一节（`INSTALLER_*`）。
+
+接收协议：主机把 `.svcapp`（256 字节头 + 负载）**原样连续发到串口**即可，无需额外帧封装；
+安装任务在字节流中搜索镜像头魔数 `SVCA` 做**逐字节重新同步**，因此混杂的杂散字节会被自动跳过。
+
+流程：打开设备 → 同步并读出 256 字节头 → `svcrt_loader_load_dev_hdr()`
+（长度/兼容签名校验 → 擦除 → 分块流式写入 → 回读复算 CRC）→ 按 `INSTALLER_AUTO_START` 启动。
+
+掉电安全：写入期间槽位为 **`INSTALLING`**，只有全部写完且 CRC 复核通过才置 `LOADED`；
+中断安装留下的半成品会被 `svcrt_loader_scan()` 依 CRC 判为 `INVALID`，不会被启动。
 
 ## 6. 硬编码清理
 
@@ -142,4 +182,9 @@ python tools/pack_app.py --verify build/APP_DEMO/APP_DEMO.svcapp
 4. App 镜像运行在 `APP_RAM_BASE`，但当前单区间闭环未对 App 做 MPU 隔离（`SVCRT_USE_MPU = 0`），后续多区间时需补齐；
 5. `example/.../APP_DEMO/Src/app_config.c` 中的 `ram_start/rom_start`（`0x20010000` / `0x08020000`）是旧布局残留，
    当前内核未读取该表（真实布局由 `.sct` 决定），建议后续改为由分区头派生或直接移除；
-6. 槽位状态仍只存在于共享 RAM，掉电即丢失——这是走向「像手机一样装应用」的下一道门槛，需要持久化槽位元数据。
+6. 槽位状态仍只存在于共享 RAM，掉电即丢失（`svcrt_loader_scan()` 可依 CRC 重新认定，`INSTALLING` 也靠它兜住），
+   但版本/回滚等运行期状态无法持久化——需要把槽位元数据持久化到 Flash。
+7. **SVC 边界仍非零信任**：内核当前仍直接解引用用户传入的指针（`p = (uint32 *)SVCRT_SVC_ARG(...)`），
+   且对象句柄是裸索引、没有归属校验。这是无 MPU 平台唯一能拿到的“软件保护域”，应作为下一步重点。
+8. 驱动镜像尚未纳入加载/安装路径（`svcrt_loader_*` 目前只处理 App 槽位）。
+9. 上述 `.sct` 改动尚未在 Keil 里做过一次真实构建，需在板上验证后方可视为定稿。

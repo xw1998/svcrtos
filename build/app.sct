@@ -11,11 +11,9 @@ LR_APP 0x08080000 0x00080000  {
    .ANY (+RO)
    .ANY (+XO)
   }
-  RW_APP 0x2001C000 0x00004000  {
+  RW_APP 0x2001C000 0x00003000  {   ; 上限已扣除栈区，编译期不会侵占栈
    .ANY (+RW +ZI)
   }
-  ARM_LIB_STACK 0x20020000 EMPTY -0x800 {   ; 栈 2048 字节（高地址，向下生长）
-  }
-  ARM_LIB_HEAP  0x2001F000 EMPTY  0x800 {   ; 堆 2048 字节
+  ARM_LIB_STACK 0x20020000 EMPTY -0x1000 {   ; 栈 4096 字节（与内核推导的栈顶一致）
   }
 }
