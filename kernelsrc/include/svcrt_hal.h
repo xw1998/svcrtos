@@ -45,6 +45,16 @@ void svcrt_port_disable_irq(void);
 void svcrt_port_enable_irq(void);
 void svcrt_port_switch_task(void);
 
+/**
+* @brief 在异常处理程序内部直接恢复目标任务上下文并异常返回
+* @param stack_ptr 目标任务栈指针（指向其保存的 R4-R11[/EXC_RETURN]）
+* @details 故障恢复等“已经处于异常处理程序中、不能依赖 PendSV”的场景专用：
+*          Cortex-M 上 HardFault 优先级高于 PendSV，故障处理程序活动期间
+*          PendSV 不会被服务，必须由本函数直接完成恢复 + 异常返回。
+*          本函数不返回；stack_ptr 为 0 时调用方应自行停机，不要调用。
+*/
+void svcrt_port_resume_task(uint32 stack_ptr);
+
 uint8  svcrt_port_in_isr(void);
 uint32 svcrt_port_syscall_num(void *p_exc_ctx);
 

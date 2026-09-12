@@ -40,6 +40,7 @@ uint16 svcrt_cpu_idle_millis = 0;
 static uint32 svcrt_idle_stack_ptr = 0;
 
 static void svcrt_tick_tasks(svcrt_task_t *p_task);
+static void svcrt_task_recover_mark(int32 task_id);
 static void svcrt_task_recover_pending(void);
 
 void svcrt_kernel_tick_handler(void)
@@ -336,42 +337,62 @@ void SVC_Server(void *p_svc_ctx)
  *          连续故障达到 APP_CRASH_RESTART_MAX 的应用由 svcrt_loader_on_fault()
  *          禁用，不再无限重启；内核/中断上下文异常则记录后停机等调试器接管。
  *          注意：CFSR/HFSR 保持不清，便于用调试器定位故障原因。
+ * @return 可用于恢复的任务栈指针（非 0 时板级层调用 svcrt_port_resume_task 完成恢复）；
+ *         0 表示不可恢复，板级层应停机等待调试器。
  * ============================================================ */
-void svcrt_cpu_fault_handler(uint32 fault_type)
+uint32 svcrt_cpu_fault_handler(uint32 fault_type)
 {
     if(svcrt_current_task_id > 0)
     {
-        svcrt_fault_record(fault_type, svcrt_current_task_id);
+        int32 tid  = svcrt_current_task_id;
+        int32 next;
+
+        svcrt_fault_record(fault_type, tid);
+
         #if (SVCRT_USE_FAULT_RECOVER == 1)
-        /* 任务级故障恢复：重建栈帧并重新调度，等效于任务复位重启。
-         * 但连续故障达到 APP_CRASH_RESTART_MAX 的 App 会被禁用（不再重启），
-         * 避免一个坏应用把整机拖进“崩溃-重启”死循环。 */
-        if(svcrt_loader_on_fault(svcrt_current_task_id) != 0)
+        /* 未达连续故障上限：安排重启（重建栈帧）；
+         * 达到上限：svcrt_loader_on_fault 内部已置 INVALID 并清零 recover_pending，
+         * 该 App 被禁用、不再重启。 */
+        if(svcrt_loader_on_fault(tid) == 1)
         {
-            SVCRT_SWITCH_TASK();
+            /* 已达连续故障上限、该 App 已被禁用：不重建栈帧，直接从调度中摘除。
+             * 返回 -1 表示该任务不属于任何 App 槽位/驱动区（内核内置任务），
+             * 仍按默认策略重启，不能当作“已禁用”处理。 */
         }
         else
         {
-            svcrt_task_recover(svcrt_current_task_id);
+            svcrt_task_recover_mark(tid);
         }
         #else
-        svcrt_task_table[svcrt_current_task_id - 1].status = SVCRT_TASK_INVALID;
-        SVCRT_SWITCH_TASK();
+        svcrt_task_table[tid - 1].status = SVCRT_TASK_INVALID;
         #endif
-    }
-    else
-    {
-        /* 内核上下文异常：记录后停机，等待调试器接管 */
-        svcrt_fault_record(fault_type, 0);
-        while(1)
+
+        /* 关键：故障路径不经 PendSV 切换。
+         * HardFault 优先级(-1)高于 PendSV(0xFF)，故障处理程序活动期间 PendSV
+         * 不会被服务；若只置 PendSV 就返回，PendSV 永远不会执行，故障任务会
+         * 带着损坏现场继续运行（或落回向量末尾的 while(1)）——这正是此前
+         * “连续崩溃达到上限即禁用”在真实硬件上从不生效的原因。
+         * 这里直接选出下一个任务，把它的栈指针返回给板级层，
+         * 由 svcrt_port_resume_task() 完成“恢复寄存器 + 异常返回”，
+         * 等价于 PendSV 切换的后半段。
+         * old_psp 传 0：故障任务现场不再保存（它即将重建或被禁用）。 */
+        next = svcrt_sched_next() + 1;      /* recover_pending 在 sched_next 内部完成重建 */
+        if(next < 0)
         {
+            next = 0;                       /* 无就绪任务：退回空闲 */
         }
+
+        return (uint32)svcrt_sched_activate(next, 0u);
     }
+
+    /* 内核/中断上下文异常：没有可重启的任务，记录后停机等待调试器接管 */
+    svcrt_fault_record(fault_type, 0);
+    return 0u;
 }
 
-void svcrt_hardfault_handler(void)
+uint32 svcrt_hardfault_handler(void)
 {
-    svcrt_cpu_fault_handler(SVCRT_FAULT_HARDFAULT);
+    return svcrt_cpu_fault_handler(SVCRT_FAULT_HARDFAULT);
 }
 
 int32 svcrt_sched_is_switching(void)
@@ -408,8 +429,10 @@ int32 svcrt_sched_activate(int32 new_task, uint32 old_psp)
     {
         svcrt_idle_stack_ptr = old_psp;
     }
-    else
+    else if(old_psp != 0u)
     {
+        /* old_psp == 0：故障恢复路径，调用方不保存故障任务现场
+         * （该任务即将重建栈帧或被禁用），跳过 stack_ptr 回写与栈检查。 */
         svcrt_task_table[tid].stack_ptr = old_psp;
 
         #if (SVCRT_USE_STACK_USAGE == 1)
@@ -675,20 +698,20 @@ int32 svcrt_task_status_get_internal(int32 task_id)
 
 /* 任务故障恢复：重建栈帧、复位状态后重新调度，
  * 鐩稿綋浜庝换鍔＄骇鈥滆蒋澶嶄綅鈥濓紝閬垮厤鏁呴殰鍚庝换鍔℃Ы姘镐箙涓㈠け */
-int32 svcrt_task_recover(int32 task_id)
+/* 标记任务待恢复（阶段1）：置 INVALID + recover_pending。
+ * 真正的栈帧重建推迟到下一次调度扫描（svcrt_sched_next -> svcrt_task_recover_pending），
+ * 那时故障任务的旧现场已经不会再被写回 stack_ptr，重建才安全。 */
+static void svcrt_task_recover_mark(int32 task_id)
 {
     svcrt_task_t *p_task;
 
     if(task_id <= 0 || task_id > svcrt_task_count)
-        return -1;
+    {
+        return;
+    }
 
     p_task = &svcrt_task_table[task_id - 1];
 
-    /* 涓ら樁娈垫仮澶嶏細
-     * 阶段1：标记 INVALID + recover_pending，先脱离调度。
-     * 若在 HardFault 路径中调用，随后 PendSV 保存旧现场时
-     * 会把损坏的 PSP 写回 stack_ptr，不能在此处重建栈帧。
-     * 阶段2：下一次 svcrt_sched_next() 扫描时执行重建并置 READY。 */
     SVCRT_DISABLE_IRQ();
     p_task->recover_pending = 1;
     p_task->status          = SVCRT_TASK_INVALID;
@@ -697,7 +720,16 @@ int32 svcrt_task_recover(int32 task_id)
     #if (SVCRT_USE_FAULT_RECOVER == 1)
     svcrt_fault_record(SVCRT_FAULT_RECOVER, task_id);
     #endif
+}
 
+int32 svcrt_task_recover(int32 task_id)
+{
+    if(task_id <= 0 || task_id > svcrt_task_count)
+    {
+        return -1;
+    }
+
+    svcrt_task_recover_mark(task_id);
     SVCRT_SWITCH_TASK();
     return 0;
 }

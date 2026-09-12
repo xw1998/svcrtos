@@ -112,8 +112,10 @@ int32 svcrt_sched_is_switching(void);
 int32 svcrt_sched_activate(int32 new_task, uint32 old_psp);
 
 void svcrt_kernel_tick_handler(void);
-void svcrt_hardfault_handler(void);
-/* 各 CPU 异常共用入口：fault_type 取 svcrt_fault_type_t 中的 HARDFAULT/MEMFAULT/BUSFAULT/USGFAULT */
-void svcrt_cpu_fault_handler(uint32 fault_type);
+/* 各 CPU 异常共用入口：fault_type 取 svcrt_fault_type_t 中的 HARDFAULT/MEMFAULT/BUSFAULT/USGFAULT
+ * 返回值：可用于恢复的任务栈指针（非 0 时由板级层调用 svcrt_port_resume_task 完成恢复）；
+ *         0 表示不可恢复（内核/中断上下文故障），板级层应停机等待调试器。 */
+uint32 svcrt_cpu_fault_handler(uint32 fault_type);
+uint32 svcrt_hardfault_handler(void);
 
 #endif

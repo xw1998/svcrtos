@@ -92,15 +92,21 @@ void HardFault_Handler(void)
     volatile uint32 cfsr  = SCB->CFSR;
     volatile uint32 mmfar = SCB->MMFAR;
     volatile uint32 bfar  = SCB->BFAR;
+    uint32 sp;
+
     (void)hfsr; (void)cfsr; (void)mmfar; (void)bfar;
 
     /* 必须交给内核故障处理：任务级恢复（重建栈帧重启该任务），
      * 连续故障达到 APP_CRASH_RESTART_MAX 时由 svcrt_loader_on_fault() 禁用该 App。
      * 此前这里直接 while(1)，导致上述围栏在真实硬件上永远不会执行。 */
-    svcrt_hardfault_handler();
+    sp = svcrt_hardfault_handler();
 
-    /* svcrt_hardfault_handler() 正常路径会经 SVCRT_SWITCH_TASK 切走，
-     * 只有“内核上下文故障”会自行 while(1)；此处再兜底一次。 */
+    if(sp != 0u)
+    {
+        /* 内核已选出可运行任务并返回其栈指针：直接恢复并异常返回（本函数不返回） */
+        svcrt_port_resume_task(sp);
+    }
+
     while(1) { }
 }
 
@@ -109,22 +115,44 @@ void HardFault_Handler(void)
  * @brief 统一交给内核故障处理（见 svcrt_cpu_fault_handler）
  * @details stm32f4xx_it.c 中 CubeMX 生成的同名函数已在源码内用 #if 0 屏蔽。
  *          这些向量的处理逻辑与本文件 HardFault_Handler 一致：
- *          正常路径经 SVCRT_SWITCH_TASK 切走，末尾 while(1) 仅作兜底。
+ *          内核返回可恢复的任务栈指针时，直接恢复该任务上下文并异常返回；
+ *          返回 0（内核/中断上下文故障）时落回 while(1)，停机等调试器接管。
  * ============================================================ */
 void MemManage_Handler(void)
 {
-    svcrt_cpu_fault_handler(SVCRT_FAULT_MEMFAULT);
+    uint32 sp = svcrt_cpu_fault_handler(SVCRT_FAULT_MEMFAULT);
+
+    if(sp != 0u)
+    {
+        /* 同上：故障恢复路径不依赖 PendSV，直接恢复目标任务上下文 */
+        svcrt_port_resume_task(sp);
+    }
+
     while(1) { }
 }
 
 void BusFault_Handler(void)
 {
-    svcrt_cpu_fault_handler(SVCRT_FAULT_BUSFAULT);
+    uint32 sp = svcrt_cpu_fault_handler(SVCRT_FAULT_BUSFAULT);
+
+    if(sp != 0u)
+    {
+        /* 同上：故障恢复路径不依赖 PendSV，直接恢复目标任务上下文 */
+        svcrt_port_resume_task(sp);
+    }
+
     while(1) { }
 }
 
 void UsageFault_Handler(void)
 {
-    svcrt_cpu_fault_handler(SVCRT_FAULT_USGFAULT);
+    uint32 sp = svcrt_cpu_fault_handler(SVCRT_FAULT_USGFAULT);
+
+    if(sp != 0u)
+    {
+        /* 同上：故障恢复路径不依赖 PendSV，直接恢复目标任务上下文 */
+        svcrt_port_resume_task(sp);
+    }
+
     while(1) { }
 }
