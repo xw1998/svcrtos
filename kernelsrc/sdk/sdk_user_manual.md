@@ -405,7 +405,7 @@ void AppMain(void)
 
     while(1)
     {
-        svcrt_event_wait(evt, 0);    // 等待数据就绪
+        svcrt_event_wait(evt, -1);   // -1 = 永久等待数据就绪
         consume_data();
     }
 }
@@ -464,7 +464,7 @@ void AppMain(void)
     uint8 v;
 
     while(1) {
-        svcrt_event_wait(evt, 0);
+        svcrt_event_wait(evt, -1);   // -1 = 永久等待
         for(i = 0; i < 3; i++) {
             v = 1; svcrt_dev_write(led, &v, 1); svcrt_task_wait(100);
             v = 0; svcrt_dev_write(led, &v, 1); svcrt_task_wait(100);

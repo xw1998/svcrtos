@@ -146,6 +146,14 @@ int32 svcrt_event_wait_internal(int32 event_handle, int32 timeout_ms)
         return 0;
     }
 
+    /* timeout==0 表示“只试一次、不等待”：当前未置位立即报超时，
+     * 不登记等待者、不阻塞。 */
+    if(timeout_ms == 0)
+    {
+        SVCRT_ENABLE_IRQ();
+        return SVCRT_SYNC_ERR_TIMEOUT;
+    }
+
     p_tsk = svcrt_task_get_current();
     if(p_tsk == 0)
     {

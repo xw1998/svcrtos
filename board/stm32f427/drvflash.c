@@ -22,6 +22,7 @@
 #define SVCRT_FLASH_SMALL_SECTOR  (16u * 1024u)     /* 扇区 0~3       */
 #define SVCRT_FLASH_MID_SECTOR    (64u * 1024u)     /* 扇区 4         */
 #define SVCRT_FLASH_BIG_SECTOR    (128u * 1024u)    /* 扇区 5~11/23   */
+#define SVCRT_FLASH_TOTAL_SIZE    ((uint32)CHIP_FLASH_SIZE)  /* 片内 Flash 总容量 */
 
 /**
 * @brief 计算地址所在的扇区号
@@ -38,6 +39,14 @@ static uint32 svcrt_flash_sector_index(uint32 addr)
     }
 
     offset = addr - SVCRT_FLASH_BASE_ADDR;
+
+    /* 上界：超出芯片 Flash 容量的地址一律判非法。
+     * 不挡的话下面按公式会算出 5~23 的“合法”扇区号（1MB 芯片只到 11），
+     * 越界扇区被交给 HAL 去擦。 */
+    if(offset >= SVCRT_FLASH_TOTAL_SIZE)
+    {
+        return 0xFFFFFFFFu;
+    }
 
     if(offset < (4u * SVCRT_FLASH_SMALL_SECTOR))
     {

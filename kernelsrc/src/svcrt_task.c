@@ -109,11 +109,38 @@ static uint8 svcrt_kernel_mq_buf_ok(const void *p, int32 len_words)
     return svcrt_kernel_ptr_ram_ok(p, (uint32)len_words * 4u);
 }
 
-/* 名字类参数（设备名/信号量名/消息队列名…）：内核最多读 8 字节（含 NUL），
- * 字符串常量通常在用户固件区，因此按“RAM 窗口 + 用户固件窗口”判定。 */
-static uint8 svcrt_kernel_user_name_ok(const void *p)
+/* 名字类参数（设备名/信号量名/互斥锁名/消息队列名/定时器名/事件名）：
+ * 内核最多读 len 字节（含 NUL），字符串常量通常在用户固件区，
+ * 因此按“RAM 窗口 + 用户固件窗口”判定。
+ * len 必须按目标对象名字段的真实大小给出：事件名是 char[16]（最多读 15 字节），
+ * 其余对象是 char[8]。统一按 8 校验会让事件名有 7 个字节落在校验窗口之外。 */
+static uint8 svcrt_kernel_user_name_ok(const void *p, uint32 len)
 {
-    return svcrt_kernel_ptr_flash_ok(p, 8u);
+    return svcrt_kernel_ptr_flash_ok(p, len);
+}
+
+/* 定时器回调：必须落在调用者自身的固件区内。
+ * 原判定只要求“不是内核 Flash”，于是某个 App 可以把回调指向驱动池或另一个
+ * App 的槽位——等于借内核特权态去执行别人安装的代码。 */
+static uint8 svcrt_kernel_cb_own_region_ok(const void *p)
+{
+    svcrt_task_t *p_tsk = svcrt_task_get_current();
+    uint32 start;
+
+    if(p == 0)
+    {
+        return 0u;
+    }
+
+    if((p_tsk != 0) && (p_tsk->rom_size != 0u))
+    {
+        start = (uint32)p;
+        return ((start >= p_tsk->rom_start) &&
+                (start < (p_tsk->rom_start + p_tsk->rom_size))) ? 1u : 0u;
+    }
+
+    /* 内核自身任务没有独立固件区（rom_size==0）：退回“用户可见代码区”判定 */
+    return svcrt_kernel_ptr_flash_ok(p, 2u);
 }
 
 /* 设备读写缓冲区：长度必须为正，且整块落在用户可见 RAM 内。
@@ -233,7 +260,8 @@ void SVC_Server(void *p_svc_ctx)
         switch(p[0])
         {
             case 1:
-                if(svcrt_kernel_user_name_ok((const void *)p[1]) == 0u)
+                /* 事件名字段是 char[16]，校验窗口必须给到 16 字节 */
+                if(svcrt_kernel_user_name_ok((const void *)p[1], 16u) == 0u)
                 {
                     SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
                     break;
@@ -349,7 +377,7 @@ void SVC_Server(void *p_svc_ctx)
         switch(p[0])
         {
             case 1:
-                if(svcrt_kernel_user_name_ok((const void *)p[1]) == 0u)
+                if(svcrt_kernel_user_name_ok((const void *)p[1], 8u) == 0u)
                 {
                     SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
                     break;
@@ -395,7 +423,7 @@ void SVC_Server(void *p_svc_ctx)
         switch(p[0])
         {
             case 1:
-                if(svcrt_kernel_user_name_ok((const void *)p[1]) == 0u ||
+                if(svcrt_kernel_user_name_ok((const void *)p[1], 8u) == 0u ||
                    svcrt_kernel_dev_drv_ok((const svcrt_dev_drv_t *)p[2]) == 0u)
                 {
                     SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
@@ -404,7 +432,7 @@ void SVC_Server(void *p_svc_ctx)
                 SVCRT_SVC_RET(p_svc_ctx, svcrt_dev_register((char *)p[1], (svcrt_dev_drv_t *)p[2], p[3]));
                 break;
             case 2:
-                if(svcrt_kernel_user_name_ok((const void *)p[1]) == 0u)
+                if(svcrt_kernel_user_name_ok((const void *)p[1], 8u) == 0u)
                 {
                     SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
                     break;
@@ -431,7 +459,7 @@ void SVC_Server(void *p_svc_ctx)
         switch(p[0])
         {
             case 1:
-                if(svcrt_kernel_user_name_ok((const void *)p[1]) == 0u)
+                if(svcrt_kernel_user_name_ok((const void *)p[1], 8u) == 0u)
                 {
                     SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
                     break;
@@ -448,7 +476,7 @@ void SVC_Server(void *p_svc_ctx)
                 SVCRT_SVC_RET(p_svc_ctx, svcrt_sem_delete_internal((int32)p[1]));
                 break;
             case 5:
-                if(svcrt_kernel_user_name_ok((const void *)p[1]) == 0u)
+                if(svcrt_kernel_user_name_ok((const void *)p[1], 8u) == 0u)
                 {
                     SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
                     break;
@@ -481,7 +509,7 @@ void SVC_Server(void *p_svc_ctx)
         switch(p[0])
         {
         case 1:
-            if(svcrt_kernel_user_name_ok((const void *)p[1]) == 0u)
+            if(svcrt_kernel_user_name_ok((const void *)p[1], 8u) == 0u)
             {
                 SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
                 break;
@@ -526,7 +554,7 @@ void SVC_Server(void *p_svc_ctx)
         switch(p[0])
         {
         case 1:
-            if(svcrt_kernel_user_name_ok((const void *)p[1]) == 0u)
+            if(svcrt_kernel_user_name_ok((const void *)p[1], 8u) == 0u)
             {
                 SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
                 break;
@@ -534,9 +562,10 @@ void SVC_Server(void *p_svc_ctx)
             SVCRT_SVC_RET(p_svc_ctx, svcrt_timer_create_internal((char *)p[1]));
             break;
         case 2:
-            /* 回调会在内核特权态执行：函数指针与参数指针都必须位于用户可见区域 */
+            /* 回调会在内核特权态执行：回调必须落在调用者自己的固件区内，
+             * 参数指针必须位于用户可见 RAM */
             if(svcrt_kernel_svc_args_ok(p, 24u) == 0u ||
-               svcrt_kernel_ptr_flash_ok((const void *)p[4], 2u) == 0u ||
+               svcrt_kernel_cb_own_region_ok((const void *)p[4]) == 0u ||
                svcrt_kernel_ptr_ram_ok((const void *)p[5], 1u) == 0u)
             {
                 SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));

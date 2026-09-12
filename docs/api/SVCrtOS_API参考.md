@@ -129,7 +129,7 @@ int32  svcrt_sem_wait(int32 handle, int32 timeout);
 
 **等待信号量（计数减一，计数为 0 时阻塞）**
 - `handle`：信号量句柄
-- `timeout`：超时时间（ms），负值表示永久等待
+- `timeout`：超时时间（ms），0 表示不等待，负值表示永久等待
 **返回**：0=成功，负值=超时或参数错误
 
 ### `int32  svcrt_sem_post(int32 handle);`
@@ -170,7 +170,7 @@ int32  svcrt_mutex_lock(int32 handle, int32 timeout);
 
 **加锁**
 - `handle`：互斥锁句柄
-- `timeout`：超时时间（ms），负值表示永久等待
+- `timeout`：超时时间（ms），0 表示不等待，负值表示永久等待
 **返回**：0=成功，负值=超时或参数错误
 
 ### `int32  svcrt_mutex_unlock(int32 handle);`
@@ -284,7 +284,7 @@ int32  svcrt_mq_recv(int32 handle, void *buf, int32 len_words, int32 timeout);
 - `handle`：消息队列句柄
 - `buf`：接收缓冲区
 - `len_words`：缓冲区可容纳的字数
-- `timeout`：超时时间（ms），负值表示永久等待
+- `timeout`：超时时间（ms），0 表示不等待，负值表示永久等待
 **返回**：实际收到的字数，负值=超时或错误
 
 ### `int32  svcrt_mq_delete(int32 handle);`

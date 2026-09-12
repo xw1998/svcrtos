@@ -250,7 +250,7 @@ int32 evt = svcrt_event_create("data_ready");
 
 while(1)
 {
-    svcrt_event_wait(evt, 0);
+    svcrt_event_wait(evt, -1);   /* -1 = 永久等待（0 表示不等待） */
     consume_data();
 }
 ```

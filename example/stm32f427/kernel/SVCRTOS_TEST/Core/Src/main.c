@@ -197,12 +197,12 @@ static void led_blink_task(void)
     while(1)
     {
         /* ???????????õô§Õ?????????????? */
-        svcrt_mtx_lock_internal(g_led_mutex, 0);
+        svcrt_mtx_lock_internal(g_led_mutex, -1);   /* -1 = ÓÀ¾ÃµÈ´ý */
         svcrt_dev_write_internal(led, &on, 1);      /* ???? */
         svcrt_mtx_unlock_internal(g_led_mutex);
         svcrt_task_wait_internal(1000);
 
-        svcrt_mtx_lock_internal(g_led_mutex, 0);
+        svcrt_mtx_lock_internal(g_led_mutex, -1);   /* -1 = ÓÀ¾ÃµÈ´ý */
         svcrt_dev_write_internal(led, &on, 0);      /* ???? */
         svcrt_mtx_unlock_internal(g_led_mutex);
         svcrt_task_wait_internal(1000);
@@ -217,12 +217,12 @@ static void led2_blink_task(void)
     while(1)
     {
         /* ??????¦Ë???????????????? */
-        svcrt_mtx_lock_internal(g_led_mutex, 0);
+        svcrt_mtx_lock_internal(g_led_mutex, -1);   /* -1 = ÓÀ¾ÃµÈ´ý */
         svcrt_dev_write_internal(led, &on, 0);      /* ???? */
         svcrt_mtx_unlock_internal(g_led_mutex);
         svcrt_task_wait_internal(1000);
 
-        svcrt_mtx_lock_internal(g_led_mutex, 0);
+        svcrt_mtx_lock_internal(g_led_mutex, -1);   /* -1 = ÓÀ¾ÃµÈ´ý */
         svcrt_dev_write_internal(led, &on, 1);      /* ???? */
         svcrt_mtx_unlock_internal(g_led_mutex);
         svcrt_task_wait_internal(1000);

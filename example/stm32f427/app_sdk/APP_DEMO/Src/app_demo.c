@@ -21,14 +21,14 @@ void AppMain(void)
     while(1)
     {
         /* ???????????豸???? */
-        svcrt_mutex_lock(mtx, 0);
+        svcrt_mutex_lock(mtx, -1);    /* -1 = 永久等待（0 现在是“不等待”） */
         on = 1;
         svcrt_dev_write(led, &on, 1);
         svcrt_mutex_unlock(mtx);
 
         svcrt_task_wait(500);
 
-        svcrt_mutex_lock(mtx, 0);
+        svcrt_mutex_lock(mtx, -1);    /* -1 = 永久等待（0 现在是“不等待”） */
         on = 0;
         svcrt_dev_write(led, &on, 1);
         svcrt_mutex_unlock(mtx);

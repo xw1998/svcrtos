@@ -344,6 +344,14 @@ int32 svcrt_sem_wait_internal(int32 handle, int32 timeout_ms)
         return 0;
     }
 
+    /* timeout==0 表示“只试一次、不等待”：计数为 0 立即报超时，
+     * 不登记等待者、不阻塞（0 不再被解释成永久等待）。 */
+    if(timeout_ms == 0)
+    {
+        SVCRT_ENABLE_IRQ();
+        return SVCRT_SYNC_ERR_TIMEOUT;
+    }
+
     p_tsk = svcrt_task_get_current();
     if(p_tsk == 0)
     {
@@ -500,6 +508,14 @@ int32 svcrt_mtx_lock_internal(int32 handle, int32 timeout_ms)
         /* 同一任务重复加锁，不支持递归，返回错误 */
         SVCRT_ENABLE_IRQ();
         return -1;
+    }
+
+    /* timeout==0 表示“只试一次、不等待”：锁已被他人持有立即报超时。
+     * 这里不登记等待者、也不做优先级继承——没建立等待关系就不该提权。 */
+    if(timeout_ms == 0)
+    {
+        SVCRT_ENABLE_IRQ();
+        return SVCRT_SYNC_ERR_TIMEOUT;
     }
 
     /* 优先级继承：若持有者优先级低于当前等待者，临时提升持有者优先级以避免优先级反转 */
