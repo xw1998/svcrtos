@@ -82,10 +82,14 @@ static uint32 svcrt_loader_image_crc(const uint8 *image, uint32 total_len)
     return crc;
 }
 
-/* 计算镜像入口地址（ARM 需置 Thumb 位） */
+/* 计算镜像入口地址（ARM 需置 Thumb 位）
+ * 槽位内布局为 [镜像头 256 字节][负载]，负载的链接基址 = 槽位基址 + SVCRT_APP_HEADER_SIZE，
+ * entry_offset 是入口相对“负载起始”的偏移，所以入口 = 分区基址 + 头长 + entry_offset。
+ * （裸镜像调试路径不经过本函数：它没有镜像头，入口直接取分区基址，
+ *   见 svcrt_loader_identify 里的 APP_ALLOW_RAW_IMAGE 分支） */
 static uint32 svcrt_loader_entry_addr(uint32 slot_base, uint32 entry_offset)
 {
-    uint32 entry = slot_base + entry_offset;
+    uint32 entry = slot_base + SVCRT_APP_HEADER_SIZE + entry_offset;
 
     #if (SVCRT_ARCH_IS_ARM == 1)
     entry |= 1u;                /* Cortex-M：Thumb 指令集标志位 */
@@ -510,7 +514,8 @@ int32 svcrt_loader_load_driver(int32 dev, uint32 image_len)
 
 /* 认定一段分区内的内容，得到一个可用入口。
  * 支持两种共存的格式：
- *   1) 安装路径：带 256 字节头 + CRC32 的 .svcapp，入口 = 基址 + entry_offset；
+ *   1) 安装路径：带 256 字节头 + CRC32 的 .svcapp，
+ *      入口 = 分区基址 + 镜像头长度 + entry_offset（负载链接基址另有 +256，见 gen_scatter）；
  *   2) 开发路径：Keil 直接下载的裸镜像（无镜像头），入口 = 分区基址（ARM 置 Thumb 位）。
  *      开发期靠它保住“固定地址烧录 + MDK 下断点调试”的闭环；
  *      发布固件时应把 APP_ALLOW_RAW_IMAGE 关掉，只接受 .svcapp。

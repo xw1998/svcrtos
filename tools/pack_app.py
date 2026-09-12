@@ -14,6 +14,13 @@ SVCrtOS 镜像打包工具（App / 驱动）
 镜像格式见 kernelsrc/include/svcrt_app_image.h，CRC32 算法与内核
 svcrt_loader.c 使用的 zlib/IEEE 802.3 反射多项式完全一致（可分段累积）。
 
+槽位内布局契约（与 tools/gen_scatter.py、内核 svcrt_loader.c 三方一致）：
+    [槽位基址]  镜像头 256 字节
+    [槽位基址 + 256]  负载（代码/只读数据）
+所以 App / 驱动工程的 .sct 必须按「负载基址 = 槽位基址 + 镜像头长度」生成
+（gen_scatter.py --target app|driver 的默认布局），本工具会据此校验链接基址。
+镜像头里的 load_addr 记录的是「目标槽位基址」，不是负载基址。
+
 用法：
     # 由 Keil 的 .axf 直接打包（推荐：同时从符号表解析入口偏移）
     python tools/pack_app.py --axf build/APP_DEMO/APP_DEMO.axf \
@@ -220,6 +227,13 @@ def do_pack(args):
     slot = SLOT_MACRO[args.type]
     slot_base = v(slot + "_BASE")
     slot_size = v(slot + "_SIZE")
+
+    # 负载的链接基址 = 槽位基址 + 镜像头长度（与 gen_scatter.py 的默认布局一致）
+    header_size = v("APP_IMAGE_HEADER_SIZE")
+    if header_size != HEADER_SIZE:
+        raise SystemExit("配置头 APP_IMAGE_HEADER_SIZE = %d 与打包工具的 HEADER_SIZE = %d 不一致"
+                         % (header_size, HEADER_SIZE))
+    payload_base = slot_base + header_size
     hw_compat = args.hw_compat if args.hw_compat is not None else v("SVCRT_HW_COMPAT_ID")
     flash_base, flash_end = v("CHIP_FLASH_BASE"), v("CHIP_FLASH_BASE") + v("CHIP_FLASH_SIZE")
 
@@ -227,7 +241,7 @@ def do_pack(args):
     if args.bin:
         with open(args.bin, "rb") as f:
             payload = f.read()
-        base = args.load_addr if args.load_addr is not None else slot_base
+        base = args.load_addr if args.load_addr is not None else payload_base
         symbol_addr = None
     else:
         elf = Elf(args.axf)
@@ -241,10 +255,12 @@ def do_pack(args):
         print("[pack] ELF 镜像基址 0x%08X，入口符号 %s = 0x%08X"
               % (base, args.entry_symbol, symbol_addr))
 
-    if base != slot_base:
-        raise SystemExit("镜像基址 0x%08X 与分区配置中 %s_BASE = 0x%08X 不一致。\n"
-                         "        请确认该工程的 .sct 由 tools/gen_scatter.py 生成且配置头一致。"
-                         % (base, slot, slot_base))
+    if base != payload_base:
+        raise SystemExit("镜像链接基址 0x%08X 与 %s_BASE + 镜像头 %d 字节 = 0x%08X 不一致。\n"
+                         "        该工程的 .sct 必须按“负载基址 = 槽位基址 + 镜像头长度”生成：\n"
+                         "        python tools/gen_scatter.py --target %s --output <out.sct>\n"
+                         "        （若确实要生成开发调试用的裸镜像，请用 --raw 布局并改用 --bin 打包）"
+                         % (base, slot, header_size, payload_base, args.type))
 
     # ---- 入口偏移 ----
     if args.entry_offset is not None:
@@ -260,9 +276,9 @@ def do_pack(args):
         raise SystemExit("入口偏移 0x%X 超出镜像范围（0x0 ~ 0x%X）" % (entry_offset, len(payload) - 1))
 
     # ---- 长度与对齐 ----
-    if len(payload) + HEADER_SIZE > slot_size:
+    if header_size + len(payload) > slot_size:
         raise SystemExit("镜像过大：%d 字节 + 头 %d 超出槽位容量 %d 字节"
-                         % (len(payload), HEADER_SIZE, slot_size))
+                         % (len(payload), header_size, slot_size))
     pad = (-len(payload)) % 4
     if pad:
         payload += b"\xff" * pad
@@ -276,6 +292,7 @@ def do_pack(args):
         manifest = {k: x for k, x in manifest.items() if x}
 
     version = parse_version(args.version) if args.version else 0
+    # 镜像头里的 load_addr = 目标槽位基址（内核据此校验镜像是否装到了正确的槽位）
     header = build_header(img_type, hw_compat, version, len(payload), entry_offset,
                           slot_base, 0, manifest)
     crc = calc_crc(header, payload)
@@ -297,6 +314,7 @@ def do_pack(args):
     print("[pack] 类型        : %s" % TYPE_NAME[img_type])
     print("[pack] 输出        : %s" % out)
     print("[pack] 槽位基址    : 0x%08X（%s_BASE，容量 %d KB）" % (slot_base, slot, slot_size // 1024))
+    print("[pack] 负载基址    : 0x%08X（= 槽位基址 + 镜像头 %d 字节）" % (payload_base, header_size))
     print("[pack] 镜像负载    : %d 字节" % len(payload))
     print("[pack] 入口偏移    : 0x%08X" % entry_offset)
     print("[pack] 版本        : %s" % version_str(version))
@@ -336,7 +354,8 @@ def do_info(path):
     print("硬件兼容 : 0x%08X" % h["hw_compat"])
     print("加载地址 : 0x%08X" % h["load_addr"])
     print("入口偏移 : 0x%08X" % h["entry_offset"])
-    print("入口地址 : 0x%08X" % (h["load_addr"] + h["entry_offset"]))
+    print("负载基址 : 0x%08X" % (h["load_addr"] + HEADER_SIZE))
+    print("入口地址 : 0x%08X" % (h["load_addr"] + HEADER_SIZE + h["entry_offset"]))
     print("负载长度 : %d 字节" % h["image_size"])
     print("CRC32    : 0x%08X" % h["crc32"])
     if h["manifest"]:

@@ -25,7 +25,10 @@ SVCrtOS 分散加载文件（.sct）生成器
 设计约束：
     1. Loader / App 工程的 .sct 只覆盖自己的分区，绝不越界；
     2. 各映像的 RW 段使用各自独立的 RAM 区间（不能共用，否则互相覆盖）；
-    3. 生成的 .sct 属于构建产物，建议放在 build/ 且不纳入版本库。
+    3. 生成的 .sct 属于构建产物，建议放在 build/ 且不纳入版本库；
+    4. app / driver 默认按「.svcapp 安装路径」生成：负载链接基址 =
+       槽位基址 + APP_IMAGE_HEADER_SIZE（槽位前 256 字节留给镜像头）；
+       加 --raw 则按「开发调试裸镜像路径」生成，负载直接位于槽位基址。
 """
 
 from __future__ import print_function
@@ -225,11 +228,26 @@ def emit(region_name, base, size, ram_base, ram_size, out, ccm=None, stack_size=
     out.write("}\n")
 
 
-def gen_target(layout, target, out_path):
+def gen_target(layout, target, out_path, raw=False):
+    """生成一个映像的分散加载文件
+
+    raw=False（默认）：按 .svcapp 安装路径——槽位前 APP_IMAGE_HEADER_SIZE 字节
+        留给镜像头，负载链接基址 = 槽位基址 + 头长；Loader 按同一契约计算入口。
+    raw=True        ：按开发调试的裸镜像路径——无镜像头，负载直接位于槽位基址。
+    """
     v = layout.v
     d = os.path.dirname(os.path.abspath(out_path))
     if d and not os.path.isdir(d):
         os.makedirs(d)
+
+    def image_layout(base, size):
+        """把「槽位基址 / 槽位大小」换算成「负载链接基址 / 负载可用大小」"""
+        if raw:
+            return base, size
+        hdr = v("APP_IMAGE_HEADER_SIZE")
+        if size <= hdr:
+            raise SystemExit("分区过小：0x%X 字节装不下 %d 字节镜像头" % (size, hdr))
+        return base + hdr, size - hdr
 
     ccm = (v("CHIP_CCM_BASE"), v("CHIP_CCM_SIZE"))
     with open(out_path, "w", encoding="utf-8") as out:
@@ -237,11 +255,13 @@ def gen_target(layout, target, out_path):
             emit("KERNEL", v("KERNEL_BASE"), v("KERNEL_SIZE"),
                  v("KERNEL_RAM_BASE"), v("KERNEL_RAM_SIZE"), out, ccm=ccm)
         elif target == "driver":
-            emit("DRIVER", v("DRIVER_POOL_BASE"), v("DRIVER_POOL_SIZE"),
+            base, size = image_layout(v("DRIVER_POOL_BASE"), v("DRIVER_POOL_SIZE"))
+            emit("DRIVER", base, size,
                  v("DRIVER_RAM_BASE"), v("DRIVER_RAM_SIZE"), out,
                  stack_size=v("DRIVER_TASK_STACK_SIZE"))
         elif target == "app":
-            emit("APP", v("APP_SLOT0_BASE"), v("APP_SLOT0_SIZE"),
+            base, size = image_layout(v("APP_SLOT0_BASE"), v("APP_SLOT0_SIZE"))
+            emit("APP", base, size,
                  v("APP_RAM_BASE"), v("APP_RAM_SIZE"), out,
                  stack_size=v("APP_TASK_STACK_SIZE"))
         elif target == "boot":
@@ -251,7 +271,7 @@ def gen_target(layout, target, out_path):
                  v("BOOT_RAM_BASE"), v("BOOT_RAM_SIZE"), out)
         else:
             raise SystemExit("未知 target: %s" % target)
-    print("[gen_scatter] %-7s -> %s" % (target, out_path))
+    print("[gen_scatter] %-7s%-6s -> %s" % (target, " (raw)" if raw else "", out_path))
 
 
 def main():
@@ -259,6 +279,8 @@ def main():
     ap.add_argument("--target", choices=["boot", "kernel", "driver", "app", "all"])
     ap.add_argument("--output", help="输出文件路径；target=all 时视为输出目录")
     ap.add_argument("--header", default=DEFAULT_HEADER, help="分区配置头文件")
+    ap.add_argument("--raw", action="store_true",
+                    help="生成开发调试用的裸镜像布局（负载直接位于槽位基址，无镜像头）")
     ap.add_argument("--check", action="store_true", help="仅校验布局")
     ap.add_argument("--dump", action="store_true", help="打印当前布局")
     args = ap.parse_args()
@@ -297,10 +319,15 @@ def main():
         for t, name in (("kernel", "kernel.sct"), ("driver", "driver.sct"),
                         ("app", "app.sct")):
             gen_target(layout, t, os.path.join(args.output, name))
+        # 开发调试旁路：同一份配置再生成一套“裸镜像”布局，
+        # 供“固定地址烧录 + MDK 下断点调试 App”使用。
+        gen_target(layout, "app", os.path.join(args.output, "app_dev.sct"), raw=True)
+        if layout.v("DRIVER_POOL_SIZE") > 0:
+            gen_target(layout, "driver", os.path.join(args.output, "driver_dev.sct"), raw=True)
         if layout.v("BOOT_SIZE") > 0:
             gen_target(layout, "boot", os.path.join(args.output, "boot.sct"))
     else:
-        gen_target(layout, args.target, args.output)
+        gen_target(layout, args.target, args.output, raw=args.raw)
     return 0
 
 
