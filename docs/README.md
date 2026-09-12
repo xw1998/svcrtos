@@ -1,17 +1,28 @@
 # SVCrtOS 文档目录
 
-本目录存放自动生成的 API 文档，以及生成脚本的使用说明。
+## 先读哪一份
+
+| 我想…… | 看这份 |
+|---|---|
+| 把 App/驱动调试起来、装到板子上、处理崩溃 | **[SVCrtOS应用安装与调试指南.md](SVCrtOS应用安装与调试指南.md)**（操作手册，先读这份） |
+| 搞懂分区/加载器/镜像格式为什么这么设计 | [Loader工程化落地说明.md](Loader工程化落地说明.md)（设计说明与变更记录） |
+| 查自旋锁、调度器锁、栈用量分析的用法 | [SVCrtOS变更说明_自旋锁与栈分析.md](SVCrtOS变更说明_自旋锁与栈分析.md) |
+| 查 API 签名与参数 | [api/SVCrtOS_API参考.md](api/SVCrtOS_API参考.md) |
 
 ## 目录结构
 
 ```
 docs/
-├── README.md                          # 本文件
-├── SVCrtOS变更说明_自旋锁与栈分析.md      # 自旋锁/调度器锁/栈用量/文档生成 的变更说明
+├── README.md                              # 本文件（文档索引 + API 文档生成说明）
+├── SVCrtOS应用安装与调试指南.md             # 【操作手册】开发调试/串口安装/启动流程/故障处理/排错
+├── Loader工程化落地说明.md                 # 【设计说明】分区配置、镜像格式、Loader、安装任务、安全分层
+├── SVCrtOS变更说明_自旋锁与栈分析.md        # 【变更说明】自旋锁/调度器锁/栈用量/文档生成
 └── api/
-    ├── SVCrtOS_API参考.md               # 内置生成器输出的 Markdown API 参考（已生成）
-    └── html/                          # Doxygen 输出的 HTML（需本机安装 Doxygen）
+    ├── SVCrtOS_API参考.md                 # 内置生成器输出的 Markdown API 参考（已生成）
+    └── html/                            # Doxygen 输出的 HTML（需本机安装 Doxygen）
 ```
+
+下面几节介绍 API 文档的生成方式。
 
 ## 生成方式
 
