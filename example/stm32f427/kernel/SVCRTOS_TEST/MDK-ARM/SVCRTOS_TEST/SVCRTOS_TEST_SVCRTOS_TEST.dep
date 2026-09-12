@@ -1,2093 +1,0 @@
-Dependencies for Project 'SVCRTOS_TEST', Target 'SVCRTOS_TEST': (DO NOT MODIFY !)
-CompilerVersion: 5060960::V5.06 update 7 (build 960)::.\ARMCC
-F (startup_stm32f427xx.s)(0x6A1D5539)(--cpu Cortex-M4.fp.sp -g --apcs=interwork -I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include--pd "__UVISION_VERSION SETA 541" --pd "STM32F427xx SETA 1" --pd "_RTE_ SETA 1"--list startup_stm32f427xx.lst --xref -o svcrtos_test\startup_stm32f427xx.o --depend svcrtos_test\startup_stm32f427xx.d)
-F (../Core/Src/system_stm32f4xx.c)(0x6A1D5537)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\system_stm32f4xx_1.o --omf_browse svcrtos_test\system_stm32f4xx_1.crf --depend svcrtos_test\system_stm32f4xx_1.d)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Core/Src/main.c)(0x6AA4C282)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\main.o --omf_browse svcrtos_test\main.crf --depend svcrtos_test\main.d)
-I (../Core/Inc/main.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-I (../Core/Inc/rtc.h)(0x6A1D5537)
-I (../Core/Inc/sdio.h)(0x6A1D5537)
-I (../Core/Inc/spi.h)(0x6A1D5537)
-I (../Core/Inc/usart.h)(0x6A1D5537)
-I (../Core/Inc/usb_otg.h)(0x6A1D5537)
-I (../Core/Inc/gpio.h)(0x6A1D5537)
-I (../../../../../kernelsrc/include/svcrt.h)(0x6AA4BB55)
-I (../../../../../kernelsrc/include/svcrt_types.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_hal.h)(0x6AA4D028)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6AA4BEAF)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6AA4BAF7)
-I (../../../../../kernelsrc/include/svcrt_arch.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_spin.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_cfg.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x6AA3C650)
-I (../../../../../kernelsrc/include/svcrt_task.h)(0x6AA4C49B)
-I (../../../../../kernelsrc/include/svcrt_event.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_dev.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_sync.h)(0x6A38DDEF)
-I (../../../../../kernelsrc/include/svcrt_ptable.h)(0x6AA3C609)
-I (../../../../../kernelsrc/include/svcrt_share.h)(0x6AA4B573)
-I (../../../../../kernelsrc/include/svcrt_app_image.h)(0x6AA4A7AB)
-I (../../../../../kernelsrc/include/svcrt_loader.h)(0x6AA4D028)
-I (../../../../../kernelsrc/include/svcrt_installer.h)(0x6AA4B2C3)
-I (../../../../../kernelsrc/include/svcrt_mq.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_timer.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_fault.h)(0x6AA4D028)
-I (../../../../../kernelsrc/include/svcrt_init.h)(0x6AA4BAED)
-I (../../../../../config/svcrt_partition.h)(0x6AA4B576)
-F (../Core/Src/gpio.c)(0x6A38DDEE)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\gpio.o --omf_browse svcrtos_test\gpio.crf --depend svcrtos_test\gpio.d)
-I (../Core/Inc/gpio.h)(0x6A1D5537)
-I (../Core/Inc/main.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Core/Src/rtc.c)(0x6A1D5537)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\rtc.o --omf_browse svcrtos_test\rtc.crf --depend svcrtos_test\rtc.d)
-I (../Core/Inc/rtc.h)(0x6A1D5537)
-I (../Core/Inc/main.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Core/Src/sdio.c)(0x6A1D5537)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\sdio.o --omf_browse svcrtos_test\sdio.crf --depend svcrtos_test\sdio.d)
-I (../Core/Inc/sdio.h)(0x6A1D5537)
-I (../Core/Inc/main.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Core/Src/spi.c)(0x6A1D5537)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\spi.o --omf_browse svcrtos_test\spi.crf --depend svcrtos_test\spi.d)
-I (../Core/Inc/spi.h)(0x6A1D5537)
-I (../Core/Inc/main.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Core/Src/usart.c)(0x6A1D5537)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\usart.o --omf_browse svcrtos_test\usart.crf --depend svcrtos_test\usart.d)
-I (../Core/Inc/usart.h)(0x6A1D5537)
-I (../Core/Inc/main.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Core/Src/usb_otg.c)(0x6A1D5537)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\usb_otg.o --omf_browse svcrtos_test\usb_otg.crf --depend svcrtos_test\usb_otg.d)
-I (../Core/Inc/usb_otg.h)(0x6A1D5537)
-I (../Core/Inc/main.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Core/Src/stm32f4xx_it.c)(0x6AA4C49B)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_it.o --omf_browse svcrtos_test\stm32f4xx_it.crf --depend svcrtos_test\stm32f4xx_it.d)
-I (../Core/Inc/main.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_it.h)(0x6A1D5537)
-F (../Core/Src/stm32f4xx_hal_msp.c)(0x6A1D5537)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_hal_msp.o --omf_browse svcrtos_test\stm32f4xx_hal_msp.crf --depend svcrtos_test\stm32f4xx_hal_msp.d)
-I (../Core/Inc/main.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (..\..\..\..\..\kernelsrc\src\svcrt_task.c)(0x6AA4D172)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_task.o --omf_browse svcrtos_test\svcrt_task.crf --depend svcrtos_test\svcrt_task.d)
-I (../../../../../kernelsrc/include/svcrt_cfg.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x6AA3C650)
-I (../../../../../kernelsrc/include/svcrt_types.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_task.h)(0x6AA4C49B)
-I (../../../../../kernelsrc/include/svcrt_hal.h)(0x6AA4D028)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6AA4BEAF)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6AA4BAF7)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-I (../../../../../kernelsrc/include/svcrt_arch.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_spin.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_event.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_dev.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_sync.h)(0x6A38DDEF)
-I (../../../../../kernelsrc/include/svcrt_mq.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_timer.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_fault.h)(0x6AA4D028)
-I (../../../../../kernelsrc/include/svcrt_ptable.h)(0x6AA3C609)
-I (../../../../../kernelsrc/include/svcrt_share.h)(0x6AA4B573)
-I (../../../../../kernelsrc/include/svcrt_app_image.h)(0x6AA4A7AB)
-I (../../../../../kernelsrc/include/svcrt_mpu.h)(0x6AA4D172)
-I (../../../../../kernelsrc/include/svcrt_loader.h)(0x6AA4D028)
-F (..\..\..\..\..\kernelsrc\src\svcrt_dev.c)(0x6A1D5539)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_dev.o --omf_browse svcrtos_test\svcrt_dev.crf --depend svcrtos_test\svcrt_dev.d)
-I (../../../../../kernelsrc/include/svcrt_dev.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x6AA3C650)
-I (../../../../../kernelsrc/include/svcrt_types.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6AA4BEAF)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6AA4BAF7)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-I (../../../../../kernelsrc/include/svcrt_arch.h)(0x6AA3BA5D)
-F (..\..\..\..\..\kernelsrc\src\svcrt_event.c)(0x6AA3BA5D)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_event.o --omf_browse svcrtos_test\svcrt_event.crf --depend svcrtos_test\svcrt_event.d)
-I (../../../../../kernelsrc/include/svcrt_event.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x6AA3C650)
-I (../../../../../kernelsrc/include/svcrt_types.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_task.h)(0x6AA4C49B)
-I (../../../../../kernelsrc/include/svcrt_hal.h)(0x6AA4D028)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6AA4BEAF)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6AA4BAF7)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-I (../../../../../kernelsrc/include/svcrt_arch.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_spin.h)(0x6AA3BA5D)
-F (..\..\..\..\..\kernelsrc\src\svcrt_fifo.c)(0x6A38DDEF)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_fifo.o --omf_browse svcrtos_test\svcrt_fifo.crf --depend svcrtos_test\svcrt_fifo.d)
-I (../../../../../kernelsrc/include/svcrt_fifo.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x6AA3C650)
-I (../../../../../kernelsrc/include/svcrt_types.h)(0x6A1D5539)
-F (..\..\..\..\..\kernelsrc\src\svcrt_cfg.c)(0x6AA4BAF7)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_cfg.o --omf_browse svcrtos_test\svcrt_cfg.crf --depend svcrtos_test\svcrt_cfg.d)
-I (../../../../../kernelsrc/include/svcrt_cfg.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x6AA3C650)
-I (../../../../../kernelsrc/include/svcrt_types.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_task.h)(0x6AA4C49B)
-I (../../../../../kernelsrc/include/svcrt_hal.h)(0x6AA4D028)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6AA4BEAF)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6AA4BAF7)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-I (../../../../../kernelsrc/include/svcrt_arch.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_spin.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_fault.h)(0x6AA4D028)
-I (../../../../../kernelsrc/include/svcrt_init.h)(0x6AA4BAED)
-F (..\..\..\..\..\kernelsrc\src\svcrt_sync.c)(0x6AA3BA5D)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_sync.o --omf_browse svcrtos_test\svcrt_sync.crf --depend svcrtos_test\svcrt_sync.d)
-I (../../../../../kernelsrc/include/svcrt_sync.h)(0x6A38DDEF)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x6AA3C650)
-I (../../../../../kernelsrc/include/svcrt_types.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_task.h)(0x6AA4C49B)
-I (../../../../../kernelsrc/include/svcrt_hal.h)(0x6AA4D028)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6AA4BEAF)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6AA4BAF7)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-I (../../../../../kernelsrc/include/svcrt_arch.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_spin.h)(0x6AA3BA5D)
-F (..\..\..\..\..\kernelsrc\src\svcrt_mq.c)(0x6AA3BA5D)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_mq.o --omf_browse svcrtos_test\svcrt_mq.crf --depend svcrtos_test\svcrt_mq.d)
-I (../../../../../kernelsrc/include/svcrt_mq.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x6AA3C650)
-I (../../../../../kernelsrc/include/svcrt_types.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_task.h)(0x6AA4C49B)
-I (../../../../../kernelsrc/include/svcrt_hal.h)(0x6AA4D028)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6AA4BEAF)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6AA4BAF7)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-I (../../../../../kernelsrc/include/svcrt_arch.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_spin.h)(0x6AA3BA5D)
-F (..\..\..\..\..\kernelsrc\src\svcrt_timer.c)(0x6AA3BA5D)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_timer.o --omf_browse svcrtos_test\svcrt_timer.crf --depend svcrtos_test\svcrt_timer.d)
-I (../../../../../kernelsrc/include/svcrt_timer.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x6AA3C650)
-I (../../../../../kernelsrc/include/svcrt_types.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_task.h)(0x6AA4C49B)
-I (../../../../../kernelsrc/include/svcrt_hal.h)(0x6AA4D028)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6AA4BEAF)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6AA4BAF7)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-I (../../../../../kernelsrc/include/svcrt_arch.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_spin.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_cfg.h)(0x6AA3BA5D)
-F (..\..\..\..\..\kernelsrc\src\svcrt_fault.c)(0x6AA4D028)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_fault.o --omf_browse svcrtos_test\svcrt_fault.crf --depend svcrtos_test\svcrt_fault.d)
-I (../../../../../kernelsrc/include/svcrt_fault.h)(0x6AA4D028)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x6AA3C650)
-I (../../../../../kernelsrc/include/svcrt_types.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_task.h)(0x6AA4C49B)
-I (../../../../../kernelsrc/include/svcrt_hal.h)(0x6AA4D028)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6AA4BEAF)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6AA4BAF7)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-I (../../../../../kernelsrc/include/svcrt_arch.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_spin.h)(0x6AA3BA5D)
-F (..\..\..\..\..\kernelsrc\src\svcrt_init.c)(0x6AA4D172)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_init.o --omf_browse svcrtos_test\svcrt_init.crf --depend svcrtos_test\svcrt_init.d)
-I (../../../../../kernelsrc/include/svcrt_cfg.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x6AA3C650)
-I (../../../../../kernelsrc/include/svcrt_types.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_task.h)(0x6AA4C49B)
-I (../../../../../kernelsrc/include/svcrt_hal.h)(0x6AA4D028)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6AA4BEAF)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6AA4BAF7)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-I (../../../../../kernelsrc/include/svcrt_arch.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_spin.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_event.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_dev.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_sync.h)(0x6A38DDEF)
-I (../../../../../kernelsrc/include/svcrt_mq.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_timer.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_fault.h)(0x6AA4D028)
-I (../../../../../kernelsrc/include/svcrt_mpu.h)(0x6AA4D172)
-I (../../../../../kernelsrc/include/svcrt_init.h)(0x6AA4BAED)
-F (..\..\..\..\..\kernelsrc\src\svcrt_mpu.c)(0x6AA4D148)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_mpu.o --omf_browse svcrtos_test\svcrt_mpu.crf --depend svcrtos_test\svcrt_mpu.d)
-I (../../../../../kernelsrc/include/svcrt_mpu.h)(0x6AA4D172)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x6AA3C650)
-I (../../../../../kernelsrc/include/svcrt_types.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_hal.h)(0x6AA4D028)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6AA4BEAF)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6AA4BAF7)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-I (../../../../../kernelsrc/include/svcrt_arch.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_spin.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_task.h)(0x6AA4C49B)
-F (..\..\..\..\..\kernelsrc\src\svcrt_ptable.c)(0x6AA4B579)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_ptable.o --omf_browse svcrtos_test\svcrt_ptable.crf --depend svcrtos_test\svcrt_ptable.d)
-I (../../../../../kernelsrc/include/svcrt_ptable.h)(0x6AA3C609)
-I (../../../../../kernelsrc/include/svcrt_types.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_share.h)(0x6AA4B573)
-I (../../../../../kernelsrc/include/svcrt_app_image.h)(0x6AA4A7AB)
-I (../../../../../config/svcrt_partition.h)(0x6AA4B576)
-F (..\..\..\..\..\kernelsrc\src\svcrt_loader.c)(0x6AA4C5BE)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_loader.o --omf_browse svcrtos_test\svcrt_loader.crf --depend svcrtos_test\svcrt_loader.d)
-I (../../../../../kernelsrc/include/svcrt_loader.h)(0x6AA4D028)
-I (../../../../../kernelsrc/include/svcrt_types.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_app_image.h)(0x6AA4A7AB)
-I (../../../../../kernelsrc/include/svcrt_ptable.h)(0x6AA3C609)
-I (../../../../../kernelsrc/include/svcrt_share.h)(0x6AA4B573)
-I (../../../../../kernelsrc/include/svcrt_hal.h)(0x6AA4D028)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6AA4BEAF)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6AA4BAF7)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-I (../../../../../kernelsrc/include/svcrt_arch.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_spin.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_dev.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x6AA3C650)
-I (../../../../../kernelsrc/include/svcrt_cfg.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_task.h)(0x6AA4C49B)
-I (../../../../../kernelsrc/include/svcrt_fault.h)(0x6AA4D028)
-I (../../../../../config/svcrt_partition.h)(0x6AA4B576)
-F (..\..\..\..\..\kernelsrc\src\svcrt_installer.c)(0x6AA4C4D7)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_installer.o --omf_browse svcrtos_test\svcrt_installer.crf --depend svcrtos_test\svcrt_installer.d)
-I (../../../../../kernelsrc/include/svcrt_installer.h)(0x6AA4B2C3)
-I (../../../../../kernelsrc/include/svcrt_types.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_loader.h)(0x6AA4D028)
-I (../../../../../kernelsrc/include/svcrt_app_image.h)(0x6AA4A7AB)
-I (../../../../../kernelsrc/include/svcrt_dev.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x6AA3C650)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6AA4BEAF)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6AA4BAF7)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-I (../../../../../kernelsrc/include/svcrt_arch.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_task.h)(0x6AA4C49B)
-I (../../../../../kernelsrc/include/svcrt_hal.h)(0x6AA4D028)
-I (../../../../../kernelsrc/include/svcrt_spin.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_cfg.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_fault.h)(0x6AA4D028)
-I (../../../../../config/svcrt_partition.h)(0x6AA4B576)
-F (..\..\..\..\..\board\stm32f427\svcrt_board.c)(0x6AA4D028)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_board.o --omf_browse svcrtos_test\svcrt_board.crf --depend svcrtos_test\svcrt_board.d)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-I (../../../../../kernelsrc/include/svcrt_hal.h)(0x6AA4D028)
-I (../../../../../kernelsrc/include/svcrt_types.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6AA4BEAF)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6AA4BAF7)
-I (../../../../../kernelsrc/include/svcrt_arch.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_spin.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_dev.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x6AA3C650)
-I (../../../../../kernelsrc/include/svcrt_task.h)(0x6AA4C49B)
-I (..\..\..\..\..\board\stm32f427\drvled.h)(0x6A38DDEE)
-I (..\..\..\..\..\board\stm32f427\drvuart.h)(0x6A1D5537)
-I (../../../../../kernelsrc/include/svcrt_fifo.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_fault.h)(0x6AA4D028)
-F (..\..\..\..\..\board\stm32f427\drvuart.c)(0x6A1D5537)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\drvuart.o --omf_browse svcrtos_test\drvuart.crf --depend svcrtos_test\drvuart.d)
-I (..\..\..\..\..\board\stm32f427\drvuart.h)(0x6A1D5537)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x6AA3C650)
-I (../../../../../kernelsrc/include/svcrt_types.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_fifo.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_dev.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6AA4BEAF)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6AA4BAF7)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-I (../../../../../kernelsrc/include/svcrt_arch.h)(0x6AA3BA5D)
-F (..\..\..\..\..\board\stm32f427\drvled.c)(0x6A38DDEE)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\drvled.o --omf_browse svcrtos_test\drvled.crf --depend svcrtos_test\drvled.d)
-I (..\..\..\..\..\board\stm32f427\drvled.h)(0x6A38DDEE)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x6AA3C650)
-I (../../../../../kernelsrc/include/svcrt_types.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_dev.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6AA4BEAF)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6AA4BAF7)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-I (../../../../../kernelsrc/include/svcrt_arch.h)(0x6AA3BA5D)
-F (..\..\..\..\..\board\stm32f427\drvflash.c)(0x6AA4BB92)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\drvflash.o --omf_browse svcrtos_test\drvflash.crf --depend svcrtos_test\drvflash.d)
-I (..\..\..\..\..\board\stm32f427\drvflash.h)(0x6AA3C586)
-I (../../../../../kernelsrc/include/svcrt_hal.h)(0x6AA4D028)
-I (../../../../../kernelsrc/include/svcrt_types.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6AA4BEAF)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6AA4BAF7)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-I (../../../../../kernelsrc/include/svcrt_arch.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_spin.h)(0x6AA3BA5D)
-I (../../../../../config/svcrt_partition.h)(0x6AA4B576)
-F (..\..\..\..\..\kernelsrc\port\arm\cortex-m4\svcrt_context.S)(0x6A38DDEF)(--cpu Cortex-M4.fp.sp -g --apcs=interwork -I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include--pd "__UVISION_VERSION SETA 541" --pd "STM32F427xx SETA 1" --pd "_RTE_ SETA 1"--list svcrt_context.lst --xref -o svcrtos_test\svcrt_context.o --depend svcrtos_test\svcrt_context.d)
-F (..\..\..\..\..\kernelsrc\port\arm\cortex-m4\svcrt_port.c)(0x6AA4D172)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\svcrt_port.o --omf_browse svcrtos_test\svcrt_port.crf --depend svcrtos_test\svcrt_port.d)
-I (../../../../../kernelsrc/include/svcrt_hal.h)(0x6AA4D028)
-I (../../../../../kernelsrc/include/svcrt_types.h)(0x6A1D5539)
-I (../../../../../kernelsrc/include/svcrt_config.h)(0x6AA4BEAF)
-I (../../../../../board/stm32f427/svcrt_board_config.h)(0x6AA4BAF7)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-I (../../../../../kernelsrc/include/svcrt_arch.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_spin.h)(0x6AA3BA5D)
-I (../../../../../kernelsrc/include/svcrt_task.h)(0x6AA4C49B)
-I (../../../../../kernelsrc/include/svcrt_def.h)(0x6AA3C650)
-F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rtc.c)(0x6A1D5538)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_hal_rtc.o --omf_browse svcrtos_test\stm32f4xx_hal_rtc.crf --depend svcrtos_test\stm32f4xx_hal_rtc.d)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rtc_ex.c)(0x6A1D5538)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_hal_rtc_ex.o --omf_browse svcrtos_test\stm32f4xx_hal_rtc_ex.crf --depend svcrtos_test\stm32f4xx_hal_rtc_ex.d)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc.c)(0x6A1D5538)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_hal_rcc.o --omf_browse svcrtos_test\stm32f4xx_hal_rcc.crf --depend svcrtos_test\stm32f4xx_hal_rcc.d)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc_ex.c)(0x6A1D5538)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_hal_rcc_ex.o --omf_browse svcrtos_test\stm32f4xx_hal_rcc_ex.crf --depend svcrtos_test\stm32f4xx_hal_rcc_ex.d)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_flash.c)(0x6A1D5538)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_hal_flash.o --omf_browse svcrtos_test\stm32f4xx_hal_flash.crf --depend svcrtos_test\stm32f4xx_hal_flash.d)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_flash_ex.c)(0x6A1D5538)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_hal_flash_ex.o --omf_browse svcrtos_test\stm32f4xx_hal_flash_ex.crf --depend svcrtos_test\stm32f4xx_hal_flash_ex.d)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_flash_ramfunc.c)(0x6A1D5538)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_hal_flash_ramfunc.o --omf_browse svcrtos_test\stm32f4xx_hal_flash_ramfunc.crf --depend svcrtos_test\stm32f4xx_hal_flash_ramfunc.d)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_gpio.c)(0x6A1D5538)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_hal_gpio.o --omf_browse svcrtos_test\stm32f4xx_hal_gpio.crf --depend svcrtos_test\stm32f4xx_hal_gpio.d)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dma_ex.c)(0x6A1D5538)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_hal_dma_ex.o --omf_browse svcrtos_test\stm32f4xx_hal_dma_ex.crf --depend svcrtos_test\stm32f4xx_hal_dma_ex.d)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dma.c)(0x6A1D5538)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_hal_dma.o --omf_browse svcrtos_test\stm32f4xx_hal_dma.crf --depend svcrtos_test\stm32f4xx_hal_dma.d)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_pwr.c)(0x6A1D5538)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_hal_pwr.o --omf_browse svcrtos_test\stm32f4xx_hal_pwr.crf --depend svcrtos_test\stm32f4xx_hal_pwr.d)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_pwr_ex.c)(0x6A1D5538)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_hal_pwr_ex.o --omf_browse svcrtos_test\stm32f4xx_hal_pwr_ex.crf --depend svcrtos_test\stm32f4xx_hal_pwr_ex.d)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_cortex.c)(0x6A1D5538)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_hal_cortex.o --omf_browse svcrtos_test\stm32f4xx_hal_cortex.crf --depend svcrtos_test\stm32f4xx_hal_cortex.d)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal.c)(0x6A1D5538)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_hal.o --omf_browse svcrtos_test\stm32f4xx_hal.crf --depend svcrtos_test\stm32f4xx_hal.d)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_exti.c)(0x6A1D5538)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_hal_exti.o --omf_browse svcrtos_test\stm32f4xx_hal_exti.crf --depend svcrtos_test\stm32f4xx_hal_exti.d)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_ll_sdmmc.c)(0x6A1D5538)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_ll_sdmmc.o --omf_browse svcrtos_test\stm32f4xx_ll_sdmmc.crf --depend svcrtos_test\stm32f4xx_ll_sdmmc.d)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_sd.c)(0x6A1D5538)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_hal_sd.o --omf_browse svcrtos_test\stm32f4xx_hal_sd.crf --depend svcrtos_test\stm32f4xx_hal_sd.d)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_mmc.c)(0x6A1D5538)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_hal_mmc.o --omf_browse svcrtos_test\stm32f4xx_hal_mmc.crf --depend svcrtos_test\stm32f4xx_hal_mmc.d)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_spi.c)(0x6A1D5538)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_hal_spi.o --omf_browse svcrtos_test\stm32f4xx_hal_spi.crf --depend svcrtos_test\stm32f4xx_hal_spi.d)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.c)(0x6A1D5538)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_hal_uart.o --omf_browse svcrtos_test\stm32f4xx_hal_uart.crf --depend svcrtos_test\stm32f4xx_hal_uart.d)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_pcd.c)(0x6A1D5538)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_hal_pcd.o --omf_browse svcrtos_test\stm32f4xx_hal_pcd.crf --depend svcrtos_test\stm32f4xx_hal_pcd.d)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_pcd_ex.c)(0x6A1D5538)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_hal_pcd_ex.o --omf_browse svcrtos_test\stm32f4xx_hal_pcd_ex.crf --depend svcrtos_test\stm32f4xx_hal_pcd_ex.d)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)
-F (../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_ll_usb.c)(0x6A1D5538)(--c99 -c --cpu Cortex-M4.fp.sp -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc -I ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I ../Drivers/CMSIS/Include -I ../../../../../kernelsrc/include -I ../../../../../board/stm32f427 -I ../../../../../config-I.\RTE\_SVCRTOS_TEST-ID:\Users\xw\AppData\Local\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include-ID:\Users\xw\AppData\Local\Arm\Packs\Keil\STM32F4xx_DFP\2.15.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="541" -DSTM32F427xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F427xx -DSVCRT_USE_FPU="1" -DSVCRT_BOARD_CONFIG="\"svcrt_board_config.h\""-o svcrtos_test\stm32f4xx_ll_usb.o --omf_browse svcrtos_test\stm32f4xx_ll_usb.crf --depend svcrtos_test\stm32f4xx_ll_usb.d)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h)(0x6A1D5538)
-I (../Core/Inc/stm32f4xx_hal_conf.h)(0x6A1D5537)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f427xx.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/core_cm4.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stdint.h)(0x5F63877C)
-I (../Drivers/CMSIS/Include/cmsis_version.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_compiler.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/cmsis_armcc.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Include/mpu_armv7.h)(0x6A1D5538)
-I (../Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h)(0x6A1D5538)
-I (D:\Keil_v5\ARM\ARMCC\include\stddef.h)(0x5F63877C)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_exti.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_sd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_sdmmc.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h)(0x6A1D5538)
-I (../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h)(0x6A1D5538)

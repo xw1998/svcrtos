@@ -1,15 +1,0 @@
-Dependencies for Project 'bled_app', Target 'BLED_APP': (DO NOT MODIFY !)
-CompilerVersion: 5060960::V5.06 update 7 (build 960)::.\ARMCC
-F (..\Src\bled_app.c)(0x6A37730F)(--c99 -c --cpu Cortex-M4.fp.sp -g -O0 --apcs=interwork --split_sections -I ..\Src -I ..\..\..\..\..\kernelsrc\sdk\app_sdk -I ..\..\..\..\..\kernelsrc\include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -DSTM32F427xx-o bled_app\bled_app.o --omf_browse bled_app\bled_app.crf --depend bled_app\bled_app.d)
-I (..\..\..\..\..\kernelsrc\include\svcrt.h)(0x6A378047)
-I (..\..\..\..\..\kernelsrc\include\svcrt_types.h)(0x69F6B76E)
-F (..\Src\app_config.c)(0x6A37731D)(--c99 -c --cpu Cortex-M4.fp.sp -g -O0 --apcs=interwork --split_sections -I ..\Src -I ..\..\..\..\..\kernelsrc\sdk\app_sdk -I ..\..\..\..\..\kernelsrc\include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -DSTM32F427xx-o bled_app\app_config.o --omf_browse bled_app\app_config.crf --depend bled_app\app_config.d)
-I (..\..\..\..\..\kernelsrc\sdk\app_sdk\svcrt_app_config.h)(0x69F70178)
-I (..\..\..\..\..\kernelsrc\sdk\app_sdk\svcrt_types.h)(0x6A23ACFC)
-F (..\..\..\..\..\kernelsrc\sdk\app_sdk\svcrt_app_main.c)(0x69F70175)(--c99 -c --cpu Cortex-M4.fp.sp -g -O0 --apcs=interwork --split_sections -I ..\Src -I ..\..\..\..\..\kernelsrc\sdk\app_sdk -I ..\..\..\..\..\kernelsrc\include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -DSTM32F427xx-o bled_app\svcrt_app_main.o --omf_browse bled_app\svcrt_app_main.crf --depend bled_app\svcrt_app_main.d)
-I (..\..\..\..\..\kernelsrc\include\svcrt.h)(0x6A378047)
-I (..\..\..\..\..\kernelsrc\include\svcrt_types.h)(0x69F6B76E)
-F (..\..\..\..\..\kernelsrc\sdk\app_sdk\svcrt_oslib.c)(0x6A375D9F)(--c99 -c --cpu Cortex-M4.fp.sp -g -O0 --apcs=interwork --split_sections -I ..\Src -I ..\..\..\..\..\kernelsrc\sdk\app_sdk -I ..\..\..\..\..\kernelsrc\include-IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include-D__UVISION_VERSION="535" -DSTM32F427xx-o bled_app\svcrt_oslib.o --omf_browse bled_app\svcrt_oslib.crf --depend bled_app\svcrt_oslib.d)
-I (..\..\..\..\..\kernelsrc\include\svcrt.h)(0x6A378047)
-I (..\..\..\..\..\kernelsrc\include\svcrt_types.h)(0x69F6B76E)
-F (..\..\..\..\..\kernelsrc\sdk\app_sdk\svcrt_app_start.s)(0x6A377879)(--cpu Cortex-M4.fp.sp -g --apcs=interwork -IE:\mdk5\pack\Keil\STM32F4xx_DFP\2.17.0\Drivers\CMSIS\Device\ST\STM32F4xx\Include--pd "__UVISION_VERSION SETA 535" --pd "STM32F427xx SETA 1"--list svcrt_app_start.lst --xref -o bled_app\svcrt_app_start.o --depend bled_app\svcrt_app_start.d)
