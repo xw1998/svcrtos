@@ -35,6 +35,10 @@ int32 svcrt_mq_delete_internal(int32 handle);
 
 int32 svcrt_mq_send_from_isr_internal(int32 handle, void *buf, int32 len_words);
 
+/* 任务下线收尸：把任务从所有消息队列的收发等待队列摘除。
+ * 调用方需自行保证临界区；一般经 svcrt_task_release_resources() 调用。 */
+void  svcrt_mq_release_task(int32 task_id);
+
 #endif /* SVCRT_USE_MQ */
 
 #endif

@@ -42,4 +42,9 @@ int32 svcrt_mtx_lock_internal(int32 handle, int32 timeout_ms);
 int32 svcrt_mtx_unlock_internal(int32 handle);
 int32 svcrt_mtx_delete_internal(int32 handle);
 
+/* 任务下线收尸：把任务从所有信号量/互斥锁的等待队列摘除，
+ * 并把它持有的互斥锁移交给优先级最高的等待者（无等待者则释放）。
+ * 调用方需自行保证临界区；一般经 svcrt_task_release_resources() 调用。 */
+void  svcrt_sync_release_task(int32 task_id);
+
 #endif

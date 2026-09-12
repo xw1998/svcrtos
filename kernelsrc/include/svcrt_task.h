@@ -112,6 +112,16 @@ void svcrt_task_block_internal(void);
 *          （ISR 的唤醒会投给一个还没睡下的任务）。本函数把置状态与切走放在同一临界区内。
 */
 int32 svcrt_task_block_in_critical(uint32 timeout_ms);
+
+/**
+* @brief 任务下线收尸：清理该任务在同步对象/消息队列中的等待登记与锁持有关系
+* @param task_id 目标任务号（从 1 开始）
+* @details 用于任务自杀（kill）、故障恢复、覆盖安装前硬停任务等场景。
+*          不做收尸的后果：post/unlock 会把一个已经不在等待的任务置为 READY
+*          （从旧栈“复活”）；它持有的互斥锁永久锁死，等待者全部饿死。
+*          本函数自带保存-恢复语义的临界区，可在已有临界区内安全调用。
+*/
+void svcrt_task_release_resources(int32 task_id);
 void svcrt_task_delay_internal(uint32 us);
 void svcrt_task_kill_internal(void);
 int32  svcrt_task_status_get_internal(int32 task_id);

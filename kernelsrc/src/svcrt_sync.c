@@ -14,6 +14,7 @@
 
 #include "svcrt_sync.h"
 #include "svcrt_hal.h"
+#include "svcrt_cfg.h"
 
 static svcrt_sem_obj_t svcrt_sems[SVCRT_SEM_NUM];
 static svcrt_mtx_obj_t svcrt_mtxs[SVCRT_MTX_NUM];
@@ -131,6 +132,95 @@ static void svcrt_mtx_recalc_priority(int32 idx)
     p_owner->priority = pri;
 }
 
+/* 把等待队列里的任务全部唤醒（用于对象被删除等“等待目标已消失”的场景）。
+ * reason 置为 SVCRT_WAKE_OBJ_DELETED，等待者据此返回错误码，
+ * 而不是永远睡下去（对象删除后队列被清空，谁也唤不醒它们）。 */
+static void svcrt_waiters_wake_all(svcrt_task_t **waiters, int32 reason)
+{
+    int32 j;
+
+    for(j = 0; j < SVCRT_MAX_SYNC_WAITERS; j++)
+    {
+        if(waiters[j] != 0)
+        {
+            waiters[j]->wait_time   = 0;
+            waiters[j]->wake_reason = reason;
+            waiters[j]->status      = SVCRT_TASK_READY;
+            waiters[j]              = 0;
+        }
+    }
+}
+
+/* 任务下线收尸：把 task_id 从所有同步对象的等待队列摘除；
+ * 若它正持有某把互斥锁，则把锁移交给等待者中优先级最高者并唤醒它，
+ * 没有等待者则直接释放。
+ * 调用方需自行保证临界区（本函数不开关中断）。 */
+void svcrt_sync_release_task(int32 task_id)
+{
+    svcrt_task_t *p_tsk;
+    int32 i, j;
+
+    if(task_id <= 0 || task_id > svcrt_task_count)
+    {
+        return;
+    }
+
+    p_tsk = &svcrt_task_table[task_id - 1];
+
+    for(i = 0; i < SVCRT_SEM_NUM; i++)
+    {
+        if(svcrt_sems[i].used == 0)
+        {
+            continue;
+        }
+        for(j = 0; j < SVCRT_MAX_SYNC_WAITERS; j++)
+        {
+            if(svcrt_sems[i].waiters[j] == p_tsk)
+            {
+                svcrt_sems[i].waiters[j] = 0;
+            }
+        }
+    }
+
+    for(i = 0; i < SVCRT_MTX_NUM; i++)
+    {
+        if(svcrt_mtxs[i].used == 0)
+        {
+            continue;
+        }
+
+        for(j = 0; j < SVCRT_MAX_SYNC_WAITERS; j++)
+        {
+            if(svcrt_mtxs[i].waiters[j] == p_tsk)
+            {
+                svcrt_mtxs[i].waiters[j] = 0;
+            }
+        }
+
+        if(svcrt_mtxs[i].owner == p_tsk)
+        {
+            svcrt_task_t *p_next = svcrt_waiters_pop_highest(svcrt_mtxs[i].waiters);
+
+            if(p_next != 0)
+            {
+                svcrt_mtxs[i].owner         = p_next;
+                svcrt_mtxs[i].orig_priority = p_next->priority;
+                p_next->wait_time   = 0;
+                p_next->wake_reason = SVCRT_WAKE_NORMAL;
+                p_next->status      = SVCRT_TASK_READY;
+            }
+            else
+            {
+                svcrt_mtxs[i].owner = 0;
+            }
+        }
+        else
+        {
+            svcrt_mtx_recalc_priority(i);
+        }
+    }
+}
+
 /* ============================================================
  * 信号量
  * ============================================================ */
@@ -202,6 +292,13 @@ int32 svcrt_sem_wait_internal(int32 handle, int32 timeout_ms)
      *   - 不返回错误：调用者会以为拿到了信号量，但计数并没有减；
      *   - 不摘除：之后 post 会把一个早已苏醒、正在执行其它代码的任务
      *     当作等待者弹出并置 READY（虚假唤醒）。 */
+    if(reason == SVCRT_WAKE_OBJ_DELETED)
+    {
+        /* 等待期间信号量被删除：队列已被删除方清空，不要再动队列 */
+        SVCRT_ENABLE_IRQ();
+        return SVCRT_SYNC_ERR_DELETED;
+    }
+
     if(reason == 1)
     {
         (void)svcrt_waiters_remove(svcrt_sems[idx].waiters, p_tsk);
@@ -256,15 +353,14 @@ int32 svcrt_sem_delete_internal(int32 handle)
         return -1;
 
     SVCRT_DISABLE_IRQ();
+    /* 先唤醒全部等待者（原因=对象已删除），否则它们会永远阻塞：
+     * 对象删除后等待队列被清空，再也没有 post 来唤醒它们。 */
+    svcrt_waiters_wake_all(svcrt_sems[idx].waiters, SVCRT_WAKE_OBJ_DELETED);
     svcrt_sems[idx].used    = 0;
     svcrt_sems[idx].name[0] = 0;
     svcrt_sems[idx].count   = 0;
-    {
-        int32 j;
-        for(j = 0; j < SVCRT_MAX_SYNC_WAITERS; j++)
-            svcrt_sems[idx].waiters[j] = 0;
-    }
     SVCRT_ENABLE_IRQ();
+    SVCRT_SWITCH_TASK();
     return 0;
 }
 
@@ -350,6 +446,14 @@ int32 svcrt_mtx_lock_internal(int32 handle, int32 timeout_ms)
         return SVCRT_SYNC_ERR_PARAM;
     }
 
+    if(reason == SVCRT_WAKE_OBJ_DELETED)
+    {
+        /* 等待期间互斥锁被删除：队列已被删除方清空，只需撤销优先级继承 */
+        svcrt_mtx_recalc_priority(idx);
+        SVCRT_ENABLE_IRQ();
+        return SVCRT_SYNC_ERR_DELETED;
+    }
+
     if(reason == 1)
     {
         /* 竞态：等待超时与 unlock 的“转交”几乎同时发生，unlock 已经把
@@ -423,14 +527,16 @@ int32 svcrt_mtx_delete_internal(int32 handle)
         return -1;
 
     SVCRT_DISABLE_IRQ();
+    /* 持有者若被继承提升过优先级，删除锁时把它恢复回原始优先级 */
+    if(svcrt_mtxs[idx].owner != 0)
+    {
+        svcrt_mtxs[idx].owner->priority = (uint8)svcrt_mtxs[idx].orig_priority;
+        svcrt_mtxs[idx].owner = 0;
+    }
+    svcrt_waiters_wake_all(svcrt_mtxs[idx].waiters, SVCRT_WAKE_OBJ_DELETED);
     svcrt_mtxs[idx].used    = 0;
     svcrt_mtxs[idx].name[0] = 0;
-    svcrt_mtxs[idx].owner   = 0;
-    {
-        int32 j;
-        for(j = 0; j < SVCRT_MAX_SYNC_WAITERS; j++)
-            svcrt_mtxs[idx].waiters[j] = 0;
-    }
     SVCRT_ENABLE_IRQ();
+    SVCRT_SWITCH_TASK();
     return 0;
 }

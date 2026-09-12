@@ -28,16 +28,28 @@ void svcrt_dev_module_init(void)
 int32 svcrt_dev_register(const char *name, svcrt_dev_drv_t *drv, uint32 dev_num)
 {
     int32 i;
+    int32 slot = -1;
+
     if(name == 0 || drv == 0)
         return -2;
 
-    if(svcrt_dev_count >= SVCRT_DEV_MAX_NUM)
-        return -1;
-
-    for(i = 0; i < svcrt_dev_count; i++)
+    /* 空槽位以 dev_name[0]==0 标记。注销设备时只清空槽位、不移动数组元素：
+     * 设备句柄就是槽位下标（i | SVCRT_DEV_HANDLE_FLAG），一旦移动，
+     * 已发放的句柄就会指向另一个设备。 */
+    for(i = 0; i < SVCRT_DEV_MAX_NUM; i++)
     {
         int32 j;
         uint8 match = 1;
+
+        if(svcrt_dev_list[i].dev_name[0] == 0)
+        {
+            if(slot < 0 && svcrt_dev_handles[i] == 0)
+            {
+                slot = i;
+            }
+            continue;
+        }
+
         for(j = 0; j < 8; j++)
         {
             if(svcrt_dev_list[i].dev_name[j] != name[j])
@@ -52,15 +64,18 @@ int32 svcrt_dev_register(const char *name, svcrt_dev_drv_t *drv, uint32 dev_num)
             return -2;
     }
 
+    if(slot < 0)
+        return -1;
+
     for(i = 0; i < 7; i++)
     {
-        svcrt_dev_list[svcrt_dev_count].dev_name[i] = name[i];
+        svcrt_dev_list[slot].dev_name[i] = name[i];
         if(name[i] == 0)
             break;
     }
-    svcrt_dev_list[svcrt_dev_count].dev_name[7] = 0;
-    svcrt_dev_list[svcrt_dev_count].drv = drv;
-    svcrt_dev_list[svcrt_dev_count].dev_num = dev_num;
+    svcrt_dev_list[slot].dev_name[7] = 0;
+    svcrt_dev_list[slot].drv = drv;
+    svcrt_dev_list[slot].dev_num = dev_num;
     svcrt_dev_count++;
     return 0;
 }
@@ -71,9 +86,15 @@ int32 svcrt_dev_unregister(const char *name)
     if(name == 0)
         return -1;
 
-    for(i = 0; i < svcrt_dev_count; i++)
+    for(i = 0; i < SVCRT_DEV_MAX_NUM; i++)
     {
         uint8 match = 1;
+
+        if(svcrt_dev_list[i].dev_name[0] == 0)
+        {
+            continue;                       /* 空槽位 */
+        }
+
         for(j = 0; j < 8; j++)
         {
             if(svcrt_dev_list[i].dev_name[j] != name[j])
@@ -86,16 +107,17 @@ int32 svcrt_dev_unregister(const char *name)
         }
         if(match)
         {
-            for(j = i; j < svcrt_dev_count - 1; j++)
+            /* 墓碑式清空：保持槽位下标不变，已发放的句柄仍指向原槽位，
+             * 此时该槽位 drv==0 / handles==0，后续读写会安全地返回 -1，
+             * 而不是（像整体前移那样）指向另一个设备。 */
+            svcrt_dev_list[i].dev_name[0] = 0;
+            svcrt_dev_list[i].drv         = 0;
+            svcrt_dev_list[i].dev_num     = 0;
+            svcrt_dev_handles[i]          = 0;
+            if(svcrt_dev_count > 0)
             {
-                svcrt_dev_list[j] = svcrt_dev_list[j + 1];
-                svcrt_dev_handles[j] = svcrt_dev_handles[j + 1];
+                svcrt_dev_count--;
             }
-            svcrt_dev_list[svcrt_dev_count - 1].dev_name[0] = 0;
-            svcrt_dev_list[svcrt_dev_count - 1].drv = 0;
-            svcrt_dev_list[svcrt_dev_count - 1].dev_num = 0;
-            svcrt_dev_handles[svcrt_dev_count - 1] = 0;
-            svcrt_dev_count--;
             return 0;
         }
     }
@@ -110,10 +132,15 @@ int32 svcrt_dev_get_count(void)
 int32 svcrt_dev_open_internal(char *name, uint32 param)
 {
     int32 i;
-    for(i = 0; i < svcrt_dev_count; i++)
+    /* 槽位可能不连续（注销留下的空槽位），必须遍历整个表 */
+    for(i = 0; i < SVCRT_DEV_MAX_NUM; i++)
     {
         int32 j;
         uint8 match = 1;
+        if(svcrt_dev_list[i].dev_name[0] == 0)
+        {
+            continue;
+        }
         for(j = 0; j < 8; j++)
         {
             if(svcrt_dev_list[i].dev_name[j] != name[j])
@@ -143,7 +170,8 @@ int32 svcrt_dev_close_internal(int32 handle)
 
     if(SVCRT_DEV_HANDLE_FLAG != (handle & SVCRT_HANDLE_MASK))
         return -1;
-    if(idx >= svcrt_dev_count)
+    /* 句柄是槽位下标：合法范围是整个设备表，而不是当前在用数量 */
+    if(idx < 0 || idx >= SVCRT_DEV_MAX_NUM)
         return -1;
 
     if(svcrt_dev_list[idx].drv != 0 && svcrt_dev_list[idx].drv->drv_close != 0)
@@ -163,7 +191,8 @@ int32 svcrt_dev_read_internal(int32 handle, uint8 *pdata, int32 len)
 
     if(SVCRT_DEV_HANDLE_FLAG != (handle & SVCRT_HANDLE_MASK))
         return -1;
-    if(idx >= svcrt_dev_count)
+    /* 句柄是槽位下标：合法范围是整个设备表，而不是当前在用数量 */
+    if(idx < 0 || idx >= SVCRT_DEV_MAX_NUM)
         return -1;
     if(svcrt_dev_handles[idx] == 0)
         return -1;
@@ -181,7 +210,8 @@ int32 svcrt_dev_write_internal(int32 handle, uint8 *pdata, int32 len)
 
     if(SVCRT_DEV_HANDLE_FLAG != (handle & SVCRT_HANDLE_MASK))
         return -1;
-    if(idx >= svcrt_dev_count)
+    /* 句柄是槽位下标：合法范围是整个设备表，而不是当前在用数量 */
+    if(idx < 0 || idx >= SVCRT_DEV_MAX_NUM)
         return -1;
     if(svcrt_dev_handles[idx] == 0)
         return -1;
@@ -199,7 +229,8 @@ int32 svcrt_dev_ctrl_internal(int32 handle, uint32 code, uint32 value)
 
     if(SVCRT_DEV_HANDLE_FLAG != (handle & SVCRT_HANDLE_MASK))
         return -1;
-    if(idx >= svcrt_dev_count)
+    /* 句柄是槽位下标：合法范围是整个设备表，而不是当前在用数量 */
+    if(idx < 0 || idx >= SVCRT_DEV_MAX_NUM)
         return -1;
     if(svcrt_dev_handles[idx] == 0)
         return -1;

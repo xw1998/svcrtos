@@ -8,6 +8,7 @@
 */
 
 #include "svcrt_mq.h"
+#include "svcrt_cfg.h"
 #include "svcrt_hal.h"
 
 #if (SVCRT_USE_MQ == 1)
@@ -112,6 +113,59 @@ static void svcrt_mq_waiter_remove(svcrt_task_t **waiters, svcrt_task_t *p_tsk)
     }
 }
 
+/* 唤醒等待队列里的全部任务（对象被删除时用）：
+ * 原因置 SVCRT_WAKE_OBJ_DELETED，让等待者返回错误而不是永远睡下去。 */
+static void svcrt_mq_wake_all(svcrt_task_t **waiters, int32 reason)
+{
+    int32 j;
+
+    for(j = 0; j < SVCRT_MAX_SYNC_WAITERS; j++)
+    {
+        if(waiters[j] != 0)
+        {
+            waiters[j]->wait_time   = 0;
+            waiters[j]->wake_reason = reason;
+            waiters[j]->status      = SVCRT_TASK_READY;
+            waiters[j]              = 0;
+        }
+    }
+}
+
+/* 任务下线收尸：把任务从所有消息队列的收/发等待队列中摘除。
+ * 调用方需自行保证临界区（本函数不开关中断）。 */
+void svcrt_mq_release_task(int32 task_id)
+{
+    svcrt_task_t *p_tsk;
+    int32 i, j;
+
+    if(task_id <= 0 || task_id > svcrt_task_count)
+    {
+        return;
+    }
+
+    p_tsk = &svcrt_task_table[task_id - 1];
+
+    for(i = 0; i < SVCRT_MQ_NUM; i++)
+    {
+        if(svcrt_mqs[i].used == 0)
+        {
+            continue;
+        }
+
+        for(j = 0; j < SVCRT_MAX_SYNC_WAITERS; j++)
+        {
+            if(svcrt_mqs[i].send_waiters[j] == p_tsk)
+            {
+                svcrt_mqs[i].send_waiters[j] = 0;
+            }
+            if(svcrt_mqs[i].recv_waiters[j] == p_tsk)
+            {
+                svcrt_mqs[i].recv_waiters[j] = 0;
+            }
+        }
+    }
+}
+
 int32 svcrt_mq_create_internal(char *name)
 {
     int32 i;
@@ -185,6 +239,13 @@ int32 svcrt_mq_send_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
         return -1;
     }
 
+    if(ret == SVCRT_WAKE_OBJ_DELETED)
+    {
+        /* 等待期间消息队列被删除：队列已被删除方清空，直接返回失败 */
+        SVCRT_ENABLE_IRQ();
+        return -1;
+    }
+
     if(ret == 1)
     {
         svcrt_mq_waiter_remove(p_mq->send_waiters, p_tsk);
@@ -253,6 +314,13 @@ int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
         return -1;
     }
 
+    if(reason == SVCRT_WAKE_OBJ_DELETED)
+    {
+        /* 等待期间消息队列被删除：队列已被删除方清空，直接返回失败 */
+        SVCRT_ENABLE_IRQ();
+        return -1;
+    }
+
     if(reason == 1)
     {
         svcrt_mq_waiter_remove(p_mq->recv_waiters, p_tsk);
@@ -300,7 +368,6 @@ int32 svcrt_mq_send_from_isr_internal(int32 handle, void *buf, int32 len_words)
 int32 svcrt_mq_delete_internal(int32 handle)
 {
     int32 idx = handle & SVCRT_HANDLE_RELMASK;
-    int32 j;
 
     if(SVCRT_MQ_HANDLE_FLAG != (handle & SVCRT_HANDLE_MASK))
         return -1;
@@ -308,17 +375,16 @@ int32 svcrt_mq_delete_internal(int32 handle)
         return -1;
 
     SVCRT_DISABLE_IRQ();
+    /* 先唤醒所有等待者（原因=对象已删除），否则队列清空后没有人再唤醒它们 */
+    svcrt_mq_wake_all(svcrt_mqs[idx].send_waiters, SVCRT_WAKE_OBJ_DELETED);
+    svcrt_mq_wake_all(svcrt_mqs[idx].recv_waiters, SVCRT_WAKE_OBJ_DELETED);
     svcrt_mqs[idx].used    = 0;
     svcrt_mqs[idx].name[0] = 0;
     svcrt_mqs[idx].head    = 0;
     svcrt_mqs[idx].tail    = 0;
     svcrt_mqs[idx].count   = 0;
-    for(j = 0; j < SVCRT_MAX_SYNC_WAITERS; j++)
-    {
-        svcrt_mqs[idx].send_waiters[j] = 0;
-        svcrt_mqs[idx].recv_waiters[j] = 0;
-    }
     SVCRT_ENABLE_IRQ();
+    SVCRT_SWITCH_TASK();
     return 0;
 }
 

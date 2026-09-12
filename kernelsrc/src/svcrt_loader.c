@@ -129,6 +129,10 @@ static void svcrt_loader_halt_task(uint32 task_id)
         return;
     }
 
+    /* 收尸：把该任务从同步对象/消息队列的等待队列中摘除，并释放它持有的锁。
+     * 否则它被踢出调度后，残留的锁与等待登记会牵连其它任务。 */
+    svcrt_task_release_resources((int32)task_id);
+
     SVCRT_DISABLE_IRQ();
     svcrt_task_table[task_id - 1u].recover_pending = 0u;
     svcrt_task_table[task_id - 1u].status          = SVCRT_TASK_INVALID;
@@ -272,6 +276,9 @@ int32 svcrt_loader_load_buffer(const uint8 *image, uint32 image_len)
 
     if(svcrt_port_flash_write(slot_base, image, total) != 0)
     {
+        /* 与擦除失败同样处理：写入失败必须回置 EMPTY，
+         * 否则槽位会永远停在 INSTALLING，既不能启动也不会被回收。 */
+        svcrt_ptable_set_slot(slot, SVCRT_APP_SLOT_EMPTY, 0u, 0u);
         return SVCRT_LOADER_ERR_FLASH;
     }
 
@@ -710,6 +717,7 @@ int32 svcrt_loader_on_fault(int32 task_id)
              * 区分“被禁用的应用”与“空槽位”；重新安装即可清零计数、重新启用。 */
             SVCRT_DISABLE_IRQ();
             svcrt_task_table[task_id - 1].recover_pending = 0u;
+            svcrt_task_release_resources(task_id);
             svcrt_task_table[task_id - 1].status          = SVCRT_TASK_INVALID;
             SVCRT_ENABLE_IRQ();
 
@@ -733,6 +741,7 @@ int32 svcrt_loader_on_fault(int32 task_id)
         {
             SVCRT_DISABLE_IRQ();
             svcrt_task_table[task_id - 1].recover_pending = 0u;
+            svcrt_task_release_resources(task_id);
             svcrt_task_table[task_id - 1].status          = SVCRT_TASK_INVALID;
             SVCRT_ENABLE_IRQ();
 
@@ -826,6 +835,10 @@ int32 svcrt_loader_stop(uint32 slot)
     {
         return SVCRT_LOADER_ERR_STATE;
     }
+
+    /* 收尸：把该任务从同步对象/消息队列的等待队列中摘除，并释放它持有的锁。
+     * 否则它被踢出调度后，残留的锁与等待登记会牵连其它任务。 */
+    svcrt_task_release_resources((int32)task_id);
 
     SVCRT_DISABLE_IRQ();
     svcrt_task_table[task_id - 1u].recover_pending = 0u;

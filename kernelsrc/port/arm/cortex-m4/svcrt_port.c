@@ -233,7 +233,22 @@ uint32 svcrt_port_get_timer_reload(void)
 void svcrt_port_start_timer(uint32 tick_period_us)
 {
     uint32 ticks = (uint32)(((unsigned long long)SystemCoreClock * tick_period_us) / 1000000u);
-    SysTick_Config(ticks);
+
+    if(ticks == 0u)
+    {
+        ticks = 1u;
+    }
+
+    /* 不能使用 SysTick_Config()：它会把 SysTick 优先级写成最低值，
+     * 覆盖本移植层 svcrt_port_irq_init() 设定的“SysTick 最高、PendSV 最低”
+     * 策略。优先级一旦被压低，tick 就可能被其它中断长时间压制，
+     * 任务节拍与所有超时全部失真。这里只配置计数与使能，
+     * 优先级统一由 svcrt_port_irq_init() 设定。 */
+    SysTick->LOAD = ticks - 1u;
+    SysTick->VAL  = 0u;
+    SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk |
+                    SysTick_CTRL_TICKINT_Msk   |
+                    SysTick_CTRL_ENABLE_Msk;
 }
 
 void svcrt_port_delay_us(uint32 us)

@@ -574,14 +574,16 @@ static void svcrt_tick_tasks(svcrt_task_t *p_task)
 
 svcrt_task_t *svcrt_task_get_current(void)
 {
-    svcrt_task_t *p_tsk = 0;
-    SVCRT_DISABLE_IRQ();
+    /* 只读一个整数下标，读操作本身就是原子的，这里不需要也不能关中断：
+     * 信号量/互斥锁/消息队列都是在各自的临界区内调用本函数，
+     * 若在此处 SVCRT_ENABLE_IRQ()，会打开调用方的临界区，
+     * 使“已挂进等待队列、但还没置 WAIT”的窗口暴露给 ISR 里的 post/unlock，
+     * 唤醒被投给一个还没睡下的任务并消耗掉（丢唤醒）。 */
     if(svcrt_current_task_id > 0)
     {
-        p_tsk = &svcrt_task_table[svcrt_current_task_id - 1];
+        return &svcrt_task_table[svcrt_current_task_id - 1];
     }
-    SVCRT_ENABLE_IRQ();
-    return p_tsk;
+    return 0;
 }
 
 #if (SVCRT_USE_SCHED_LOCK == 1)
@@ -711,11 +713,34 @@ void svcrt_task_delay_internal(uint32 us)
     svcrt_port_delay_us(us);
 }
 
+/* 任务下线收尸：清理该任务在同步对象/消息队列中的等待登记与锁持有关系。
+ * 自带保存-恢复语义的临界区，因此可以在已有临界区内调用。 */
+void svcrt_task_release_resources(int32 task_id)
+{
+    uint32 state;
+
+    if(task_id <= 0 || task_id > svcrt_task_count)
+    {
+        return;
+    }
+
+    state = SVCRT_ENTER_CRITICAL();
+    svcrt_sync_release_task(task_id);
+    svcrt_mq_release_task(task_id);
+    SVCRT_EXIT_CRITICAL(state);
+}
+
 void svcrt_task_kill_internal(void)
 {
     if(svcrt_current_task_id > 0)
     {
+        /* 收尸：不清理的话，post/unlock 会把一个已经不在等待的任务置为
+         * READY（相当于从旧栈“复活”它），而它持有的互斥锁会永久锁死。 */
+        svcrt_task_release_resources(svcrt_current_task_id);
+
+        SVCRT_DISABLE_IRQ();
         svcrt_task_table[svcrt_current_task_id - 1].status = SVCRT_TASK_INVALID;
+        SVCRT_ENABLE_IRQ();
     }
 
     {
@@ -747,6 +772,10 @@ static void svcrt_task_recover_mark(int32 task_id)
     }
 
     p_task = &svcrt_task_table[task_id - 1];
+
+    /* 它持有的锁与等待登记必须一并清理：任务重启后会从入口重新开始，
+     * 不会再去解锁/摘除，留下的锁会永久锁死。 */
+    svcrt_task_release_resources(task_id);
 
     SVCRT_DISABLE_IRQ();
     p_task->recover_pending = 1;

@@ -27,7 +27,13 @@ void svcrt_fault_module_init(void)
 
 void svcrt_fault_record(uint32 type, int32 task_id)
 {
-    SVCRT_DISABLE_IRQ();
+    /* 用保存-恢复语义，而不是无条件开关中断：
+     * 本函数会从故障处理、tick、调度器锁检查等路径调用，调用时可能已经
+     * 处在某个临界区内；无条件 ENABLE 会破坏外层临界区
+     * （故障路径尤其危险：记录完还要恢复别的任务运行，中间被中断插入
+     *   改动任务表就会出问题）。 */
+    uint32 state = SVCRT_ENTER_CRITICAL();
+
     svcrt_faults[svcrt_fault_wr].type    = type;
     svcrt_faults[svcrt_fault_wr].task_id = task_id;
     svcrt_faults[svcrt_fault_wr].tick    = svcrt_kernel_tick;
@@ -36,7 +42,8 @@ void svcrt_fault_record(uint32 type, int32 task_id)
     {
         svcrt_fault_total++;
     }
-    SVCRT_ENABLE_IRQ();
+
+    SVCRT_EXIT_CRITICAL(state);
 }
 
 const svcrt_fault_record_t *svcrt_fault_record_get(int32 index)

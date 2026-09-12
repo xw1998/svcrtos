@@ -31,6 +31,13 @@
 #define SVCRT_SYNC_OK             (0)
 #define SVCRT_SYNC_ERR_PARAM      (-1)
 #define SVCRT_SYNC_ERR_TIMEOUT    (-2)
+#define SVCRT_SYNC_ERR_DELETED    (-3)   /* 等待的同步对象/消息队列已被删除 */
+
+/* 任务唤醒原因（task->wake_reason）：等待类接口据此判断“是否真的拿到了资源”。
+ * 对象被删除时等待者必须收到 2，否则会一直睡下去（永久泄漏）。 */
+#define SVCRT_WAKE_NORMAL         (0)    /* 被显式唤醒：已获得资源/事件 */
+#define SVCRT_WAKE_TIMEOUT        (1)    /* 等待超时 */
+#define SVCRT_WAKE_OBJ_DELETED    (2)    /* 等待的对象已被删除 */
 
 #define SVCRT_SEM_HANDLE_FLAG       (0x01300000)
 #define SVCRT_MTX_HANDLE_FLAG       (0x01400000)
