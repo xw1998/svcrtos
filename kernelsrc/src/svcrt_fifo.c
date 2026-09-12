@@ -24,6 +24,9 @@ svcrt_fifo_t *svcrt_fifo_create(uint8 *buff, int32 size)
     return fifo;
 }
 
+/* @return 实际写入的字节数（FIFO 满时可能小于 len）。
+ * @note   本函数不做临界区保护，按单生产者-单消费者模型使用：
+ *         要么只在任务里调用，要么生产者固定为 ISR；混用时由调用方加锁。 */
 int32 svcrt_fifo_write(svcrt_fifo_t *fifo, uint8 *pdata, int32 len)
 {
     int32 cnt;
@@ -45,6 +48,8 @@ int32 svcrt_fifo_write(svcrt_fifo_t *fifo, uint8 *pdata, int32 len)
     return cnt;
 }
 
+/* @return 实际读出的字节数（FIFO 空时可能小于 len）。
+ * @note   同 svcrt_fifo_write：单消费者模型，不内建临界区。 */
 int32 svcrt_fifo_read(svcrt_fifo_t *fifo, uint8 *pdata, int32 len)
 {
     int32 cnt;
