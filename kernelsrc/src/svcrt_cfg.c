@@ -58,7 +58,8 @@ int32 svcrt_task_register(void (*entry)(void), uint32 *stack_bottom, uint32 stac
     p_task->rom_start   = 0;
     p_task->rom_size    = 0;
     p_task->period      = SVCRT_MS_TO_TICK(period_ms);
-    p_task->priority    = priority;
+    p_task->priority      = priority;
+    p_task->base_priority = priority;   /* 基准优先级：撤销优先级继承时的恢复依据 */
     p_task->shm_attri   = 0;
     p_task->status      = SVCRT_TASK_READY;
     p_task->period_time = p_task->period;

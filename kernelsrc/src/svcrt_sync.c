@@ -109,27 +109,93 @@ static int32 svcrt_waiters_remove(svcrt_task_t **waiters, svcrt_task_t *p_tsk)
  * （超时退出、等待队列满加锁失败等“等待者消失”的场景）。
  * 取持锁者原始优先级与所有等待者优先级中的最高者（数值最小）。
  * @note 多把锁嵌套时的优先级恢复仍不完善（见 docs 中的遗留问题清单）。 */
-static void svcrt_mtx_recalc_priority(int32 idx)
+/* 按“基准优先级 + 该任务持有的所有互斥锁的等待者”重算有效优先级。
+ * 基准优先级（base_priority）在任务创建后不再变化，因此不会出现
+ * “把被提升后的值当成原始值”导致永久提权的问题；
+ * 遍历该任务持有的所有锁，也修掉了多锁场景下按单把锁快照恢复的错乱。 */
+static void svcrt_mtx_recalc_task_priority(svcrt_task_t *p_tsk)
 {
-    svcrt_task_t *p_owner = svcrt_mtxs[idx].owner;
-    uint8 pri = (uint8)svcrt_mtxs[idx].orig_priority;
-    int32 j;
+    uint8 pri;
+    int32 i, j;
 
-    if(p_owner == 0)
+    if(p_tsk == 0)
     {
         return;
     }
 
-    for(j = 0; j < SVCRT_MAX_SYNC_WAITERS; j++)
+    pri = p_tsk->base_priority;
+
+    for(i = 0; i < SVCRT_MTX_NUM; i++)
     {
-        svcrt_task_t *p_w = svcrt_mtxs[idx].waiters[j];
-        if(p_w != 0 && p_w->priority < pri)
+        if(svcrt_mtxs[i].used == 0 || svcrt_mtxs[i].owner != p_tsk)
         {
-            pri = p_w->priority;
+            continue;
+        }
+
+        for(j = 0; j < SVCRT_MAX_SYNC_WAITERS; j++)
+        {
+            svcrt_task_t *p_w = svcrt_mtxs[i].waiters[j];
+
+            if(p_w != 0 && p_w->priority < pri)
+            {
+                pri = p_w->priority;
+            }
         }
     }
 
-    p_owner->priority = pri;
+    p_tsk->priority = pri;
+}
+
+/* 优先级继承的链式传播：
+ * A(高) 等 B 持有的锁，而 B 又在等 C 持有的锁时，C 也必须继承 A 的优先级，
+ * 否则“优先级反转”只被消掉一层。多轮迭代直到不再变化即收敛
+ * （优先级只会向更高处单调收敛，等待关系有限，必然终止）。 */
+static void svcrt_mtx_propagate(void)
+{
+    int32 round, i, j, changed;
+
+    for(round = 0; round < (SVCRT_TASK_MAX_NUM + 1); round++)
+    {
+        changed = 0;
+
+        for(i = 0; i < SVCRT_MTX_NUM; i++)
+        {
+            svcrt_task_t *p_owner;
+
+            if(svcrt_mtxs[i].used == 0)
+            {
+                continue;
+            }
+
+            p_owner = svcrt_mtxs[i].owner;
+            if(p_owner == 0)
+            {
+                continue;
+            }
+
+            for(j = 0; j < SVCRT_MAX_SYNC_WAITERS; j++)
+            {
+                svcrt_task_t *p_w = svcrt_mtxs[i].waiters[j];
+
+                if(p_w != 0 && p_owner->priority > p_w->priority)
+                {
+                    p_owner->priority = p_w->priority;
+                    changed = 1;
+                }
+            }
+        }
+
+        if(changed == 0)
+        {
+            break;
+        }
+    }
+}
+
+/* 兼容旧调用点：按锁 idx 的持有者重算优先级（内部为上面那个全局重算） */
+static void svcrt_mtx_recalc_priority(int32 idx)
+{
+    svcrt_mtx_recalc_task_priority(svcrt_mtxs[idx].owner);
 }
 
 /* 把等待队列里的任务全部唤醒（用于对象被删除等“等待目标已消失”的场景）。
@@ -435,6 +501,9 @@ int32 svcrt_mtx_lock_internal(int32 handle, int32 timeout_ms)
         return SVCRT_SYNC_ERR_PARAM;
     }
 
+    /* 链式传播：被提升的持有者若自己也在等别的锁，那把锁的持有者同样要提升 */
+    svcrt_mtx_propagate();
+
     /* 同 sem_wait：入队与置 WAIT 放在同一临界区内，消除唤醒丢失窗口 */
     reason = svcrt_task_block_in_critical((uint32)timeout_ms);   /* 关中断返回 */
 
@@ -496,9 +565,8 @@ int32 svcrt_mtx_unlock_internal(int32 handle)
         return -1;
     }
 
-    /* 恢复持有者的原始优先级（撤销之前可能的优先级继承提升） */
-    p_tsk->priority = svcrt_mtxs[idx].orig_priority;
-
+    /* 先把锁交出去，再重算优先级：
+     * 顺序反了会把“即将转交的等待者”也算进自己的继承来源。 */
     p_next = svcrt_waiters_pop_highest(svcrt_mtxs[idx].waiters);
     if(p_next != 0)
     {
@@ -512,6 +580,12 @@ int32 svcrt_mtx_unlock_internal(int32 handle)
     {
         svcrt_mtxs[idx].owner = 0;
     }
+
+    /* 撤销优先级继承：按基准优先级 + 仍在持有的其它锁重算
+     * （不再用加锁时的快照恢复，多锁场景也不会错乱） */
+    svcrt_mtx_recalc_task_priority(p_tsk);
+    svcrt_mtx_propagate();
+
     SVCRT_ENABLE_IRQ();
     SVCRT_SWITCH_TASK();
     return 0;
@@ -527,11 +601,13 @@ int32 svcrt_mtx_delete_internal(int32 handle)
         return -1;
 
     SVCRT_DISABLE_IRQ();
-    /* 持有者若被继承提升过优先级，删除锁时把它恢复回原始优先级 */
+    /* 删除锁相当于释放它：持有者按基准优先级（及仍持有的其它锁）重算，
+     * 不再依赖加锁时的快照。 */
     if(svcrt_mtxs[idx].owner != 0)
     {
-        svcrt_mtxs[idx].owner->priority = (uint8)svcrt_mtxs[idx].orig_priority;
+        svcrt_task_t *p_owner = svcrt_mtxs[idx].owner;
         svcrt_mtxs[idx].owner = 0;
+        svcrt_mtx_recalc_task_priority(p_owner);
     }
     svcrt_waiters_wake_all(svcrt_mtxs[idx].waiters, SVCRT_WAKE_OBJ_DELETED);
     svcrt_mtxs[idx].used    = 0;

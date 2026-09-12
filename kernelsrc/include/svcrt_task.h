@@ -42,7 +42,8 @@ typedef struct {
     uint32 rom_start;
     uint32 rom_size;
     int32  period;
-    uint8  priority;
+    uint8  priority;                                /* 当前有效优先级（可被继承临时提升） */
+    uint8  base_priority;                           /* 基准优先级：创建后不变，撤销继承用 */
     uint8  shm_attri;
 
     uint32 stack_top;
