@@ -49,3 +49,6 @@ RTE/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# ---- 构建输出目录（scatter/.sct 由 tools/gen_scatter.py 在 Before Build 钩子里重新生成）----
+build/
