@@ -50,6 +50,11 @@ RAM（128KB，`CHIP_RAM_SIZE`）：
 | 3 | 启动 App | `args[1]=slot` |
 | 4 | 停止 App | `args[1]=slot` |
 | 5 | 查询槽位状态 | `args[1]=slot` |
+| 6 | 从设备安装驱动镜像到驱动区 | `args[1]=dev`，`args[2]=image_len` |
+
+子命令 2 / 6 的镜像类型是**强校验**的：内核会把镜像头里的 `type` 与目标区比对，
+App 镜像进不了驱动区、驱动镜像也进不了 App 槽位（`svcrt_loader_identify()` 的
+`expect_type` 参数同理，上电扫描时一并生效），避免“烧错分区”这类事故。
 
 > 原先的「子命令 1：返回分区表地址」**已移除**。把共享内存地址交给用户态，
 > 意味着 App 能篡改自己的 `slot_state` 伪造“已加载”，也能改写其它槽位记录。
@@ -75,6 +80,29 @@ RAM（128KB，`CHIP_RAM_SIZE`）：
 5. 从 Flash 回读复算 CRC 确认；
 6. 槽位状态置 `LOADED`，记录入口 `slot_base + entry_offset`（ARM 自动置 Thumb 位）；
 7. `svcrt_loader_start()` 用 `APP_TASK_PRIORITY` / `APP_TASK_STACK_SIZE` 注册任务并触发调度。
+
+驱动路径（`svcrt_loader_load_driver*`）复用同一条流水线：
+
+- 镜像头 / CRC / 流式写入 / 回读复算 CRC 的逻辑抽成了公共函数
+  （`svcrt_loader_stream_payload()` + `svcrt_loader_load_*_dev()`），App 与驱动**共用一套代码**，
+  避免两边各自演化出“只修了一边”的 bug；
+- 差异只在目标区：驱动区是**单入口**，不做槽位分配，按 `DRIVER_POOL_SIZE` 判容量，
+  写入前整体擦除目标区间，成功后置 `driver_state = LOADED` 并记 `driver_entry`；
+- 上电扫描同理：`svcrt_loader_scan_driver()` 用 `expect_type = SVCRT_APP_TYPE_DRIVER` 调用
+  `svcrt_loader_identify()`，驱动区里放的是 App 镜像会被直接判为 `INVALID`。
+
+### 4.1 安装任务如何分流
+
+内核安装任务（`svcrt_installer.c`）收到镜像、魔数同步并读出 256 字节头后，
+**只看镜像头里的 `type` 决定去向**，不需要用户事先指定：
+
+| `hdr.type` | 目标 | 装载函数 | 成功后是否自启 |
+|---|---|---|---|
+| `SVCRT_APP_TYPE_DRIVER` | 驱动池（单入口，覆盖） | `svcrt_loader_load_driver_dev()` | 看 `DRIVER_AUTO_START` |
+| 其它（App） | 空闲 App 槽位 | `svcrt_loader_load_dev_hdr()` | 看 `INSTALLER_AUTO_START` |
+
+这一条把“装驱动”变成了与“装 App”完全同构的动作：**装什么由包本身说了算**，
+这正是“像手机应用商店一样装应用与驱动”在接口层面的最小必要形态。
 
 ## 5. MDK 工程挂接
 
@@ -162,7 +190,7 @@ App 任务发生 HardFault 时，原有逻辑是**无条件重建栈帧重启**�
 | 入口 | 分区基址（\|1，即 `APPSTART`） | 基址 + `entry_offset` |
 | 校验 | 无（开发期不逐镜像校验） | 魔数 + 硬件兼容签名 + CRC32 |
 | App | APP_DEMO / BLED_APP 工程直接编译调试 | 打包后由安装任务写入 |
-| 驱动 | BLED_DRV / DRV_DEMO 工程直接编译调试 | 待支持 |
+| 驱动 | BLED_DRV / DRV_DEMO 工程直接编译调试 | 已支持（裸镜像识别 + `svcrt_driver_load` + 安装任务分流） |
 
 实现方式：`svcrt_loader_identify()` 对同一个分区先试「带头 .svcapp」，不成立再看是不是擦除态；
 不是擦除态且 `APP_ALLOW_RAW_IMAGE = 1` 时，当作开发期裸镜像，入口取分区基址。
@@ -170,26 +198,32 @@ App 任务发生 HardFault 时，原有逻辑是**无条件重建栈帧重启**�
 - **开发期**：`APP_ALLOW_RAW_IMAGE = 1`（默认）—— 直接用 Keil 下载到 `0x08080000` / `DRIVER_POOL` 即可下断点调试
 - **发布固件**：把 `APP_ALLOW_RAW_IMAGE` 置 0 —— 只接受带镜像头的 `.svcapp`，裸镜像会被判为 `INVALID`
 - 驱动区同样支持：`svcrt_loader_scan_driver()` / `svcrt_loader_start_driver()`，
-  栈从 `DRIVER_RAM` 顶部切出，参数取 `DRIVER_TASK_*`
+  栈从 `DRIVER_RAM` 顶部切出，参数取 `DRIVER_TASK_*`；安装路径见 §4.1，
+  驱动镜像也会被安装任务按 `type` 自动分流进驱动区
 
 > 调试时建议同时关掉 `APP_AUTO_START` / `INSTALLER_ENABLE`，避免内核在调试会话中抢先启动槽位。
 
 ## 6. 硬编码清理
 
-`example/.../SVCRTOS_TEST/Core/Src/main.c` 中：
+这一节记录的是**过程**，最终态是「一个地址都不抄」：
 
-```c
-#define BLED_DRV_ENTRY  (DRIVER_POOL_BASE | 1u)   /* 原 0x08060000 */
-#define BLED_APP_ENTRY  (APP_SLOT0_BASE   | 1u)   /* 原 0x08080000 */
-```
+1. 第一轮先把 `main.c` 里的字面量 `0x08060000` / `0x08080000` 换成 `DRIVER_POOL_BASE | 1u` /
+   `APP_SLOT0_BASE | 1u`，这一步只是把抄第二遍的地址换成抄第三遍的宏；
+2. 第二轮（提交 `3296e6c`）直接删掉这两个宏和 `svcrt_register_tasks()` 里的静态注册——
+   入口改由 `svcrt_loader_scan()` / `svcrt_loader_scan_driver()` 从分区表推导，
+   `main.c` 现在**只剩一个 `svcrt_kernel_module_init()` 调用**。
 
-并新增 `svcrt_ptable_init()` 调用（`svcrt_kernel_init` 首行），保证加载器使用前分区表已就绪。
+内核初始化入口统一收敛到 `kernelsrc/src/svcrt_init.c` 的 `svcrt_kernel_module_init()`：
+分区表 → 故障 → 各内核模块 → 板级设备 → 加载器扫描 → 安装任务，顺序固定在一处，
+避免「内核弱 `main`」与「板级 `main.c`」两条启动路径各自演化（启动流程漂移）。
+
+板级 `main.c` 只负责 STM32 的时钟 / 外设初始化，然后调 `svcrt_kernel_module_init()`。
 Loader / App 工程**不包含** `config/svcrt_partition.h`，布局经 SVC 0x18 子命令 1 在运行期获取。
 
 ## 7. 验证记录
 
 - AC6（armclang）语法校验：`kernelsrc/src/*.c`（含新增 `svcrt_ptable.c`、`svcrt_loader.c`）、`board/stm32f427/drvflash.c`、`main.c` —— 全部零错误零告警；
-- AC5（armcc）语法校验：`kernelsrc/app/oslib.c`、`kernelsrc/sdk/app_sdk/svcrt_oslib.c`（含 `__svc(0x18)`）—— 通过；
+- AC5（armcc）语法校验：`kernelsrc/sdk/app_sdk/svcrt_oslib.c`（含 `__svc(0x18)`；用户态 oslib 现已收敛为唯一一份）—— 通过；
 - 脚本验收：`gen_scatter.py --check/--dump` 通过；改 `CHIP_FLASH_SIZE` 为 2MB 后 `APP_SLOT0` 自动变 1536KB；
 - 5 个 `.uvprojx` 经 XML 解析校验合法。
 
@@ -222,18 +256,30 @@ python tools/pack_app.py --verify build/APP_DEMO/APP_DEMO.svcapp
 工具会自动校验「ELF 镜像基址 == 分区槽位基址」，不一致直接报错并提示检查 `.sct`——
 这是防止链接布局与打包布局悄悄错位的关键护栏。
 
-## 9. 遗留待办
+## 9. 已完成的清理（本轮）
 
-1. `board/stm32f427/svcrt_board_config.h` 中 `SVCRT_SHARE_MEM_ADDR = 0x20028000` 为旧值且已超出 128KB RAM，当前内核未引用该宏（分区表现在由 `SHARE_RAM_BASE` 决定），建议后续统一清理；
-3. 各工程 `MDK-ARM` 目录下遗留的 `app_demo.sct` / `bled_app.sct` / `bled_drv.sct` / `drv_demo.sct` 已不再被引用，可删除；
-4. App 镜像运行在 `APP_RAM_BASE`，但当前单区间闭环未对 App 做 MPU 隔离（`SVCRT_USE_MPU = 0`），后续多区间时需补齐；
-5. `example/.../APP_DEMO/Src/app_config.c` 中的 `ram_start/rom_start`（`0x20010000` / `0x08020000`）是旧布局残留，
-   当前内核未读取该表（真实布局由 `.sct` 决定），建议后续改为由分区头派生或直接移除；
-6. 槽位状态仍只存在于共享 RAM，掉电即丢失（`svcrt_loader_scan()` 可依 CRC 重新认定，`INSTALLING` 也靠它兜住），
-   但版本/回滚等运行期状态无法持久化——需要把槽位元数据持久化到 Flash。
-7. **故障围栏已完成“重启上限”一档**；尚需补：关键结构 magic/CRC 自检、独立看门狗（挡住 App 关中断/死循环）
-8. **SVC 边界仍非零信任**：内核当前仍直接解引用用户传入的指针（`p = (uint32 *)SVCRT_SVC_ARG(...)`），
-   且对象句柄是裸索引、没有归属校验。这是无 MPU 平台唯一能拿到的“软件保护域”，应作为下一步重点。
-9. 驱动镜像尚未纳入加载/安装路径（`svcrt_loader_*` 目前只处理 App 槽位）。
-10. 崩溃计数尚未持久化（需板级备份寄存器或 Flash 元数据），启动环仍挡不住。
-11. 上述 `.sct` 改动尚未在 Keil 里做过一次真实构建，需在板上验证后方可视为定稿。
+| 项 | 处理 |
+|---|---|
+| 任务上限 `SVCRT_TASK_MAX_NUM` | 7 → 32（工业可用的起步值）；同时新增 `SVCRT_TASK_TABLE_RAM_MAX`（8KB）编译期预算断言，扩容不再靠拍脑袋 |
+| 注册失败静默 | 改为记录 `SVCRT_FAULT_NOSLOT`，任务表满能被上层看见 |
+| 启动流程漂移 | 抽出 `svcrt_kernel_module_init()`，弱 `main` 与板级 `main.c` 共用同一条初始化序列 |
+| `kernelsrc/app/oslib.c` | 已删除（与 `sdk/app_sdk/svcrt_oslib.c` 重复且更旧），并从内核工程摘除 |
+| `kernelsrc/app/appconfig.c`、`appstart.s` | 已删除（旧静态注册架构遗留，全工程零引用） |
+| `svcrt_app_config.h` + 两份 `app_config.c` | 已删除（越界地址：表里写死 `0x20010000` / `0x08020000`，且无人读取） |
+| `MDK-ARM` 下手写 `.sct`（5 份） | 已删除（已被 `build/*.sct` 取代，无工程引用） |
+| `SVCRT_SHARE_MEM_ADDR` | 已从 `svcrt_config.h` / `svcrt_board_config.h` 删除（旧值 `0x20028000` 越界） |
+| `drvflash.c` 的 `0x08000000u` | 改用 `CHIP_FLASH_BASE` |
+| 仓库卫生 | 新增 `.gitignore`；`docs/.gen_utf8/`（Doxygen 临时树）与 `*.uvguix.*` 移出索引 |
+
+## 10. 遗留待办
+
+1. App 镜像运行在 `APP_RAM_BASE`，但当前单区间闭环未对 App 做 MPU 隔离（`SVCRT_USE_MPU = 0`），后续多区间时需补齐；
+2. 槽位状态仍只存在于共享 RAM，掉电即丢失（`svcrt_loader_scan()` 可依 CRC 重新认定，`INSTALLING` 也靠它兜住），
+   但版本/回滚等运行期状态无法持久化——需要把槽位元数据持久化到 Flash；
+3. **故障围栏已完成「重启上限」一档**；尚需补：关键结构 magic/CRC 自检、独立看门狗（挡住 App 关中断/死循环）；
+4. **SVC 边界仍非零信任**：内核当前仍直接解引用用户传入的指针（`p = (uint32 *)SVCRT_SVC_ARG(...)`），
+   且对象句柄是裸索引、没有归属校验。这是无 MPU 平台唯一能拿到的「软件保护域」，应作为下一步重点；
+5. 驱动区是**单入口**（同一时刻只驻留一份驱动），多驱动共存需要先扩分区策略与驱动表；
+6. 崩溃计数尚未持久化（需板级备份寄存器或 Flash 元数据），「崩溃导致整机复位」的启动环仍挡不住；
+7. `.sct` 改动尚未在 Keil 里做过一次真实构建，需在板上验证后方可视为定稿。
+

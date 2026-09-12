@@ -1,4 +1,17 @@
 # SVCrtOS SDK 用户手册
+> **【时效性提示】** 本文写作于「分区表 + 加载器」架构改造之前。凡涉及
+> **分区地址**、**内核入口宏（`BLED_DRV_ENTRY` 之类）**、**`app_config.c` /
+> `svcrt_app_config.h`**、**手工维护的 `.sct`** 的段落，均已被下列内容取代：
+>
+> | 想知道 | 看哪里 |
+> |---|---|
+> | 今天怎么装 App / 驱动、怎么调试、崩溃了怎么办 | [../../docs/SVCrtOS应用安装与调试指南.md](../../docs/SVCrtOS应用安装与调试指南.md) |
+> | 分区 / 加载器 / 镜像格式为什么这样设计 | [../../docs/Loader工程化落地说明.md](../../docs/Loader工程化落地说明.md) |
+> | 全工程唯一地址源头 | [../../config/svcrt_partition.h](../../config/svcrt_partition.h) |
+> | 文档总索引 | [../../docs/README.md](../../docs/README.md) |
+>
+> 口诀：**地址只在 `config/svcrt_partition.h` 写一次；`.sct` 由脚本生成；
+> 入口由内核从分区表推导，任何地方都不要再抄第二遍地址。**
 
 ## 1. 概述
 
@@ -30,7 +43,6 @@ App SDK 是面向SVCrtOS应用程序（分区）的开发工具包。应用程�
 sdk/app_sdk/
 ├── svcrt.h              ← 应用API入口头文件（唯一需要包含的文件）
 ├── svcrt_types.h        ← 基础类型定义（被svcrt.h自动包含）
-├── svcrt_app_config.h   ← 分区配置结构定义
 ├── svcrt_oslib.c        ← SVC系统调用封装实现
 ├── svcrt_app_main.c     ← 应用入口模板（含AppMain弱定义）
 ├── svcrt_app_start.s    ← 应用启动汇编入口
@@ -81,25 +93,20 @@ void AppMain(void)
 }
 ```
 
-#### 步骤4：配置分区参数
+#### 步骤4：配置分区参数（已改）
 
-在 `svcrt_app_config.h` 中定义分区资源需求：
+> **旧写法已废弃**：早期要在 `svcrt_app_config.h` 里定义 `svcrt_app_cfg_table[]`，
+> 把 `ram_start` / `rom_start` 等地址写死在 App 工程里。该头文件与结构体**已删除**。
 
-```c
-svcrt_app_cfg_t svcrt_app_cfg_table[] = {
-    {
-        .ram_start       = 0x20000000,   // RAM起始地址
-        .ram_size        = 0x1000,       // RAM大小(4KB)
-        .stack_size      = 0x400,        // 栈大小(1KB)
-        .rom_start       = 0x08020000,   // ROM起始地址
-        .rom_size        = 0x20000,      // ROM大小(128KB)
-        .period          = 1000,         // 任务周期(1秒)
-        .priority        = 10,           // 优先级
-        .shm_attri       = 0             // 共享内存访问属性
-    }
-};
-int32 svcrt_app_count = 1;
-```
+当前做法：
+
+1. 分区基址、容量、任务优先级、栈大小，**只在 `config/svcrt_partition.h` 配一次**；
+2. App 工程的分散加载文件由 `tools/gen_scatter.py` 自动生成到 `build/app.sct`，
+   App 工程**不包含** `config/svcrt_partition.h`；
+3. 运行期需要知道自己的分区信息时，用 `svcrt_app_status(slot)` 这类接口查询，
+   不要把地址抄进 App。
+
+所以这一步实际是**空操作**——App 侧不需要配置任何地址。
 
 #### 步骤5：编译与烧录
 
@@ -980,29 +987,28 @@ int32 uart_drv_install(void)
 
 App SDK 与 Driver SDK 的用户态固件以**独立 .bin** 形式烧录到专属 ROM 分区，由内核加载运行。这一节说明让外部固件正确运行必须满足的三个条件，初次集成时极易踩坑。
 
-### A. 内核必须注册外部分区入口为任务
+### A. 内核自动扫描外部分区（不需要写入口宏）
 
-内核**不会自动扫描或加载** ROM 里的外部固件。必须在内核启动时（`svcrt_register_tasks`）显式把外部分区的入口地址注册为任务：
+早期版本要求在内核 `svcrt_register_tasks()` 里把外部分区入口写成宏注册为任务：
 
 ```c
-/* 外部固件入口 = 分区 ROM 基址 | 1（Thumb 模式）
- * 启动汇编 APPSTART/DRVSTART 由 scatter 的 *.o(RESET,+First) 放在分区最前 */
-#define BLED_DRV_ENTRY  (0x08060000u | 1u)
-
-static uint32 ext_drv_stack[512];
-
-ext_drv_stack[0] = SVCRT_STACK_END_FLAG_VAL;
-p_task = &svcrt_task_table[svcrt_task_count];
-p_task->priority = 9;
-p_task->status   = SVCRT_TASK_READY;
-/* ... 其余字段初始化 ... */
-svcrt_task_stack_init(p_task, (void (*)(void))BLED_DRV_ENTRY,
-                      ext_drv_stack, sizeof(ext_drv_stack));
-svcrt_task_count++;
+#define BLED_DRV_ENTRY  (0x08060000u | 1u)   /* 旧写法，已删除 */
 ```
 
-> 任务栈由**内核侧**分配（外部 scatter 的 ARM_LIB_STACK 在此场景不被用作任务栈）。
-> 任务被调度时 PC 跳到分区基址，执行启动汇编 → `__main` → `main` → `AppMain`/`DrvMain`。
+**这种写法已经删除**——它等于把 `config/svcrt_partition.h` 里的地址再抄一遍，
+布局一改就会悄悄错位。
+
+当前流程：
+
+1. `svcrt_ptable_init()` 把分区表放进共享 RAM（布局信息全部来自配置头）；
+2. `svcrt_loader_scan()` / `svcrt_loader_scan_driver()` 上电扫描各分区做镜像识别：
+   带头 `.svcapp`（magic `SVCA` + `hw_compat_id` 匹配 + CRC 正确）或开发期裸镜像；
+3. 识别通过后按 `APP_TASK_PRIORITY` / `APP_TASK_STACK_SIZE`（驱动用 `DRIVER_TASK_*`）
+   自动建任务，**栈从该分区自己的 RAM 区顶部切出**（不再由内核侧数组提供）；
+4. 运行期可用 `svcrt_app_load/start/stop/status`、`svcrt_driver_load` 动态管理，
+   或让内核安装任务从串口收 `.svcapp` 并按镜像头 `type` 自动分流。
+
+任务被调度时 PC 跳到分区入口，执行启动汇编 → `__main` → `main` → `AppMain`/`DrvMain`。
 
 ### B. 启动汇编必须经 `__main`（C 运行时初始化）
 
@@ -1038,21 +1044,23 @@ SDK 提供的 `svcrt_app_start.s` / `svcrt_drv_start.s` 已采用此方式，开
 
 ### C. 分区地址必须互不重叠
 
-内核、各驱动固件、各应用固件的 ROM 与 RAM 区必须严格错开。示例分配：
+内核、驱动池、各 App 槽位的 ROM 与 RAM 区必须严格错开。**这一约束由
+`config/svcrt_partition.h` 保证**，改完用脚本自检即可：
 
-| 固件 | ROM | RAM |
-|------|-----|-----|
-| 内核 | 0x08000000 | 0x20000000 起 |
-| 驱动固件 | 0x08060000 | 0x2001A000 |
-| 应用固件 | 0x08080000 | 0x2001C000 |
+```bash
+python tools/gen_scatter.py --check     # 校验分区无重叠、无越界
+python tools/gen_scatter.py --dump      # 打印当前布局
+```
 
-地址需在三处保持一致：固件的 **scatter file**、内核注册时的 **入口宏**、（应用的）**app_config.c 分区表**。
+不需要（也不允许）在 scatter file、内核入口宏、App 配置表里各写一遍地址——
+**地址只写一次**，其余全部推导。旧文档里「地址需在三处保持一致」的说法已作废：
+那三处现在有两处已经不存在了。
 
 ### 排错速查
 
 | 现象 | 可能原因 |
 |------|---------|
-| 烧录后外部固件完全不运行（只有内核任务） | 内核未注册外部分区入口（条件 A） |
+| 烧录后外部固件完全不运行（只有内核任务） | 分区未通过镜像识别（头/CRC/`hw_compat_id` 不对，或裸镜像但 `APP_ALLOW_RAW_IMAGE=0`）；用 `svcrt_loader_state()` 与故障记录定位 |
 | 外部固件一运行就 HardFault / 复位 | 启动汇编未经 `__main`，.data/.bss 未初始化（条件 B） |
 | App `svcrt_dev_open` 返回 -1 | 对应 Driver 固件未烧录或未注册设备 |
 | 多固件随机崩溃 | ROM/RAM 分区地址重叠（条件 C） |

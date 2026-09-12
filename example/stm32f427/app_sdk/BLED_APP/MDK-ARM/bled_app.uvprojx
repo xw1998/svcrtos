@@ -388,11 +388,6 @@
               <FileType>1</FileType>
               <FilePath>..\Src\bled_app.c</FilePath>
             </File>
-            <File>
-              <FileName>app_config.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Src\app_config.c</FilePath>
-            </File>
           </Files>
         </Group>
         <Group>

@@ -1,4 +1,17 @@
 # SVCrtOS 使用手册
+> **【时效性提示】** 本文写作于「分区表 + 加载器」架构改造之前。凡涉及
+> **分区地址**、**内核入口宏（`BLED_DRV_ENTRY` 之类）**、**`app_config.c` /
+> `svcrt_app_config.h`**、**手工维护的 `.sct`** 的段落，均已被下列内容取代：
+>
+> | 想知道 | 看哪里 |
+> |---|---|
+> | 今天怎么装 App / 驱动、怎么调试、崩溃了怎么办 | [../docs/SVCrtOS应用安装与调试指南.md](../docs/SVCrtOS应用安装与调试指南.md) |
+> | 分区 / 加载器 / 镜像格式为什么这样设计 | [../docs/Loader工程化落地说明.md](../docs/Loader工程化落地说明.md) |
+> | 全工程唯一地址源头 | [../config/svcrt_partition.h](../config/svcrt_partition.h) |
+> | 文档总索引 | [../docs/README.md](../docs/README.md) |
+>
+> 口诀：**地址只在 `config/svcrt_partition.h` 写一次；`.sct` 由脚本生成；
+> 入口由内核从分区表推导，任何地方都不要再抄第二遍地址。**
 
 ## 1. 系统概述
 
@@ -49,7 +62,7 @@ SVCrtOS 是一个面向ARM Cortex-M系列MCU的实时操作系统，核心特性
 
 ```c
 #define SVCRT_CPU_ARCH         SVCRT_ARCH_CORTEX_M4
-#define SVCRT_TASK_MAX_NUM     (7)
+#define SVCRT_TASK_MAX_NUM     (32)   /* 工业建议 ≥32；并受 SVCRT_TASK_TABLE_RAM_MAX 预算约束 */
 #define SVCRT_TICK_PERIOD_US   (500)
 #define SVCRT_EVENT_NUM        (10)
 ```
@@ -58,37 +71,26 @@ SVCrtOS 是一个面向ARM Cortex-M系列MCU的实时操作系统，核心特性
 
 实现 `svcrt_port.h` 中定义的回调函数（详见移植手册）。
 
-### 2.3 配置任务
+### 2.3 配置 App / 驱动（已改）
 
-在 `appconfig.c` 中配置任务参数：
+> **旧写法已废弃**：早期版本要在 `appconfig.c` 里填一张写死 `ram_start` / `rom_start` 的
+> `svcrt_app_cfg_table[]`，并让内核在 `svcrt_register_tasks()` 里按入口宏静态注册。
+> 这两处现在都不存在了（文件与结构体已删除），**不要再按旧文档写**。
 
-```c
-__weak int32 svcrt_app_count = 2;
+当前做法：
 
-__weak svcrt_app_cfg_t svcrt_app_cfg_table[] =
-{
-    {
-        0x20000000,     // ram_start
-        0x1000,         // ram_size
-        0x400,          // stack_size
-        0x08020000,     // rom_start
-        0x20000,        // rom_size
-        1000,           // period
-        10,             // priority
-        0               // shm_attri
-    },
-    {
-        0x20001000,
-        0x1000,
-        0x400,
-        0x08040000,
-        0x20000,
-        1000,
-        10,
-        0
-    }
-};
-```
+1. **分区与任务参数只在 `config/svcrt_partition.h` 配一次** ——
+   分区基址/容量、`APP_TASK_PRIORITY`、`APP_TASK_STACK_SIZE`、
+   `DRIVER_TASK_PRIORITY`、`DRIVER_TASK_STACK_SIZE` 等全在那里；
+2. **App / 驱动工程里不出现任何分区地址** —— 分散加载文件由
+   `tools/gen_scatter.py` 读配置头自动生成到 `build/*.sct`，
+   App / 驱动工程也不包含 `config/svcrt_partition.h`；
+3. **入口由内核从分区表推导** —— 上电时 `svcrt_loader_scan()` /
+   `svcrt_loader_scan_driver()` 识别镜像并建任务，运行期用
+   `svcrt_app_start()` / `svcrt_app_load()` / `svcrt_driver_load()` 管理。
+
+App / 驱动侧只需要实现 `AppMain()` / `DrvMain()`，其余交给 SDK 与内核。
+详细步骤见 [`../docs/SVCrtOS应用安装与调试指南.md`](../docs/SVCrtOS应用安装与调试指南.md)。
 
 ### 2.4 注册驱动
 
@@ -304,7 +306,6 @@ CPU负载统计通过 `SVCRT_USE_CPU_LOAD` 配置开关控制。开启后，内�
 |------|------|
 | `svcrt.h` | 应用API入口头文件 |
 | `svcrt_types.h` | 基础类型定义 |
-| `svcrt_app_config.h` | 分区配置结构 |
 | `svcrt_oslib.c` | SVC系统调用封装 |
 | `svcrt_app_main.c` | 入口模板（含AppMain弱定义） |
 | `svcrt_app_start.s` | 应用启动汇编 |
@@ -404,8 +405,8 @@ int32 count = svcrt_drv_get_count();
 #define SVCRT_STACK_END_FLAG      (0xED01) // 栈底标记
 
 // 内存配置
-#define SVCRT_SHARE_MEM_ADDR      (0x20028000) // 共享内存地址
-#define SVCRT_SHARE_MEM_SIZE      (0x8000)     // 共享内存大小
+// 注：SVCRT_SHARE_MEM_ADDR / SVCRT_SHARE_MEM_SIZE 已删除。
+// 共享内存位置由 config/svcrt_partition.h 的 SHARE_RAM_BASE / SHARE_RAM_SIZE 决定。
 #define SVCRT_SYSTEM_CLOCK_HZ     (168000000)  // 系统主频
 ```
 

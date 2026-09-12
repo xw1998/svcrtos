@@ -1,4 +1,17 @@
 # SVCrtOS 内核移植手册 —— 以 STM32F427 MDK 工程为例
+> **【时效性提示】** 本文写作于「分区表 + 加载器」架构改造之前。凡涉及
+> **分区地址**、**内核入口宏（`BLED_DRV_ENTRY` 之类）**、**`app_config.c` /
+> `svcrt_app_config.h`**、**手工维护的 `.sct`** 的段落，均已被下列内容取代：
+>
+> | 想知道 | 看哪里 |
+> |---|---|
+> | 今天怎么装 App / 驱动、怎么调试、崩溃了怎么办 | [docs/SVCrtOS应用安装与调试指南.md](docs/SVCrtOS应用安装与调试指南.md) |
+> | 分区 / 加载器 / 镜像格式为什么这样设计 | [docs/Loader工程化落地说明.md](docs/Loader工程化落地说明.md) |
+> | 全工程唯一地址源头 | [config/svcrt_partition.h](config/svcrt_partition.h) |
+> | 文档总索引 | [docs/README.md](docs/README.md) |
+>
+> 口诀：**地址只在 `config/svcrt_partition.h` 写一次；`.sct` 由脚本生成；
+> 入口由内核从分区表推导，任何地方都不要再抄第二遍地址。**
 
 ## 1. 概述
 
@@ -79,7 +92,7 @@ SVCRTOS/
 #define SVCRT_USE_FPU             1
 #define SVCRT_USE_MPU             1
 #define SVCRT_USE_PRIV            1
-#define SVCRT_TASK_MAX_NUM        (7)
+#define SVCRT_TASK_MAX_NUM        (32)   /* 工业建议 ≥32；并受 SVCRT_TASK_TABLE_RAM_MAX 预算约束 */
 #define SVCRT_TICK_PERIOD_US      (500)
 ```
 
@@ -87,8 +100,9 @@ SVCRTOS/
 /* board/stm32f427/svcrt_board_config.h */
 #define SVCRT_CPU_ARCH            SVCRT_ARCH_CORTEX_M4
 #define SVCRT_SYSTEM_CLOCK_HZ     (168000000)
-#define SVCRT_SHARE_MEM_ADDR      (0x20028000)
-#define SVCRT_SHARE_MEM_SIZE      (0x8000)
+/* 注意：SVCRT_SHARE_MEM_ADDR / SVCRT_SHARE_MEM_SIZE 已删除。
+ * 共享内存位置由 config/svcrt_partition.h 的 SHARE_RAM_BASE / SHARE_RAM_SIZE 决定，
+ * 板级配置里不应再出现任何地址。 */
 ```
 
 ---
@@ -289,41 +303,35 @@ void MX_USART1_UART_Init(void)
 
 ---
 
-### 步骤五：修改 Scatter File
+### 步骤五：分散加载文件（不再手写）
 
-调整 SRAM 区域大小，为内核共享内存预留空间：
+**不要手工编辑 `.sct`。** 全工程的 Flash / RAM 布局只在
+`config/svcrt_partition.h` 定义一次，分散加载文件由
+`tools/gen_scatter.py` 读该配置头自动生成：
 
-```
-; *************************************************************
-; *** Scatter-Loading Description File for SVCrtOS          ***
-; *************************************************************
-
-LR_IROM1 0x08000000 0x00100000  {
-  ER_IROM1 0x08000000 0x00100000  {
-   *.o (RESET, +First)
-   *(InRoot$$Sections)
-   .ANY (+RO)
-   .ANY (+XO)
-  }
-  RW_IRAM1 0x20000000 0x00028000  {
-   .ANY (+RW +ZI)
-  }
-  RW_IRAM2 0x10000000 0x00010000  {
-   .ANY (+RW +ZI)
-  }
-}
+```bash
+python tools/gen_scatter.py --dump      # 打印当前布局（含各分区基址/大小）
+python tools/gen_scatter.py --check     # 校验分区无重叠、无越界
+python tools/gen_scatter.py --target all --output build
 ```
 
-**内存布局说明**：
+各 MDK 工程已经挂好钩子：`<umfTarg>0</umfTarg>`（不使用 Target Dialog 内存布局）、
+`<ScatterFile>` 指向 `build\{kernel,driver,app}.sct`、
+Before Make 自动执行 `gen_scatter.py`。所以**移植到新芯片时你只需要改
+`config/svcrt_partition.h` 顶部的 4 个芯片物理参数**：
 
-| 区域 | 起始地址 | 大小 | 用途 |
-|------|---------|------|------|
-| Flash | 0x08000000 | 1MB | 代码与只读数据 |
-| 主 SRAM | 0x20000000 | 160KB (0x28000) | 内核 + 任务 RAM |
-| 共享内存 | 0x20028000 | 32KB (0x8000) | 任务间共享（由 SVCRT_SHARE_MEM_ADDR 配置） |
-| CCM RAM | 0x10000000 | 64KB | 可用但仅 CPU 可访问 |
+```c
+#define CHIP_FLASH_BASE      0x08000000
+#define CHIP_FLASH_SIZE      (1024 * 1024)
+#define CHIP_RAM_BASE        0x20000000
+#define CHIP_RAM_SIZE        (128 * 1024)
+```
 
-> 主 SRAM 从 192KB 缩减为 160KB，高地址 32KB 留作内核共享内存区。
+其余全部自动推导。生成器还会把各分区 RW 上限**扣除栈区**——
+App / 驱动 / 内核的栈由内核按分区推导，撞栈在链接期就会报错，
+不会拖到运行期才炸。
+
+---
 
 ---
 
@@ -455,9 +463,11 @@ main()
 - [ ] **修改 `svcrt_board_config.h`**：
   - `SVCRT_CPU_ARCH` — 设为对应的架构常量
   - `SVCRT_SYSTEM_CLOCK_HZ` — 设为实际系统时钟频率
-  - `SVCRT_SHARE_MEM_ADDR` / `SVCRT_SHARE_MEM_SIZE` — 根据实际 RAM 布局调整
+  - （已移除）`SVCRT_SHARE_MEM_ADDR` / `SVCRT_SHARE_MEM_SIZE`：共享内存位置改由
+    `config/svcrt_partition.h` 的 `SHARE_RAM_BASE` / `SHARE_RAM_SIZE` 决定，板级配置里不要再写地址
 
-- [ ] **修改 Scatter File**：根据芯片实际内存映射调整
+- [ ] **不要手改 Scatter File**：改 `config/svcrt_partition.h` 顶部的芯片物理参数，
+      分散加载文件由 `tools/gen_scatter.py` 自动生成到 `build/*.sct`
 
 - [ ] **修改 MDK 工程文件**：
   - 更新源文件路径指向新的 `board/<chip>/` 目录
@@ -594,19 +604,24 @@ SVCrtOS 支持把应用和驱动编译为**独立固件**，烧录到专属 ROM 
 
 ### 10.1 加载机制
 
-内核不会自动扫描 ROM 加载外部固件，需在 `svcrt_register_tasks` 中显式将外部分区入口注册为任务：
+内核**上电自动扫描**外部分区，不需要（也不应该）在 `svcrt_register_tasks()` 里
+写死入口地址——那个函数与 `BLED_DRV_ENTRY` 之类的入口宏**已经删除**，
+因为它等于把 `config/svcrt_partition.h` 里的地址再抄一遍。
 
-```c
-#define BLED_DRV_ENTRY  (0x08060000u | 1u)   /* 分区基址 | Thumb */
-static uint32 ext_drv_stack[512];
+当前流程：
 
-/* ... 填充 TCB 字段 ... */
-svcrt_task_stack_init(p_task, (void (*)(void))BLED_DRV_ENTRY,
-                      ext_drv_stack, sizeof(ext_drv_stack));
-svcrt_task_count++;
-```
+1. `svcrt_ptable_init()` 把分区表放进共享 RAM（布局信息全部来自配置头）；
+2. `svcrt_loader_scan()` / `svcrt_loader_scan_driver()` 逐个分区做**镜像识别**：
+   - 带 256 字节镜像头且 `magic == 'SVCA'`、`hw_compat_id` 匹配、CRC 正确 → 按镜像头取入口；
+   - 非擦除态且 `APP_ALLOW_RAW_IMAGE = 1` → 当作开发期裸镜像，入口取分区基址（置 Thumb 位）；
+   - 其余 → `INVALID`，不启动；
+3. 识别通过后按 `APP_TASK_PRIORITY` / `APP_TASK_STACK_SIZE`（或驱动对应的
+   `DRIVER_TASK_*`）建任务，栈从该分区自己的 RAM 区顶部切出；
+4. 运行期也可用 `svcrt_app_load()` / `svcrt_app_start()` / `svcrt_app_stop()` /
+   `svcrt_app_status()` / `svcrt_driver_load()` 动态管理，
+   或由内核安装任务从串口接收 `.svcapp` 并按镜像头 `type` 自动分流。
 
-外部固件的启动汇编（APPSTART/DRVSTART）经 scatter 的 `*.o(RESET,+First)` 放在分区基址。任务调度时 PC 跳入分区，执行：启动汇编 → `__main` → `main` → `AppMain`/`DrvMain`。
+任务调度时 PC 跳入分区，执行：启动汇编 → `__main` → `main` → `AppMain`/`DrvMain`。
 
 ### 10.2 外部固件必须经 `__main` 初始化
 
@@ -625,13 +640,18 @@ DRVSTART  PROC
 
 ### 10.3 分区地址规划
 
-| 固件 | ROM | RAM |
-|------|-----|-----|
-| 内核 | 0x08000000 | 0x20000000~ |
-| 驱动固件 | 0x08060000 | 0x2001A000 |
-| 应用固件 | 0x08080000 | 0x2001C000 |
+**本节不列出任何具体地址。** 分区基址与容量只在
+`config/svcrt_partition.h` 定义一次，需要时用脚本查看：
 
-ROM/RAM 必须互不重叠；地址需在 scatter file、内核入口宏、app_config.c 三处一致。
+```bash
+python tools/gen_scatter.py --dump
+```
+
+设计约束只有一条：**任何地方都不许把地址抄第二遍**。
+散加载文件由脚本生成、镜像入口写在镜像头里由加载器读取、
+用户态布局查询走 `svcrt_app_status()` 这类接口——
+三者都不需要知道绝对地址。
+
 
 ### 10.4 已知问题修复记录
 

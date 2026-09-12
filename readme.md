@@ -306,8 +306,7 @@ svcrt_dev_write(h, &on, 1);            /* 点亮蓝灯 */
 | `SVCRT_STACK_FILL_PATTERN` | 0xcdcdcdcd | 栈填充图案（用于水位统计） |
 | `SVCRT_USE_CPU_LOAD` | 1 | CPU 负载统计开关 |
 | `SVCRT_USE_STACK_CHECK` | 1 | 栈溢出检测开关 |
-| `SVCRT_SHARE_MEM_ADDR` | 0x20028000 | 共享内存地址（板级配置覆盖） |
-| `SVCRT_SHARE_MEM_SIZE` | 0x8000 | 共享内存大小（板级配置覆盖） |
+| `SVCRT_SHARE_MEM_ADDR` / `SVCRT_SHARE_MEM_SIZE` | — | **已删除**：共享内存位置由 `config/svcrt_partition.h` 的 `SHARE_RAM_BASE` / `SHARE_RAM_SIZE` 决定 |
 | `SVCRT_SYSTEM_CLOCK_HZ` | 168000000 | 系统主频（板级配置覆盖） |
 | `SVCRT_USE_MQ` / `SVCRT_MQ_NUM` | 1 / 8 | 消息队列开关与数量 |
 | `SVCRT_MQ_DEPTH` / `SVCRT_MQ_MSG_WORDS` | 8 / 4 | 队列深度与单条消息长度（字） |

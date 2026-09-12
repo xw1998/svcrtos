@@ -35,6 +35,10 @@
 
 > 未改动任何 `.uvprojx`：所有新增内容要么是头文件，要么落在工程已包含的源文件中。
 
+> **后续修订（加载器架构改造）**：文中提到的 `kernelsrc/app/oslib.c` 已作为重复副本删除，
+> 用户态 SVC 封装现在只有 `kernelsrc/sdk/app_sdk/svcrt_oslib.c` 一份；
+> 本文其余内容作为历史变更记录保留。
+
 ## 3. 编码处理说明
 
 内核旧文件为 GBK，近几轮新增模块为 UTF-8。为避免你 Keil 编辑器里的中文注释变乱码，
@@ -45,7 +49,7 @@
 
 - 内核全部源文件（`kernelsrc/src/*.c`、`port/arm/cortex-m4/svcrt_port.c`）：
   Arm Compiler 6 语法检查通过（`-Wall` 无告警），MPU 开/关两种配置均通过
-- 用户态封装（`kernelsrc/app/oslib.c`、`kernelsrc/sdk/app_sdk/svcrt_oslib.c`）：
+- 用户态封装（`kernelsrc/sdk/app_sdk/svcrt_oslib.c`，当时的重复副本 `kernelsrc/app/oslib.c` 现已删除）：
   Arm Compiler 5 编译通过
 - 文档生成：`python tools/gen_api_doc.py` 已跑通，产出 94 个条目的 Markdown API 参考
 

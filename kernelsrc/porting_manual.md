@@ -107,8 +107,9 @@ SVCRTOS/
 
 #define SVCRT_CPU_ARCH            SVCRT_ARCH_CORTEX_M4
 #define SVCRT_SYSTEM_CLOCK_HZ     (168000000)
-#define SVCRT_SHARE_MEM_ADDR      (0x20028000)
-#define SVCRT_SHARE_MEM_SIZE      (0x8000)
+/* 注：不要在这里写任何分区/共享内存地址。
+ * 全工程的 Flash / RAM 布局（含 SHARE_RAM_BASE / SHARE_RAM_SIZE）
+ * 统一在 config/svcrt_partition.h 定义一次，板级头文件只放芯片相关参数。 */
 
 #undef  SVCRT_USE_FPU
 #define SVCRT_USE_FPU             1

@@ -1,4 +1,17 @@
 # SVCrtOS 内核文件详解
+> **【时效性提示】** 本文写作于「分区表 + 加载器」架构改造之前。凡涉及
+> **分区地址**、**内核入口宏（`BLED_DRV_ENTRY` 之类）**、**`app_config.c` /
+> `svcrt_app_config.h`**、**手工维护的 `.sct`** 的段落，均已被下列内容取代：
+>
+> | 想知道 | 看哪里 |
+> |---|---|
+> | 今天怎么装 App / 驱动、怎么调试、崩溃了怎么办 | [docs/SVCrtOS应用安装与调试指南.md](docs/SVCrtOS应用安装与调试指南.md) |
+> | 分区 / 加载器 / 镜像格式为什么这样设计 | [docs/Loader工程化落地说明.md](docs/Loader工程化落地说明.md) |
+> | 全工程唯一地址源头 | [config/svcrt_partition.h](config/svcrt_partition.h) |
+> | 文档总索引 | [docs/README.md](docs/README.md) |
+>
+> 口诀：**地址只在 `config/svcrt_partition.h` 写一次；`.sct` 由脚本生成；
+> 入口由内核从分区表推导，任何地方都不要再抄第二遍地址。**
 
 ## 1. 概述
 
@@ -107,8 +120,7 @@ typedef signed   char  int8;
 | `SVCRT_USE_CPU_LOAD` | 1 | CPU 负载统计开关 |
 | `SVCRT_USE_STACK_CHECK` | 1 | 栈溢出检测开关 |
 | `SVCRT_STACK_END_FLAG` | 0xed01 | 栈底标志值 |
-| `SVCRT_SHARE_MEM_ADDR` | 0x20028000 | 共享内存起始地址 |
-| `SVCRT_SHARE_MEM_SIZE` | 0x8000 | 共享内存大小 |
+| `SVCRT_SHARE_MEM_ADDR` / `SVCRT_SHARE_MEM_SIZE` | — | **已删除**：位置改由 `config/svcrt_partition.h` 的 `SHARE_RAM_BASE` / `SHARE_RAM_SIZE` 决定 |
 | `SVCRT_SYSTEM_CLOCK_HZ` | 168000000 | 系统主频 |
 
 **板级覆盖机制**：通过编译选项 `-DSVCRT_BOARD_CONFIG=\"svcrt_board_config.h\"`，在文件末尾 `#include` 板级头文件，从而用板级配置覆盖默认值。
@@ -867,25 +879,24 @@ SysTick 中断（每 500us）
 
 ---
 
-## 7. 内存布局（STM32F427 示例）
+## 7. 内存布局
+
+**本节不列出具体地址。** 全工程 Flash / RAM 布局只在 `config/svcrt_partition.h`
+定义一次（顶部 4 个芯片物理参数 + 各分区大小策略），其余自动推导。
+查看当前布局：
+
+```bash
+python tools/gen_scatter.py --dump     # 打印各分区基址/大小
+python tools/gen_scatter.py --check    # 校验无重叠、无越界
+```
+
+RAM 从低到高的分区顺序是：
+`SHARE_RAM`（分区表 + 内核/用户数据交换）→ `KERNEL_RAM` → `DRIVER_RAM` → `APP_RAM`；
+每个固件区内部再切出自己的栈（App 栈从 `APP_RAM` 顶部切、驱动栈从 `DRIVER_RAM` 顶部切），
+且链接期的 RW 上限已扣除栈区，撞栈会在链接期而不是运行期暴露。
 
 ```
-0x20030000 ┌────────────────────┐
-           │   共享内存区        │ 32KB (SVCRT_SHARE_MEM_SIZE)
-           │   (任务间通信)      │
-0x20028000 ├────────────────────┤
-           │                    │
-           │   主 SRAM          │ 160KB (任务私有)
-           │   (代码+数据栈)     │
-0x20000000 └────────────────────┘
-
-0x10010000 ┌────────────────────┐
-           │   CCM RAM          │ 64KB (仅 CPU 可访问)
-0x10000000 └────────────────────┘
-
-0x08100000 ┌────────────────────┐
-           │   Flash            │ 1MB
-0x08000000 └────────────────────┘
+（原手写布局图已删除：地址会在配置变更后失真，一律以 gen_scatter.py --dump 为准。）
 ```
 
 ---

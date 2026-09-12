@@ -12,12 +12,13 @@
 
 #include "drvflash.h"
 #include "svcrt_config.h"
+#include "svcrt_partition.h"    /* 全工程唯一地址源头：CHIP_FLASH_BASE */
 
 #ifdef SVCRT_BOARD_CONFIG
 #include SVCRT_BOARD_CONFIG      /* 引入 stm32f4xx.h → HAL 头文件 */
 #endif
 
-#define SVCRT_FLASH_BASE_ADDR     (0x08000000u)
+#define SVCRT_FLASH_BASE_ADDR     ((uint32)CHIP_FLASH_BASE)
 #define SVCRT_FLASH_SMALL_SECTOR  (16u * 1024u)     /* 扇区 0~3       */
 #define SVCRT_FLASH_MID_SECTOR    (64u * 1024u)     /* 扇区 4         */
 #define SVCRT_FLASH_BIG_SECTOR    (128u * 1024u)    /* 扇区 5~11/23   */

@@ -149,6 +149,7 @@ App 工程里**没有 startup 文件、没有向量表**，它本身不是从头
 | 数据格式 | 8N1，无流控 |
 | 同步方式 | 内核在字节流中搜索镜像头魔数 `SVCA`（字节序 `41 43 56 53`），**逐字节重新同步**，混杂的杂散字节会被自动跳过 |
 | 结束 | 不需要结束标记；内核按镜像头里的 `image_size` 读满即止 |
+| 分流 | 内核看**镜像头里的 `type`** 自行决定去向：驱动镜像进驱动池，其余进空闲 App 槽位。装什么由包自己说了算，上位机不需要事先声明 |
 
 ### 3.2 打包
 
@@ -162,7 +163,16 @@ python tools/pack_app.py --axf build/APP_DEMO/APP_DEMO.axf \
 python tools/pack_app.py --bin build/APP_DEMO/APP_DEMO.bin \
     --type app --version 1.0.0 --entry-offset 0x0 \
     --out build/APP_DEMO/APP_DEMO.svcapp
+
+# 驱动镜像：把 --type 换成 driver
+python tools/pack_app.py --axf build/BLED_DRV/bled_drv.axf \
+    --type driver --version 1.0.0 --name "蓝灯驱动" \
+    --out build/BLED_DRV/bled_drv.svcapp
 ```
+
+`--type` 必须与实际分区匹配：内核会校验镜像头里的 `type`，App 镜像进不了驱动区、
+驱动镜像也进不了 App 槽位（上电扫描与运行期安装都会拦）。
+
 
 打包工具会**强制校验**"ELF 镜像基址 == 分区槽位基址"，不一致直接报错——
 这是防止链接布局与打包布局悄悄错位的护栏。
@@ -188,10 +198,16 @@ python tools/pack_app.py --bin build/APP_DEMO/APP_DEMO.bin \
 安装任务写入完成后槽位状态变为 `LOADED`（随后 `RUNNING`）。应用侧可查询：
 
 ```c
-uint32 st = svcrt_app_status(0);   /* 0=空 1=已加载 2=运行中 3=无效/被禁用 */
+uint32 st  = svcrt_app_status(0);  /* 0=空 1=已加载 2=运行中 3=无效/被禁用 */
 int32  tid = svcrt_app_start(0);   /* 手动启动（INSTALLER_AUTO_START=0 时用） */
-int32  r  = svcrt_app_stop(0);     /* 停止（镜像保留在 Flash） */
+int32  r   = svcrt_app_stop(0);    /* 停止（镜像保留在 Flash） */
+int32  d   = svcrt_driver_load(dev, image_len);  /* 从设备装驱动到驱动区 */
 ```
+
+驱动区是**单入口**：同一时刻只驻留一份驱动，重新安装会整体覆盖，
+安装成功后 `driver_state` 变 `LOADED`、`driver_entry` 指向新入口，
+并按 `DRIVER_AUTO_START` 决定是否立即（重）启动驱动任务。
+
 
 ### 3.5 掉电/中断会怎样
 
@@ -355,9 +371,12 @@ python tools/gen_scatter.py --target all --output build
 
 ### 尚未支持（按优先级）
 
-1. **驱动区的流式安装**——驱动目前只能靠路径 A/C 落位，没有"像 App 一样从串口装驱动"
-2. **镜像签名校验**——`signature[64]` 是占位字段，还没有信任链
-3. **崩溃计数持久化**——挡住"崩溃导致整机复位"的启动环（建议用 RTC 备份寄存器）
-4. **槽位元数据持久化**——版本号、升级/回滚目前无法跨掉电保留
-5. **多槽位 / A-B 回滚**——当前 `APP_MAX_COUNT = 1`，单区间最小闭环
+1. **镜像签名校验**——`signature[64]` 是占位字段，还没有信任链
+2. **崩溃计数持久化**——挡住"崩溃导致整机复位"的启动环（建议用 RTC 备份寄存器）
+3. **槽位元数据持久化**——版本号、升级/回滚目前无法跨掉电保留
+4. **多槽位 / A-B 回滚**——当前 `APP_MAX_COUNT = 1`，单区间最小闭环
+5. **多驱动共存**——驱动区是单入口，同一时刻只驻留一份驱动
 6. **SVC 边界零信任**——用户传入的裸指针尚未做范围校验，句柄也还是裸索引
+
+> 本轮已补齐：驱动区的流式安装（`svcrt_driver_load` / SVC 0x18 子命令 6 /
+> 安装任务按 `type` 自动分流）、任务上限 7→32、内核模块初始化统一入口。
