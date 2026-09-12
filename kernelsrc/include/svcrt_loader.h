@@ -51,6 +51,15 @@ int32 svcrt_loader_load_buffer(const uint8 *image, uint32 image_len);
 int32 svcrt_loader_load_dev(int32 dev, uint32 image_len);
 
 /**
+* @brief 扫描全部槽位，把 Flash 中已存在且校验通过的镜像标记为 LOADED
+* @return 有效（可启动）的槽位数量
+* @details 槽位状态原本只存在于共享 RAM，重启后会丢失；本函数在启动时按
+*          镜像头魔数 + 硬件兼容签名 + CRC32 重新认定槽位，使“先烧录镜像、
+*          再上电运行”的最小闭环成立。
+*/
+uint32 svcrt_loader_scan(void);
+
+/**
 * @brief 把已加载的槽位拉起为任务
 * @param slot 槽位号
 * @return 成功返回任务号（>0），失败返回 SVCRT_LOADER_ERR_x

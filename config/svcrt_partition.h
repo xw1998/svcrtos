@@ -49,6 +49,7 @@
 #define APP_TASK_PRIORITY    10              /* App 任务优先级 */
 #define APP_TASK_STACK_SIZE  (1024 * 4)      /* App 任务栈大小（字节） */
 #define APP_TASK_PERIOD_MS   1000            /* App 任务周期（ms） */
+#define APP_AUTO_START       1               /* 上电扫描到有效 App 镜像后是否自动启动（1=自动） */
 
 /* ============================================================
  * 三、以下全部自动推导，禁止手改

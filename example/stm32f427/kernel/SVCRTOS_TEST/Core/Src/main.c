@@ -26,6 +26,7 @@
 #include "svcrt_task.h"
 #include "svcrt_config.h"
 #include "svcrt_ptable.h"
+#include "svcrt_loader.h"
 #include "svcrt_partition.h"
 /* USER CODE END Includes */
 
@@ -340,6 +341,13 @@ static void svcrt_register_tasks(void)
 static void svcrt_kernel_init(void)
 {
     svcrt_ptable_init();
+
+    /* 扫描槽位：把 Flash 中已存在且校验通过的 App 镜像认定为可启动，
+     * 使“先烧录镜像、再上电运行”的最小闭环成立 */
+    if((svcrt_loader_scan() > 0u) && (APP_AUTO_START != 0))
+    {
+        svcrt_loader_start(0u);
+    }
 
     svcrt_event_module_init();
     svcrt_sync_module_init();

@@ -321,6 +321,52 @@ int32 svcrt_loader_load_dev(int32 dev, uint32 image_len)
     return (int32)slot;
 }
 
+uint32 svcrt_loader_scan(void)
+{
+    svcrt_partition_table_t *pt = svcrt_ptable_get();
+    uint32 found = 0u;
+    uint32 i;
+
+    for(i = 0u; i < pt->app_max_count && i < 8u; i++)
+    {
+        const svcrt_app_header_t *p_hdr =
+            (const svcrt_app_header_t *)(pt->app_user_base + i * pt->app_slot_size);
+        uint32 total;
+
+        if(p_hdr->magic != SVCRT_APP_MAGIC)
+        {
+            continue;                           /* 空槽位：Flash 为擦除值 0xFF */
+        }
+
+        if((p_hdr->hw_compat_id != SVCRT_HW_COMPAT_ID) || (p_hdr->image_size == 0u))
+        {
+            svcrt_ptable_set_slot(i, SVCRT_APP_SLOT_INVALID, 0u, 0u);
+            continue;
+        }
+
+        total = SVCRT_APP_HEADER_SIZE + p_hdr->image_size;
+        if(total > pt->app_slot_size)
+        {
+            svcrt_ptable_set_slot(i, SVCRT_APP_SLOT_INVALID, 0u, 0u);
+            continue;
+        }
+
+        /* Flash 已映射，直接按地址复算 CRC */
+        if(svcrt_loader_image_crc((const uint8 *)p_hdr, total) != p_hdr->crc32)
+        {
+            svcrt_ptable_set_slot(i, SVCRT_APP_SLOT_INVALID, 0u, 0u);
+            continue;
+        }
+
+        svcrt_ptable_set_slot(i, SVCRT_APP_SLOT_LOADED,
+                              svcrt_loader_entry_addr(pt->app_user_base + i * pt->app_slot_size,
+                                                      p_hdr->entry_offset), 0u);
+        found++;
+    }
+
+    return found;
+}
+
 int32 svcrt_loader_start(uint32 slot)
 {
     svcrt_partition_table_t *pt = svcrt_ptable_get();
