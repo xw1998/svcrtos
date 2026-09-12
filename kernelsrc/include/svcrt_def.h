@@ -25,6 +25,13 @@
 #define SVCRT_SVC_TIMER_CTRL        (0x17)
 #define SVCRT_SVC_APP_MGR           (0x18)   /* App 镜像管理与分区查询 */
 
+/* 同步原语（信号量/互斥锁）返回码：0=成功，负值=失败。
+ * 超时必须返回负值——调用方据此判断“本次没有拿到资源”；
+ * 若与 0（成功）混为一谈，会出现“以为拿到了信号量、计数却没减”的错乱。 */
+#define SVCRT_SYNC_OK             (0)
+#define SVCRT_SYNC_ERR_PARAM      (-1)
+#define SVCRT_SYNC_ERR_TIMEOUT    (-2)
+
 #define SVCRT_SEM_HANDLE_FLAG       (0x01300000)
 #define SVCRT_MTX_HANDLE_FLAG       (0x01400000)
 #define SVCRT_MQ_HANDLE_FLAG        (0x01500000)

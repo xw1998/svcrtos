@@ -100,8 +100,8 @@ int32  svcrt_sem_create(char *name, int32 init_count);
 /**
 * @brief 等待信号量（计数减一，计数为 0 时阻塞）
 * @param handle  信号量句柄
-* @param timeout 超时时间（ms），负值表示永久等待
-* @return 0=成功，负值=超时或参数错误
+* @param timeout 超时时间（ms），非正值（<=0）表示永久等待
+* @return 0=成功；SVCRT_SYNC_ERR_TIMEOUT(-2)=等待超时（未获得资源）；其它负值=参数错误
 */
 int32  svcrt_sem_wait(int32 handle, int32 timeout);
 
@@ -133,8 +133,8 @@ int32  svcrt_mutex_create(char *name);
 /**
 * @brief 加锁
 * @param handle  互斥锁句柄
-* @param timeout 超时时间（ms），负值表示永久等待
-* @return 0=成功，负值=超时或参数错误
+* @param timeout 超时时间（ms），非正值（<=0）表示永久等待
+* @return 0=成功；SVCRT_SYNC_ERR_TIMEOUT(-2)=等待超时（未获得资源）；其它负值=参数错误
 */
 int32  svcrt_mutex_lock(int32 handle, int32 timeout);
 

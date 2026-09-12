@@ -5,6 +5,9 @@
 *          - 互斥锁：记录 owner，加锁时若被占用则挂起；为避免优先级反转，当高优先级任务等待时，
 *            临时把持有者优先级提升到与等待者一致（优先级继承），解锁后恢复。
 *          阻塞等待复用 svcrt_task_wait_internal/svcrt_task_block_internal 实现任务挂起与切换。
+ *          阻塞返回后通过 task->wake_reason 区分唤醒原因（0=被 post/unlock 唤醒，
+ *          1=等待超时），超时会把自己从等待队列摘除并返回负值错误码，
+ *          绝不把“超时”当成“已获得资源”。
 * @author xw
 * @date 2026.05.30
 */
@@ -86,6 +89,48 @@ static svcrt_task_t *svcrt_waiters_pop_highest(svcrt_task_t **waiters)
     }
 }
 
+/* 从等待者列表移除指定任务（超时退出时使用），返回 0=已移除，-1=不在列表中 */
+static int32 svcrt_waiters_remove(svcrt_task_t **waiters, svcrt_task_t *p_tsk)
+{
+    int32 j;
+    for(j = 0; j < SVCRT_MAX_SYNC_WAITERS; j++)
+    {
+        if(waiters[j] == p_tsk)
+        {
+            waiters[j] = 0;
+            return 0;
+        }
+    }
+    return -1;
+}
+
+/* 按该锁当前的等待者重算持锁者优先级，用于撤销优先级继承提升
+ * （超时退出、等待队列满加锁失败等“等待者消失”的场景）。
+ * 取持锁者原始优先级与所有等待者优先级中的最高者（数值最小）。
+ * @note 多把锁嵌套时的优先级恢复仍不完善（见 docs 中的遗留问题清单）。 */
+static void svcrt_mtx_recalc_priority(int32 idx)
+{
+    svcrt_task_t *p_owner = svcrt_mtxs[idx].owner;
+    uint8 pri = (uint8)svcrt_mtxs[idx].orig_priority;
+    int32 j;
+
+    if(p_owner == 0)
+    {
+        return;
+    }
+
+    for(j = 0; j < SVCRT_MAX_SYNC_WAITERS; j++)
+    {
+        svcrt_task_t *p_w = svcrt_mtxs[idx].waiters[j];
+        if(p_w != 0 && p_w->priority < pri)
+        {
+            pri = p_w->priority;
+        }
+    }
+
+    p_owner->priority = pri;
+}
+
 /* ============================================================
  * 信号量
  * ============================================================ */
@@ -142,11 +187,24 @@ int32 svcrt_sem_wait_internal(int32 handle, int32 timeout_ms)
 
     p_tsk->wake_reason = 0;
     if(timeout_ms > 0)
-        svcrt_task_wait_internal(timeout_ms);
+        svcrt_task_wait_internal((uint32)timeout_ms);
     else
         svcrt_task_block_internal();
 
-    return 0;
+    /* wake_reason: 0=被 post 显式唤醒（拿到信号量），1=等待超时（未拿到）。
+     * 超时必须返回负值并把自己从等待队列摘掉：
+     *   - 不返回错误：调用者会以为拿到了信号量，但计数并没有减；
+     *   - 不摘除：之后 post 会把一个早已苏醒、正在执行其它代码的任务
+     *     当作等待者弹出并置 READY（虚假唤醒）。 */
+    if(p_tsk->wake_reason == 1)
+    {
+        SVCRT_DISABLE_IRQ();
+        (void)svcrt_waiters_remove(svcrt_sems[idx].waiters, p_tsk);
+        SVCRT_ENABLE_IRQ();
+        return SVCRT_SYNC_ERR_TIMEOUT;
+    }
+
+    return SVCRT_SYNC_OK;
 }
 
 int32 svcrt_sem_post_internal(int32 handle)
@@ -267,18 +325,42 @@ int32 svcrt_mtx_lock_internal(int32 handle, int32 timeout_ms)
 
     if(svcrt_waiters_add(svcrt_mtxs[idx].waiters, p_tsk) < 0)
     {
+        /* 等待队列已满、加锁失败：必须撤销刚才对持锁者的优先级继承提升，
+         * 否则持锁者会被永久提权。 */
+        svcrt_mtx_recalc_priority(idx);
         SVCRT_ENABLE_IRQ();
-        return -1;
+        return SVCRT_SYNC_ERR_PARAM;
     }
     SVCRT_ENABLE_IRQ();
 
     p_tsk->wake_reason = 0;
     if(timeout_ms > 0)
-        svcrt_task_wait_internal(timeout_ms);
+        svcrt_task_wait_internal((uint32)timeout_ms);
     else
         svcrt_task_block_internal();
 
-    return 0;
+    SVCRT_DISABLE_IRQ();
+
+    if(p_tsk->wake_reason == 1)
+    {
+        /* 竞态：等待超时与 unlock 的“转交”几乎同时发生，unlock 已经把
+         * owner 改成本任务。此时锁确实归本任务所有，按成功处理；
+         * 若仍按超时返回，这把锁将永远没有 owner（锁泄漏）。 */
+        if(svcrt_mtxs[idx].owner == p_tsk)
+        {
+            SVCRT_ENABLE_IRQ();
+            return SVCRT_SYNC_OK;
+        }
+
+        /* 未获得锁：摘除等待者并撤销优先级继承提升 */
+        (void)svcrt_waiters_remove(svcrt_mtxs[idx].waiters, p_tsk);
+        svcrt_mtx_recalc_priority(idx);
+        SVCRT_ENABLE_IRQ();
+        return SVCRT_SYNC_ERR_TIMEOUT;
+    }
+
+    SVCRT_ENABLE_IRQ();
+    return SVCRT_SYNC_OK;
 }
 
 int32 svcrt_mtx_unlock_internal(int32 handle)
