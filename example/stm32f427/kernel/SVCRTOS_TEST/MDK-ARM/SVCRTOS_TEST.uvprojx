@@ -704,6 +704,11 @@
               <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_init.c</FilePath>
             </File>
             <File>
+              <FileName>svcrt_mpu.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_mpu.c</FilePath>
+            </File>
+            <File>
               <FileName>svcrt_ptable.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_ptable.c</FilePath>

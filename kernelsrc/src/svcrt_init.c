@@ -32,6 +32,7 @@
 #include "svcrt_mq.h"
 #include "svcrt_timer.h"
 #include "svcrt_fault.h"
+#include "svcrt_mpu.h"
 #include "svcrt_config.h"
 #include "svcrt_init.h"
 
@@ -86,6 +87,6 @@ void svcrt_kernel_module_init(void)
     svcrt_timer_task_install();
 
     #if (SVCRT_USE_MPU == 1)
-    svcrt_port_mpu_init();
+    svcrt_mpu_module_init();
     #endif
 }

@@ -312,7 +312,9 @@ void svcrt_port_mpu_init(void)
 
 void svcrt_port_mpu_set_region(uint32 rom_addr, uint32 rom_size, uint32 ram_addr, uint32 ram_size)
 {
-    uint32 ram_asr = 0x13060001;
+    /* AP=0b010：非特权【可读写】。原值 0x13 的 AP 域是 0b011（非特权限读），
+     * 非特权任务写自己的 RAM 会直接触发 MemManage；XN=1 数据区不可执行。 */
+    uint32 ram_asr = 0x12060001;
     uint32 rom_asr = 0x06020001;
     int32  reg_idx;
     uint8  rom_region = 31;

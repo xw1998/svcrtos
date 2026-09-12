@@ -20,6 +20,7 @@
 #include "svcrt_timer.h"
 #include "svcrt_fault.h"
 #include "svcrt_ptable.h"
+#include "svcrt_mpu.h"
 #include "svcrt_loader.h"
 
 
@@ -443,7 +444,7 @@ int32 svcrt_sched_activate(int32 new_task, uint32 old_psp)
         tid = svcrt_current_task_id - 1;
         svcrt_task_table[tid].touch_tick = svcrt_kernel_tick;
         svcrt_task_table[tid].status = SVCRT_TASK_RUNNING;
-        svcrt_port_mpu_set_app(&svcrt_task_table[tid].mpu);
+        svcrt_mpu_set_app(&svcrt_task_table[tid]);
         return svcrt_task_table[tid].stack_ptr;
     }
     else
