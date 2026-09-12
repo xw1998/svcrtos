@@ -438,7 +438,12 @@ RTOS 需要"心跳"推动时间流逝、唤醒睡眠任务。心跳就是 **SysT
 
 ### 4.1 心跳处理：kernel_tick_handler
 
-SysTick 每隔固定时间（默认 500 微秒，`SVCRT_TICK_PERIOD_US` 配置）触发中断，板级中断入口调用内核的 `svcrt_kernel_tick_handler`（[svcrt_task.c](file:///d:/项目文件/SVCRTOS/kernelsrc/src/svcrt_task.c)）：
+SysTick 每隔固定时间（默认 500 微秒，`SVCRT_TICK_PERIOD_US` 配置）触发中断，板级中断入口调用内核的 `svcrt_kernel_tick_handler`（[svcrt_task.c](file:///d:/项目文件/SVCRTOS/kernelsrc/src/svcrt_task.c)）。
+
+> **板级还要顺手做一件事**：如果板子用了 STM32 HAL，必须在同一个 `SysTick_Handler` 里
+> 每 2 个节拍补一次 `HAL_IncTick()`。CubeMX 生成的那个 `SysTick_Handler`（内含 `HAL_IncTick()`）
+> 会被本工程整体屏蔽，不补的话 `HAL_GetTick()` 永远是 0，`HAL_Delay()` 会死等。
+> 内核自己不认识 HAL，这个桥接只能放在板级。
 
 ```c
 void svcrt_kernel_tick_handler(void)

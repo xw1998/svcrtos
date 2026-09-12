@@ -5,14 +5,21 @@
 
 ## 目录
 
-- [kernelsrc/include/svcrt.h](#kernelsrcincludesvcrth)（41 项）
+- [kernelsrc/include/svcrt.h](#kernelsrcincludesvcrth)（46 项）
+- [kernelsrc/include/svcrt_app_image.h](#kernelsrcincludesvcrt_app_imageh)（6 项）
 - [kernelsrc/include/svcrt_cfg.h](#kernelsrcincludesvcrt_cfgh)（1 项）
-- [kernelsrc/include/svcrt_hal.h](#kernelsrcincludesvcrt_halh)（21 项）
+- [kernelsrc/include/svcrt_hal.h](#kernelsrcincludesvcrt_halh)（24 项）
+- [kernelsrc/include/svcrt_init.h](#kernelsrcincludesvcrt_inith)（1 项）
+- [kernelsrc/include/svcrt_installer.h](#kernelsrcincludesvcrt_installerh)（1 项）
+- [kernelsrc/include/svcrt_loader.h](#kernelsrcincludesvcrt_loaderh)（12 项）
+- [kernelsrc/include/svcrt_ptable.h](#kernelsrcincludesvcrt_ptableh)（4 项）
+- [kernelsrc/include/svcrt_share.h](#kernelsrcincludesvcrt_shareh)（4 项）
 - [kernelsrc/include/svcrt_spin.h](#kernelsrcincludesvcrt_spinh)（10 项）
-- [kernelsrc/include/svcrt_task.h](#kernelsrcincludesvcrt_taskh)（1 项）
+- [kernelsrc/include/svcrt_task.h](#kernelsrcincludesvcrt_taskh)（3 项）
 - [kernelsrc/port/arm/cortex-m3/svcrt_port.c](#kernelsrcportarmcortex-m3svcrt_portc)（7 项）
 - [kernelsrc/port/arm/cortex-m4/svcrt_port.c](#kernelsrcportarmcortex-m4svcrt_portc)（7 项）
 - [kernelsrc/src/svcrt_cfg.c](#kernelsrcsrcsvcrt_cfgc)（1 项）
+- [kernelsrc/src/svcrt_installer.c](#kernelsrcsrcsvcrt_installerc)（1 项）
 - [kernelsrc/src/svcrt_task.c](#kernelsrcsrcsvcrt_taskc)（5 项）
 
 ---
@@ -130,7 +137,7 @@ int32  svcrt_sem_wait(int32 handle, int32 timeout);
 **等待信号量（计数减一，计数为 0 时阻塞）**
 - `handle`：信号量句柄
 - `timeout`：超时时间（ms），0 表示不等待，负值表示永久等待
-**返回**：0=成功，负值=超时或参数错误
+**返回**：0=成功；SVCRT_SYNC_ERR_TIMEOUT(-2)=等待超时（未获得资源）；其它负值=参数错误
 
 ### `int32  svcrt_sem_post(int32 handle);`
 
@@ -171,7 +178,7 @@ int32  svcrt_mutex_lock(int32 handle, int32 timeout);
 **加锁**
 - `handle`：互斥锁句柄
 - `timeout`：超时时间（ms），0 表示不等待，负值表示永久等待
-**返回**：0=成功，负值=超时或参数错误
+**返回**：0=成功；SVCRT_SYNC_ERR_TIMEOUT(-2)=等待超时（未获得资源）；其它负值=参数错误
 
 ### `int32  svcrt_mutex_unlock(int32 handle);`
 
@@ -271,7 +278,7 @@ int32  svcrt_mq_send(int32 handle, void *buf, int32 len_words, int32 timeout);
 - `handle`：消息队列句柄
 - `buf`：消息缓冲区
 - `len_words`：消息长度（以 32 位字为单位）
-- `timeout`：队列满时的等待时间（ms），负值表示永久等待
+- `timeout`：队列满时的等待时间（ms），0 表示不等待，负值表示永久等待
 **返回**：0=成功，负值=失败
 
 ### `int32  svcrt_mq_recv(int32 handle, void *buf, int32 len_words, int32 t`
@@ -462,6 +469,125 @@ int32  svcrt_task_stack_info(int32 task_id, uint32 *out3);
 建议按峰值用量保留 30% 以上余量再减小任务栈配置。
 > 说明：需开启 SVCRT_USE_STACK_USAGE 配置。
 
+### `int32  svcrt_app_load(int32 dev, uint32 image_len);`
+
+```c
+int32  svcrt_app_load(int32 dev, uint32 image_len);
+```
+
+**从设备加载 App 镜像到空闲槽位**
+- `dev`：已打开的设备句柄（数据从镜像头开始）
+- `image_len`：期望镜像总长（含头），传 0 表示由镜像头决定
+**返回**：成功返回槽位号(>=0)，失败返回负错误码（见 svcrt_loader.h）
+> 说明：镜像会先擦后写并做 CRC 回读校验。
+
+### `int32  svcrt_app_start(uint32 slot);`
+
+```c
+int32  svcrt_app_start(uint32 slot);
+```
+
+**启动槽位中的 App**
+- `slot`：槽位号
+**返回**：成功返回任务号(>0)，失败返回负错误码
+
+### `int32  svcrt_app_stop(uint32 slot);`
+
+```c
+int32  svcrt_app_stop(uint32 slot);
+```
+
+**停止槽位中的 App（镜像保留在 Flash）**
+- `slot`：槽位号
+**返回**：0=成功，负值为错误码
+
+### `uint32 svcrt_app_status(uint32 slot);`
+
+```c
+uint32 svcrt_app_status(uint32 slot);
+```
+
+**查询槽位状态**
+- `slot`：槽位号
+**返回**：0=空（EMPTY）,1=已加载（LOADED）,2=运行中（RUNNING）；
+槽位非法返回 0xffffffff
+
+### `int32  svcrt_driver_load(int32 dev, uint32 image_len);`
+
+```c
+int32  svcrt_driver_load(int32 dev, uint32 image_len);
+```
+
+**从设备安装驱动镜像到驱动区**
+- `dev`：已打开的设备句柄（数据从镜像头开始）
+- `image_len`：期望镜像总长（含头），传 0 表示由镜像头决定
+**返回**：0=成功，负值为错误码（见 svcrt_loader.h）
+> 说明：镜像头的 type 必须为驱动（SVCRT_APP_TYPE_DRIVER）；
+驱动区为单入口，写入前会整体擦除目标区间。
+
+## kernelsrc/include/svcrt_app_image.h
+
+**SVCrtOS App 镜像文件格式（打包工具与 Loader 共用）**
+App 镜像 = 固定 256 字节头 + 代码/数据段原始内容。
+镜像由 App 工程编译产物转换而来（见 tools/pack_app.py），
+Loader 按本结构解析、校验并写入 App 分区。
+
+### `#define SVCRT_APP_MAGIC           (0x53564341u)`
+
+```c
+#define SVCRT_APP_MAGIC           (0x53564341u)
+```
+
+**App 镜像头魔数 "SVCA" */**
+
+### `#define SVCRT_APP_HEADER_SIZE     (256u)`
+
+```c
+#define SVCRT_APP_HEADER_SIZE     (256u)
+```
+
+**App 镜像头固定长度（字节） */**
+
+### `#define SVCRT_APP_TYPE_APP        (1u) #define SVCRT_APP_TYPE_DRIVER  `
+
+```c
+#define SVCRT_APP_TYPE_APP        (1u) #define SVCRT_APP_TYPE_DRIVER     (2u)
+```
+
+**镜像类型 */**
+
+### `typedef struct {`
+
+```c
+typedef struct {
+```
+
+**App 镜像头（固定 256 字节）**
+> 说明：crc32 覆盖范围：本头结构体（crc32 字段自身置 0）+ 头之后的镜像数据。
+
+### `typedef char svcrt_app_header_size_check[ (sizeof(svcrt_app_header_t) `
+
+```c
+typedef char svcrt_app_header_size_check[ (sizeof(svcrt_app_header_t) == SVCRT_APP_HEADER_SIZE) ? 1 : -1];
+```
+
+**镜像头尺寸静态校验**
+头结构与 SVCRT_APP_HEADER_SIZE 必须严格一致：打包工具与 Loader 分别按
+“结构体布局”和“固定长度宏”解释镜像，一旦不一致就会静默错位。
+此断言让不一致在编译期直接暴露。
+
+### `uint32 svcrt_crc32(const void *data, uint32 len, uint32 crc);`
+
+```c
+uint32 svcrt_crc32(const void *data, uint32 len, uint32 crc);
+```
+
+**计算 CRC32（与打包工具使用同一算法：IEEE 802.3 反射多项式）**
+- `data`：数据指针
+- `len`：数据长度（字节）
+- `crc`：前一段的 CRC 值（首段传 0）
+**返回**：累积的 CRC32 值
+
 ## kernelsrc/include/svcrt_cfg.h
 
 **SVCrtOS 任务配置与任务表声明**
@@ -485,6 +611,19 @@ void svcrt_task_stack_fill(uint32 *stack_bottom, uint32 stack_size);
 定义内核与硬件的完整解耦接口，分为四个层次：
 1) CPU指令层 - CPU核心指令封装（WFI/ISB/DSB等）
 2) 上下文层 - 任务上下文结构与栈帧初始化
+
+### `void svcrt_port_resume_task(uint32 stack_ptr);`
+
+```c
+void svcrt_port_resume_task(uint32 stack_ptr);
+```
+
+**在异常处理程序内部直接恢复目标任务上下文并异常返回**
+- `stack_ptr`：目标任务栈指针（指向其保存的 R4-R11[/EXC_RETURN]）
+故障恢复等“已经处于异常处理程序中、不能依赖 PendSV”的场景专用：
+Cortex-M 上 HardFault 优先级高于 PendSV，故障处理程序活动期间
+PendSV 不会被服务，必须由本函数直接完成恢复 + 异常返回。
+本函数不返回；stack_ptr 为 0 时调用方应自行停机，不要调用。
 
 ### `uint32 svcrt_port_svc_get_arg(void *p_exc_ctx, uint32 idx);`
 
@@ -685,15 +824,6 @@ void svcrt_port_irq_init(void);
 **中断控制器初始化**
 配置NVIC优先级分组，设置PendSV/SysTick/SVC优先级
 
-### `void svcrt_port_enable_fpu(void);`
-
-```c
-void svcrt_port_enable_fpu(void);
-```
-
-**FPU使能**
-当 SVCRT_USE_FPU=1 时由port层实现
-
 ### `void svcrt_port_set_idle_mpu(uint32 task_func, uint32 stack_addr, uint`
 
 ```c
@@ -705,6 +835,312 @@ void svcrt_port_set_idle_mpu(uint32 task_func, uint32 stack_addr, uint32 stack_s
 - `task_func`：任务函数地址
 - `stack_addr`：栈地址
 - `stack_size`：栈大小
+
+### `int32  svcrt_port_flash_erase(uint32 addr, uint32 size);`
+
+```c
+int32  svcrt_port_flash_erase(uint32 addr, uint32 size);
+```
+
+**擦除 Flash 区间（按扇区擦除，自动对齐到扇区边界）**
+- `addr`：起始地址
+- `size`：字节长度
+**返回**：0=成功，-1=失败
+
+### `int32  svcrt_port_flash_write(uint32 addr, const uint8 *data, uint32 l`
+
+```c
+int32  svcrt_port_flash_write(uint32 addr, const uint8 *data, uint32 len);
+```
+
+**写入 Flash（按字节编程，写入前该区间必须已擦除）**
+- `addr`：起始地址
+- `data`：数据指针
+- `len`：字节长度
+**返回**：0=成功，-1=失败
+
+### `uint32 svcrt_port_flash_sector_size(uint32 addr);`
+
+```c
+uint32 svcrt_port_flash_sector_size(uint32 addr);
+```
+
+**获取指定地址所在扇区的大小（字节）**
+- `addr`：Flash 地址
+**返回**：扇区大小；地址非法返回 0
+
+## kernelsrc/include/svcrt_init.h
+
+**SVCrtOS 内核启动初始化接口**
+把"内核需要初始化哪些模块、以什么顺序"收敛到唯一一处实现
+（svcrt_init.c 的 svcrt_kernel_module_init），避免出现两份启动流程
+（内核默认入口与工程 main）各自演化、
+
+### `void svcrt_kernel_module_init(void);`
+
+```c
+void svcrt_kernel_module_init(void);
+```
+
+**初始化全部内核模块，并注册内置服务任务**
+顺序：事件 → 同步 → 消息队列 → 软定时器 → 故障记录 → 设备 → 板级设备，
+然后注册软定时器服务任务，最后（需要时）初始化 MPU。
+必须在 svcrt_cfg_load() 之后、调度启动之前调用。
+> 说明：任何启动路径都应调用本函数，不要在工程侧重复逐个调用各模块 init。
+
+## kernelsrc/include/svcrt_installer.h
+
+**SVCrtOS 内核内安装任务（方案A）**
+常驻任务从设备（默认 COM1）接收 SVCrtOS 镜像流并安装到空闲槽位，
+使 App 的落位方式从「烧录器刷固件」变为「设备自己安装」。
+接收协议（与 tools/pack_app.py 的输出直接对接）：
+
+### `int32 svcrt_installer_init(void);`
+
+```c
+int32 svcrt_installer_init(void);
+```
+
+**初始化并注册安装任务**
+**返回**：成功返回任务号（>0）；INSTALLER_ENABLE 为 0 时返回 0
+需在调度启动之前调用（建议跟在 svcrt_loader_scan() 之后）。
+
+## kernelsrc/include/svcrt_loader.h
+
+**SVCrtOS App 镜像加载器（分区内加载 / 校验 / 启动）**
+负责把 App 镜像写入空闲槽位，并按镜像头信息校验后拉起为任务。
+镜像格式见 svcrt_app_image.h；分区布局运行期从共享内存分区表获取
+（见 svcrt_ptable.h），本模块不硬编码任何地址。
+
+### `int32 svcrt_loader_load_buffer(const uint8 *image, uint32 image_len);`
+
+```c
+int32 svcrt_loader_load_buffer(const uint8 *image, uint32 image_len);
+```
+
+**从内存缓冲区加载完整 App 镜像**
+- `image`：指向镜像起始（含 256 字节头）的缓冲区
+- `image_len`：缓冲区长度（字节），必须 >= 头长 + image_size
+**返回**：成功返回槽位号（>=0），失败返回 SVCRT_LOADER_ERR_x
+
+### `int32 svcrt_loader_load_dev(int32 dev, uint32 image_len);`
+
+```c
+int32 svcrt_loader_load_dev(int32 dev, uint32 image_len);
+```
+
+**从设备流式加载 App 镜像**
+- `dev`：已打开的设备句柄（数据从镜像头开始）
+- `image_len`：期望的镜像总长（含头）；传 0 表示由镜像头中的 image_size 决定
+**返回**：成功返回槽位号（>=0），失败返回 SVCRT_LOADER_ERR_x
+> 说明：边读边写 Flash，仅使用固定大小分块缓冲，不要求整镜像驻留 RAM。
+
+### `uint32 svcrt_loader_scan(void);`
+
+```c
+uint32 svcrt_loader_scan(void);
+```
+
+**扫描全部槽位，把 Flash 中已存在且校验通过的镜像标记为 LOADED**
+**返回**：有效（可启动）的槽位数量
+槽位状态原本只存在于共享 RAM，重启后会丢失；本函数在启动时按
+镜像头魔数 + 硬件兼容签名 + CRC32 重新认定槽位，使“先烧录镜像、
+再上电运行”的最小闭环成立。
+
+### `uint32 svcrt_loader_scan_driver(void);`
+
+```c
+uint32 svcrt_loader_scan_driver(void);
+```
+
+**扫描驱动区（DRIVER_POOL），认定其中的驱动镜像**
+**返回**：1=驱动镜像有效且可启动，0=无有效驱动
+与 App 槽位共用同一套认定规则：带头的 .svcapp 或开发期裸镜像。
+
+### `int32 svcrt_loader_start_driver(void);`
+
+```c
+int32 svcrt_loader_start_driver(void);
+```
+
+**启动驱动区的驱动（单驱动：DRIVER_POOL 内一个入口）**
+**返回**：成功返回任务号（>0），失败返回 SVCRT_LOADER_ERR_x
+栈从 DRIVER_RAM 区顶部切出（与 App 同一套路），
+参数取 DRIVER_TASK_PRIORITY / STACK_SIZE / PERIOD_MS。
+
+### `int32 svcrt_loader_load_dev_hdr(int32 dev, const svcrt_app_header_t *p`
+
+```c
+int32 svcrt_loader_load_dev_hdr(int32 dev, const svcrt_app_header_t *p_hdr, uint32 image_len);
+```
+
+**从设备流式加载（镜像头已由调用方读出）**
+- `dev`：已打开的设备句柄，位置正好在镜像头之后
+- `p_hdr`：已读出的镜像头（调用方已完成魔数同步）
+- `image_len`：期望镜像总长（含头），传 0 表示由镜像头决定
+**返回**：成功返回槽位号（>=0），失败返回 SVCRT_LOADER_ERR_x
+供安装任务使用：先逐字节同步到镜像头魔数，再把头交给本函数继续
+流式写入负载，避免整镜像驻留 RAM。
+
+### `int32 svcrt_loader_load_driver(int32 dev, uint32 image_len);`
+
+```c
+int32 svcrt_loader_load_driver(int32 dev, uint32 image_len);
+```
+
+**从设备安装驱动镜像（自行读头）**
+- `dev`：已打开的设备句柄，位置在镜像头之前
+- `image_len`：期望镜像总长（含头），传 0 表示由镜像头决定
+**返回**：成功返回 0，失败返回 SVCRT_LOADER_ERR_x
+> 说明：镜像头的 type 必须为 SVCRT_APP_TYPE_DRIVER；驱动区为单入口，
+写入前会整体擦除目标区间。
+
+### `int32 svcrt_loader_load_driver_dev(int32 dev, const svcrt_app_header_t`
+
+```c
+int32 svcrt_loader_load_driver_dev(int32 dev, const svcrt_app_header_t *p_hdr, uint32 image_len);
+```
+
+**从设备安装驱动镜像（镜像头已由调用方读出）**
+**返回**：成功返回 0，失败返回 SVCRT_LOADER_ERR_x
+
+### `int32 svcrt_loader_on_fault(int32 task_id);`
+
+```c
+int32 svcrt_loader_on_fault(int32 task_id);
+```
+
+**按“崩溃重启上限”策略处理 App 任务故障**
+- `task_id`：发生故障的任务号
+**返回**：1=已达上限并已禁用该 App，0=未达上限（调用方应恢复/重启该 App），
+-1=不属于任何 App 槽位（内核任务，调用方沿用默认处理）
+计数按槽位累计：故障一次加一，达到 APP_CRASH_RESTART_MAX 后
+将该槽位置为 INVALID 并让任务脱离调度（不再重启）。
+重新安装镜像时计数清零。
+> 说明：计数保存在共享 RAM，掉电即清零，因此当前可挡住“App 反复崩溃重启”，
+但擋不住“崩溃导致整机复位”的启动环——那需要把计数持久化（如备份寄存器）。
+
+### `int32 svcrt_loader_start(uint32 slot);`
+
+```c
+int32 svcrt_loader_start(uint32 slot);
+```
+
+**把已加载的槽位拉起为任务**
+- `slot`：槽位号
+**返回**：成功返回任务号（>0），失败返回 SVCRT_LOADER_ERR_x
+
+### `int32 svcrt_loader_stop(uint32 slot);`
+
+```c
+int32 svcrt_loader_stop(uint32 slot);
+```
+
+**停止槽位对应的任务（镜像仍保留在 Flash）**
+- `slot`：槽位号
+**返回**：0=成功，负值为 SVCRT_LOADER_ERR_x
+
+### `uint32 svcrt_loader_state(uint32 slot);`
+
+```c
+uint32 svcrt_loader_state(uint32 slot);
+```
+
+**查询槽位状态**
+- `slot`：槽位号
+**返回**：SVCRT_APP_SLOT_x；槽位非法返回 0xffffffff
+
+## kernelsrc/include/svcrt_ptable.h
+
+**SVCrtOS 分区表运行期接口（内核侧）**
+把 config/svcrt_partition.h 中的编译期布局，在启动时镜像到共享内存的
+svcrt_partition_table_t 中，供内核、Loader、App 在运行期统一读取。
+设计原则：
+
+### `void svcrt_ptable_init(void);`
+
+```c
+void svcrt_ptable_init(void);
+```
+
+**初始化共享内存中的分区表**
+用编译期布局填充布局字段，并把所有槽位状态清为空。
+必须在任务调度启动之前调用（建议在 svcrt_kernel_init 阶段）。
+
+### `svcrt_partition_table_t *svcrt_ptable_get(void);`
+
+```c
+svcrt_partition_table_t *svcrt_ptable_get(void);
+```
+
+**获取分区表指针**
+**返回**：指向共享内存中分区表的指针；未初始化时同样返回有效地址
+
+### `int32 svcrt_ptable_read_header(uint32 slot, svcrt_app_header_t *out);`
+
+```c
+int32 svcrt_ptable_read_header(uint32 slot, svcrt_app_header_t *out);
+```
+
+**读取指定槽位 Flash 中的 App 镜像头**
+- `slot`：槽位号（0 ~ app_max_count-1）
+- `out`：输出镜像头（可为 0，仅做存在性校验）
+**返回**：0=成功且镜像有效，-1=槽位非法，-2=镜像头魔数错误
+> 说明：Flash 已被映射到地址空间，可直接按地址读取。
+
+### `int32 svcrt_ptable_set_slot(uint32 slot, uint32 state, uint32 entry, u`
+
+```c
+int32 svcrt_ptable_set_slot(uint32 slot, uint32 state, uint32 entry, uint32 task_id);
+```
+
+**更新槽位运行期状态**
+- `slot`：槽位号
+- `state`：SVCRT_APP_SLOT_x
+- `entry`：入口地址（直接赋值，清空槽位时传 0）
+- `task_id`：任务号（直接赋值，未启动时传 0）
+**返回**：0=成功，-1=槽位非法
+
+## kernelsrc/include/svcrt_share.h
+
+**SVCrtOS 共享内存分区表（内核 / Loader / App 运行期接口）**
+分区布局在编译期由 config/svcrt_partition.h 唯一定义，但该头文件
+**只允许内核工程包含**。Loader 与 App 工程在运行期通过共享内存中的
+本结构体获取布局信息（SVC 0x18 子命令 1 返回其地址），
+
+### `#define SVCRT_PARTITION_MAGIC     (0x50415254u)`
+
+```c
+#define SVCRT_PARTITION_MAGIC     (0x50415254u)
+```
+
+**分区表魔数 "PART"，用于校验共享内存中的分区表是否有效 */**
+
+### `#define SVCRT_PARTITION_VERSION   (1u)`
+
+```c
+#define SVCRT_PARTITION_VERSION   (1u)
+```
+
+**分区表结构版本 */**
+
+### `#define SVCRT_APP_SLOT_EMPTY      (0u)    /* 空槽位 */ #define SVCRT_APP_`
+
+```c
+#define SVCRT_APP_SLOT_EMPTY      (0u)    /* 空槽位 */ #define SVCRT_APP_SLOT_LOADED     (1u)    /* 已写入镜像并通过校验 */ #define SVCRT_APP_SLOT_RUNNING    (2u)    /* 已注册为任务并运行 */ #define SVCRT_APP_SLOT_INVALID    (3u)    /* 槽位有内容但校验失败（魔数/兼容签名/CRC 不符） */ #define SVCRT_APP_SLOT_INSTALLING (4u)    /* 正在安装：写入未完成，不可启动（掉电后由 CRC 判定为 INVALID） */
+```
+
+**App 槽位状态 */**
+
+### `typedef struct {`
+
+```c
+typedef struct {
+```
+
+**分区表（存放于共享内存起始处）**
+由内核在启动时填充静态布局，运行期由 Loader 更新槽位状态。
+Loader / App 只读布局字段，写状态字段前须确认自己拥有该槽位。
 
 ## kernelsrc/include/svcrt_spin.h
 
@@ -741,20 +1177,20 @@ nest 记录同一 CPU 的嵌套层数。
 - `name`：锁变量名
 SVCRT_SPINLOCK_DEFINE(g_dev_lock);
 
-### `static inline void svcrt_spin_init(svcrt_spinlock_t *p_lock) {`
+### `static inline void svcrt_spin_init(svcrt_spinlock_t *p_lock)`
 
 ```c
-static inline void svcrt_spin_init(svcrt_spinlock_t *p_lock) {
+static inline void svcrt_spin_init(svcrt_spinlock_t *p_lock)
 ```
 
 **初始化（或重新初始化）自旋锁**
 - `p_lock`：锁对象指针
 > 说明：仅可在确认无人持有该锁时调用。
 
-### `static inline int32 svcrt_spin_trylock(svcrt_spinlock_t *p_lock) {`
+### `static inline int32 svcrt_spin_trylock(svcrt_spinlock_t *p_lock)`
 
 ```c
-static inline int32 svcrt_spin_trylock(svcrt_spinlock_t *p_lock) {
+static inline int32 svcrt_spin_trylock(svcrt_spinlock_t *p_lock)
 ```
 
 **尝试获取自旋锁（非阻塞）**
@@ -762,10 +1198,10 @@ static inline int32 svcrt_spin_trylock(svcrt_spinlock_t *p_lock) {
 **返回**：1=获取成功，0=锁已被其他 CPU 持有
 > 说明：同一 CPU 重入时直接累加嵌套计数并返回成功，避免自死锁。
 
-### `static inline void svcrt_spin_lock(svcrt_spinlock_t *p_lock) {`
+### `static inline void svcrt_spin_lock(svcrt_spinlock_t *p_lock)`
 
 ```c
-static inline void svcrt_spin_lock(svcrt_spinlock_t *p_lock) {
+static inline void svcrt_spin_lock(svcrt_spinlock_t *p_lock)
 ```
 
 **获取自旋锁（阻塞自旋直到成功）**
@@ -773,10 +1209,10 @@ static inline void svcrt_spin_lock(svcrt_spinlock_t *p_lock) {
 > 说明：只能在任务或中断上下文短暂自旋，禁止在持锁期间调用任何
 可能引起任务切换或长时间阻塞的接口。
 
-### `static inline void svcrt_spin_unlock(svcrt_spinlock_t *p_lock) {`
+### `static inline void svcrt_spin_unlock(svcrt_spinlock_t *p_lock)`
 
 ```c
-static inline void svcrt_spin_unlock(svcrt_spinlock_t *p_lock) {
+static inline void svcrt_spin_unlock(svcrt_spinlock_t *p_lock)
 ```
 
 **释放自旋锁**
@@ -786,7 +1222,7 @@ static inline void svcrt_spin_unlock(svcrt_spinlock_t *p_lock) {
 ### `static inline void svcrt_spin_lock_irqsave(svcrt_spinlock_t *p_lock, u`
 
 ```c
-static inline void svcrt_spin_lock_irqsave(svcrt_spinlock_t *p_lock, uint32 *p_state) {
+static inline void svcrt_spin_lock_irqsave(svcrt_spinlock_t *p_lock, uint32 *p_state)
 ```
 
 **关中断并获取自旋锁（中断与任务共用数据的标准做法）**
@@ -797,17 +1233,17 @@ static inline void svcrt_spin_lock_irqsave(svcrt_spinlock_t *p_lock, uint32 *p_s
 ### `static inline void svcrt_spin_unlock_irqrestore(svcrt_spinlock_t *p_lo`
 
 ```c
-static inline void svcrt_spin_unlock_irqrestore(svcrt_spinlock_t *p_lock, uint32 state) {
+static inline void svcrt_spin_unlock_irqrestore(svcrt_spinlock_t *p_lock, uint32 state)
 ```
 
 **释放自旋锁并恢复中断状态**
 - `p_lock`：锁对象指针
 - `state`：svcrt_spin_lock_irqsave 保存的中断状态
 
-### `static inline int32 svcrt_spin_is_locked(svcrt_spinlock_t *p_lock) {`
+### `static inline int32 svcrt_spin_is_locked(svcrt_spinlock_t *p_lock)`
 
 ```c
-static inline int32 svcrt_spin_is_locked(svcrt_spinlock_t *p_lock) {
+static inline int32 svcrt_spin_is_locked(svcrt_spinlock_t *p_lock)
 ```
 
 **查询自旋锁当前是否被持有**
@@ -831,6 +1267,36 @@ typedef struct {
 保存一个任务的全部运行信息：内存区域、优先级、栈、状态、调度计时等。
 所有任务的 TCB 排成 svcrt_task_table 数组。其中 stack_ptr 在任务被切走时
 保存其 PSP，切回时据此恢复现场；mpu 是该任务的 MPU 区域快照。
+
+### `int32 svcrt_task_block_in_critical(uint32 timeout_ms);`
+
+```c
+int32 svcrt_task_block_in_critical(uint32 timeout_ms);
+```
+
+**在调用方已持有的临界区内阻塞当前任务（供信号量/互斥锁/消息队列使用）**
+- `timeout_ms`：>0 定时等待（ms）；<=0 无限等待（只能被显式唤醒）
+> 说明：这是内核内部原语，不直接对外。调用方（sem/mtx/mq/event）必须先把
+对外 API 的“0=不等待、负值=永久等待”约定归一化后再调用，
+不能把对外的 0 直接传进来（那会被本原语解释成无限等待）。
+**返回**：0=被显式唤醒（已获得资源），1=等待超时，-1=未能进入阻塞（调用方需自行摘除队列）
+调用约定：进入时中断已关，返回时中断仍关（调用方在同一临界区内继续处理等待队列）。
+与 svcrt_task_wait_internal 的区别：后者会自行开关中断，
+对“先把自己挂进等待队列、再睡下”的原语来说，那中间存在唤醒丢失窗口
+（ISR 的唤醒会投给一个还没睡下的任务）。本函数把置状态与切走放在同一临界区内。
+
+### `void svcrt_task_release_resources(int32 task_id);`
+
+```c
+void svcrt_task_release_resources(int32 task_id);
+```
+
+**任务下线收尸：清理该任务在同步对象/消息队列中的等待登记与锁持有关系**
+- `task_id`：目标任务号（从 1 开始）
+用于任务自杀（kill）、故障恢复、覆盖安装前硬停任务等场景。
+不做收尸的后果：post/unlock 会把一个已经不在等待的任务置为 READY
+（从旧栈“复活”）；它持有的互斥锁永久锁死，等待者全部饿死。
+本函数自带保存-恢复语义的临界区，可在已有临界区内安全调用。
 
 ## kernelsrc/port/arm/cortex-m3/svcrt_port.c
 
@@ -983,10 +1449,10 @@ void svcrt_port_svc_set_ret(void *p_exc_ctx, uint32 value)
 栈帧格式由port层的 svcrt_port_stack_init() 实现，
 内核不再硬编码任何架构特定的寄存器布局。
 
-### `void svcrt_task_stack_fill(uint32 *stack_bottom, uint32 stack_size) {`
+### `void svcrt_task_stack_fill(uint32 *stack_bottom, uint32 stack_size)`
 
 ```c
-void svcrt_task_stack_fill(uint32 *stack_bottom, uint32 stack_size) {
+void svcrt_task_stack_fill(uint32 *stack_bottom, uint32 stack_size)
 ```
 
 **用填充图案覆盖整段任务栈（跳过下标 0 的栈底保护字）**
@@ -995,6 +1461,26 @@ void svcrt_task_stack_fill(uint32 *stack_bottom, uint32 stack_size) {
 任务运行过程中会不断覆盖该图案，查询栈用量时扫描仍保持图案的
 连续区域即可得到“从未使用过”的栈空间，换算后即为峰值用量。
 
+## kernelsrc/src/svcrt_installer.c
+
+**SVCrtOS 内核内安装任务实现（方案A）**
+安装流程：
+1) 打开镜像接收设备（默认 COM1），**只打开一次并常驻持有句柄**；
+2) 在字节流中搜索镜像头魔数 "SVCA" 完成逐字节同步；
+
+### `static int32 svcrt_installer_pump(int32 dev) {`
+
+```c
+static int32 svcrt_installer_pump(int32 dev) {
+```
+
+**推进接收状态机**
+- `dev`：设备句柄
+**返回**：0=已收满一个完整镜像头（内容在 svcrt_installer_hdr），-1=本轮还没收完
+先用 4 字节窗口匹配魔数，不匹配则逐字节左移继续找，
+因此串口上混杂的杂散字节会被自动跳过。
+达到空转上限时**保留已收字节**直接返回，由调用方让出 CPU 后继续。
+
 ## kernelsrc/src/svcrt_task.c
 
 **SVCrtOS 任务调度与系统调用分发实现**
@@ -1002,10 +1488,10 @@ void svcrt_task_stack_fill(uint32 *stack_bottom, uint32 stack_size) {
 中断入口（SysTick_Handler/HardFault_Handler）在 board/ 中实现，
 它们最终调用本文件的 svcrt_kernel_tick_handler / svcrt_hardfault_handler。
 
-### `static int32 svcrt_sched_lock_blocks(void) {`
+### `static int32 svcrt_sched_lock_blocks(void)`
 
 ```c
-static int32 svcrt_sched_lock_blocks(void) {
+static int32 svcrt_sched_lock_blocks(void)
 ```
 
 **检查调度器锁是否被持有（阻塞类接口的编程错误防护）**
@@ -1013,39 +1499,39 @@ static int32 svcrt_sched_lock_blocks(void) {
 在调度器锁定期间调用阻塞接口会破坏任务状态一致性，
 此处忽略请求并记录一条故障记录，便于定位问题代码。
 
-### `void svcrt_sched_lock_internal(void) {`
+### `void svcrt_sched_lock_internal(void)`
 
 ```c
-void svcrt_sched_lock_internal(void) {
+void svcrt_sched_lock_internal(void)
 ```
 
 **获取调度器锁（用户任务经 SVC 调用）**
 累加嵌套计数后禁止任务切换，但不关闭中断。
 临界区内不得调用阻塞接口（会被忽略并记录故障）。
 
-### `uint32 svcrt_sched_unlock_internal(void) {`
+### `uint32 svcrt_sched_unlock_internal(void)`
 
 ```c
-uint32 svcrt_sched_unlock_internal(void) {
+uint32 svcrt_sched_unlock_internal(void)
 ```
 
 **释放调度器锁**
 **返回**：剩余嵌套层数（0 表示已完全解锁）
 计数归零时主动触发一次任务切换，补偿锁定期间被推迟的调度。
 
-### `int32 svcrt_sched_lock_count_internal(void) {`
+### `int32 svcrt_sched_lock_count_internal(void)`
 
 ```c
-int32 svcrt_sched_lock_count_internal(void) {
+int32 svcrt_sched_lock_count_internal(void)
 ```
 
 **查询调度器锁嵌套层数**
 **返回**：当前嵌套层数（0 表示未锁定）
 
-### `int32 svcrt_task_stack_info_internal(int32 task_id, uint32 *out3) {`
+### `int32 svcrt_task_stack_info_internal(int32 task_id, uint32 *out3)`
 
 ```c
-int32 svcrt_task_stack_info_internal(int32 task_id, uint32 *out3) {
+int32 svcrt_task_stack_info_internal(int32 task_id, uint32 *out3)
 ```
 
 **查询任务栈使用情况（峰值法）**

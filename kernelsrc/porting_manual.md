@@ -171,12 +171,32 @@ void svcrt_dev_board_init(void)
 /* 中断服务程序入口 */
 void SysTick_Handler(void)
 {
+    /* 用 STM32 HAL 的板子：必须在这里把 HAL 的毫秒时基推进起来。
+     * CubeMX 生成的 SysTick_Handler（内含 HAL_IncTick()）被本工程在
+     * stm32f4xx_it.c 里整体屏蔽了，不补这一句，HAL_GetTick() 会永远是 0，
+     * 任何 HAL_Delay() 都会死等（HAL_Delay 等的是 GetTick 变化）。
+     * 内核节拍 500us = 2kHz，HAL 时基 1ms = 1kHz，所以每 2 个节拍补一次；
+     * 同时要保证 SVCRT_TICK_PERIOD_US 能整除 1000，否则补出来的时基不是整毫秒。 */
+    if((svcrt_kernel_get_tick() % (1000u / SVCRT_TICK_PERIOD_US)) == 0u)
+    {
+        HAL_IncTick();
+    }
+
     svcrt_kernel_tick_handler();
 }
 
 void HardFault_Handler(void)
 {
-    while(1);
+    /* 不要在这里 while(1) 死循环：交内核故障处理，才会写故障记录、
+     * 按策略重建任务栈帧恢复，并在连续故障达到上限时禁用该 App。 */
+    uint32 sp = svcrt_hardfault_handler();
+
+    if(sp != 0u)
+    {
+        svcrt_port_resume_task(sp);   /* 内核选出了可运行任务，直接恢复（本函数不返回） */
+    }
+
+    while(1) { }
 }
 ```
 

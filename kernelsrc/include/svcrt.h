@@ -215,7 +215,7 @@ int32  svcrt_mq_create(char *name);
 * @param handle    消息队列句柄
 * @param buf       消息缓冲区
 * @param len_words 消息长度（以 32 位字为单位）
-* @param timeout   队列满时的等待时间（ms），负值表示永久等待
+* @param timeout   队列满时的等待时间（ms），0 表示不等待，负值表示永久等待
 * @return 0=成功，负值=失败
 */
 int32  svcrt_mq_send(int32 handle, void *buf, int32 len_words, int32 timeout);
@@ -225,7 +225,7 @@ int32  svcrt_mq_send(int32 handle, void *buf, int32 len_words, int32 timeout);
 * @param handle    消息队列句柄
 * @param buf       接收缓冲区
 * @param len_words 缓冲区可容纳的字数
-* @param timeout   超时时间（ms），负值表示永久等待
+* @param timeout   超时时间（ms），0 表示不等待，负值表示永久等待
 * @return 实际收到的字数，负值=超时或错误
 */
 int32  svcrt_mq_recv(int32 handle, void *buf, int32 len_words, int32 timeout);

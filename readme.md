@@ -134,6 +134,25 @@ SVCRTOS/
 
 用户程序包含 `svcrt.h` 即可使用所有操作系统接口，所有调用通过 SVC 指令陷入内核态执行。
 
+### 阻塞接口的超时语义（统一约定）
+
+event / sem / mutex / mq 的等待接口共用同一套 `timeout_ms` 约定，与 FreeRTOS、
+RT-Thread、Zephyr 一致：
+
+| 取值 | 语义 |
+|------|------|
+| `timeout_ms == 0` | **不等待**：只试一次，条件不满足立即返回超时 |
+| `timeout_ms > 0` | 最多等待 `timeout_ms` 毫秒，超时返回 |
+| `timeout_ms < 0` | **永久等待**，直到条件满足 |
+
+```c
+svcrt_mutex_lock(mtx, -1);   /* 永久等待（推荐写法，语义一眼可见） */
+svcrt_mutex_lock(mtx, 0);    /* 只试一次，拿不到就返回超时 */
+```
+
+> 早期版本把 0 当作"永久等待"，与主流 RTOS 相反，且同一头文件里三类接口写法不一致。
+> 现已统一为上面的约定，仓库内的调用点也全部改成显式 `-1`。
+
 ### 任务管理
 
 | API | 说明 |
@@ -321,6 +340,24 @@ svcrt_dev_write(h, &on, 1);            /* 点亮蓝灯 */
 | `SVCRT_FAULT_RECORD_NUM` | 8 | 故障记录环形缓冲容量 |
 | `SVCRT_USE_STACK_CHECK` / `SVCRT_STACK_END_FLAG` | 1 / 0xed01 | 栈溢出检测开关与栈底保护字 |
 
+所有配置宏都用 `#ifndef` 包裹，板级配置先于 `svcrt_config.h` 加载，因此**覆盖板级配置
+是唯一入口**，不需要改 `kernelsrc/`。
+
+### 分区与镜像策略开关（`config/svcrt_partition.h`）
+
+地址与分区布局只在 `config/svcrt_partition.h` 里定义一次，其余地址一律派生；
+`.sct` 由 `tools/gen_scatter.py` 生成，属构建产物，**不要手工编辑**。
+几个影响运行行为的策略开关：
+
+| 宏 | `config/` 默认 | 说明 |
+|----|----|----|
+| `APP_AUTO_START` / `DRIVER_AUTO_START` | 1 | 上电扫描到有效镜像后自动启动；调试时置 0 |
+| `APP_ALLOW_RAW_IMAGE` | 0 | 只认带镜像头的 `.svcapp`。本板在 `board/stm32f427/svcrt_board_config.h` 里显式置 1，保住"固定地址烧录 + MDK 下断点调试"的旁路 |
+| `APP_CRASH_RESTART_MAX` | 3 | App/驱动连续故障重启上限，达到即禁用；0 = 不限次 |
+| `INSTALLER_ENABLE` | 1 | 内核内安装任务（占用 COM1）；不用串口安装时置 0 |
+
+> 注意：Loader / App 工程**禁止** `#include "svcrt_partition.h"`，布局在运行期经 SVC 0x18 获取。
+
 ## API 文档
 
 内核头文件采用 Doxygen 注释风格，可一键生成 API 参考：
@@ -336,15 +373,39 @@ python tools/gen_api_doc.py --md     # 强制生成 Markdown
 > 说明：内核源码存在 GBK / UTF-8 混用，脚本会先在系统临时目录生成 UTF-8 副本再生成文档，
 > 不会修改仓库内任何源文件；配置见根目录 `Doxyfile`。
 
+## 板级职责：节拍入口与 HAL 毫秒时基
+
+`SysTick_Handler` 由**板级**实现，内核只对外提供 `svcrt_kernel_tick_handler()`。
+除了喂内核节拍，如果板级用了 STM32 HAL，还必须在这里把 HAL 的毫秒时基推进起来：
+
+```c
+void SysTick_Handler(void)
+{
+    /* 内核节拍 500us = 2kHz，HAL 时基 1ms = 1kHz，所以每 2 个节拍补一次 */
+    if((svcrt_kernel_get_tick() % (1000u / SVCRT_TICK_PERIOD_US)) == 0u)
+    {
+        HAL_IncTick();
+    }
+
+    svcrt_kernel_tick_handler();
+}
+```
+
+**为什么必须补**：CubeMX 生成的 `SysTick_Handler`（全工程唯一调用 `HAL_IncTick()`
+的地方）会被本工程在 `stm32f4xx_it.c` 里整体屏蔽。不补这一句，`HAL_GetTick()`
+恒为 0，任何 `HAL_Delay()` 都会死等；`HAL_Delay()` 等的正是 GetTick 的变化。
+HAL 属芯片相关代码，桥接只能放在 `board/`，内核保持零芯片依赖。
+
 ## 快速移植
 
 SVCrtOS 可移植到任何 ARM Cortex-M MCU，只需在 `board/` 目录下创建新的芯片移植目录。
 
 1. **创建板级目录**：`board/<你的芯片>/`
 2. **创建 `svcrt_board_config.h`**：设置芯片的主频和内存地址
-3. **实现 `svcrt_board.c`**：实现 `svcrt_port.h` 中的所有接口函数 + 中断入口 + MPU 操作（M3 可跳过）
-4. **移植上下文汇编**：参考 `kernelsrc/port/arm/cortex-m4/svcrt_context.S`（不同内核版本需适配 FPU 处理）
-5. **编写板载驱动**：UART、LED 等
+3. **实现 `svcrt_board.c`**：实现 `svcrt_port.h` 中的所有接口函数 + MPU 操作（M3 可跳过）
+4. **写中断入口**：`SysTick_Handler` 转 `svcrt_kernel_tick_handler()`（用 STM32 HAL 的板子还要补 `HAL_IncTick()`，见上一节）；`HardFault_Handler` 必须转交内核故障处理，不要 `while(1)` 死循环
+5. **移植上下文汇编**：参考 `kernelsrc/port/arm/cortex-m4/svcrt_context.S`（不同内核版本需适配 FPU 处理）
+6. **编写板载驱动**：UART、LED 等
 
 **关键：kernelsrc/ 目录无需任何修改！**
 
@@ -389,3 +450,22 @@ SVCrtOS 采用统一的命名规范，参考 FreeRTOS / RT-Thread 风格：
 | 枚举常量 | `SVCRT_模块_状态` | `SVCRT_TASK_READY`, `SVCRT_TASK_WAIT` |
 | 宏常量 | `SVCRT_大写描述` | `SVCRT_FIFO_MAGIC`, `SVCRT_DEV_HANDLE_FLAG` |
 | 配置宏 | `SVCRT_USE_特性` | `SVCRT_USE_FPU`, `SVCRT_USE_MPU` |
+
+## 源码编码约定
+
+- 历史源文件为 **GBK**（保证 Keil 编辑器里中文注释不乱码），近几轮新增模块为 **UTF-8**
+- 修改 GBK 文件时按**字节级补丁**插入内容，**不要整文件转码**，否则 Keil 里的中文注释会变乱码
+- `*.md` 文档统一 UTF-8
+- `tools/gen_api_doc.py` 会先在系统临时目录生成一份 UTF-8 副本再跑 Doxygen，
+  不改动仓库内任何源文件
+- `patch/encoding_audit.py` 可扫描全仓编码，区分"整文件 GBK / 整文件 UTF-8 / 混合编码"
+
+## 验证状态
+
+当前仓库的改动只验证到两层证据：**AC6 `armclang -fsyntax-only` 语法校验** +
+**Keil UV4 全量重建（内核 + 4 个示例工程，0 Error / 0 Warning）**。
+
+**所有改动尚未上板**：MPU 隔离、故障恢复的"连续重启 3 次禁用"、串口安装的 256B
+契约、HAL 毫秒时基的补 tick 精度，都还需要在真实硬件上跑一遍才算闭环。
+已知未闭环项与每一轮的改动记录见
+[死代码与未接线审计](docs/死代码与未接线审计.md)。

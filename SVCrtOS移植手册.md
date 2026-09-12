@@ -268,10 +268,10 @@ static void svcrt_kernel_init(void)
 
 **移除以下函数**（已在 `svcrt_board.c` 和 `context_rvds.S` 中实现）：
 
-| 函数 | 实现位置 |
-|------|---------|
-| `HardFault_Handler` | `svcrt_board.c` |
-| `SysTick_Handler` | `svcrt_board.c` |
+| 函数 | 实现位置 | 说明 |
+|------|---------|------|
+| `HardFault_Handler` | `svcrt_board.c` | 必须转交内核故障处理，不能 `while(1)` |
+| `SysTick_Handler` | `svcrt_board.c` | 除 `svcrt_kernel_tick_handler()` 外，**用 HAL 的板子还要补 `HAL_IncTick()`** |
 | `SVC_Handler` | `context_rvds.S` |
 | `PendSV_Handler` | `context_rvds.S` |
 
@@ -410,7 +410,7 @@ static void svcrt_start_idle(void);
 
 | 中断 | 优先级 | 处理函数 | 所在文件 |
 |------|--------|---------|---------|
-| SysTick | 0x00（最高） | `SysTick_Handler` | `svcrt_board.c` |
+| SysTick | 0x00（最高） | `SysTick_Handler` | `svcrt_board.c`（转内核节拍 + 补 HAL 毫秒时基） |
 | SVC | 0x01 | `SVC_Handler` | `context_rvds.S` |
 | USART1 | 0x0A | `USART1_IRQHandler` | `drvuart.c` |
 | PendSV | 0xFF（最低） | `PendSV_Handler` | `context_rvds.S` |

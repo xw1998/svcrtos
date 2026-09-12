@@ -61,7 +61,7 @@
 |---|---|---|---|
 | `APP_AUTO_START` | 1 | 上电扫描到有效 App 后自动启动 | **调试时置 0**，避免内核抢先启动 |
 | `DRIVER_AUTO_START` | 1 | 扫描到有效驱动后自动启动 | 调试驱动时置 0 |
-| `APP_ALLOW_RAW_IMAGE` | 1 | 允许槽位内是"裸镜像"（开发期）。置 0 则只认带镜像头的 `.svcapp` | **发布固件时置 0** |
+| `APP_ALLOW_RAW_IMAGE` | `config/` 里为 0；本板 `svcrt_board_config.h` 显式置 1 | 允许槽位内是"裸镜像"（开发期）。为 0 则只认带镜像头的 `.svcapp` | 发布固件时**删掉板级覆盖或置 0** |
 | `APP_CRASH_RESTART_MAX` | 3 | App/驱动连续故障重启上限，达到即禁用；0 = 不限次 | 按产品可靠性要求调整 |
 | `INSTALLER_ENABLE` | 1 | 是否启用内核内安装任务（占 COM1） | **不用串口安装 / 调试串口时置 0** |
 | `INSTALLER_AUTO_START` | 1 | 安装完成后是否立即启动该 App | 需要"先装好、稍后手动启动"时置 0 |
@@ -97,7 +97,7 @@ App / 驱动 / 内核工程都已配好，检查三项（工程 → Options for 
 ### 2.2 调试 App（步骤）
 
 1. 打开 `config/svcrt_partition.h`，确认开发期设置：
-   - `APP_ALLOW_RAW_IMAGE = 1`（必须，否则裸镜像不被认定）
+   - `APP_ALLOW_RAW_IMAGE = 1`（本板已在 `svcrt_board_config.h` 显式置 1；为 0 则裸镜像不被认定）
    - `APP_AUTO_START = 1`
    - `INSTALLER_ENABLE = 0`（避免安装任务抢占 COM1，也避免内核抢先启动）
 2. 编译内核 → 烧录到 `0x08000000`
@@ -142,7 +142,7 @@ App 工程里**没有 startup 文件、没有向量表**，它本身不是从头
 |---|---|
 | `APP_AUTO_START = 0` | 内核不会在你下断点前就启动槽位 |
 | `INSTALLER_ENABLE = 0` | 安装任务不会跟你的串口调试抢 COM1 |
-| 保留 `APP_ALLOW_RAW_IMAGE = 1` | 否则裸镜像不被认定，App 不会启动 |
+| 保留板级的 `APP_ALLOW_RAW_IMAGE = 1` 覆盖 | 否则裸镜像不被认定，App 不会启动 |
 
 ---
 

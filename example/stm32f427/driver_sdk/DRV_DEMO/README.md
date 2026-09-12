@@ -79,6 +79,7 @@ svcrt_dev_ctrl(temp, 0x0100, 1);       /* 切换为华氏度 */
 ## 注意事项
 
 1. 设备对象结构体第一个成员必须是 `svcrt_dev_hdr_t`；
-2. `DrvMain()` 不能返回，必须包含无限循环；
+2. `DrvMain()` 不能返回，必须包含无限循环，且循环里要用 `svcrt_task_wait()` 让出 CPU ——
+   驱动优先级(9)高于 App(10)，空转 `while(1){}` 会把 App 永久饿死；
 3. 用户态驱动不能直接操作硬件寄存器，需通过内核代理；
 4. 仅需包含 `svcrt_driver_sdk.h` 即可使用全部 API。

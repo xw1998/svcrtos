@@ -213,8 +213,12 @@ App 任务发生 HardFault 时，原有逻辑是**无条件重建栈帧重启**�
 实现方式：`svcrt_loader_identify()` 对同一个分区先试「带头 .svcapp」，不成立再看是不是擦除态；
 不是擦除态且 `APP_ALLOW_RAW_IMAGE = 1` 时，当作开发期裸镜像，入口取分区基址。
 
-- **开发期**：`APP_ALLOW_RAW_IMAGE = 1`（默认）—— 直接用 Keil 下载到 `0x08080000` / `DRIVER_POOL` 即可下断点调试
-- **发布固件**：把 `APP_ALLOW_RAW_IMAGE` 置 0 —— 只接受带镜像头的 `.svcapp`，裸镜像会被判为 `INVALID`
+- **默认（发布语义）**：`config/svcrt_partition.h` 里 `APP_ALLOW_RAW_IMAGE` 默认 **0** ——
+  只接受带镜像头的 `.svcapp`，裸镜像被判为 `INVALID`
+- **开发期（本板已打开）**：`board/stm32f427/svcrt_board_config.h` 里显式
+  `#define APP_ALLOW_RAW_IMAGE 1` —— 直接用 Keil 下载到 `0x08080000` / `DRIVER_POOL` 即可下断点调试
+- 该宏在 `config/` 里被 `#ifndef` 包裹，**板级覆盖是唯一入口**：切换发布/调试只改板级配置，
+  不动 `config/`，`config/` 始终代表"默认拒绝裸镜像"的发布语义
 - 驱动区同样支持：`svcrt_loader_scan_driver()` / `svcrt_loader_start_driver()`，
   栈从 `DRIVER_RAM` 顶部切出，参数取 `DRIVER_TASK_*`；安装路径见 §4.1，
   驱动镜像也会被安装任务按 `type` 自动分流进驱动区

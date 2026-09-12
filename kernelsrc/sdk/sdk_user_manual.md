@@ -638,7 +638,14 @@ void DrvMain(void) {
 - 编译产物：独立固件 `.bin`，烧录到指定ROM分区
 - 安装方式：固件启动后自动调用 `DrvMain()`，通过 SVC 0x14 注册驱动
 
-> **注意：** 用户态驱动的 `DrvMain()` 不能返回，必须包含无限循环。
+> **注意：** 用户态驱动的 `DrvMain()` 不能返回，必须包含无限循环，
+> 而且**循环里必须让出 CPU**（`svcrt_task_wait()`，见上面的示例），
+> 不要写空转的 `while(1){}`。
+>
+> 原因：驱动任务优先级（`DRIVER_TASK_PRIORITY`（`config/svcrt_partition.h`），默认 9）**高于** App 任务
+> （`APP_TASK_PRIORITY`，默认 10），空转会吃满 CPU，把所有 App 永久饿死。
+> 只注册设备、不需要后台维护的驱动，注册完让出 CPU 即可。
+> SDK 自带的 `svcrt_drv_main.c` 在 `DrvMain()` 返回后也是用 `svcrt_task_wait(1000)` 兜底。
 
 ### 11. Driver SDK API 详解
 

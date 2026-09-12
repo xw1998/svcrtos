@@ -612,10 +612,16 @@ static svcrt_event_obj_t svcrt_events[SVCRT_EVENT_NUM];  // 事件对象表
 
 **等待事件** (`svcrt_event_wait_internal`)：
 ```
-1. 把当前任务加入该事件的 waiting_tasks 列表
-2. 若 timeout_ms > 0: 调用 svcrt_task_wait_internal(timeout_ms)（限时等待）
-3. 若 timeout_ms == 0: 调用 svcrt_task_wait_period_internal()（永久等待，直到被 set 唤醒）
+1. 句柄校验（标志位 / 索引范围 / 槽位已用）
+2. 事件已置位：直接消费掉这次置位并返回 0，不阻塞（否则"先 set 后 wait"会丢事件）
+3. 若 timeout_ms == 0：只试一次，未置位立即返回超时，不登记等待者、不阻塞
+4. 若 timeout_ms > 0：登记到该事件的 waiting_tasks 列表后限时等待
+5. 若 timeout_ms < 0：登记后永久等待，直到被 set 唤醒
 ```
+
+> **超时语义全系统统一**（与 FreeRTOS / RT-Thread / Zephyr 一致）：
+> **0 = 不等待（只试一次），负值 = 永久等待**。event / sem / mutex 三套接口都在登记等待者
+> 之前先判 `timeout_ms == 0` 提前返回，不再依赖内部原语把 0 当永久等待来解释。
 
 **触发事件** (`svcrt_event_set_internal`)：
 ```
@@ -818,7 +824,8 @@ void svcrt_port_enter_idle(uint32 psp, uint32 use_priv)
 ```
 SysTick 中断（每 500us）
   │
-  ├─ SysTick_Handler()
+  ├─ SysTick_Handler()                # 板级实现（board/<芯片>/svcrt_board.c）
+  │   ├─ 每 2 个节拍补一次 HAL_IncTick()  # 用 STM32 HAL 的板子必须补，见下方说明
   │   └─ svcrt_kernel_tick_handler()
   │       ├─ svcrt_kernel_tick++
   │       └─ SVCRT_SWITCH_TASK()     # 触发 PendSV
