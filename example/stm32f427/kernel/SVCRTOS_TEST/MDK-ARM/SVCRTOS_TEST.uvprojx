@@ -699,6 +699,11 @@
               <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_fault.c</FilePath>
             </File>
             <File>
+              <FileName>svcrt_init.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_init.c</FilePath>
+            </File>
+            <File>
               <FileName>svcrt_ptable.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_ptable.c</FilePath>

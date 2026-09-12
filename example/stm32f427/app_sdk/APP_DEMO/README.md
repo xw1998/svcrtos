@@ -53,7 +53,7 @@ APP_DEMO/
 
 | 场景 | 做法 |
 |------|------|
-| 正式安装包 | `python tools/pack_app.py --elf <axf> --type app --out app_demo.svcapp`，再通过内核安装任务（串口）下发 |
+| 正式安装包 | `python tools/pack_app.py --axf <axf> --type app --out app_demo.svcapp`，再通过内核安装任务（串口）下发 |
 | 开发期快速验证 | 直接把裸 `.bin` 烧到本应用分区基址，内核扫描时按裸镜像识别入口（`APP_ALLOW_RAW_IMAGE`） |
 | MDK 在线调试 | 固定地址烧录后直接在 MDK 里 Load & Debug，可对 `AppMain()` 下断点 |
 

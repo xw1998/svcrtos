@@ -148,8 +148,8 @@ do {
 ### 打包
 
 ```bash
-python tools/pack_app.py --elf <bled_drv.axf> --type driver --out bled_drv.svcapp
-python tools/pack_app.py --elf <bled_app.axf> --type app    --out bled_app.svcapp
+python tools/pack_app.py --axf <bled_drv.axf> --type driver --out bled_drv.svcapp
+python tools/pack_app.py --axf <bled_app.axf> --type app    --out bled_app.svcapp
 ```
 
 `pack_app.py` 会校验 ELF 的链接基址与 `config/svcrt_partition.h` 是否一致，

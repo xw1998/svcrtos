@@ -53,7 +53,7 @@ DRV_DEMO/
 
 | 场景 | 做法 |
 |------|------|
-| 正式安装包 | `python tools/pack_app.py --elf <axf> --type driver --out drv_demo.svcapp`，由内核安装任务按镜像头 `type` 自动分流进驱动区 |
+| 正式安装包 | `python tools/pack_app.py --axf <axf> --type driver --out drv_demo.svcapp`，由内核安装任务按镜像头 `type` 自动分流进驱动区 |
 | 开发期快速验证 | 直接把裸 `.bin` 烧到驱动池基址，内核扫描时按裸镜像识别入口 |
 | MDK 在线调试 | 固定地址烧录后直接在 MDK 里 Load & Debug，可对 `DrvMain()` 下断点 |
 

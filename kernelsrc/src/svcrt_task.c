@@ -328,11 +328,19 @@ void SVC_Server(void *p_svc_ctx)
     }
 }
 
-void svcrt_hardfault_handler(void)
+/* ============================================================
+ * CPU 异常统一处理入口
+ * @brief HardFault / MemManage / BusFault / UsageFault 共用
+ * @details 任务上下文中发生异常时做任务级恢复（重建栈帧重启该任务），
+ *          连续故障达到 APP_CRASH_RESTART_MAX 的应用由 svcrt_loader_on_fault()
+ *          禁用，不再无限重启；内核/中断上下文异常则记录后停机等调试器接管。
+ *          注意：CFSR/HFSR 保持不清，便于用调试器定位故障原因。
+ * ============================================================ */
+void svcrt_cpu_fault_handler(uint32 fault_type)
 {
     if(svcrt_current_task_id > 0)
     {
-        svcrt_fault_record(SVCRT_FAULT_HARDFAULT, svcrt_current_task_id);
+        svcrt_fault_record(fault_type, svcrt_current_task_id);
         #if (SVCRT_USE_FAULT_RECOVER == 1)
         /* 任务级故障恢复：重建栈帧并重新调度，等效于任务复位重启。
          * 但连续故障达到 APP_CRASH_RESTART_MAX 的 App 会被禁用（不再重启），
@@ -352,12 +360,17 @@ void svcrt_hardfault_handler(void)
     }
     else
     {
-        /* 内核上下文硬故障：记录后停机，等待调试器接管 */
-        svcrt_fault_record(SVCRT_FAULT_HARDFAULT, 0);
+        /* 内核上下文异常：记录后停机，等待调试器接管 */
+        svcrt_fault_record(fault_type, 0);
         while(1)
         {
         }
     }
+}
+
+void svcrt_hardfault_handler(void)
+{
+    svcrt_cpu_fault_handler(SVCRT_FAULT_HARDFAULT);
 }
 
 int32 svcrt_sched_is_switching(void)

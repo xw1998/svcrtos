@@ -198,15 +198,17 @@ python tools/pack_app.py --axf build/BLED_DRV/bled_drv.axf \
 安装任务写入完成后槽位状态变为 `LOADED`（随后 `RUNNING`）。应用侧可查询：
 
 ```c
-uint32 st  = svcrt_app_status(0);  /* 0=空 1=已加载 2=运行中 3=无效/被禁用 */
+uint32 st  = svcrt_app_status(0);  /* 0=空 1=已加载 2=运行中 3=无效/被禁用 4=正在安装 */
 int32  tid = svcrt_app_start(0);   /* 手动启动（INSTALLER_AUTO_START=0 时用） */
 int32  r   = svcrt_app_stop(0);    /* 停止（镜像保留在 Flash） */
 int32  d   = svcrt_driver_load(dev, image_len);  /* 从设备装驱动到驱动区 */
 ```
 
-驱动区是**单入口**：同一时刻只驻留一份驱动，重新安装会整体覆盖，
+驱动区是**单入口**：同一时刻只驻留一份驱动，重新安装会整体覆盖。
+旧驱动还在运行时，内核会先把它踢出调度再擦除，不会“擦掉正在跑的代码”；
 安装成功后 `driver_state` 变 `LOADED`、`driver_entry` 指向新入口，
 并按 `DRIVER_AUTO_START` 决定是否立即（重）启动驱动任务。
+（例外：旧驱动自己经 SVC 发起自安装会被拒绝——SVC 返回后会跳回已擦除的代码。）
 
 
 ### 3.5 掉电/中断会怎样
@@ -312,6 +314,10 @@ for (int32 i = 0; i < cnt; i++) {
 ### 7.3 被禁用后如何恢复
 
 重新安装镜像即可（路径 B 重发一次，或路径 A/C 重新写入）——安装成功会清零计数。
+
+槽位复用规则：空槽 / 被禁用（INVALID）/ 已停止（LOADED）都可以直接覆盖安装；
+只有「运行中（RUNNING）」不行——必须先 `svcrt_app_stop(0)`，否则安装会被拒绝。
+单槽闭环下更新 App 的完整序列：`stop(0)` → 安装 → `start(0)`。
 
 ### 7.4 已知边界
 

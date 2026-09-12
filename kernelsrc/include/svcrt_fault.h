@@ -19,7 +19,11 @@ typedef enum {
     SVCRT_FAULT_RECOVER   = 4,      /* 任务故障恢复 */
     SVCRT_FAULT_SCHEDLOCK = 5,      /* 调度器锁定期间调用阻塞接口（编程错误） */
     SVCRT_FAULT_APPDISABLED = 6,     /* App 连续故障达上限被禁用（不再重启） */
-    SVCRT_FAULT_NOSLOT     = 7       /* 任务表已满或参数非法，任务注册失败 */
+    SVCRT_FAULT_NOSLOT     = 7,      /* 任务表已满或参数非法，任务注册失败 */
+    SVCRT_FAULT_MEMFAULT   = 8,      /* MemManage：MPU 违规，应用越权访问 */
+    SVCRT_FAULT_BUSFAULT   = 9,      /* BusFault：非法总线访问 */
+    SVCRT_FAULT_USGFAULT   = 10      /* UsageFault：未定义指令 / 非法状态 */,
+    SVCRT_FAULT_INSTALLFAIL = 11     /* 安装写入失败（镜像已收全但落盘失败） */
 } svcrt_fault_type_t;
 
 /* 单条故障记录（3 个字，与 svcrt_fault_record_read 的 out3 对应） */

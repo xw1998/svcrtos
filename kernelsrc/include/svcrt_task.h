@@ -113,5 +113,7 @@ int32 svcrt_sched_activate(int32 new_task, uint32 old_psp);
 
 void svcrt_kernel_tick_handler(void);
 void svcrt_hardfault_handler(void);
+/* 各 CPU 异常共用入口：fault_type 取 svcrt_fault_type_t 中的 HARDFAULT/MEMFAULT/BUSFAULT/USGFAULT */
+void svcrt_cpu_fault_handler(uint32 fault_type);
 
 #endif

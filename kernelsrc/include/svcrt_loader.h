@@ -32,6 +32,7 @@ extern "C" {
 #define SVCRT_LOADER_ERR_NO_SLOT  (-7)   /* 无空闲槽位 */
 #define SVCRT_LOADER_ERR_TASK     (-8)   /* 任务注册失败 */
 #define SVCRT_LOADER_ERR_STATE    (-9)   /* 槽位状态不允许该操作 */
+#define SVCRT_LOADER_ERR_ADDR     (-10)  /* 镜像头 load_addr 与目标分区基址不一致 */
 
 /**
 * @brief 从内存缓冲区加载完整 App 镜像

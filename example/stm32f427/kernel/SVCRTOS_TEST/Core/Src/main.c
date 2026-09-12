@@ -16,6 +16,9 @@
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
+/* 注意：本文件的板级 LED 任务是内核侧任务，直接调用 _internal 接口，
+ * 不走 SVC 用户态封装（svcrt_dev_open 等）。用户态封装只属于 App/驱动 SDK，
+ * 早期靠 kernelsrc/app/oslib.c 重复副本提供的做法已废弃。 */
 /* USER CODE BEGIN Includes */
 #include "svcrt.h"
 #include "svcrt_hal.h"
@@ -188,41 +191,41 @@ void SystemClock_Config(void)
 
 static void led_blink_task(void)
 {
-    int32 led = svcrt_dev_open("LED", 0);
+    int32 led = svcrt_dev_open_internal("LED", 0);
     uint8 on  = 1;
 
     while(1)
     {
         /* ???????????豸д?????????????? */
-        svcrt_mutex_lock(g_led_mutex, 0);
-        svcrt_dev_write(led, &on, 1);      /* ???? */
-        svcrt_mutex_unlock(g_led_mutex);
-        svcrt_task_wait(1000);
+        svcrt_mtx_lock_internal(g_led_mutex, 0);
+        svcrt_dev_write_internal(led, &on, 1);      /* ???? */
+        svcrt_mtx_unlock_internal(g_led_mutex);
+        svcrt_task_wait_internal(1000);
 
-        svcrt_mutex_lock(g_led_mutex, 0);
-        svcrt_dev_write(led, &on, 0);      /* ???? */
-        svcrt_mutex_unlock(g_led_mutex);
-        svcrt_task_wait(1000);
+        svcrt_mtx_lock_internal(g_led_mutex, 0);
+        svcrt_dev_write_internal(led, &on, 0);      /* ???? */
+        svcrt_mtx_unlock_internal(g_led_mutex);
+        svcrt_task_wait_internal(1000);
     }
 }
 
 static void led2_blink_task(void)
 {
-    int32 led = svcrt_dev_open("LED2", 0);
+    int32 led = svcrt_dev_open_internal("LED2", 0);
     uint8 on  = 1;
 
     while(1)
     {
         /* ??????λ???????????????? */
-        svcrt_mutex_lock(g_led_mutex, 0);
-        svcrt_dev_write(led, &on, 0);      /* ???? */
-        svcrt_mutex_unlock(g_led_mutex);
-        svcrt_task_wait(1000);
+        svcrt_mtx_lock_internal(g_led_mutex, 0);
+        svcrt_dev_write_internal(led, &on, 0);      /* ???? */
+        svcrt_mtx_unlock_internal(g_led_mutex);
+        svcrt_task_wait_internal(1000);
 
-        svcrt_mutex_lock(g_led_mutex, 0);
-        svcrt_dev_write(led, &on, 1);      /* ???? */
-        svcrt_mutex_unlock(g_led_mutex);
-        svcrt_task_wait(1000);
+        svcrt_mtx_lock_internal(g_led_mutex, 0);
+        svcrt_dev_write_internal(led, &on, 1);      /* ???? */
+        svcrt_mtx_unlock_internal(g_led_mutex);
+        svcrt_task_wait_internal(1000);
     }
 }
 

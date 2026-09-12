@@ -20,6 +20,7 @@
 #include "svcrt_dev.h"
 #include "svcrt_task.h"
 #include "svcrt_cfg.h"
+#include "svcrt_fault.h"
 #include "svcrt_partition.h"
 
 #if (INSTALLER_ENABLE == 1)
@@ -117,6 +118,11 @@ static void svcrt_installer_task(void)
                         svcrt_loader_start_driver();
                         #endif
                     }
+                    else
+                    {
+                        /* 安装失败不能静默：记录故障，便于用故障读数接口事后定位 */
+                        svcrt_fault_record(SVCRT_FAULT_INSTALLFAIL, svcrt_current_task_id);
+                    }
                 }
                 else
                 {
@@ -128,6 +134,11 @@ static void svcrt_installer_task(void)
                         #if (INSTALLER_AUTO_START == 1)
                         svcrt_loader_start((uint32)r);
                         #endif
+                    }
+                    else
+                    {
+                        /* 同上：App 安装失败（长度/兼容/CRC/Flash 任一环节）记故障 */
+                        svcrt_fault_record(SVCRT_FAULT_INSTALLFAIL, svcrt_current_task_id);
                     }
                 }
             }

@@ -8,10 +8,16 @@
 *          1) HAL 初始化 + 时钟配置 + 外设初始化（CubeMX 生成部分）
 *          2) svcrt_port_board_init()
 *          3) svcrt_cfg_load()
-*          4) svcrt_register_tasks()（注册应用任务）
-*          5) svcrt_port_irq_init()
-*          6) svcrt_kernel_init()
+*          4) svcrt_port_irq_init()
+*          5) svcrt_kernel_module_init()   各内核模块 + 板级设备 + 内置服务任务
+*                                          （唯一权威顺序实现，见本文件下方）
+*          6) 注册应用/驱动任务（svcrt_task_register 等，必须在调度启动前完成）
 *          7) svcrt_start_idle()（进入空闲任务，启动调度）
+*
+*          需要“设备自安装”能力的工程，在第 5 步之后追加：
+*          svcrt_ptable_init() → svcrt_loader_scan_driver()/svcrt_loader_start_driver()
+*          → svcrt_loader_scan()/svcrt_loader_start() → svcrt_installer_init()
+*          （参考实现：example/stm32f427/kernel/SVCRTOS_TEST/Core/Src/main.c 的 svcrt_kernel_init）
 *
 * @author xw
 * @date 2026.05.03

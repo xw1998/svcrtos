@@ -98,7 +98,10 @@ void HardFault_Handler(void)
 
 /**
   * @brief This function handles Memory management fault.
+  * @note  由 SVCRTOS 接管，实现在 board/stm32f427/svcrt_board.c，
+  *        经 svcrt_cpu_fault_handler() 做任务级故障恢复。
   */
+#if 0
 void MemManage_Handler(void)
 {
   /* USER CODE BEGIN MemoryManagement_IRQn 0 */
@@ -110,10 +113,14 @@ void MemManage_Handler(void)
     /* USER CODE END W1_MemoryManagement_IRQn 0 */
   }
 }
+#endif
 
 /**
   * @brief This function handles Pre-fetch fault, memory access fault.
+  * @note  由 SVCRTOS 接管，实现在 board/stm32f427/svcrt_board.c，
+  *        经 svcrt_cpu_fault_handler() 做任务级故障恢复。
   */
+#if 0
 void BusFault_Handler(void)
 {
   /* USER CODE BEGIN BusFault_IRQn 0 */
@@ -125,10 +132,14 @@ void BusFault_Handler(void)
     /* USER CODE END W1_BusFault_IRQn 0 */
   }
 }
+#endif
 
 /**
   * @brief This function handles Undefined instruction or illegal state.
+  * @note  由 SVCRTOS 接管，实现在 board/stm32f427/svcrt_board.c，
+  *        经 svcrt_cpu_fault_handler() 做任务级故障恢复。
   */
+#if 0
 void UsageFault_Handler(void)
 {
   /* USER CODE BEGIN UsageFault_IRQn 0 */
@@ -140,6 +151,7 @@ void UsageFault_Handler(void)
     /* USER CODE END W1_UsageFault_IRQn 0 */
   }
 }
+#endif
 
 /**
   * @brief This function handles System service call via SWI instruction.

@@ -94,7 +94,9 @@ static uint32 svcrt_loader_entry_addr(uint32 slot_base, uint32 entry_offset)
     return entry;
 }
 
-/* 查找空闲槽位，返回槽位号或 -1 */
+/* 查找可复用槽位，返回槽位号或 -1
+ * 可复用 = 空槽 / 内容无效（含被禁用）/ 已停止（LOADED）。
+ * RUNNING 不在其中：正在运行的任务不允许被覆盖擦除，必须先 svcrt_app_stop()。 */
 static int32 svcrt_loader_find_slot(void)
 {
     svcrt_partition_table_t *pt = svcrt_ptable_get();
@@ -102,13 +104,31 @@ static int32 svcrt_loader_find_slot(void)
 
     for(i = 0u; i < pt->app_max_count && i < 8u; i++)
     {
-        if(pt->slot_state[i] == SVCRT_APP_SLOT_EMPTY)
+        uint32 st = pt->slot_state[i];
+
+        if((st == SVCRT_APP_SLOT_EMPTY) || (st == SVCRT_APP_SLOT_INVALID) ||
+           (st == SVCRT_APP_SLOT_LOADED))
         {
             return (int32)i;
         }
     }
 
     return -1;
+}
+
+/* 硬停一个正在运行的外部任务（App 槽位或驱动区）。
+ * 用于覆盖安装前把旧任务踢出调度，避免“擦除正在执行的代码区”导致取指崩溃。 */
+static void svcrt_loader_halt_task(uint32 task_id)
+{
+    if(task_id == 0u || task_id > (uint32)svcrt_task_count)
+    {
+        return;
+    }
+
+    SVCRT_DISABLE_IRQ();
+    svcrt_task_table[task_id - 1u].recover_pending = 0u;
+    svcrt_task_table[task_id - 1u].status          = SVCRT_TASK_INVALID;
+    SVCRT_ENABLE_IRQ();
 }
 
 /* 校验镜像头公共字段；返回 0 或 SVCRT_LOADER_ERR_x */
@@ -176,6 +196,12 @@ int32 svcrt_loader_load_buffer(const uint8 *image, uint32 image_len)
 
     p_hdr = (const svcrt_app_header_t *)image;
 
+    /* 缓冲区路径同样只收 App 镜像；驱动镜像走 load_driver* */
+    if(p_hdr->type != SVCRT_APP_TYPE_APP)
+    {
+        return SVCRT_LOADER_ERR_PARAM;
+    }
+
     ret = svcrt_loader_check_header(p_hdr);
     if(ret != 0)
     {
@@ -207,6 +233,14 @@ int32 svcrt_loader_load_buffer(const uint8 *image, uint32 image_len)
     }
 
     slot_base = pt->app_user_base + slot * pt->app_slot_size;
+
+    /* 镜像头里的期望加载地址必须等于目标分区基址。
+     * 打包工具会用该字段并在 --verify 时校验（tools/pack_app.py），
+     * 内核此前不校验 → 按其它基址链接的镜像会被照单收下，启动后跑飞。 */
+    if(p_hdr->load_addr != slot_base)
+    {
+        return SVCRT_LOADER_ERR_ADDR;
+    }
 
     /* 进入安装态：写入未完成前不允许被启动；掉电中断则由 CRC 校验判为 INVALID */
     svcrt_ptable_set_slot(slot, SVCRT_APP_SLOT_INSTALLING, 0u, 0u);
@@ -337,6 +371,14 @@ int32 svcrt_loader_load_dev_hdr(int32 dev, const svcrt_app_header_t *p_hdr, uint
 
     slot_base = pt->app_user_base + (uint32)slot * pt->app_slot_size;
 
+    /* 镜像头里的期望加载地址必须等于目标分区基址。
+     * 打包工具会用该字段并在 --verify 时校验（tools/pack_app.py），
+     * 内核此前不校验 → 按其它基址链接的镜像会被照单收下，启动后跑飞。 */
+    if(hdr.load_addr != slot_base)
+    {
+        return SVCRT_LOADER_ERR_ADDR;
+    }
+
     /* 进入安装态：写入未完成前不允许被启动；掉电中断则由 CRC 校验判为 INVALID */
     svcrt_ptable_set_slot((uint32)slot, SVCRT_APP_SLOT_INSTALLING, 0u, 0u);
 
@@ -397,10 +439,27 @@ int32 svcrt_loader_load_driver_dev(int32 dev, const svcrt_app_header_t *p_hdr, u
         return SVCRT_LOADER_ERR_SIZE;
     }
 
+    if(hdr.load_addr != pt->driver_pool_base)
+    {
+        return SVCRT_LOADER_ERR_ADDR;
+    }
+
     /* 驱动区是单入口，不做槽位分配；容量按整个 DRIVER_POOL 计 */
     if(total > pt->driver_pool_size)
     {
         return SVCRT_LOADER_ERR_SIZE;
+    }
+
+    /* 旧驱动还在运行：先踢出调度再擦除，否则擦除正在执行的代码区必然取指崩溃。
+     * （若本次安装是由旧驱动自身经 SVC 发起，拒绝——SVC 返回后还会跳回已擦除的代码） */
+    if(pt->driver_state == SVCRT_APP_SLOT_RUNNING)
+    {
+        if((int32)pt->driver_task_id == svcrt_current_task_id)
+        {
+            return SVCRT_LOADER_ERR_STATE;
+        }
+
+        svcrt_loader_halt_task(pt->driver_task_id);
     }
 
     pt->driver_state = SVCRT_APP_SLOT_INSTALLING;

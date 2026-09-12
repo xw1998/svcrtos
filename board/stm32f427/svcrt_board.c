@@ -18,6 +18,7 @@
 #include "svcrt_config.h"
 #include "drvled.h"
 #include "drvuart.h"
+#include "svcrt_fault.h"
 
 /* ============================================================
  * ?潩????? - ????port????????
@@ -37,6 +38,14 @@ void svcrt_port_irq_init(void)
     NVIC_SetPriority(PendSV_IRQn,  0xFF);
     NVIC_SetPriority(SysTick_IRQn, 0x00);
     NVIC_SetPriority(SVCall_IRQn,  0x01);
+
+    /* 使能 MemManage/BusFault/UsageFault：
+     * Cortex-M 复位后这三个异常默认关闭，不使能的话 MPU 越权、非法访问、
+     * 未定义指令一律升级成 HardFault，故障类型无法区分，
+     * stm32f4xx_it.c 里的对应处理函数也永远不会被调用。 */
+    SCB->SHCSR |= SCB_SHCSR_MEMFAULTENA_Msk |
+                  SCB_SHCSR_BUSFAULTENA_Msk |
+                  SCB_SHCSR_USGFAULTENA_Msk;
 }
 
 /* ============================================================
@@ -92,5 +101,38 @@ void HardFault_Handler(void)
     volatile uint32 mmfar = SCB->MMFAR;
     volatile uint32 bfar  = SCB->BFAR;
     (void)hfsr; (void)cfsr; (void)mmfar; (void)bfar;
+
+    /* 必须交给内核故障处理：任务级恢复（重建栈帧重启该任务），
+     * 连续故障达到 APP_CRASH_RESTART_MAX 时由 svcrt_loader_on_fault() 禁用该 App。
+     * 此前这里直接 while(1)，导致上述围栏在真实硬件上永远不会执行。 */
+    svcrt_hardfault_handler();
+
+    /* svcrt_hardfault_handler() 正常路径会经 SVCRT_SWITCH_TASK 切走，
+     * 只有“内核上下文故障”会自行 while(1)；此处再兜底一次。 */
+    while(1) { }
+}
+
+/* ============================================================
+ * 其余 CPU 异常向量
+ * @brief 统一交给内核故障处理（见 svcrt_cpu_fault_handler）
+ * @details stm32f4xx_it.c 中 CubeMX 生成的同名函数已在源码内用 #if 0 屏蔽。
+ *          这些向量的处理逻辑与本文件 HardFault_Handler 一致：
+ *          正常路径经 SVCRT_SWITCH_TASK 切走，末尾 while(1) 仅作兜底。
+ * ============================================================ */
+void MemManage_Handler(void)
+{
+    svcrt_cpu_fault_handler(SVCRT_FAULT_MEMFAULT);
+    while(1) { }
+}
+
+void BusFault_Handler(void)
+{
+    svcrt_cpu_fault_handler(SVCRT_FAULT_BUSFAULT);
+    while(1) { }
+}
+
+void UsageFault_Handler(void)
+{
+    svcrt_cpu_fault_handler(SVCRT_FAULT_USGFAULT);
     while(1) { }
 }
