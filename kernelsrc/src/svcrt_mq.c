@@ -187,12 +187,35 @@ int32 svcrt_mq_create_internal(char *name)
     return -1;
 }
 
+/* ¼ÆËã¡°±»»½ÐÑºóÖØÐÂÅÅ¶Ó¡±¿ÉÓÃµÄÊ£Óà³¬Ê±£¨ms£©¡£
+ * deadline==0 ±íÊ¾ÎÞÏÞµÈ´ý£¬·µ»Ø -1£»ÒÑÓÃ¾¡·µ»Ø 0¡£ */
+static int32 svcrt_mq_remain_ms(uint32 start_tick, uint32 deadline)
+{
+    uint32 elapsed;
+
+    if(deadline == 0u)
+    {
+        return -1;
+    }
+
+    elapsed = svcrt_kernel_tick - start_tick;
+    if(elapsed >= deadline)
+    {
+        return 0;
+    }
+
+    return (int32)((deadline - elapsed) * SVCRT_TICK_PERIOD_US / 1000u);
+}
+
 int32 svcrt_mq_send_internal(int32 handle, uint32 *buf, int32 len_words, int32 timeout_ms)
 {
     int32 idx = handle & SVCRT_HANDLE_RELMASK;
     svcrt_mq_obj_t *p_mq;
     svcrt_task_t *p_tsk;
     int32 ret = 0;
+    int32 remain = 0;
+    uint32 start_tick = 0u;
+    uint32 deadline = 0u;
 
     if(buf == 0 || len_words <= 0 || len_words > SVCRT_MQ_MSG_WORDS)
         return -1;
@@ -220,7 +243,17 @@ int32 svcrt_mq_send_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
     }
 
     p_tsk = svcrt_task_get_current();
-    if(p_tsk == 0 || svcrt_mq_waiter_add(p_mq->send_waiters, p_tsk) < 0)
+    if(p_tsk == 0)
+    {
+        SVCRT_ENABLE_IRQ();
+        return -1;
+    }
+
+    /* ¼ÇÂ¼ÆðÊ¼½ÚÅÄÓë³¬Ê±ÉÏÏÞ£º±»»½ÐÑºóÈô¿Õ¼äÓÖ±»±ðÈËÇÀ×ß£¬ÐèÒª°´Ê£ÓàÊ±¼äÖØÊÔ */
+    start_tick = svcrt_kernel_tick;
+    deadline   = (timeout_ms > 0) ? SVCRT_MS_TO_TICK((uint32)timeout_ms) : 0u;
+
+    if(svcrt_mq_waiter_add(p_mq->send_waiters, p_tsk) < 0)
     {
         SVCRT_ENABLE_IRQ();
         return -1;
@@ -254,10 +287,35 @@ int32 svcrt_mq_send_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
     }
     /* è¢«å”¤é†’æ—¶ç©ºé—´å¯èƒ½å·²è¢«ä»–äººå ç”¨ï¼ˆå¤šä¸ªå‘é€è€…è¢«åŒæ—¶å”¤é†’çš„åœºæ™¯ä¸å­˜åœ¨ï¼Œ
      * ä½†ä¸ºç¨³å¦¥èµ·è§ä»æ£€æŸ¥ä¸€æ¬¡ï¼›å ç”¨åˆ™æŒ‰é”™è¯¯å¤„ç†ï¼‰ */
-    if(p_mq->count >= SVCRT_MQ_DEPTH)
+    /* ±»»½ÐÑ²»µÈÓÚÒ»¶¨ÄÃµ½¿Õ¼ä£º»½ÐÑºó¿Õ¼ä¿ÉÄÜÒÑ±»ÆäËü·¢ËÍÕßÕ¼×ß¡£
+     * Ô­ÊµÏÖ´ËÊ±Ö±½Ó·µ»Ø -1£¬ÏûÏ¢±»ÇÄÇÄ¶ªµô£»ÕâÀï°´Ê£ÓàÊ±¼äÖØÐÂÅÅ¶ÓµÈ´ý¡£ */
+    while(p_mq->count >= SVCRT_MQ_DEPTH)
     {
-        SVCRT_ENABLE_IRQ();
-        return -1;
+        remain = svcrt_mq_remain_ms(start_tick, deadline);
+        if(remain == 0)
+        {
+            SVCRT_ENABLE_IRQ();
+            return 1;                       /* ³¬Ê±£ºÎ´·¢ËÍ³É¹¦ */
+        }
+
+        if(svcrt_mq_waiter_add(p_mq->send_waiters, p_tsk) < 0)
+        {
+            SVCRT_ENABLE_IRQ();
+            return -1;
+        }
+
+        ret = svcrt_task_block_in_critical((uint32)remain);     /* ¹ØÖÐ¶Ï·µ»Ø */
+
+        if(ret != SVCRT_WAKE_NORMAL)
+        {
+            svcrt_mq_waiter_remove(p_mq->send_waiters, p_tsk);
+            SVCRT_ENABLE_IRQ();
+            if(ret == SVCRT_WAKE_TIMEOUT)
+            {
+                return 1;
+            }
+            return -1;                      /* ¶ÔÏó±»É¾ / Î´ÄÜ×èÈû */
+        }
     }
     svcrt_mq_put(p_mq, buf);
     svcrt_mq_wake_one(p_mq->recv_waiters);
@@ -272,6 +330,9 @@ int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
     svcrt_mq_obj_t *p_mq;
     svcrt_task_t *p_tsk;
     int32 reason;
+    int32 remain = 0;
+    uint32 start_tick = 0u;
+    uint32 deadline = 0u;
 
     if(buf == 0 || len_words <= 0 || len_words > SVCRT_MQ_MSG_WORDS)
         return -1;
@@ -298,7 +359,17 @@ int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
     }
 
     p_tsk = svcrt_task_get_current();
-    if(p_tsk == 0 || svcrt_mq_waiter_add(p_mq->recv_waiters, p_tsk) < 0)
+    if(p_tsk == 0)
+    {
+        SVCRT_ENABLE_IRQ();
+        return -1;
+    }
+
+    /* ¼ÇÂ¼ÆðÊ¼½ÚÅÄÓë³¬Ê±ÉÏÏÞ£º±»»½ÐÑºóÈôÏûÏ¢ÓÖ±»±ðÈËÈ¡×ß£¬ÐèÒª°´Ê£ÓàÊ±¼äÖØÊÔ */
+    start_tick = svcrt_kernel_tick;
+    deadline   = (timeout_ms > 0) ? SVCRT_MS_TO_TICK((uint32)timeout_ms) : 0u;
+
+    if(svcrt_mq_waiter_add(p_mq->recv_waiters, p_tsk) < 0)
     {
         SVCRT_ENABLE_IRQ();
         return -1;
@@ -327,10 +398,35 @@ int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
         SVCRT_ENABLE_IRQ();
         return 1;
     }
-    if(p_mq->count <= 0)
+    /* ±»»½ÐÑ²»µÈÓÚÒ»¶¨ÄÃµ½ÏûÏ¢£º»½ÐÑºóÏûÏ¢¿ÉÄÜÒÑ±»ÆäËü½ÓÊÕÕßÈ¡×ß¡£
+     * Ô­ÊµÏÖ´ËÊ±Ö±½Ó·µ»Ø -1£¨¶ÓÁÐÀïÃ÷Ã÷ÓÐÊý¾ÝÈ´±»ÅÐÊ§°Ü£©£»ÕâÀï°´Ê£ÓàÊ±¼äÖØÊÔ¡£ */
+    while(p_mq->count <= 0)
     {
-        SVCRT_ENABLE_IRQ();
-        return -1;
+        remain = svcrt_mq_remain_ms(start_tick, deadline);
+        if(remain == 0)
+        {
+            SVCRT_ENABLE_IRQ();
+            return 1;
+        }
+
+        if(svcrt_mq_waiter_add(p_mq->recv_waiters, p_tsk) < 0)
+        {
+            SVCRT_ENABLE_IRQ();
+            return -1;
+        }
+
+        reason = svcrt_task_block_in_critical((uint32)remain);  /* ¹ØÖÐ¶Ï·µ»Ø */
+
+        if(reason != SVCRT_WAKE_NORMAL)
+        {
+            svcrt_mq_waiter_remove(p_mq->recv_waiters, p_tsk);
+            SVCRT_ENABLE_IRQ();
+            if(reason == SVCRT_WAKE_TIMEOUT)
+            {
+                return 1;
+            }
+            return -1;
+        }
     }
     svcrt_mq_get(p_mq, buf);
     svcrt_mq_wake_one(p_mq->send_waiters);

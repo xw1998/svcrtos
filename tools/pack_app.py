@@ -424,7 +424,7 @@ def main():
     src.add_argument("--name", help="应用名称（写入预留清单，便于后续应用商店展示）")
     src.add_argument("--entry-symbol", help="入口符号（默认 app:APPSTART / driver:DRVSTART）")
     src.add_argument("--entry-offset", type=lambda x: int(x, 0), help="入口偏移（手工指定，优先级最高）")
-    src.add_argument("--load-addr", type=lambda x: int(x, 0), help="镜像加载地址（默认取分区槽位基址）")
+    src.add_argument("--load-addr", type=lambda x: int(x, 0), help="镜像负载基址（默认取 槽位基址+镜像头长度，即 APP_IMAGE_HEADER_SIZE）")
     src.add_argument("--hw-compat", type=lambda x: int(x, 0), help="硬件兼容 ID（默认取配置头）")
     src.add_argument("--header", default="config/svcrt_partition.h", help="分区配置头文件")
     out = ap.add_argument_group("输出与动作")

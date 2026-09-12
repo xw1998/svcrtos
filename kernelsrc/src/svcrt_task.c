@@ -845,7 +845,10 @@ int32 svcrt_task_block_in_critical(uint32 timeout_ms)
 
     p_tsk = &svcrt_task_table[svcrt_current_task_id - 1];
     p_tsk->wake_reason = 0;
-    p_tsk->wait_time   = (timeout_ms > 0u) ? (int32)SVCRT_MS_TO_TICK(timeout_ms) : -1;
+    /* 参数类型是 uint32，调用方用 (uint32)(-1) 表示无限等待；
+     * 必须先转成有符号再判断，否则负值会被当成 0xFFFFFFFF 毫秒，
+     * MS_TO_TICK 溢出成一个不可控的巨大节拍数。 */
+    p_tsk->wait_time   = ((int32)timeout_ms > 0) ? (int32)SVCRT_MS_TO_TICK((uint32)timeout_ms) : -1;
     p_tsk->status      = SVCRT_TASK_WAIT;
 
     SVCRT_SWITCH_TASK();                /* 只是置 PendSV pending，此刻中断还关着 */

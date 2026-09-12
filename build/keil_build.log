@@ -1,0 +1,9 @@
+*** Using Compiler 'V5.06 update 7 (build 960)', folder: 'D:\Keil_v5\ARM\ARMCC\Bin'
+Build target 'SVCRTOS_TEST'
+Note: source file '../Core/Src/system_stm32f4xx.c' - object file renamed from 'SVCRTOS_TEST\system_stm32f4xx.o' to 'SVCRTOS_TEST\system_stm32f4xx_1.o'.Before Build - User command #1: python ..\..\..\..\..\tools\gen_scatter.py --target kernel --output ..\..\..\..\..\build\kernel.sct
+[gen_scatter] kernel        -> ..\..\..\..\..\build\kernel.sct
+linking...
+Program Size: Code=18126 RO-data=490 RW-data=136 ZI-data=20808  
+FromELF: creating hex file...
+"SVCRTOS_TEST\SVCRTOS_TEST.axf" - 0 Error(s), 0 Warning(s).
+Build Time Elapsed:  00:00:01
