@@ -171,17 +171,21 @@ int32 svcrt_mq_send_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
         SVCRT_ENABLE_IRQ();
         return -1;
     }
-    SVCRT_ENABLE_IRQ();
+    /* ×¢Òâ£º´Ë´¦²»·Å¿ªÖÐ¶Ï¡ª¡ªÈë¶ÓÓëÏÂÃæµÄ block_in_critical ±ØÐëÔÚÍ¬Ò»ÁÙ½çÇøÄÚ£¬
+     * ·ñÔò ISR µÄ»½ÐÑ»áÍ¶¸øÒ»¸ö»¹Ã»Ë¯ÏÂµÄÈÎÎñ£¨»½ÐÑ¶ªÊ§£©¡£ */
 
     /* é˜»å¡žç­‰å¾…æŽ¥æ”¶è€…è…¾å‡ºç©ºé—´ï¼ˆwake_reason: 0=è¢«å”¤é†’ 1=è¶…æ—¶ï¼‰ */
-    p_tsk->wake_reason = 0;
-    if(timeout_ms > 0)
-        svcrt_task_wait_internal(timeout_ms);
-    else
-        svcrt_task_block_internal();
+    ret = svcrt_task_block_in_critical((uint32)timeout_ms);   /* ¹ØÖÐ¶Ï·µ»Ø */
 
-    SVCRT_DISABLE_IRQ();
-    if(p_tsk->wake_reason == 1)
+    if(ret < 0)
+    {
+        /* Î´ÄÜ½øÈë×èÈû£¨ÄÚºËÉÏÏÂÎÄ/µ÷¶ÈÆ÷Ëø¶¨£©£º³·ÏúÈë¶Ó */
+        svcrt_mq_waiter_remove(p_mq->send_waiters, p_tsk);
+        SVCRT_ENABLE_IRQ();
+        return -1;
+    }
+
+    if(ret == 1)
     {
         svcrt_mq_waiter_remove(p_mq->send_waiters, p_tsk);
         SVCRT_ENABLE_IRQ();
@@ -198,7 +202,7 @@ int32 svcrt_mq_send_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
     svcrt_mq_wake_one(p_mq->recv_waiters);
     SVCRT_ENABLE_IRQ();
     SVCRT_SWITCH_TASK();
-    return ret;
+    return 0;
 }
 
 int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 timeout_ms)
@@ -206,6 +210,7 @@ int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
     int32 idx = handle & SVCRT_HANDLE_RELMASK;
     svcrt_mq_obj_t *p_mq;
     svcrt_task_t *p_tsk;
+    int32 reason;
 
     if(buf == 0 || len_words <= 0 || len_words > SVCRT_MQ_MSG_WORDS)
         return -1;
@@ -237,16 +242,18 @@ int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
         SVCRT_ENABLE_IRQ();
         return -1;
     }
-    SVCRT_ENABLE_IRQ();
+    /* Í¬ mq_send£º²»·Å¿ªÖÐ¶Ï£¬Èë¶ÓÓë block_in_critical ±ØÐëÍ¬´¦Ò»¸öÁÙ½çÇø */
 
-    p_tsk->wake_reason = 0;
-    if(timeout_ms > 0)
-        svcrt_task_wait_internal(timeout_ms);
-    else
-        svcrt_task_block_internal();
+    reason = svcrt_task_block_in_critical((uint32)timeout_ms);   /* ¹ØÖÐ¶Ï·µ»Ø */
 
-    SVCRT_DISABLE_IRQ();
-    if(p_tsk->wake_reason == 1)
+    if(reason < 0)
+    {
+        svcrt_mq_waiter_remove(p_mq->recv_waiters, p_tsk);
+        SVCRT_ENABLE_IRQ();
+        return -1;
+    }
+
+    if(reason == 1)
     {
         svcrt_mq_waiter_remove(p_mq->recv_waiters, p_tsk);
         SVCRT_ENABLE_IRQ();

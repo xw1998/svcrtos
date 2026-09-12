@@ -34,6 +34,7 @@ extern "C" {
 #define SVCRT_LOADER_ERR_TASK     (-8)   /* 任务注册失败 */
 #define SVCRT_LOADER_ERR_STATE    (-9)   /* 槽位状态不允许该操作 */
 #define SVCRT_LOADER_ERR_ADDR     (-10)  /* 镜像头 load_addr 与目标分区基址不一致 */
+#define SVCRT_LOADER_ERR_ENTRY    (-11)  /* 镜像头 entry_offset 越界（入口不在负载范围内） */
 
 /**
 * @brief 从内存缓冲区加载完整 App 镜像

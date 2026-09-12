@@ -157,6 +157,7 @@ int32 svcrt_sem_wait_internal(int32 handle, int32 timeout_ms)
 {
     int32 idx = handle & SVCRT_HANDLE_RELMASK;
     svcrt_task_t *p_tsk;
+    int32 reason;
 
     if(SVCRT_SEM_HANDLE_FLAG != (handle & SVCRT_HANDLE_MASK))
         return -1;
@@ -183,27 +184,32 @@ int32 svcrt_sem_wait_internal(int32 handle, int32 timeout_ms)
         SVCRT_ENABLE_IRQ();
         return -1;
     }
-    SVCRT_ENABLE_IRQ();
 
-    p_tsk->wake_reason = 0;
-    if(timeout_ms > 0)
-        svcrt_task_wait_internal((uint32)timeout_ms);
-    else
-        svcrt_task_block_internal();
+    /* 入队与置 WAIT 必须在同一临界区内完成：中间一旦开中断，ISR 里的 post
+     * 就会把唤醒投给一个还没睡下的任务，唤醒随之丢失（见 task.c 的说明）。 */
+    reason = svcrt_task_block_in_critical((uint32)timeout_ms);   /* 关中断返回 */
 
-    /* wake_reason: 0=被 post 显式唤醒（拿到信号量），1=等待超时（未拿到）。
+    if(reason < 0)
+    {
+        /* 未能进入阻塞（内核上下文 / 调度器锁定）：撤销入队并报错 */
+        (void)svcrt_waiters_remove(svcrt_sems[idx].waiters, p_tsk);
+        SVCRT_ENABLE_IRQ();
+        return SVCRT_SYNC_ERR_PARAM;
+    }
+
+    /* reason: 0=被 post 显式唤醒（拿到信号量），1=等待超时（未拿到）。
      * 超时必须返回负值并把自己从等待队列摘掉：
      *   - 不返回错误：调用者会以为拿到了信号量，但计数并没有减；
      *   - 不摘除：之后 post 会把一个早已苏醒、正在执行其它代码的任务
      *     当作等待者弹出并置 READY（虚假唤醒）。 */
-    if(p_tsk->wake_reason == 1)
+    if(reason == 1)
     {
-        SVCRT_DISABLE_IRQ();
         (void)svcrt_waiters_remove(svcrt_sems[idx].waiters, p_tsk);
         SVCRT_ENABLE_IRQ();
         return SVCRT_SYNC_ERR_TIMEOUT;
     }
 
+    SVCRT_ENABLE_IRQ();
     return SVCRT_SYNC_OK;
 }
 
@@ -288,6 +294,7 @@ int32 svcrt_mtx_lock_internal(int32 handle, int32 timeout_ms)
 {
     int32 idx = handle & SVCRT_HANDLE_RELMASK;
     svcrt_task_t *p_tsk;
+    int32 reason;
 
     if(SVCRT_MTX_HANDLE_FLAG != (handle & SVCRT_HANDLE_MASK))
         return -1;
@@ -331,17 +338,19 @@ int32 svcrt_mtx_lock_internal(int32 handle, int32 timeout_ms)
         SVCRT_ENABLE_IRQ();
         return SVCRT_SYNC_ERR_PARAM;
     }
-    SVCRT_ENABLE_IRQ();
 
-    p_tsk->wake_reason = 0;
-    if(timeout_ms > 0)
-        svcrt_task_wait_internal((uint32)timeout_ms);
-    else
-        svcrt_task_block_internal();
+    /* 同 sem_wait：入队与置 WAIT 放在同一临界区内，消除唤醒丢失窗口 */
+    reason = svcrt_task_block_in_critical((uint32)timeout_ms);   /* 关中断返回 */
 
-    SVCRT_DISABLE_IRQ();
+    if(reason < 0)
+    {
+        (void)svcrt_waiters_remove(svcrt_mtxs[idx].waiters, p_tsk);
+        svcrt_mtx_recalc_priority(idx);
+        SVCRT_ENABLE_IRQ();
+        return SVCRT_SYNC_ERR_PARAM;
+    }
 
-    if(p_tsk->wake_reason == 1)
+    if(reason == 1)
     {
         /* 竞态：等待超时与 unlock 的“转交”几乎同时发生，unlock 已经把
          * owner 改成本任务。此时锁确实归本任务所有，按成功处理；

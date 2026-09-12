@@ -101,6 +101,17 @@ uint16 svcrt_kernel_get_cpu_idle(void);
 void svcrt_task_wait_internal(uint32 ms);
 void svcrt_task_wait_period_internal(void);
 void svcrt_task_block_internal(void);
+
+/**
+* @brief 在调用方已持有的临界区内阻塞当前任务（供信号量/互斥锁/消息队列使用）
+* @param timeout_ms >0 定时等待（ms）；<=0 无限等待（只能被显式唤醒）
+* @return 0=被显式唤醒（已获得资源），1=等待超时，-1=未能进入阻塞（调用方需自行摘除队列）
+* @details 调用约定：进入时中断已关，返回时中断仍关（调用方在同一临界区内继续处理等待队列）。
+*          与 svcrt_task_wait_internal 的区别：后者会自行开关中断，
+*          对“先把自己挂进等待队列、再睡下”的原语来说，那中间存在唤醒丢失窗口
+*          （ISR 的唤醒会投给一个还没睡下的任务）。本函数把置状态与切走放在同一临界区内。
+*/
+int32 svcrt_task_block_in_critical(uint32 timeout_ms);
 void svcrt_task_delay_internal(uint32 us);
 void svcrt_task_kill_internal(void);
 int32  svcrt_task_status_get_internal(int32 task_id);

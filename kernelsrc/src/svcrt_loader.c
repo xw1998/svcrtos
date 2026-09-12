@@ -153,6 +153,21 @@ static int32 svcrt_loader_check_header(const svcrt_app_header_t *p_hdr)
         return SVCRT_LOADER_ERR_SIZE;
     }
 
+    /* image_size 不能让 total = 头长 + image_size 回绕：
+     * 一旦回绕（如 image_size = 0xFFFFFFFF 时 total = 255），调用方的
+     * “total > 槽位容量”检查会被绕过，随后的擦除/写入/CRC 全部按错误长度进行。 */
+    if(p_hdr->image_size > (0xFFFFFFFFu - SVCRT_APP_HEADER_SIZE))
+    {
+        return SVCRT_LOADER_ERR_SIZE;
+    }
+
+    /* entry_offset 是入口相对「负载起始」的偏移，必须落在负载范围内，
+     * 否则镜像能把入口指到分区内任意地址（含镜像头或数据区）。 */
+    if(p_hdr->entry_offset >= p_hdr->image_size)
+    {
+        return SVCRT_LOADER_ERR_ENTRY;
+    }
+
     return 0;
 }
 
@@ -530,6 +545,17 @@ static int32 svcrt_loader_identify(uint32 region_base, uint32 region_size,
     {
         if((p_hdr->hw_compat_id != SVCRT_HW_COMPAT_ID) ||
            (p_hdr->image_size == 0u) || (p_hdr->type != expect_type))
+        {
+            return -1;
+        }
+
+        /* 与 svcrt_loader_check_header 同口径：禁止 total 回绕，且入口必须落在负载内 */
+        if(p_hdr->image_size > (0xFFFFFFFFu - SVCRT_APP_HEADER_SIZE))
+        {
+            return -1;
+        }
+
+        if(p_hdr->entry_offset >= p_hdr->image_size)
         {
             return -1;
         }

@@ -670,6 +670,42 @@ void svcrt_task_block_internal(void)
     SVCRT_ENABLE_IRQ();
 }
 
+/* 在调用方已持有的临界区内完成“置等待状态 + 切走”，返回时中断仍关。
+ * 关键点：等待队列的登记（调用方在关中断下完成）与本函数的置 WAIT/切走之间
+ * 不允许出现中断打开的瞬间，否则 ISR 里的 post/unlock/mq_put 会把唤醒投递给
+ * 一个还没睡下的任务，唤醒随即被吞掉（任务会一直阻塞到超时）。
+ * @return 0=被显式唤醒，1=超时，-1=未进入阻塞（内核上下文或调度器已锁定） */
+int32 svcrt_task_block_in_critical(uint32 timeout_ms)
+{
+    svcrt_task_t *p_tsk;
+    int32 reason;
+
+    /* 调用约定：进入时中断已关 */
+    if(svcrt_current_task_id <= 0)
+    {
+        return -1;                      /* 内核上下文不允许阻塞 */
+    }
+
+    #if (SVCRT_USE_SCHED_LOCK == 1)
+    if(svcrt_sched_lock_blocks())
+    {
+        return -1;                      /* 调度器锁定期间禁止阻塞 */
+    }
+    #endif
+
+    p_tsk = &svcrt_task_table[svcrt_current_task_id - 1];
+    p_tsk->wake_reason = 0;
+    p_tsk->wait_time   = (timeout_ms > 0u) ? (int32)SVCRT_MS_TO_TICK(timeout_ms) : -1;
+    p_tsk->status      = SVCRT_TASK_WAIT;
+
+    SVCRT_SWITCH_TASK();                /* 只是置 PendSV pending，此刻中断还关着 */
+    SVCRT_ENABLE_IRQ();                 /* 开中断：PendSV 切走与 ISR 唤醒才有机会发生 */
+    SVCRT_DISABLE_IRQ();                /* 回到本函数与调用方共同的临界区 */
+
+    reason = p_tsk->wake_reason;
+    return reason;
+}
+
 void svcrt_task_delay_internal(uint32 us)
 {
     svcrt_port_delay_us(us);
