@@ -313,41 +313,54 @@ void svcrt_port_mpu_init(void)
     SVCRT_ISB();
 }
 
+/* 换算覆盖 size 字节所需的最小 MPU 区域对应的 SIZE 域值（RASR bits[5:1]）。
+ * MPU 区域大小必须是 2 的幂且不小于 32 字节，SIZE = log2(区域大小) - 1。
+ * 原实现用 for(reg_idx = 4; reg_idx < 32; reg_idx++)
+ *   if((1 << (reg_idx + 1)) >= size)
+ * 来找这个值：size > 2^31 时会走到 reg_idx == 31，算出 `1 << 32`，
+ * 对 32 位 int 是未定义行为。这里改为：
+ *   - 入参先封顶到 2GB（32 位地址空间的一半，实际工程不可能超过）；
+ *   - 全程无符号移位，移位量最大 31；
+ *   - 循环上界留出余量，任何输入都不会产生 32 位移位。 */
+static uint32 svcrt_mpu_size_field(uint32 size)
+{
+    uint32 field = 4u;                  /* 最小区域 32 字节 */
+
+    if(size > 0x80000000u)
+    {
+        size = 0x80000000u;
+    }
+
+    while((field < 30u) && ((1u << (field + 1u)) < size))
+    {
+        field++;
+    }
+
+    return field;
+}
+
 void svcrt_port_mpu_set_region(uint32 rom_addr, uint32 rom_size, uint32 ram_addr, uint32 ram_size)
 {
     /* AP=0b010：非特权【可读写】。原值 0x13 的 AP 域是 0b011（非特权限读），
      * 非特权任务写自己的 RAM 会直接触发 MemManage；XN=1 数据区不可执行。 */
     uint32 ram_asr = 0x12060001;
     uint32 rom_asr = 0x06020001;
-    int32  reg_idx;
-    uint8  rom_region = 31;
-    uint8  ram_region = 31;
+    uint32 rom_region;
+    uint32 ram_region;
 
     if(MPU->TYPE == 0)
     {
         return;
     }
 
-    for(reg_idx = 4; reg_idx < 32; reg_idx++)
-    {
-        if((1 << (reg_idx + 1)) >= rom_size)
-        {
-            rom_region = reg_idx;
-            break;
-        }
-    }
+    rom_region = svcrt_mpu_size_field(rom_size);
+    ram_region = svcrt_mpu_size_field(ram_size);
 
-    for(reg_idx = 4; reg_idx < 32; reg_idx++)
-    {
-        if((1 << (reg_idx + 1)) >= ram_size)
-        {
-            ram_region = reg_idx;
-            break;
-        }
-    }
-
-    rom_addr = rom_addr & ~((1 << (1 + rom_region)) - 1);
-    ram_addr = ram_addr & ~((1 << (1 + ram_region)) - 1);
+    /* 区域基址必须按区域大小对齐：向下取整到 2^(rom_region+1) 的边界。
+     * svcrt_mpu_size_field 保证 rom_region/ram_region <= 30，
+     * 因此这里的移位量最大 31，不会出现 1<<32。 */
+    rom_addr = rom_addr & ~((1u << (1u + rom_region)) - 1u);
+    ram_addr = ram_addr & ~((1u << (1u + ram_region)) - 1u);
 
     SVCRT_DMB();
     MPU->CTRL = 0;
@@ -371,11 +384,22 @@ void svcrt_port_mpu_set_app(const svcrt_arch_mpu_t *p_mpu)
     SVCRT_DMB();
     MPU->CTRL = 0;
 
-    for(rnr = 0; rnr < 4; rnr++)
+    /* init/reset 清的是 0~7 共 8 个区域，切换时只写前 4 个会留下残影：
+     * 4~7 号区域仍保留上一个任务的配置，形成越权窗口。这里一并清掉。 */
+    for(rnr = 0; rnr < 8; rnr++)
     {
-        MPU->RNR  = rnr;
-        MPU->RBAR = p_mpu->region_base[rnr];
-        MPU->RASR = p_mpu->region_attr[rnr];
+        MPU->RNR = rnr;
+
+        if(rnr < (int32)SVCRT_MPU_REGION_MAX)
+        {
+            MPU->RBAR = p_mpu->region_base[rnr];
+            MPU->RASR = p_mpu->region_attr[rnr];
+        }
+        else
+        {
+            MPU->RBAR = 0;
+            MPU->RASR = 0;
+        }
     }
 
     MPU->CTRL = MPU_CTRL_ENABLE_Msk | MPU_CTRL_PRIVDEFENA_Msk;
