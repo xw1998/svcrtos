@@ -80,7 +80,7 @@ void NMI_Handler(void)
 
 /**
   * @brief This function handles Hard fault interrupt.
-  * @note  ?? SVCRTOS ????? svcrt_board.c ????
+  * @note  由 SVCRTOS 内核接管（见 svcrt_board.c 同名函数），此处整体屏蔽
   */
 #if 0
 void HardFault_Handler(void)
@@ -155,7 +155,7 @@ void UsageFault_Handler(void)
 
 /**
   * @brief This function handles System service call via SWI instruction.
-  * @note  ?? SVCRTOS ??????(context_rvds.S ???? SVC_Handler)????
+  * @note  由 SVCRTOS 内核接管（端口层汇编实现 SVC_Handler），此处整体屏蔽
   */
 #if 0
 void SVC_Handler(void)
@@ -184,7 +184,7 @@ void DebugMon_Handler(void)
 
 /**
   * @brief This function handles Pendable request for system service.
-  * @note  ?? SVCRTOS ??????(context_rvds.S ???? PendSV_Handler)????
+  * @note  由 SVCRTOS 内核接管（端口层汇编实现 PendSV_Handler），此处整体屏蔽
   */
 #if 0
 void PendSV_Handler(void)
@@ -200,9 +200,9 @@ void PendSV_Handler(void)
 
 /**
   * @brief This function handles System tick timer.
-  * @note  ?? SVCRTOS ????? svcrt_board.c ????
-  *        ????b?? HAL_IncTick(???? HAL_Delay),????
-  *        svcrt_kernel_tick_handler ?????? HAL_IncTick()??
+  * @note  由 SVCRTOS 内核接管（见 svcrt_board.c 同名函数），此处整体屏蔽
+  *        本函数里的 HAL_IncTick() 随之一并屏蔽，改由 svcrt_board.c 的
+  *        SysTick_Handler 按整毫秒补调（HAL_Delay/HAL_GetTick 依赖它）。
   */
 #if 0
 void SysTick_Handler(void)

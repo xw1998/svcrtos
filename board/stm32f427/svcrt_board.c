@@ -1,17 +1,18 @@
 /**
-* @brief SVCrtOS ?潩????? - STM32F427
-* @details ????port???????潩???????潩?????????
-*          - FPU???????CPACR + FPCCR??
-*          - NVIC?????????
-*          - ?潩???COM1?????LED??????
-*          - ?潩???????
-*          ?????????CPU??????????潩??????
-*          port/arm/cortex-m4/ ??????board?????????
+* @brief SVCrtOS 板级移植层 - STM32F427
+* @details 实现 port 层要求板级提供的基础配置：
+*          - FPU 使能（CPACR + FPCCR）
+*          - NVIC 优先级分组与内核异常优先级
+*          - 板载设备注册（COM1 / LED / LED2）
+*          - CPU 异常向量与系统节拍入口
+*          其余 CPU 相关实现全部在 port/arm/cortex-m4/，
+*          board/ 只承担芯片相关的差异。
 * @author xw
 * @date 2026.05.03
 */
 
 #include "stm32f4xx.h"
+#include "stm32f4xx_hal.h"   /* HAL_IncTick(): 板级补 HAL 毫秒时基 */
 #include "svcrt_hal.h"
 #include "svcrt_dev.h"
 #include "svcrt_task.h"
@@ -21,7 +22,7 @@
 #include "svcrt_fault.h"
 
 /* ============================================================
- * ?潩????? - ????port????????
+ * 板级初始化 - 实现 port 层板级接口
  * ============================================================ */
 void svcrt_port_board_init(void)
 {
@@ -30,7 +31,7 @@ void svcrt_port_board_init(void)
 }
 
 /* ============================================================
- * ?潩??????????? - ????port????????
+ * 中断优先级初始化 - 实现 port 层板级接口
  * ============================================================ */
 void svcrt_port_irq_init(void)
 {
@@ -50,7 +51,7 @@ void svcrt_port_irq_init(void)
 
 
 /* ============================================================
- * ????????MPU???? - ????port????????
+ * 空闲任务 MPU 配置 - 实现 port 层板级接口
  * ============================================================ */
 void svcrt_port_set_idle_mpu(uint32 task_func, uint32 stack_addr, uint32 stack_size)
 {
@@ -64,7 +65,7 @@ void svcrt_port_set_idle_mpu(uint32 task_func, uint32 stack_addr, uint32 stack_s
 }
 
 /* ============================================================
- * ?潩???
+ * 板载设备注册
  * ============================================================ */
 extern svcrt_dev_drv_t usart_drv;
 extern svcrt_dev_drv_t led_drv;
@@ -77,12 +78,28 @@ void svcrt_dev_board_init(void)
 }
 
 /* ============================================================
- * ?潩???????
- * @brief Cortex-M ?潩?????????????????潩??潩board??
-*         ???潩??????????????????
+ * 内核异常与节拍向量
+ * @brief Cortex-M 核内异常向量的板级接线
+ *          硬故障/内存管理/总线/用法异常统一交内核故障处理，
+ *          节拍中断交内核 tick 处理，并同步推进 HAL 毫秒基准。
  * ============================================================ */
 void SysTick_Handler(void)
 {
+    /* HAL 的毫秒基准必须跟着内核节拍一起走。
+     * CubeMX 生成的那个 SysTick_Handler（内含 HAL_IncTick()）已在
+     * stm32f4xx_it.c 里用 #if 0 整体屏蔽，全工程再无第二处调用 ——
+     * HAL_GetTick() 永远返回 0，任何用 HAL_Delay() 的驱动都会死等。
+     * 内核节拍周期是 SVCRT_TICK_PERIOD_US（本板 500us，即 2kHz），
+     * 而 HAL 时基是 1ms（1kHz），所以每 2 个内核节拍补一次 HAL_IncTick()。 */
+    #if ((1000 % SVCRT_TICK_PERIOD_US) != 0)
+    #error "SVCRT_TICK_PERIOD_US 必须能整除 1000us，否则无法按整毫秒为 HAL 时基补 tick"
+    #endif
+
+    if((svcrt_kernel_get_tick() % (1000u / SVCRT_TICK_PERIOD_US)) == 0u)
+    {
+        HAL_IncTick();
+    }
+
     svcrt_kernel_tick_handler();
 }
 

@@ -69,7 +69,7 @@ static uint32 svcrt_idle_stack[SVCRT_IDLE_STACK_WORDS];
 static uint32 led_task_stack[SVCRT_LED_STACK_WORDS];
 static uint32 led2_task_stack[SVCRT_LED2_STACK_WORDS];
 
-/* ??????????????????? LED ??????豸?????д?????????????? */
+/* 两个 LED 任务共用一把互斥锁，保护对 LED 设备的写入 */
 static int32 g_led_mutex = -1;
 /* USER CODE END PV */
 
@@ -196,14 +196,14 @@ static void led_blink_task(void)
 
     while(1)
     {
-        /* ???????????豸д?????????????? */
+        /* 加锁后写设备：len>0 点亮、len==0 熄灭（约定见板级 drvled） */
         svcrt_mtx_lock_internal(g_led_mutex, -1);   /* -1 = 永久等待 */
-        svcrt_dev_write_internal(led, &on, 1);      /* ???? */
+        svcrt_dev_write_internal(led, &on, 1);      /* 点亮 */
         svcrt_mtx_unlock_internal(g_led_mutex);
         svcrt_task_wait_internal(1000);
 
         svcrt_mtx_lock_internal(g_led_mutex, -1);   /* -1 = 永久等待 */
-        svcrt_dev_write_internal(led, &on, 0);      /* ???? */
+        svcrt_dev_write_internal(led, &on, 0);      /* 熄灭 */
         svcrt_mtx_unlock_internal(g_led_mutex);
         svcrt_task_wait_internal(1000);
     }
@@ -216,14 +216,14 @@ static void led2_blink_task(void)
 
     while(1)
     {
-        /* ??????λ???????????????? */
+        /* 第二个 LED：先灭后亮，与 led_blink_task 相位相反 */
         svcrt_mtx_lock_internal(g_led_mutex, -1);   /* -1 = 永久等待 */
-        svcrt_dev_write_internal(led, &on, 0);      /* ???? */
+        svcrt_dev_write_internal(led, &on, 0);      /* 熄灭 */
         svcrt_mtx_unlock_internal(g_led_mutex);
         svcrt_task_wait_internal(1000);
 
         svcrt_mtx_lock_internal(g_led_mutex, -1);   /* -1 = 永久等待 */
-        svcrt_dev_write_internal(led, &on, 1);      /* ???? */
+        svcrt_dev_write_internal(led, &on, 1);      /* 点亮 */
         svcrt_mtx_unlock_internal(g_led_mutex);
         svcrt_task_wait_internal(1000);
     }

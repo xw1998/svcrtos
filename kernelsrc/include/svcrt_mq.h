@@ -1,9 +1,9 @@
 /**
-* @brief SVCrtOS æ¶ˆæ¯é˜Ÿåˆ—æ¨¡å—ï¼ˆå†…æ ¸å†…éƒ¨å¤´æ–‡ä»¶ï¼‰
-* @details æä¾›ä»»åŠ¡é—´æ•°æ®ä¼ é€’åŸè¯­ï¼šå®šé•¿æ¶ˆæ¯é˜Ÿåˆ—ï¼ˆæ‹·è´è¯­ä¹‰ï¼‰ã€‚
-*          æ¯ä¸ªé˜Ÿåˆ—å®¹é‡ä¸å•æ¡æ¶ˆæ¯é•¿åº¦ç”± SVCRT_MQ_DEPTH / SVCRT_MQ_MSG_WORDS ç»Ÿä¸€çº¦å®šã€‚
-*          æ”¯æŒé˜»å¡ send/recvï¼ˆå¸¦è¶…æ—¶ï¼‰ä¸ä¸­æ–­ä¸Šä¸‹æ–‡å®‰å…¨çš„ send_from_isrã€‚
-*          åº”ç”¨ç¨‹åºåº”é€šè¿‡ svcrt.h ä½¿ç”¨ï¼Œä¸è¦ç›´æ¥åŒ…å«æœ¬æ–‡ä»¶ã€‚
+* @brief SVCrtOS ÏûÏ¢¶ÓÁĞÄ£¿é£¨ÄÚºËÄÚ²¿Í·ÎÄ¼ş£©
+* @details Ìá¹©ÈÎÎñ¼äÊı¾İ´«µİÔ­Óï£º¶¨³¤ÏûÏ¢¶ÓÁĞ£¨¿½±´ÓïÒå£©¡£
+*          Ã¿¸ö¶ÓÁĞÈİÁ¿Óëµ¥ÌõÏûÏ¢³¤¶ÈÓÉ SVCRT_MQ_DEPTH / SVCRT_MQ_MSG_WORDS Í³Ò»Ô¼¶¨¡£
+*          Ö§³Ö×èÈû send/recv£¨´ø³¬Ê±£©ÓëÖĞ¶ÏÉÏÏÂÎÄ°²È«µÄ send_from_isr¡£
+*          Ó¦ÓÃ³ÌĞòÓ¦Í¨¹ı svcrt.h Ê¹ÓÃ£¬²»ÒªÖ±½Ó°üº¬±¾ÎÄ¼ş¡£
 */
 
 #ifndef __SVCRT_MQ_H__
@@ -17,13 +17,13 @@
 
 typedef struct {
     char   name[8];
-    uint8  used;                                        /* æ§½ä½æ˜¯å¦å ç”¨ */
-    uint32 head;                                        /* è¯»ä½ç½® */
-    uint32 tail;                                        /* å†™ä½ç½® */
-    uint32 count;                                       /* å½“å‰æ¶ˆæ¯æ¡æ•° */
-    svcrt_task_t *send_waiters[SVCRT_MAX_SYNC_WAITERS]; /* é˜Ÿåˆ—æ»¡æ—¶é˜»å¡çš„å‘é€è€… */
-    svcrt_task_t *recv_waiters[SVCRT_MAX_SYNC_WAITERS]; /* é˜Ÿåˆ—ç©ºæ—¶é˜»å¡çš„æ¥æ”¶è€… */
-    uint32 buf[SVCRT_MQ_DEPTH * SVCRT_MQ_MSG_WORDS];    /* æ¶ˆæ¯å­˜å‚¨åŒº */
+    uint8  used;                                        /* ²ÛÎ»ÊÇ·ñÕ¼ÓÃ */
+    uint32 head;                                        /* ¶ÁÎ»ÖÃ */
+    uint32 tail;                                        /* Ğ´Î»ÖÃ */
+    uint32 count;                                       /* µ±Ç°ÏûÏ¢ÌõÊı */
+    svcrt_task_t *send_waiters[SVCRT_MAX_SYNC_WAITERS]; /* ¶ÓÁĞÂúÊ±×èÈûµÄ·¢ËÍÕß */
+    svcrt_task_t *recv_waiters[SVCRT_MAX_SYNC_WAITERS]; /* ¶ÓÁĞ¿ÕÊ±×èÈûµÄ½ÓÊÕÕß */
+    uint32 buf[SVCRT_MQ_DEPTH * SVCRT_MQ_MSG_WORDS];    /* ÏûÏ¢´æ´¢Çø */
 } svcrt_mq_obj_t;
 
 void  svcrt_mq_module_init(void);
