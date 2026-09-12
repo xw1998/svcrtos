@@ -109,6 +109,65 @@ static uint8 svcrt_kernel_mq_buf_ok(const void *p, int32 len_words)
     return svcrt_kernel_ptr_ram_ok(p, (uint32)len_words * 4u);
 }
 
+/* 名字类参数（设备名/信号量名/消息队列名…）：内核最多读 8 字节（含 NUL），
+ * 字符串常量通常在用户固件区，因此按“RAM 窗口 + 用户固件窗口”判定。 */
+static uint8 svcrt_kernel_user_name_ok(const void *p)
+{
+    return svcrt_kernel_ptr_flash_ok(p, 8u);
+}
+
+/* 设备读写缓冲区：长度必须为正，且整块落在用户可见 RAM 内。
+ * 不校验时调用者能让内核向任意地址写入（dev_read）、
+ * 或把任意地址的内容读出来送给外设（dev_write）。 */
+static uint8 svcrt_kernel_dev_buf_ok(const void *p, int32 len)
+{
+    if(len <= 0)
+    {
+        return 0u;
+    }
+    return svcrt_kernel_ptr_ram_ok(p, (uint32)len);
+}
+
+/* 驱动回调表：表本身位于用户可见 RAM，5 个回调指针必须落在用户代码区。
+ * （这挡不住“用自己的代码提权”，但能挡住内核跳到内核 Flash 执行。） */
+static uint8 svcrt_kernel_dev_drv_ok(const svcrt_dev_drv_t *drv)
+{
+    if(drv == 0)
+    {
+        return 0u;
+    }
+    if(svcrt_kernel_ptr_ram_ok(drv, (uint32)sizeof(svcrt_dev_drv_t)) == 0u)
+    {
+        return 0u;
+    }
+    if((drv->drv_open != 0) &&
+       (svcrt_kernel_ptr_flash_ok((const void *)drv->drv_open, 2u) == 0u))
+    {
+        return 0u;
+    }
+    if((drv->drv_close != 0) &&
+       (svcrt_kernel_ptr_flash_ok((const void *)drv->drv_close, 2u) == 0u))
+    {
+        return 0u;
+    }
+    if((drv->drv_read != 0) &&
+       (svcrt_kernel_ptr_flash_ok((const void *)drv->drv_read, 2u) == 0u))
+    {
+        return 0u;
+    }
+    if((drv->drv_write != 0) &&
+       (svcrt_kernel_ptr_flash_ok((const void *)drv->drv_write, 2u) == 0u))
+    {
+        return 0u;
+    }
+    if((drv->drv_ctrl != 0) &&
+       (svcrt_kernel_ptr_flash_ok((const void *)drv->drv_ctrl, 2u) == 0u))
+    {
+        return 0u;
+    }
+    return 1u;
+}
+
 
 volatile uint32 svcrt_interrupt_nest = 0;
 uint32 svcrt_kernel_tick = 0;
@@ -174,6 +233,11 @@ void SVC_Server(void *p_svc_ctx)
         switch(p[0])
         {
             case 1:
+                if(svcrt_kernel_user_name_ok((const void *)p[1]) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
                 SVCRT_SVC_RET(p_svc_ctx, svcrt_event_create_internal((char *)p[1]));
                 break;
             case 2:
@@ -258,6 +322,11 @@ void SVC_Server(void *p_svc_ctx)
             #endif
             #if (SVCRT_USE_STACK_USAGE == 1)
             case 10:
+                if(svcrt_kernel_ptr_ram_ok((const void *)SVCRT_SVC_ARG(p_svc_ctx, 2), 12u) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
                 /* r1=任务号，r2=用户缓冲区（3 个字：总字节/峰值已用/剩余） */
                 SVCRT_SVC_RET(p_svc_ctx, (uint32)svcrt_task_stack_info_internal(
                                   (int32)SVCRT_SVC_ARG(p_svc_ctx, 1),
@@ -280,12 +349,27 @@ void SVC_Server(void *p_svc_ctx)
         switch(p[0])
         {
             case 1:
+                if(svcrt_kernel_user_name_ok((const void *)p[1]) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
                 SVCRT_SVC_RET(p_svc_ctx, svcrt_dev_open_internal((char *)p[1], p[2]));
                 break;
             case 2:
+                if(svcrt_kernel_dev_buf_ok((const void *)p[2], (int32)p[3]) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
                 SVCRT_SVC_RET(p_svc_ctx, svcrt_dev_read_internal(p[1], (uint8 *)p[2], p[3]));
                 break;
             case 3:
+                if(svcrt_kernel_dev_buf_ok((const void *)p[2], (int32)p[3]) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
                 SVCRT_SVC_RET(p_svc_ctx, svcrt_dev_write_internal(p[1], (uint8 *)p[2], p[3]));
                 break;
             case 4:
@@ -311,9 +395,20 @@ void SVC_Server(void *p_svc_ctx)
         switch(p[0])
         {
             case 1:
+                if(svcrt_kernel_user_name_ok((const void *)p[1]) == 0u ||
+                   svcrt_kernel_dev_drv_ok((const svcrt_dev_drv_t *)p[2]) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
                 SVCRT_SVC_RET(p_svc_ctx, svcrt_dev_register((char *)p[1], (svcrt_dev_drv_t *)p[2], p[3]));
                 break;
             case 2:
+                if(svcrt_kernel_user_name_ok((const void *)p[1]) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
                 SVCRT_SVC_RET(p_svc_ctx, svcrt_dev_unregister((char *)p[1]));
                 break;
             case 3:
@@ -336,6 +431,11 @@ void SVC_Server(void *p_svc_ctx)
         switch(p[0])
         {
             case 1:
+                if(svcrt_kernel_user_name_ok((const void *)p[1]) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
                 SVCRT_SVC_RET(p_svc_ctx, svcrt_sem_create_internal((char *)p[1], (int32)p[2]));
                 break;
             case 2:
@@ -348,6 +448,11 @@ void SVC_Server(void *p_svc_ctx)
                 SVCRT_SVC_RET(p_svc_ctx, svcrt_sem_delete_internal((int32)p[1]));
                 break;
             case 5:
+                if(svcrt_kernel_user_name_ok((const void *)p[1]) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
                 SVCRT_SVC_RET(p_svc_ctx, svcrt_mtx_create_internal((char *)p[1]));
                 break;
             case 6:
@@ -376,6 +481,11 @@ void SVC_Server(void *p_svc_ctx)
         switch(p[0])
         {
         case 1:
+            if(svcrt_kernel_user_name_ok((const void *)p[1]) == 0u)
+            {
+                SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                break;
+            }
             SVCRT_SVC_RET(p_svc_ctx, svcrt_mq_create_internal((char *)p[1]));
             break;
         case 2:
@@ -416,6 +526,11 @@ void SVC_Server(void *p_svc_ctx)
         switch(p[0])
         {
         case 1:
+            if(svcrt_kernel_user_name_ok((const void *)p[1]) == 0u)
+            {
+                SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                break;
+            }
             SVCRT_SVC_RET(p_svc_ctx, svcrt_timer_create_internal((char *)p[1]));
             break;
         case 2:
