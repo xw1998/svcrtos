@@ -31,6 +31,7 @@
 #include "svcrt_mq.h"
 #include "svcrt_timer.h"
 #include "svcrt_fault.h"
+#include "svcrt_init.h"
 #include "svcrt_partition.h"
 /* USER CODE END Includes */
 
@@ -302,20 +303,8 @@ static void svcrt_kernel_init(void)
     /* 顺序与内核默认入口 kernelsrc/src/svcrt_init.c 一致：
      * 先初始化各内核模块，再认定/启动外部映像，最后注册安装任务。
      * （缺模块初始化或顺序颠倒会导致内核无法正常启动） */
-    svcrt_event_module_init();
-    svcrt_sync_module_init();
-    svcrt_mq_module_init();
-    svcrt_timer_module_init();
-    svcrt_fault_module_init();
-    svcrt_dev_module_init();
-    svcrt_dev_board_init();
-
-    /* 内置软定时器服务任务：须在 cfg_load 之后、调度启动之前注册 */
-    svcrt_timer_task_install();
-
-    #if (SVCRT_USE_MPU == 1)
-    svcrt_port_mpu_init();
-    #endif
+    /* 各内核模块 + 内置服务任务：统一走公共初始化，避免与内核默认入口漂移 */
+    svcrt_kernel_module_init();
 
     /* 内核内置 LED 任务共用的互斥量 */
     g_led_mutex = svcrt_mtx_create_internal("ledmtx");

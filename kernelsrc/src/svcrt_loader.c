@@ -255,18 +255,59 @@ int32 svcrt_loader_load_dev(int32 dev, uint32 image_len)
     return svcrt_loader_load_dev_hdr(dev, &hdr, image_len);
 }
 
+/* 把负载流式写入已擦除的分区（头 + 分块负载），返回 0 或 SVCRT_LOADER_ERR_x */
+static int32 svcrt_loader_stream_payload(int32 dev, uint32 base, const svcrt_app_header_t *p_hdr)
+{
+    uint32 written = 0u;
+
+    if(svcrt_port_flash_write(base, (const uint8 *)p_hdr, SVCRT_APP_HEADER_SIZE) != 0)
+    {
+        return SVCRT_LOADER_ERR_FLASH;
+    }
+
+    while(written < p_hdr->image_size)
+    {
+        uint32 want = p_hdr->image_size - written;
+
+        if(want > SVCRT_LOADER_CHUNK_SIZE)
+        {
+            want = SVCRT_LOADER_CHUNK_SIZE;
+        }
+
+        if(svcrt_loader_read_dev(dev, svcrt_loader_chunk, want) != (int32)want)
+        {
+            return SVCRT_LOADER_ERR_SIZE;
+        }
+
+        if(svcrt_port_flash_write(base + SVCRT_APP_HEADER_SIZE + written,
+                                  svcrt_loader_chunk, want) != 0)
+        {
+            return SVCRT_LOADER_ERR_FLASH;
+        }
+
+        written += want;
+    }
+
+    return 0;
+}
+
 int32 svcrt_loader_load_dev_hdr(int32 dev, const svcrt_app_header_t *p_hdr, uint32 image_len)
 {
     /* 头已由调用方（如安装任务）读出并已完成魔数同步，这里只需继续流式写入负载 */
+    svcrt_partition_table_t *pt = svcrt_ptable_get();
     svcrt_app_header_t hdr = *p_hdr;
-    svcrt_partition_table_t *pt;
     uint32 total;
-    uint32 slot;
     uint32 slot_base;
-    uint32 written;
+    int32 slot;
     int32 ret;
 
     if(dev < 0)
+    {
+        return SVCRT_LOADER_ERR_PARAM;
+    }
+
+    /* 镜像类型必须与目标区一致，避免把驱动镜像塞进 App 槽位 */
+    if(hdr.type != SVCRT_APP_TYPE_APP)
     {
         return SVCRT_LOADER_ERR_PARAM;
     }
@@ -283,74 +324,129 @@ int32 svcrt_loader_load_dev_hdr(int32 dev, const svcrt_app_header_t *p_hdr, uint
         return SVCRT_LOADER_ERR_SIZE;
     }
 
-    ret = svcrt_loader_find_slot();
-    if(ret < 0)
+    slot = svcrt_loader_find_slot();
+    if(slot < 0)
     {
         return SVCRT_LOADER_ERR_NO_SLOT;
     }
-    slot = (uint32)ret;
 
-    pt = svcrt_ptable_get();
     if(total > pt->app_slot_size)
     {
         return SVCRT_LOADER_ERR_SIZE;
     }
 
-    slot_base = pt->app_user_base + slot * pt->app_slot_size;
+    slot_base = pt->app_user_base + (uint32)slot * pt->app_slot_size;
 
     /* 进入安装态：写入未完成前不允许被启动；掉电中断则由 CRC 校验判为 INVALID */
-    svcrt_ptable_set_slot(slot, SVCRT_APP_SLOT_INSTALLING, 0u, 0u);
+    svcrt_ptable_set_slot((uint32)slot, SVCRT_APP_SLOT_INSTALLING, 0u, 0u);
 
     if(svcrt_port_flash_erase(slot_base, total) != 0)
     {
-        svcrt_ptable_set_slot(slot, SVCRT_APP_SLOT_EMPTY, 0u, 0u);
+        svcrt_ptable_set_slot((uint32)slot, SVCRT_APP_SLOT_EMPTY, 0u, 0u);
         return SVCRT_LOADER_ERR_FLASH;
     }
 
-    if(svcrt_port_flash_write(slot_base, (const uint8 *)&hdr, SVCRT_APP_HEADER_SIZE) != 0)
+    ret = svcrt_loader_stream_payload(dev, slot_base, &hdr);
+    if(ret != 0)
     {
-        return SVCRT_LOADER_ERR_FLASH;
-    }
-
-    written = 0u;
-    while(written < hdr.image_size)
-    {
-        uint32 want = hdr.image_size - written;
-
-        if(want > SVCRT_LOADER_CHUNK_SIZE)
-        {
-            want = SVCRT_LOADER_CHUNK_SIZE;
-        }
-
-        if(svcrt_loader_read_dev(dev, svcrt_loader_chunk, want) != (int32)want)
-        {
-            svcrt_ptable_set_slot(slot, SVCRT_APP_SLOT_EMPTY, 0u, 0u);
-            return SVCRT_LOADER_ERR_SIZE;
-        }
-
-        if(svcrt_port_flash_write(slot_base + SVCRT_APP_HEADER_SIZE + written,
-                                  svcrt_loader_chunk, want) != 0)
-        {
-            svcrt_ptable_set_slot(slot, SVCRT_APP_SLOT_EMPTY, 0u, 0u);
-            return SVCRT_LOADER_ERR_FLASH;
-        }
-
-        written += want;
+        svcrt_ptable_set_slot((uint32)slot, SVCRT_APP_SLOT_EMPTY, 0u, 0u);
+        return ret;
     }
 
     if(svcrt_loader_image_crc((const uint8 *)slot_base, total) != hdr.crc32)
     {
-        svcrt_ptable_set_slot(slot, SVCRT_APP_SLOT_EMPTY, 0u, 0u);
+        svcrt_ptable_set_slot((uint32)slot, SVCRT_APP_SLOT_EMPTY, 0u, 0u);
         return SVCRT_LOADER_ERR_CRC;
     }
 
     /* 新镜像写入成功：清零故障计数（重新安装 = 重新开始） */
     pt->slot_crash_cnt[slot] = 0u;
 
-    svcrt_ptable_set_slot(slot, SVCRT_APP_SLOT_LOADED,
+    svcrt_ptable_set_slot((uint32)slot, SVCRT_APP_SLOT_LOADED,
                           svcrt_loader_entry_addr(slot_base, hdr.entry_offset), 0u);
 
-    return (int32)slot;
+    return slot;
+}
+
+int32 svcrt_loader_load_driver_dev(int32 dev, const svcrt_app_header_t *p_hdr, uint32 image_len)
+{
+    svcrt_partition_table_t *pt = svcrt_ptable_get();
+    svcrt_app_header_t hdr = *p_hdr;
+    uint32 total;
+    int32 ret;
+
+    if(dev < 0)
+    {
+        return SVCRT_LOADER_ERR_PARAM;
+    }
+
+    if(hdr.type != SVCRT_APP_TYPE_DRIVER)
+    {
+        return SVCRT_LOADER_ERR_PARAM;
+    }
+
+    ret = svcrt_loader_check_header(&hdr);
+    if(ret != 0)
+    {
+        return ret;
+    }
+
+    total = SVCRT_APP_HEADER_SIZE + hdr.image_size;
+    if(image_len != 0u && total > image_len)
+    {
+        return SVCRT_LOADER_ERR_SIZE;
+    }
+
+    /* 驱动区是单入口，不做槽位分配；容量按整个 DRIVER_POOL 计 */
+    if(total > pt->driver_pool_size)
+    {
+        return SVCRT_LOADER_ERR_SIZE;
+    }
+
+    pt->driver_state = SVCRT_APP_SLOT_INSTALLING;
+    pt->driver_entry = 0u;
+
+    if(svcrt_port_flash_erase(pt->driver_pool_base, total) != 0)
+    {
+        pt->driver_state = SVCRT_APP_SLOT_EMPTY;
+        return SVCRT_LOADER_ERR_FLASH;
+    }
+
+    ret = svcrt_loader_stream_payload(dev, pt->driver_pool_base, &hdr);
+    if(ret != 0)
+    {
+        pt->driver_state = SVCRT_APP_SLOT_EMPTY;
+        return ret;
+    }
+
+    if(svcrt_loader_image_crc((const uint8 *)pt->driver_pool_base, total) != hdr.crc32)
+    {
+        pt->driver_state = SVCRT_APP_SLOT_EMPTY;
+        return SVCRT_LOADER_ERR_CRC;
+    }
+
+    pt->driver_crash_cnt = 0u;
+    pt->driver_entry     = svcrt_loader_entry_addr(pt->driver_pool_base, hdr.entry_offset);
+    pt->driver_state     = SVCRT_APP_SLOT_LOADED;
+
+    return 0;
+}
+
+int32 svcrt_loader_load_driver(int32 dev, uint32 image_len)
+{
+    svcrt_app_header_t hdr;
+
+    if(dev < 0)
+    {
+        return SVCRT_LOADER_ERR_PARAM;
+    }
+
+    if(svcrt_loader_read_dev(dev, (uint8 *)&hdr, SVCRT_APP_HEADER_SIZE) != (int32)SVCRT_APP_HEADER_SIZE)
+    {
+        return SVCRT_LOADER_ERR_SIZE;
+    }
+
+    return svcrt_loader_load_driver_dev(dev, &hdr, image_len);
 }
 
 /* 认定一段分区内的内容，得到一个可用入口。
@@ -360,14 +456,16 @@ int32 svcrt_loader_load_dev_hdr(int32 dev, const svcrt_app_header_t *p_hdr, uint
  *      开发期靠它保住“固定地址烧录 + MDK 下断点调试”的闭环；
  *      发布固件时应把 APP_ALLOW_RAW_IMAGE 关掉，只接受 .svcapp。
  * 返回 0=有效（*out_entry 为入口），-1=空或无效。 */
-static int32 svcrt_loader_identify(uint32 region_base, uint32 region_size, uint32 *out_entry)
+static int32 svcrt_loader_identify(uint32 region_base, uint32 region_size,
+                                    uint32 expect_type, uint32 *out_entry)
 {
     const svcrt_app_header_t *p_hdr = (const svcrt_app_header_t *)region_base;
     uint32 total;
 
     if(p_hdr->magic == SVCRT_APP_MAGIC)
     {
-        if((p_hdr->hw_compat_id != SVCRT_HW_COMPAT_ID) || (p_hdr->image_size == 0u))
+        if((p_hdr->hw_compat_id != SVCRT_HW_COMPAT_ID) ||
+           (p_hdr->image_size == 0u) || (p_hdr->type != expect_type))
         {
             return -1;
         }
@@ -416,7 +514,7 @@ uint32 svcrt_loader_scan(void)
         uint32 base = pt->app_user_base + i * pt->app_slot_size;
         uint32 entry;
 
-        if(svcrt_loader_identify(base, pt->app_slot_size, &entry) == 0)
+        if(svcrt_loader_identify(base, pt->app_slot_size, SVCRT_APP_TYPE_APP, &entry) == 0)
         {
             svcrt_ptable_set_slot(i, SVCRT_APP_SLOT_LOADED, entry, 0u);
             found++;
@@ -436,7 +534,7 @@ uint32 svcrt_loader_scan_driver(void)
     svcrt_partition_table_t *pt = svcrt_ptable_get();
     uint32 entry;
 
-    if(svcrt_loader_identify(pt->driver_pool_base, pt->driver_pool_size, &entry) == 0)
+    if(svcrt_loader_identify(pt->driver_pool_base, pt->driver_pool_size, SVCRT_APP_TYPE_DRIVER, &entry) == 0)
     {
         pt->driver_entry = entry;
         pt->driver_state = SVCRT_APP_SLOT_LOADED;

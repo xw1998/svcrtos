@@ -412,6 +412,16 @@ int32  svcrt_app_stop(uint32 slot);
 *         槽位非法返回 0xffffffff
 */
 uint32 svcrt_app_status(uint32 slot);
+
+/**
+* @brief 从设备安装驱动镜像到驱动区
+* @param dev       已打开的设备句柄（数据从镜像头开始）
+* @param image_len 期望镜像总长（含头），传 0 表示由镜像头决定
+* @return 0=成功，负值为错误码（见 svcrt_loader.h）
+* @note 镜像头的 type 必须为驱动（SVCRT_APP_TYPE_DRIVER）；
+*       驱动区为单入口，写入前会整体擦除目标区间。
+*/
+int32  svcrt_driver_load(int32 dev, uint32 image_len);
 /** @} */
 
 #endif

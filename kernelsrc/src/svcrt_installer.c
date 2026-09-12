@@ -103,15 +103,32 @@ static void svcrt_installer_task(void)
         {
             if(svcrt_installer_pump(dev) == 0)
             {
-                int32 slot = svcrt_loader_load_dev_hdr(dev, &svcrt_installer_hdr, 0u);
+                int32 r;
 
-                svcrt_installer_got = 0u;       /* 无论成败都重新开始找下一帧 */
-
-                if(slot >= 0)
+                /* 按镜像头里的 type 自动分流：驱动镜像进驱动区，其余进 App 槽位 */
+                if(svcrt_installer_hdr.type == SVCRT_APP_TYPE_DRIVER)
                 {
-                    #if (INSTALLER_AUTO_START == 1)
-                    svcrt_loader_start((uint32)slot);
-                    #endif
+                    r = svcrt_loader_load_driver_dev(dev, &svcrt_installer_hdr, 0u);
+                    svcrt_installer_got = 0u;
+
+                    if(r >= 0)
+                    {
+                        #if (DRIVER_AUTO_START == 1)
+                        svcrt_loader_start_driver();
+                        #endif
+                    }
+                }
+                else
+                {
+                    r = svcrt_loader_load_dev_hdr(dev, &svcrt_installer_hdr, 0u);
+                    svcrt_installer_got = 0u;
+
+                    if(r >= 0)
+                    {
+                        #if (INSTALLER_AUTO_START == 1)
+                        svcrt_loader_start((uint32)r);
+                        #endif
+                    }
                 }
             }
         }

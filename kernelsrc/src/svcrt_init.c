@@ -27,9 +27,9 @@
 #include "svcrt_timer.h"
 #include "svcrt_fault.h"
 #include "svcrt_config.h"
+#include "svcrt_init.h"
 
 static void svcrt_start_idle_default(void);
-static void svcrt_kernel_init_default(void);
 static uint32 svcrt_idle_stack_default[100];
 
 __weak int main(void)
@@ -40,7 +40,7 @@ __weak int main(void)
 
     svcrt_port_irq_init();
 
-    svcrt_kernel_init_default();
+    svcrt_kernel_module_init();
 
     svcrt_port_start_timer(SVCRT_TICK_PERIOD_US);
 
@@ -65,7 +65,8 @@ static void svcrt_start_idle_default(void)
     }
 }
 
-static void svcrt_kernel_init_default(void)
+/* 内核模块初始化：唯一权威顺序实现（弱 main 与工程 main 都调用它） */
+void svcrt_kernel_module_init(void)
 {
     svcrt_event_module_init();
     svcrt_sync_module_init();

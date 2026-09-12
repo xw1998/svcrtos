@@ -11,9 +11,17 @@
 #include "svcrt_task.h"
 #include "svcrt_hal.h"
 #include "svcrt_config.h"
+#include "svcrt_fault.h"
+#include "svcrt_init.h"
 
 svcrt_task_t svcrt_task_table[SVCRT_TASK_MAX_NUM];
 int32 svcrt_task_count = 0;
+
+/* 任务表 RAM 预算守护：把 SVCRT_TASK_MAX_NUM 调得过大时直接编译报错，
+ * 避免静态 TCB 表悄悄吃掉内核 RAM。预算见 svcrt_config.h 的
+ * SVCRT_TASK_TABLE_RAM_MAX。 */
+typedef char svcrt_task_table_ram_check[
+    (sizeof(svcrt_task_table) <= (SVCRT_TASK_TABLE_RAM_MAX)) ? 1 : -1];
 
 void svcrt_cfg_load(void)
 {
@@ -27,8 +35,19 @@ int32 svcrt_task_register(void (*entry)(void), uint32 *stack_bottom, uint32 stac
 {
     svcrt_task_t *p_task;
 
+    /* 注册失败一律记录故障，不再静默返回：
+     * 任务没跑起来时能通过 svcrt_fault_record_read() 看到原因 */
     if(svcrt_task_count >= SVCRT_TASK_MAX_NUM)
+    {
+        svcrt_fault_record(SVCRT_FAULT_NOSLOT, 0);
         return -1;
+    }
+
+    if((entry == 0) || (stack_bottom == 0) || (stack_size < 64u))
+    {
+        svcrt_fault_record(SVCRT_FAULT_NOSLOT, 0);
+        return -1;
+    }
 
     stack_bottom[0] = SVCRT_STACK_END_FLAG_VAL;
 

@@ -86,6 +86,22 @@ int32 svcrt_loader_start_driver(void);
 int32 svcrt_loader_load_dev_hdr(int32 dev, const svcrt_app_header_t *p_hdr, uint32 image_len);
 
 /**
+* @brief 从设备安装驱动镜像（自行读头）
+* @param dev       已打开的设备句柄，位置在镜像头之前
+* @param image_len 期望镜像总长（含头），传 0 表示由镜像头决定
+* @return 成功返回 0，失败返回 SVCRT_LOADER_ERR_x
+* @note 镜像头的 type 必须为 SVCRT_APP_TYPE_DRIVER；驱动区为单入口，
+*       写入前会整体擦除目标区间。
+*/
+int32 svcrt_loader_load_driver(int32 dev, uint32 image_len);
+
+/**
+* @brief 从设备安装驱动镜像（镜像头已由调用方读出）
+* @return 成功返回 0，失败返回 SVCRT_LOADER_ERR_x
+*/
+int32 svcrt_loader_load_driver_dev(int32 dev, const svcrt_app_header_t *p_hdr, uint32 image_len);
+
+/**
 * @brief 按“崩溃重启上限”策略处理 App 任务故障
 * @param task_id 发生故障的任务号
 * @return 1=已达上限并已禁用该 App，0=未达上限（调用方应恢复/重启该 App），

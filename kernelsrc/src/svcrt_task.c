@@ -314,6 +314,9 @@ void SVC_Server(void *p_svc_ctx)
         case 5:     /* 查询槽位状态 */
             SVCRT_SVC_RET(p_svc_ctx, svcrt_loader_state(p[1]));
             break;
+        case 6:     /* 从设备安装驱动镜像到驱动区 */
+            SVCRT_SVC_RET(p_svc_ctx, (uint32)svcrt_loader_load_driver((int32)p[1], p[2]));
+            break;
         default:
             SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
             break;

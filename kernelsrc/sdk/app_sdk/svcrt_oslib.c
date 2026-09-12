@@ -329,3 +329,10 @@ uint32 svcrt_app_status(uint32 slot)
     p[0] = 5; p[1] = slot; p[2] = 0; p[3] = 0; p[4] = 0; p[5] = 0;
     return (uint32)svcrt_call_app_mgr(p);
 }
+
+int32 svcrt_driver_load(int32 dev, uint32 image_len)
+{
+    uint32 p[6];
+    p[0] = 6; p[1] = (uint32)dev; p[2] = image_len; p[3] = 0; p[4] = 0; p[5] = 0;
+    return svcrt_call_app_mgr(p);
+}

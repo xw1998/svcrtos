@@ -95,7 +95,10 @@
 /* ============================================================
  * 任务与调度相关参数
  * ============================================================ */
-#define SVCRT_TASK_MAX_NUM        (7)
+#define SVCRT_TASK_MAX_NUM        (32)   /* 任务（含内核服务任务）上限；
+                                          * 每个任务约 80 字节 TCB，调大时受
+                                          * SVCRT_TASK_TABLE_RAM_MAX 预算约束 */
+#define SVCRT_TASK_TABLE_RAM_MAX  (1024 * 8)   /* 任务表 TCB 数组的 RAM 预算上限（字节） */
 #define SVCRT_TICK_PERIOD_US      (500)
 #define SVCRT_EVENT_NUM           (10)
 #define SVCRT_MAX_EVENT_WAITERS   (4)
@@ -150,13 +153,9 @@
  * @brief 默认值，通常由板级配置文件 board/svcrt_board_config.h
  *        根据具体芯片的内存布局覆盖。
  * ============================================================ */
-#ifndef SVCRT_SHARE_MEM_ADDR
-#define SVCRT_SHARE_MEM_ADDR      (0x20028000)
-#endif
-
-#ifndef SVCRT_SHARE_MEM_SIZE
-#define SVCRT_SHARE_MEM_SIZE      (0x8000)
-#endif
+/* 注：SVCRT_SHARE_MEM_ADDR / SVCRT_SHARE_MEM_SIZE 已删除。
+ * 共享内存位置由 config/svcrt_partition.h 的 SHARE_RAM_BASE / SHARE_RAM_SIZE 决定，
+ * 内核与用户态都只从运行期分区表读取，不再有编译期地址宏。 */
 
 /* ============================================================
  * 系统主频配置

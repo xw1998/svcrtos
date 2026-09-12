@@ -15,7 +15,6 @@
 
 #define SVCRT_SYSTEM_CLOCK_HZ     (168000000)
 
-#define SVCRT_SHARE_MEM_ADDR      (0x20028000)
 #define SVCRT_SHARE_MEM_SIZE      (0x8000)
 
 #undef  SVCRT_USE_FPU
