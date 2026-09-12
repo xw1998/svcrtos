@@ -28,6 +28,9 @@
 #include "svcrt_ptable.h"
 #include "svcrt_loader.h"
 #include "svcrt_installer.h"
+#include "svcrt_mq.h"
+#include "svcrt_timer.h"
+#include "svcrt_fault.h"
 #include "svcrt_partition.h"
 /* USER CODE END Includes */
 
@@ -53,19 +56,14 @@
 #define SVCRT_LED_STACK_WORDS     1024
 #define SVCRT_LED2_STACK_WORDS    1024
 
-/* 外部分区固件入口地址：由 config/svcrt_partition.h 自动推导，
- * 启动汇编 DRVSTART/APPSTART 位于各分区基址，+1 表示 Thumb 模式。
- * 修改分区大小后无需改动此处。 */
-#define BLED_DRV_ENTRY            (DRIVER_POOL_BASE | 1u)
-#define BLED_APP_ENTRY            (APP_SLOT0_BASE   | 1u)
-#define SVCRT_EXT_DRV_STACK_WORDS 512
-#define SVCRT_EXT_APP_STACK_WORDS 512
+/* 注意：外部分区固件（驱动 / App）不再在这里静态注册任务。
+ * 它们的入口地址与栈由内核加载器按 config/svcrt_partition.h 推导：
+ *   svcrt_loader_scan_driver()/start_driver()、svcrt_loader_scan()/start()
+ * 这样“固定地址烧录调试”与“串口安装”两条路径共用同一套启动逻辑。 */
 
 static uint32 svcrt_idle_stack[SVCRT_IDLE_STACK_WORDS];
 static uint32 led_task_stack[SVCRT_LED_STACK_WORDS];
 static uint32 led2_task_stack[SVCRT_LED2_STACK_WORDS];
-static uint32 ext_drv_stack[SVCRT_EXT_DRV_STACK_WORDS];
-static uint32 ext_app_stack[SVCRT_EXT_APP_STACK_WORDS];
 
 /* ??????????????????? LED ??????豸?????д?????????????? */
 static int32 g_led_mutex = -1;
@@ -297,60 +295,41 @@ static void svcrt_register_tasks(void)
 
     svcrt_task_count++;
 
-    /* ===== 注册外部分区固件任务 ===== */
-    /* 外部蓝灯驱动（BLED_DRV），优先级 9（高于 app，先注册设备） */
-    ext_drv_stack[0] = SVCRT_STACK_END_FLAG_VAL;
-    p_task = &svcrt_task_table[svcrt_task_count];
-    p_task->ram_start   = (uint32)ext_drv_stack;
-    p_task->ram_size    = sizeof(ext_drv_stack);
-    p_task->stack_size  = sizeof(ext_drv_stack);
-    p_task->rom_start   = 0;
-    p_task->rom_size    = 0;
-    p_task->period      = SVCRT_MS_TO_TICK(1000);
-    p_task->priority    = 9;
-    p_task->shm_attri   = 0;
-    p_task->status      = SVCRT_TASK_READY;
-    p_task->period_time = p_task->period;
-    p_task->wait_time   = 0;
-    p_task->tim_tick    = 0;
-    p_task->touch_tick  = 0;
-    svcrt_task_stack_init(p_task, (void (*)(void))BLED_DRV_ENTRY,
-                          ext_drv_stack, sizeof(ext_drv_stack));
-    svcrt_task_count++;
-
-    /* 外部蓝灯应用（BLED_APP），优先级 10 */
-    ext_app_stack[0] = SVCRT_STACK_END_FLAG_VAL;
-    p_task = &svcrt_task_table[svcrt_task_count];
-    p_task->ram_start   = (uint32)ext_app_stack;
-    p_task->ram_size    = sizeof(ext_app_stack);
-    p_task->stack_size  = sizeof(ext_app_stack);
-    p_task->rom_start   = 0;
-    p_task->rom_size    = 0;
-    p_task->period      = SVCRT_MS_TO_TICK(1000);
-    p_task->priority    = 10;
-    p_task->shm_attri   = 0;
-    p_task->status      = SVCRT_TASK_READY;
-    p_task->period_time = p_task->period;
-    p_task->wait_time   = 0;
-    p_task->tim_tick    = 0;
-    p_task->touch_tick  = 0;
-    svcrt_task_stack_init(p_task, (void (*)(void))BLED_APP_ENTRY,
-                          ext_app_stack, sizeof(ext_app_stack));
-    svcrt_task_count++;
 }
 
 static void svcrt_kernel_init(void)
 {
+    /* 顺序与内核默认入口 kernelsrc/src/svcrt_init.c 一致：
+     * 先初始化各内核模块，再认定/启动外部映像，最后注册安装任务。
+     * （缺模块初始化或顺序颠倒会导致内核无法正常启动） */
+    svcrt_event_module_init();
+    svcrt_sync_module_init();
+    svcrt_mq_module_init();
+    svcrt_timer_module_init();
+    svcrt_fault_module_init();
+    svcrt_dev_module_init();
+    svcrt_dev_board_init();
+
+    /* 内置软定时器服务任务：须在 cfg_load 之后、调度启动之前注册 */
+    svcrt_timer_task_install();
+
+    #if (SVCRT_USE_MPU == 1)
+    svcrt_port_mpu_init();
+    #endif
+
+    /* 内核内置 LED 任务共用的互斥量 */
+    g_led_mutex = svcrt_mtx_create_internal("ledmtx");
+
+    /* ---- 分区表与外部映像 ---- */
     svcrt_ptable_init();
 
-    /* 扫描槽位：把 Flash 中已存在且校验通过的 App 镜像认定为可启动，
-     * 使“先烧录镜像、再上电运行”的最小闭环成立 */
-    /* 驱动区：先于 App 扫描并启动（驱动优先级更高，App 依赖的驱动服务应先就绪） */
+    /* 驱动区先于 App 认定并启动（驱动优先级更高，App 依赖的驱动服务应先就绪） */
     if((svcrt_loader_scan_driver() > 0u) && (DRIVER_AUTO_START != 0))
     {
         svcrt_loader_start_driver();
     }
 
+    /* App 槽位：裸镜像（开发调试）或带镜像头（安装/烧录）被认定后按策略启动 */
     if((svcrt_loader_scan() > 0u) && (APP_AUTO_START != 0))
     {
         svcrt_loader_start(0u);
@@ -358,18 +337,6 @@ static void svcrt_kernel_init(void)
 
     /* 安装任务：常驻接收镜像流，使 App 落位从“烧录器刷固件”变为“设备自己安装” */
     svcrt_installer_init();
-
-    svcrt_event_module_init();
-    svcrt_sync_module_init();
-    svcrt_dev_module_init();
-    svcrt_dev_board_init();
-
-    /* ??????????? LED ?豸д????????????????????????????????? */
-    g_led_mutex = svcrt_mtx_create_internal("ledmtx");
-
-    #if (SVCRT_USE_MPU == 1)
-    svcrt_port_mpu_init();
-    #endif
 }
 
 static void svcrt_start_idle(void)
