@@ -22,20 +22,24 @@
 
 Flash（1MB，`CHIP_FLASH_SIZE`）：
 
-| 分区 | 基址 | 大小 |
-|---|---|---|
-| KERNEL | `0x08000000` | 256 KB |
-| DRIVER_POOL | `0x08040000` | 256 KB |
-| APP_SLOT0 | `0x08080000` | 512 KB |
+| 分区 | 基址 | 大小 | 槽位 |
+|---|---|---|---|
+| KERNEL | `0x08000000` | 256 KB | — |
+| DRIVER_POOL | `0x08040000` | 256 KB | 4 × 64 KB（`DRIVER_SLOT_BASE(n)`） |
+| APP_USER | `0x08080000` | 512 KB | 4 × 128 KB（`APP_SLOT0_BASE` + n × `APP_SLOT_SIZE`） |
 
 RAM（128KB，`CHIP_RAM_SIZE`）：
 
-| 分区 | 基址 | 大小 |
-|---|---|---|
-| SHARE（分区表） | `0x20000000` | 8 KB |
-| KERNEL | `0x20002000` | 88 KB |
-| DRIVER | `0x20018000` | 16 KB |
-| APP | `0x2001C000` | 16 KB |
+| 分区 | 基址 | 大小 | 槽位 |
+|---|---|---|---|
+| SHARE（分区表） | `0x20000000` | 8 KB | — |
+| KERNEL | `0x20002000` | 56 KB | — |
+| DRIVER | `0x20010000` | 32 KB | 4 × 8 KB（`DRIVER_SLOT_RAM_BASE(n)`） |
+| APP | `0x20018000` | 32 KB | 4 × 8 KB（`APP_SLOT_RAM_BASE(n)`） |
+
+槽位数量由 `DRIVER_MAX_COUNT` / `APP_MAX_COUNT` 决定（默认 4），必须 ≤
+`SVCRT_SLOT_ARRAY_MAX`（8，见 `svcrt_share.h` 的固定数组），越界由编译期断言拦住；
+驱动池与 App 区的大小必须能被槽位数整除，同样有编译期断言。
 
 **修改芯片容量只需改 `CHIP_FLASH_SIZE` / `CHIP_RAM_SIZE`**，其余地址与 `.sct` 均由脚本推导。
 验收测试：把 `CHIP_FLASH_SIZE` 改为 2MB 后，`APP_SLOT0` 自动扩展到 1536KB，其他文件无需改动。
@@ -90,10 +94,15 @@ App 镜像进不了驱动区、驱动镜像也进不了 App 槽位（`svcrt_load
 - 镜像头 / CRC / 流式写入 / 回读复算 CRC 的逻辑抽成了公共函数
   （`svcrt_loader_stream_payload()` + `svcrt_loader_load_*_dev()`），App 与驱动**共用一套代码**，
   避免两边各自演化出“只修了一边”的 bug；
-- 差异只在目标区：驱动区是**单入口**，不做槽位分配，按 `DRIVER_POOL_SIZE` 判容量，
-  写入前整体擦除目标区间，成功后置 `driver_state = LOADED` 并记 `driver_entry`；
-- 上电扫描同理：`svcrt_loader_scan_driver()` 用 `expect_type = SVCRT_APP_TYPE_DRIVER` 调用
-  `svcrt_loader_identify()`，驱动区里放的是 App 镜像会被直接判为 `INVALID`。
+- 差异只在目标区：驱动池**按槽位管理**，与 App 侧完全同构——
+  `driver_slot_size` / `driver_max_count` / `driver_slot_state[]` / `driver_slot_entry[]` /
+  `driver_slot_task_id[]` / `driver_slot_crash_cnt[]` 与 App 的 `slot_*` 一一对应；
+  写入只擦除该槽区间，成功后置该槽 `LOADED` 并记入口，**返回值是驱动槽位号**；
+- 槽位由镜像头 `load_addr` 反查（`svcrt_loader_driver_slot_of_addr()`）：
+  它必须正好等于某个槽位基址，因此"链接地址"与"写入位置"不会错位；
+- 上电扫描同理：`svcrt_loader_scan_driver()` 遍历全部驱动槽，对每个槽用
+  `expect_type = SVCRT_APP_TYPE_DRIVER` 调用 `svcrt_loader_identify()`，
+  返回有效槽位数量；槽里放的是 App 镜像会被直接判为 `INVALID`。
 
 ### 4.1 安装任务如何分流
 
@@ -102,7 +111,7 @@ App 镜像进不了驱动区、驱动镜像也进不了 App 槽位（`svcrt_load
 
 | `hdr.type` | 目标 | 装载函数 | 成功后是否自启 |
 |---|---|---|---|
-| `SVCRT_APP_TYPE_DRIVER` | 驱动池（单入口，覆盖） | `svcrt_loader_load_driver_dev()` | 看 `DRIVER_AUTO_START` |
+| `SVCRT_APP_TYPE_DRIVER` | `load_addr` 指定的驱动槽位 | `svcrt_loader_load_driver_dev()` | 看 `DRIVER_AUTO_START`，启动的是**刚写入的那个槽** |
 | 其它（App） | 空闲 App 槽位 | `svcrt_loader_load_dev_hdr()` | 看 `INSTALLER_AUTO_START` |
 
 这一条把“装驱动”变成了与“装 App”完全同构的动作：**装什么由包本身说了算**，
@@ -127,23 +136,28 @@ App 镜像进不了驱动区、驱动镜像也进不了 App 槽位（`svcrt_load
 
 ## 5.1 栈模型：从 App 自己的 RAM 区切出（与 AnOs 一致）
 
-栈**不是**内核另外分配的缓冲区，而是从 App 自己的 RAM 区顶部切出来的：
+栈**不是**内核另外分配的缓冲区，而是从**本槽自己那块 RAM** 的顶部切出来的：
 
 ```
-stack_top    = APP_RAM_BASE + APP_RAM_SIZE
+stack_top    = APP_SLOT_RAM_BASE(n) + APP_SLOT_RAM_SIZE
 stack_bottom = stack_top - APP_TASK_STACK_SIZE
 ```
 
-- 内核侧：`svcrt_loader_start()` 按上式推导后交给 `svcrt_task_register()`，并在栈底写入哨兵字；
-- App 侧：`gen_scatter.py` 生成 `ARM_LIB_STACK 0x20020000 EMPTY -0x1000`，
+驱动槽同理：`DRIVER_SLOT_RAM_BASE(n) + DRIVER_SLOT_RAM_SIZE - DRIVER_TASK_STACK_SIZE`。
+
+- 内核侧：`svcrt_loader_start(slot)` / `svcrt_loader_start_driver_slot(slot)` 按上式推导后
+  交给 `svcrt_task_register()`，并在栈底写入哨兵字；
+- App 侧：`gen_scatter.py` 生成 `ARM_LIB_STACK <槽顶> EMPTY -0x1000`，
   即 `__main` 设置 SP 后与内核推导值**完全一致**——不存在“双份栈”，
   也因此保住了 **`.data` 拷贝 / `.bss` 清零**（不必像 AnOs 那样跳 `main` 而放弃运行时初始化）；
-- **链接期强制**：`RW_APP` 的上限已扣除栈区（`APP_RAM_SIZE - APP_TASK_STACK_SIZE`），
+- **链接期强制**：`RW_APP` 的上限已扣除栈区（`APP_SLOT_RAM_SIZE - APP_TASK_STACK_SIZE`），
   App 的 RW/ZI 一旦要撞栈，**链接阶段就失败**，不依赖开发者自觉（AnOs 是把整块 RAM 给 RW/ZI，靠约定）；
 - 驱动区同理，使用 `DRIVER_TASK_STACK_SIZE`；App/驱动均不再生成 `ARM_LIB_HEAP`（堆会与受保护的 RW 区重叠）。
+- 按槽切分之后，多个 App / 多个驱动**并存**时各自用自己的栈与 `.data/.bss`，不再互相覆盖。
 
-配套字段：注册后内核会把 TCB 的 `ram_start/ram_size/rom_start/rom_size` 修正为**整个 App 分区**，
-而不是只有栈——这是为后续 MPU 隔离预留的元数据。
+配套字段：注册后内核会把 TCB 的 `ram_start/ram_size` 修正为**该槽自己的 RAM 区间**、
+`rom_start/rom_size` 修正为**该槽的 Flash 区间**（不再是整块 App 区/驱动池）——
+这既是 MPU 按槽隔离的依据，也是"两个镜像互相看不到对方"的前提。
 
 ## 5.2 安装任务（方案A：设备自己安装）
 
@@ -285,7 +299,9 @@ python tools/pack_app.py --verify build/APP_DEMO/APP_DEMO.svcapp
 
 | 项 | 处理 |
 |---|---|
-| 任务上限 `SVCRT_TASK_MAX_NUM` | 7 → 32（工业可用的起步值）；同时新增 `SVCRT_TASK_TABLE_RAM_MAX`（8KB）编译期预算断言，扩容不再靠拍脑袋 |
+| 任务上限 `SVCRT_TASK_MAX_NUM` | 7 → 32（工业可用的起步值；下一轮再升到 48）；同时新增 `SVCRT_TASK_TABLE_RAM_MAX`（8KB）编译期预算断言，扩容不再靠拍脑袋 |
+| 任务容量入口 | 上一轮把 32 的默认值 + 8KB 预算留在 `svcrt_config.h`；本轮**移到 `config/svcrt_partition.h` 第九节**（48 / 派生预算），并与分区策略一起做编译期校验——扩容只改一处，不会再出现"改了容量忘了布局" |
+| 容量分层 | 由「一个总数」改为 **内核 + 每驱动 × 槽数 + 每 App × 槽数** 三类分层，`svcrt_task_capacity_check` 拦住装不下的配置 |
 | 注册失败静默 | 改为记录 `SVCRT_FAULT_NOSLOT`，任务表满能被上层看见 |
 | 启动流程漂移 | 抽出 `svcrt_kernel_module_init()`，弱 `main` 与板级 `main.c` 共用同一条初始化序列 |
 | `kernelsrc/app/oslib.c` | 已删除（与 `sdk/app_sdk/svcrt_oslib.c` 重复且更旧），并从内核工程摘除 |
@@ -304,7 +320,10 @@ python tools/pack_app.py --verify build/APP_DEMO/APP_DEMO.svcapp
 3. **故障围栏已完成「重启上限」一档**；尚需补：关键结构 magic/CRC 自检、独立看门狗（挡住 App 关中断/死循环）；
 4. **SVC 边界仍非零信任**：内核当前仍直接解引用用户传入的指针（`p = (uint32 *)SVCRT_SVC_ARG(...)`），
    且对象句柄是裸索引、没有归属校验。这是无 MPU 平台唯一能拿到的「软件保护域」，应作为下一步重点；
-5. 驱动区是**单入口**（同一时刻只驻留一份驱动），多驱动共存需要先扩分区策略与驱动表；
+5. 驱动区**内核侧已槽位化**（扫描 / 启动 / 停止 / 状态 / 故障计数 / 按槽切栈 / MPU 按槽隔离），
+   但**镜像侧与示例侧尚未打通**：`tools/gen_scatter.py` 缺 `--slot`、
+   `tools/pack_app.py` 的 `SLOT_MACRO` 仍写死 `APP_SLOT0` / `DRIVER_POOL`，
+   因此当前只能装 0 号槽（与旧行为等价）。多驱动 / 多 App 并存仍需先补这两处工具链；
 6. 崩溃计数尚未持久化（需板级备份寄存器或 Flash 元数据），「崩溃导致整机复位」的启动环仍挡不住；
 7. 已补一轮**符号级链接审计**（把内核/App/驱动三个工程的全部源文件编成 .o，交叉比对未定义符号）：
    内核工程只剩 HAL/C 库符号（由工程内的 HAL 源文件提供），App/驱动工程只剩 armcc 的

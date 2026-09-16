@@ -39,8 +39,8 @@ DRV_DEMO/
 `build/driver.sct`，由 MDK 的 Before Make 钩子自动执行。
 
 - 改布局 → 只改 `config/svcrt_partition.h`；
-- 驱动区是**单入口**：同一时刻只驻留一份驱动固件，重新安装会整体覆盖；
-- 驱动栈由内核按 `DRIVER_TASK_STACK_SIZE` 从 `DRIVER_RAM` 顶部切出，驱动侧不需要声明。
+- 驱动固件池现在按槽位切分（`DRIVER_MAX_COUNT`，默认 4 槽），每个槽位独立擦写、互不覆盖；但 `tools/gen_scatter.py` 与 `tools/pack_app.py` **尚未支持指定槽位**，所以当前实际只能用 0 号槽，本示例即链接到 0 号槽；
+- 驱动栈由内核按 `DRIVER_TASK_STACK_SIZE` 从**本驱动槽自己的 RAM 顶部**切出，驱动侧不需要声明。多槽并存时每个槽各占一块 RAM，栈不会互相覆盖。
 
 ## 编译步骤
 

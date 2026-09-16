@@ -62,7 +62,7 @@ SVCrtOS 是一个面向ARM Cortex-M系列MCU的实时操作系统，核心特性
 
 ```c
 #define SVCRT_CPU_ARCH         SVCRT_ARCH_CORTEX_M4
-#define SVCRT_TASK_MAX_NUM     (32)   /* 工业建议 ≥32；并受 SVCRT_TASK_TABLE_RAM_MAX 预算约束 */
+/* SVCRT_TASK_MAX_NUM 不在本文件定义，见 config/svcrt_partition.h（默认 48） */
 #define SVCRT_TICK_PERIOD_US   (500)
 #define SVCRT_EVENT_NUM        (10)
 ```
@@ -391,7 +391,8 @@ int32 count = svcrt_drv_get_count();
 #define SVCRT_USE_PRIV            1    // 特权分离
 
 // 调度器参数
-#define SVCRT_TASK_MAX_NUM        (7)   // 最大任务数
+// 注：SVCRT_TASK_MAX_NUM / SVCRT_TASK_TABLE_RAM_MAX 已移到 config/svcrt_partition.h
+#define SVCRT_TASK_MAX_NUM        (48)  // 任务表总容量（默认值，可在板级覆盖）
 #define SVCRT_TICK_PERIOD_US      (500) // 滴答周期(微秒)
 #define SVCRT_EVENT_NUM           (10)  // 最大事件数
 #define SVCRT_MAX_EVENT_WAITERS   (4)   // 每事件最大等待者
@@ -414,7 +415,7 @@ int32 count = svcrt_drv_get_count();
 
 ```c
 #define SVCRT_CPU_ARCH         SVCRT_ARCH_CORTEX_M3
-#define SVCRT_TASK_MAX_NUM     (3)
+#define SVCRT_TASK_MAX_NUM     (16)   // 必须 >= SVCRT_TASK_NEED_MIN，否则编译失败
 #define SVCRT_TICK_PERIOD_US   (1000)
 #define SVCRT_EVENT_NUM        (4)
 #define SVCRT_MAX_EVENT_WAITERS (2)

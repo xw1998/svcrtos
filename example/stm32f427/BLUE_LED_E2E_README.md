@@ -49,8 +49,12 @@ example/stm32f427/
 | 固件 | 所在分区 | 由谁加载 |
 |------|----------|----------|
 | 内核 | KERNEL | 复位向量直接运行 |
-| BLED_DRV | DRIVER_POOL（单入口） | 内核启动扫描 / 安装任务 |
-| BLED_APP | APP 槽位 0 | 内核启动扫描 / 安装任务 |
+| BLED_DRV | DRIVER_POOL 槽位 0 | 内核启动扫描 / 安装任务 |
+| BLED_APP | APP_USER 槽位 0 | 内核启动扫描 / 安装任务 |
+
+> 内核侧已按槽位寻址（`DRIVER_MAX_COUNT` / `APP_MAX_COUNT`，默认各 4 槽），
+> 但 `tools/gen_scatter.py` 尚未支持 `--slot`，`tools/pack_app.py` 的槽位宏也写死在 0 号槽，
+> 所以**当前实际只能使用 0 号驱动槽和 0 号 App 槽**，本示例即运行在 0 号槽。
 
 内核在启动时对驱动池与各 App 槽位做**镜像识别**（`svcrt_loader_scan` /
 `svcrt_loader_scan_driver`），识别方式二选一：
@@ -133,9 +137,9 @@ do {
 
 ### 4. 故障围栏（本示例也能受益）
 
-内核为每个 App 槽位与驱动区维护故障计数，连续崩溃达到
+内核为每个 App 槽位与每个驱动槽位维护故障计数，连续崩溃达到
 `APP_CRASH_RESTART_MAX`（默认 3）次后禁用该镜像，避免"崩溃 → 重启 → 再崩溃"死循环。
-驱动崩溃同样受 `driver_crash_cnt` 保护。
+驱动崩溃同样受每槽的 `driver_crash_cnt` 保护（计数按槽位独立）。
 
 ## 编译与烧录
 

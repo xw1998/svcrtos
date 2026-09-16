@@ -315,8 +315,8 @@ svcrt_dev_write(h, &on, 1);            /* 点亮蓝灯 */
 | `SVCRT_USE_FPU` | 由架构派生，本板 1 | 浮点单元使能 |
 | `SVCRT_USE_MPU` | 由架构派生，本板 0 | MPU 内存保护使能（**未接线**，见 `kernelsrc/src/svcrt_mpu.c` 的 @warning） |
 | `SVCRT_USE_PRIV` | 依赖 `SVCRT_USE_MPU`，本板 0 | 特权级分离使能 |
-| `SVCRT_TASK_MAX_NUM` | 32 | 最大任务数量（受下一行 RAM 预算约束） |
-| `SVCRT_TASK_TABLE_RAM_MAX` | 8192 | TCB 数组的 RAM 预算上限（字节，超出则编译报错） |
+| `SVCRT_TASK_MAX_NUM` | 48 | 任务表总容量（静态 TCB 数组元素个数）。默认值已**移到 `config/svcrt_partition.h` 第九节**，与分区策略同源，见下文「任务容量分层」 |
+| `SVCRT_TASK_TABLE_RAM_MAX` | 6144 | TCB 数组的 RAM 预算上限（字节），由 `SVCRT_TASK_MAX_NUM × 128` 派生；超出则编译报错 |
 | `SVCRT_TICK_PERIOD_US` | 500 | 滴答周期（微秒） |
 | `SVCRT_EVENT_NUM` | 10 | 事件对象数量 |
 | `SVCRT_MAX_EVENT_WAITERS` | 4 | 单个事件的等待者上限 |
@@ -355,8 +355,47 @@ svcrt_dev_write(h, &on, 1);            /* 点亮蓝灯 */
 | `APP_ALLOW_RAW_IMAGE` | 0 | 只认带镜像头的 `.svcapp`。本板在 `board/stm32f427/svcrt_board_config.h` 里显式置 1，保住"固定地址烧录 + MDK 下断点调试"的旁路 |
 | `APP_CRASH_RESTART_MAX` | 3 | App/驱动连续故障重启上限，达到即禁用；0 = 不限次 |
 | `INSTALLER_ENABLE` | 1 | 内核内安装任务（占用 COM1）；不用串口安装时置 0 |
+| `DRIVER_MAX_COUNT` / `APP_MAX_COUNT` | 4 / 4 | 驱动与 App 的槽位数量，驱动池与 App 区按此等分。两者都必须 ≤ `SVCRT_SLOT_ARRAY_MAX`（8，见 `svcrt_share.h` 的固定数组），越界由编译期断言拦住 |
+| `DRIVER_TASK_STACK_SIZE` / `APP_TASK_STACK_SIZE` | 1K / 4K | 驱动 / App 任务栈，从**各自槽位那块 RAM** 的顶部切出 |
 
 > 注意：Loader / App 工程**禁止** `#include "svcrt_partition.h"`，布局在运行期经 SVC 0x18 获取。
+
+### 任务容量分层（扩容入口）
+
+任务表是一块静态 TCB 数组，容量在编译期定死。为了让「很多用户驱动 + 很多用户应用」
+的场景可以直接扩到大规模，容量按**内核 / 驱动 / 应用**三类分层，全部集中在
+`config/svcrt_partition.h` 第九节（与 Flash/RAM 布局同一个文件，避免改一处忘另一处）：
+
+| 宏 | 默认值 | 说明 |
+|----|----|----|
+| `SVCRT_TASK_MAX_NUM` | 48 | 任务表总容量，扩规模只改这个数字 |
+| `SVCRT_TASK_MAX_KERNEL` | 8 | 内核自带任务 + 示例静态任务的预留 |
+| `SVCRT_TASK_PER_DRIVER` | 1 | 每个驱动镜像占用的任务数 |
+| `SVCRT_TASK_PER_APP` | 1 | 每个 App 镜像占用的任务数 |
+| `SVCRT_TASK_NEED_MIN` | 派生 | `内核 + 槽位数 × 每槽任务数` 之和，即分区策略要求的最小容量 |
+| `SVCRT_TASK_TABLE_RAM_MAX` | 派生 | `SVCRT_TASK_MAX_NUM × 128`，TCB 数组的 RAM 预算 |
+
+编译期断言 `svcrt_task_capacity_check` 会拦住「容量装不下当前槽位策略」的配置；
+`svcrt_cfg.c` 的 `svcrt_task_table_ram_check` 再拦一道 RAM 预算。
+
+`svcrt_config.h` 不再自带这两个宏的默认值，而是 `#include "svcrt_partition.h"`；
+板级配置仍然优先（分区头里的定义用 `#ifndef` 包裹，且板级配置先于它加载）。
+
+### 槽位与 ABI 版本
+
+驱动池与 App 区各自等分为多个槽位，一个镜像占一个槽位：
+
+| 项 | 值 | 说明 |
+|----|----|----|
+| 驱动槽 | 4 × 64 KB | `DRIVER_SLOT_BASE(n)` / `DRIVER_SLOT_SIZE`；RAM `DRIVER_SLOT_RAM_BASE(n)`（4 × 8 KB） |
+| App 槽 | 4 × 128 KB | `APP_SLOT0_BASE` / `APP_SLOT_SIZE`；RAM `APP_SLOT_RAM_BASE(n)`（4 × 8 KB） |
+| 共享内存 ABI | `SVCRT_PARTITION_VERSION` = **2** | 驱动区状态由「单槽四个平铺字段」改为与 App 同构的槽位数组，结构尺寸与偏移都变了 |
+| 硬件兼容签名 | `SVCRT_HW_COMPAT_ID` = **`0x42700002`** | 低 16 位即 ABI 版本；旧镜像会被兼容校验拦下，必须重新打包 |
+
+> **ABI v2 影响**：升级到本版本后，此前打包的 `.svcapp`（驱动 / App）都会被
+> `SVCRT_LOADER_ERR_COMPAT` 拒绝，需要重新打包。单驱动 / 单 App（都落在 0 号槽）
+> 的路径依旧可用，因为 `DRIVER_SLOT_BASE(0) == DRIVER_POOL_BASE`、
+> `APP_SLOT0_BASE == APP_USER_BASE`。
 
 ## API 文档
 
@@ -422,6 +461,14 @@ SVCrtOS 可移植到任何 ARM Cortex-M MCU，只需在 `board/` 目录下创建
 2. 外部固件启动汇编必须经 C 库入口 `__main` 完成 `.data` 拷贝、`.bss` 清零，否则驱动接口函数指针表为随机值导致 HardFault
 3. 内核、各固件的 ROM/RAM 分区地址必须互不重叠
 
+> **多槽位当前进度（不要按已完成使用）**：内核侧已完整支持多槽位——分区按槽等分、
+> 分区表 ABI v2 槽位数组化、`svcrt_loader_scan_driver()` 遍历全部驱动槽、
+> `start/stop/state_driver_slot()`、`on_fault()` 按驱动槽累计崩溃次数、
+> MPU 窗口按槽计算、App 与驱动任务的栈各取自己槽位的 RAM 顶部。
+> 但**镜像侧与示例侧尚未跟上**：`tools/gen_scatter.py` 还没有 `--slot`、
+> `tools/pack_app.py` 的槽位宏仍写死 0 号槽，因此实际仍只能装到 0 号槽。
+> 详见 [Loader 工程化落地说明](docs/Loader工程化落地说明.md) 的「未闭环项」。
+
 ## 启动流程
 
 ```
@@ -462,10 +509,20 @@ SVCrtOS 采用统一的命名规范，参考 FreeRTOS / RT-Thread 风格：
 
 ## 验证状态
 
-当前仓库的改动只验证到两层证据：**AC6 `armclang -fsyntax-only` 语法校验** +
-**Keil UV4 全量重建（内核 + 4 个示例工程，0 Error / 0 Warning）**。
+已验证到两层证据：**Keil UV4 全量重建**（内核 + 示例工程，0 Error）+ **F429 真机**。
 
-**所有改动尚未上板**：MPU 隔离、故障恢复的"连续重启 3 次禁用"、串口安装的 256B
-契约、HAL 毫秒时基的补 tick 精度，都还需要在真实硬件上跑一遍才算闭环。
+真机上已闭环的部分：
+
+- PendSV 按目标任务的 `EXC_RETURN` 返回、两级软件帧布局与 `svcrt_port_stack_init()`
+  一致——`led_blink_task` / `AppMain` 断点均能命中，6 个任务都有真实栈用量
+- App 灭灯写 `len = 0`（`led_drv_write` 按 len 判定，写 1 会把灯钉死常亮）
+- DAP 烧录闭环（`BIN\CMSIS_AGDI.dll`），内核 / App 工程都有 DAP 配置
+
+**本轮的多槽位改造只做到编译验证**：内核 / `BLED_DRV` / `APP_DEMO` 三个工程
+全量重建 0 Error（内核剩 1 条既有的 `svcrt_context.S` padding 警告），
+槽位切分、驱动多槽扫描、按槽切栈、ABI v2 抖动**都还没有上板跑过**。
+
+仍未上板验证的项：MPU 隔离、故障恢复的「连续重启 3 次禁用」、串口安装的 256B
+契约、HAL 毫秒时基的补 tick 精度。
 已知未闭环项与每一轮的改动记录见
 [死代码与未接线审计](docs/死代码与未接线审计.md)。

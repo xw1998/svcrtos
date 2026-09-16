@@ -109,7 +109,7 @@ typedef signed   char  int8;
 | `SVCRT_USE_FPU` | 1 | FPU 浮点单元使能 |
 | `SVCRT_USE_MPU` | 1 | MPU 内存保护使能 |
 | `SVCRT_USE_PRIV` | 依赖 MPU | 特权级分离使能 |
-| `SVCRT_TASK_MAX_NUM` | 7 | 最大任务数 |
+| `SVCRT_TASK_MAX_NUM` | 48 | 任务表总容量（静态 TCB 数组元素个数），定义在 `config/svcrt_partition.h` |
 | `SVCRT_TICK_PERIOD_US` | 500 | 系统节拍周期（微秒） |
 | `SVCRT_EVENT_NUM` | 10 | 事件对象数量 |
 | `SVCRT_MAX_EVENT_WAITERS` | 4 | 单个事件最大等待者数 |
@@ -897,9 +897,14 @@ python tools/gen_scatter.py --dump     # 打印各分区基址/大小
 python tools/gen_scatter.py --check    # 校验无重叠、无越界
 ```
 
+Flash 从低到高的分区顺序是：`KERNEL` → `DRIVER_POOL` → `APP_USER`。
+`DRIVER_POOL` 内部按 `DRIVER_SLOT_SIZE` 均分为 `DRIVER_MAX_COUNT` 个驱动槽位，
+`APP_USER` 内部按 `APP_SLOT_SIZE` 均分为 `APP_MAX_COUNT` 个 App 槽位（默认各 4 个）。
+
 RAM 从低到高的分区顺序是：
 `SHARE_RAM`（分区表 + 内核/用户数据交换）→ `KERNEL_RAM` → `DRIVER_RAM` → `APP_RAM`；
-每个固件区内部再切出自己的栈（App 栈从 `APP_RAM` 顶部切、驱动栈从 `DRIVER_RAM` 顶部切），
+`DRIVER_RAM` / `APP_RAM` 同样按槽位均分（`DRIVER_SLOT_RAM_SIZE` / `APP_SLOT_RAM_SIZE`），
+每个槽位内部再切出自己的栈（App 栈从本槽 RAM 顶部切、驱动栈从本槽 RAM 顶部切），
 且链接期的 RW 上限已扣除栈区，撞栈会在链接期而不是运行期暴露。
 
 ```
@@ -925,6 +930,15 @@ RAM 从低到高的分区顺序是：
 #define SVCRT_USE_PRIV         0
 #define SVCRT_USE_CPU_LOAD     0
 #define SVCRT_USE_STACK_CHECK  0
-#define SVCRT_TASK_MAX_NUM     (3)
+#define SVCRT_TASK_MAX_NUM     (16)   /* 不得小于 SVCRT_TASK_NEED_MIN */
 #define SVCRT_TICK_PERIOD_US   (1000)
 ```
+
+> **容量下限（写小于 16 的值会编译失败）**：`config/svcrt_partition.h` 里的
+> `svcrt_task_capacity_check` 断言要求 `SVCRT_TASK_MAX_NUM >= SVCRT_TASK_NEED_MIN`。
+> `SVCRT_TASK_NEED_MIN` = `SVCRT_TASK_MAX_KERNEL` + `DRIVER_MAX_COUNT`×`SVCRT_TASK_PER_DRIVER`
+> + `APP_MAX_COUNT`×`SVCRT_TASK_PER_APP`，默认（8 / 4×1 / 4×1）结果为 16。
+> 要压到 16 以下，必须同时调小 `DRIVER_MAX_COUNT`、`APP_MAX_COUNT`
+> 或 `SVCRT_TASK_MAX_KERNEL`，只改 `SVCRT_TASK_MAX_NUM` 不够。
+> 另外静态 TCB 数组的 RAM 占用是 `SVCRT_TASK_MAX_NUM × 128` 字节
+> （默认 48 槽即 6144 字节，由 `SVCRT_TASK_TABLE_RAM_MAX` 约束）。

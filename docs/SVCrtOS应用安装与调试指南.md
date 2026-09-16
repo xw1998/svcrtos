@@ -29,17 +29,33 @@
 | 分区 | 地址范围 | 大小 | 内容 |
 |---|---|---|---|
 | KERNEL | `0x08000000 ~ 0x0803FFFF` | 256 KB | 内核（含安装任务） |
-| DRIVER_POOL | `0x08040000 ~ 0x0807FFFF` | 256 KB | 驱动固件 |
-| APP_SLOT0 | `0x08080000 ~ 0x080FFFFF` | 512 KB | App 镜像 |
+| DRIVER_POOL | `0x08040000 ~ 0x0807FFFF` | 256 KB | 驱动固件池（4 × 64 KB 槽位） |
+| ├ DRIVER_SLOT0 | `0x08040000 ~ 0x0804FFFF` | 64 KB | 驱动槽 0 |
+| ├ DRIVER_SLOT1 | `0x08050000 ~ 0x0805FFFF` | 64 KB | 驱动槽 1 |
+| ├ DRIVER_SLOT2 | `0x08060000 ~ 0x0806FFFF` | 64 KB | 驱动槽 2 |
+| └ DRIVER_SLOT3 | `0x08070000 ~ 0x0807FFFF` | 64 KB | 驱动槽 3 |
+| APP_USER | `0x08080000 ~ 0x080FFFFF` | 512 KB | App 区（4 × 128 KB 槽位） |
+| ├ APP_SLOT0 | `0x08080000 ~ 0x0809FFFF` | 128 KB | App 槽 0 |
+| ├ APP_SLOT1 | `0x080A0000 ~ 0x080BFFFF` | 128 KB | App 槽 1 |
+| ├ APP_SLOT2 | `0x080C0000 ~ 0x080DFFFF` | 128 KB | App 槽 2 |
+| └ APP_SLOT3 | `0x080E0000 ~ 0x080FFFFF` | 128 KB | App 槽 3 |
+
+驱动槽与 App 槽的数量由 `DRIVER_MAX_COUNT` / `APP_MAX_COUNT` 决定（默认 4），
+槽大小由池大小整除得到（`DRIVER_SLOT_BASE(n)` / `APP_SLOT_RAM_BASE(n)`）。
 
 **RAM（128 KB @ `0x20000000`）**
 
 | 分区 | 地址范围 | 大小 | 用途 |
 |---|---|---|---|
 | SHARE_RAM | `0x20000000 ~ 0x20001FFF` | 8 KB | 分区表 |
-| KERNEL_RAM | `0x20002000 ~ 0x20017FFF` | 88 KB | 内核数据 / 内核任务栈 |
-| DRIVER_RAM | `0x20018000 ~ 0x2001BFFF` | 16 KB | 驱动 `.data/.bss` + 驱动栈 |
-| APP_RAM | `0x2001C000 ~ 0x2001FFFF` | 16 KB | App `.data/.bss` + App 栈 |
+| KERNEL_RAM | `0x20002000 ~ 0x2000FFFF` | 56 KB | 内核数据 / 内核任务栈 |
+| DRIVER_RAM | `0x20010000 ~ 0x20017FFF` | 32 KB | 驱动 RAM（4 × 8 KB 槽位） |
+| ├ DRIVER_RAM0~3 | 每槽 8 KB 依次排列 | | 各驱动槽的 `.data/.bss` + 栈 |
+| APP_RAM | `0x20018000 ~ 0x2001FFFF` | 32 KB | App RAM（4 × 8 KB 槽位） |
+| └ APP_RAM0~3 | 每槽 8 KB 依次排列 | | 各 App 槽的 `.data/.bss` + 栈 |
+
+`KERNEL_RAM_SIZE` 是"128 KB 减掉 SHARE + DRIVER + APP"的余数，**不是 2 的幂**，
+因此内核任务的 MPU RAM 窗口会退化成整块芯片 RAM（内核任务是可信代码，不影响隔离语义）。
 
 > **改芯片容量只需改 `CHIP_FLASH_SIZE` / `CHIP_RAM_SIZE`**，其余地址与所有 `.sct` 自动重算。
 
@@ -47,8 +63,11 @@
 
 | 映像 | RW/ZI 可用范围 | 栈顶 | 栈大小 |
 |---|---|---|---|
-| App | `0x2001C000` + 12 KB | `0x20020000` | 4 KB（`APP_TASK_STACK_SIZE`） |
-| 驱动 | `0x20018000` + 15 KB | `0x2001C000` | 1 KB（`DRIVER_TASK_STACK_SIZE`） |
+| App 槽 n | `APP_SLOT_RAM_BASE(n)` + (8 KB − 4 KB) | `APP_SLOT_RAM_BASE(n)` + 8 KB | 4 KB（`APP_TASK_STACK_SIZE`） |
+| 驱动槽 n | `DRIVER_SLOT_RAM_BASE(n)` + (8 KB − 1 KB) | `DRIVER_SLOT_RAM_BASE(n)` + 8 KB | 1 KB（`DRIVER_TASK_STACK_SIZE`） |
+
+以 0 号槽为例：App 栈顶 `0x2001A000`、驱动栈顶 `0x20012000`。
+每个槽用**自己那块 RAM**，多个镜像并存时不会互相覆盖栈。
 
 - 栈从各自 RAM 区**顶部**切出，**RW/ZI 的上限已扣掉栈区**——RW 一旦要撞栈，**链接阶段就报错**。
 - App 侧 `.sct` 里的 `ARM_LIB_STACK` 指向的正是内核推导的同一个栈顶，
@@ -216,11 +235,21 @@ int32  r   = svcrt_app_stop(0);    /* 停止（镜像保留在 Flash） */
 int32  d   = svcrt_driver_load(dev, image_len);  /* 从设备装驱动到驱动区 */
 ```
 
-驱动区是**单入口**：同一时刻只驻留一份驱动，重新安装会整体覆盖。
-旧驱动还在运行时，内核会先把它踢出调度再擦除，不会“擦掉正在跑的代码”；
-安装成功后 `driver_state` 变 `LOADED`、`driver_entry` 指向新入口，
-并按 `DRIVER_AUTO_START` 决定是否立即（重）启动驱动任务。
+驱动区**按槽位管理**（内核侧已支持 `DRIVER_MAX_COUNT` 个槽位）：
+`svcrt_driver_load()` 的成功返回值是**驱动槽位号**（>= 0），不再是 0/负值二态。
+镜像头的 `load_addr` 必须等于某个驱动槽位基址，内核据此决定写哪个槽——
+这也顺带保证了"链接地址"与"实际写入位置"一致，不会把镜像写到一个它并不打算运行的槽位上。
+写入只擦除该槽区间，其它槽的驱动不受影响。
+
+旧驱动还在运行时，内核会先把它踢出调度再擦除，不会"擦掉正在跑的代码"；
+安装成功后该槽的 `driver_slot_state` 变 `LOADED`、`driver_slot_entry` 指向新入口，
+并按 `DRIVER_AUTO_START` 决定是否立即（重）启动该槽的驱动任务。
 （例外：旧驱动自己经 SVC 发起自安装会被拒绝——SVC 返回后会跳回已擦除的代码。）
+
+> **当前实际可用范围**：镜像侧还没跟上。`tools/gen_scatter.py` 尚无 `--slot`、
+> `tools/pack_app.py` 的槽位宏仍写死 0 号槽，所以现在只能把驱动装到 0 号槽
+> （`DRIVER_SLOT_BASE(0) == DRIVER_POOL_BASE`，与旧行为等价）。
+> 多驱动并存要等 `--slot` 支持落地。
 
 
 ### 3.5 掉电/中断会怎样
@@ -394,9 +423,16 @@ python tools/gen_scatter.py --target all --output build
 1. **镜像签名校验**——`signature[64]` 是占位字段，还没有信任链
 2. **崩溃计数持久化**——挡住"崩溃导致整机复位"的启动环（建议用 RTC 备份寄存器）
 3. **槽位元数据持久化**——版本号、升级/回滚目前无法跨掉电保留
-4. **多槽位 / A-B 回滚**——当前 `APP_MAX_COUNT = 1`，单区间最小闭环
-5. **多驱动共存**——驱动区是单入口，同一时刻只驻留一份驱动
+4. **A-B 回滚**——槽位已按 `APP_MAX_COUNT` 等分（默认 4），但还没有升级/回滚策略
+5. **多驱动 / 多 App 实际装载**——内核侧已支持多槽位（扫描、启动、停止、状态、
+   故障计数、按槽切栈、MPU 按槽隔离都已就位），但 `tools/gen_scatter.py` 缺
+   `--slot`、`tools/pack_app.py` 槽位宏写死 0 号槽，镜像侧尚未打通
 6. **SVC 边界零信任**——用户传入的裸指针尚未做范围校验，句柄也还是裸索引
 
 > 本轮已补齐：驱动区的流式安装（`svcrt_driver_load` / SVC 0x18 子命令 6 /
-> 安装任务按 `type` 自动分流）、任务上限 7→32、内核模块初始化统一入口。
+> 安装任务按 `type` 自动分流）、内核模块初始化统一入口。
+>
+> 后续一轮把**任务容量改成分层宏**（`SVCRT_TASK_MAX_NUM` 32→48，与分区策略
+> 同源，见 `config/svcrt_partition.h` 第九节）并完成**内核侧驱动/App 多槽位**改造，
+> 同时把共享内存分区表升到 **ABI v2**（`version` 2、`SVCRT_HW_COMPAT_ID`
+> `0x42700002`）——**旧 `.svcapp` 会被兼容校验拒绝，需重新打包**。

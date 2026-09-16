@@ -38,7 +38,8 @@ APP_DEMO/
 - 运行期想查询自己的分区信息，用 SDK 的 `svcrt_app_status()` / 内核分区表接口，不要猜地址。
 
 应用栈同样由内核在启动应用任务时按 `config/svcrt_partition.h` 的
-`APP_TASK_STACK_SIZE` 推导，应用侧不需要（也不应该）自己声明栈区间。
+`APP_TASK_STACK_SIZE` 推导（栈顶取自**本应用槽位自己的 RAM 顶部**），
+应用侧不需要（也不应该）自己声明栈区间。
 
 ## 编译步骤
 

@@ -8,13 +8,14 @@
 - [kernelsrc/include/svcrt.h](#kernelsrcincludesvcrth)（46 项）
 - [kernelsrc/include/svcrt_app_image.h](#kernelsrcincludesvcrt_app_imageh)（6 项）
 - [kernelsrc/include/svcrt_cfg.h](#kernelsrcincludesvcrt_cfgh)（1 项）
-- [kernelsrc/include/svcrt_hal.h](#kernelsrcincludesvcrt_halh)（24 项）
+- [kernelsrc/include/svcrt_hal.h](#kernelsrcincludesvcrt_halh)（25 项）
 - [kernelsrc/include/svcrt_init.h](#kernelsrcincludesvcrt_inith)（1 项）
 - [kernelsrc/include/svcrt_installer.h](#kernelsrcincludesvcrt_installerh)（1 项）
-- [kernelsrc/include/svcrt_loader.h](#kernelsrcincludesvcrt_loaderh)（12 项）
-- [kernelsrc/include/svcrt_ptable.h](#kernelsrcincludesvcrt_ptableh)（4 项）
-- [kernelsrc/include/svcrt_share.h](#kernelsrcincludesvcrt_shareh)（4 项）
+- [kernelsrc/include/svcrt_loader.h](#kernelsrcincludesvcrt_loaderh)（15 项）
+- [kernelsrc/include/svcrt_ptable.h](#kernelsrcincludesvcrt_ptableh)（7 项）
+- [kernelsrc/include/svcrt_share.h](#kernelsrcincludesvcrt_shareh)（5 项）
 - [kernelsrc/include/svcrt_spin.h](#kernelsrcincludesvcrt_spinh)（10 项）
+- [kernelsrc/include/svcrt_svc_call.h](#kernelsrcincludesvcrt_svc_callh)（10 项）
 - [kernelsrc/include/svcrt_task.h](#kernelsrcincludesvcrt_taskh)（3 项）
 - [kernelsrc/port/arm/cortex-m3/svcrt_port.c](#kernelsrcportarmcortex-m3svcrt_portc)（7 项）
 - [kernelsrc/port/arm/cortex-m4/svcrt_port.c](#kernelsrcportarmcortex-m4svcrt_portc)（7 项）
@@ -521,9 +522,9 @@ int32  svcrt_driver_load(int32 dev, uint32 image_len);
 **从设备安装驱动镜像到驱动区**
 - `dev`：已打开的设备句柄（数据从镜像头开始）
 - `image_len`：期望镜像总长（含头），传 0 表示由镜像头决定
-**返回**：0=成功，负值为错误码（见 svcrt_loader.h）
+**返回**：成功返回驱动槽位号（>=0），负值为错误码（见 svcrt_loader.h）
 > 说明：镜像头的 type 必须为驱动（SVCRT_APP_TYPE_DRIVER）；
-驱动区为单入口，写入前会整体擦除目标区间。
+镜像头的 load_addr 必须等于某个驱动槽位基址，写入前只擦除该槽区间。
 
 ## kernelsrc/include/svcrt_app_image.h
 
@@ -752,6 +753,17 @@ void svcrt_port_enter_idle(uint32 stack_ptr, uint32 use_priv);
 - `psp`：空闲任务栈顶地址
 - `use_priv`：是否使用特权分离模式
 
+### `void   svcrt_port_switch_enable(void);`
+
+```c
+void   svcrt_port_switch_enable(void);
+```
+
+**Enable task switching and request the first switch**
+Must be called after svcrt_port_enter_idle() (CPU on PSP) and
+svcrt_port_start_timer(). Switching requests issued before this
+call are ignored on purpose.
+
 ### `uint32 svcrt_port_get_system_clock(void);`
 
 ```c
@@ -953,9 +965,22 @@ uint32 svcrt_loader_scan(void);
 uint32 svcrt_loader_scan_driver(void);
 ```
 
-**扫描驱动区（DRIVER_POOL），认定其中的驱动镜像**
-**返回**：1=驱动镜像有效且可启动，0=无有效驱动
+**扫描全部驱动槽位，认定其中的驱动镜像**
+**返回**：有效（可启动）的驱动槽位数量，0=无有效驱动
+驱动池被等分为 driver_max_count 个槽位，逐个扫描。
 与 App 槽位共用同一套认定规则：带头的 .svcapp 或开发期裸镜像。
+
+### `int32 svcrt_loader_start_driver_slot(uint32 slot);`
+
+```c
+int32 svcrt_loader_start_driver_slot(uint32 slot);
+```
+
+**启动指定驱动槽位的驱动**
+- `slot`：驱动槽位号（0 ~ driver_max_count-1）
+**返回**：成功返回任务号（>0），失败返回 SVCRT_LOADER_ERR_x
+栈从本槽自己的驱动 RAM 顶部切出（与 App 同一套路），
+参数取 DRIVER_TASK_PRIORITY / STACK_SIZE / PERIOD_MS。
 
 ### `int32 svcrt_loader_start_driver(void);`
 
@@ -963,10 +988,28 @@ uint32 svcrt_loader_scan_driver(void);
 int32 svcrt_loader_start_driver(void);
 ```
 
-**启动驱动区的驱动（单驱动：DRIVER_POOL 内一个入口）**
+**启动驱动区的驱动（兼容包装：等价于启动 0 号驱动槽）**
 **返回**：成功返回任务号（>0），失败返回 SVCRT_LOADER_ERR_x
-栈从 DRIVER_RAM 区顶部切出（与 App 同一套路），
-参数取 DRIVER_TASK_PRIORITY / STACK_SIZE / PERIOD_MS。
+
+### `int32 svcrt_loader_stop_driver_slot(uint32 slot);`
+
+```c
+int32 svcrt_loader_stop_driver_slot(uint32 slot);
+```
+
+**停止指定驱动槽位的任务（镜像仍保留在 Flash）**
+- `slot`：驱动槽位号
+**返回**：0=成功，负值为 SVCRT_LOADER_ERR_x
+
+### `uint32 svcrt_loader_state_driver(uint32 slot);`
+
+```c
+uint32 svcrt_loader_state_driver(uint32 slot);
+```
+
+**查询驱动槽位状态**
+- `slot`：驱动槽位号
+**返回**：SVCRT_APP_SLOT_x；槽位非法返回 0xffffffff
 
 ### `int32 svcrt_loader_load_dev_hdr(int32 dev, const svcrt_app_header_t *p`
 
@@ -991,9 +1034,9 @@ int32 svcrt_loader_load_driver(int32 dev, uint32 image_len);
 **从设备安装驱动镜像（自行读头）**
 - `dev`：已打开的设备句柄，位置在镜像头之前
 - `image_len`：期望镜像总长（含头），传 0 表示由镜像头决定
-**返回**：成功返回 0，失败返回 SVCRT_LOADER_ERR_x
-> 说明：镜像头的 type 必须为 SVCRT_APP_TYPE_DRIVER；驱动区为单入口，
-写入前会整体擦除目标区间。
+**返回**：成功返回驱动槽位号（>=0），失败返回 SVCRT_LOADER_ERR_x
+> 说明：镜像头的 type 必须为 SVCRT_APP_TYPE_DRIVER；镜像头 load_addr
+必须等于某个驱动槽位基址，写入前会擦除该槽区间。
 
 ### `int32 svcrt_loader_load_driver_dev(int32 dev, const svcrt_app_header_t`
 
@@ -1002,7 +1045,7 @@ int32 svcrt_loader_load_driver_dev(int32 dev, const svcrt_app_header_t *p_hdr, u
 ```
 
 **从设备安装驱动镜像（镜像头已由调用方读出）**
-**返回**：成功返回 0，失败返回 SVCRT_LOADER_ERR_x
+**返回**：成功返回驱动槽位号（>=0），失败返回 SVCRT_LOADER_ERR_x
 
 ### `int32 svcrt_loader_on_fault(int32 task_id);`
 
@@ -1100,6 +1143,49 @@ int32 svcrt_ptable_set_slot(uint32 slot, uint32 state, uint32 entry, uint32 task
 - `entry`：入口地址（直接赋值，清空槽位时传 0）
 - `task_id`：任务号（直接赋值，未启动时传 0）
 **返回**：0=成功，-1=槽位非法
+> 说明：三个字段在自旋锁保护下作为一组更新：故障处理路径（可能运行在异常
+上下文）与安装任务都可能同时改写同一个槽位，否则读者会看到
+state/entry/task_id 互相不匹配的中间态。
+
+### `int32 svcrt_ptable_get_slot(uint32 slot, uint32 *p_state, uint32 *p_en`
+
+```c
+int32 svcrt_ptable_get_slot(uint32 slot, uint32 *p_state, uint32 *p_entry, uint32 *p_task_id);
+```
+
+**原子读取一个槽位的状态三元组**
+- `slot`：槽位号
+- `p_state`：输出状态（可为 0）
+- `p_entry`：输出入口地址（可为 0）
+- `p_task_id`：输出任务号（可为 0）
+**返回**：0=成功，-1=槽位非法
+
+### `int32 svcrt_ptable_set_driver_slot(uint32 slot, uint32 state, uint32 e`
+
+```c
+int32 svcrt_ptable_set_driver_slot(uint32 slot, uint32 state, uint32 entry, uint32 task_id);
+```
+
+**更新驱动槽位运行期状态**
+- `slot`：驱动槽位号（0 ~ driver_max_count-1）
+- `state`：SVCRT_APP_SLOT_x
+- `entry`：驱动入口地址（清空槽位时传 0）
+- `task_id`：驱动任务号（未启动时传 0）
+**返回**：0=成功，-1=槽位非法
+> 说明：与 App 槽位共用一把自旋锁，保证三元组原子更新。
+
+### `int32 svcrt_ptable_get_driver_slot(uint32 slot, uint32 *p_state, uint3`
+
+```c
+int32 svcrt_ptable_get_driver_slot(uint32 slot, uint32 *p_state, uint32 *p_entry, uint32 *p_task_id);
+```
+
+**原子读取一个驱动槽位的状态三元组**
+- `slot`：驱动槽位号
+- `p_state`：输出状态（可为 0）
+- `p_entry`：输出入口地址（可为 0）
+- `p_task_id`：输出任务号（可为 0）
+**返回**：0=成功，-1=槽位非法
 
 ## kernelsrc/include/svcrt_share.h
 
@@ -1116,13 +1202,25 @@ int32 svcrt_ptable_set_slot(uint32 slot, uint32 state, uint32 entry, uint32 task
 
 **分区表魔数 "PART"，用于校验共享内存中的分区表是否有效 */**
 
-### `#define SVCRT_PARTITION_VERSION   (1u)`
+### `#define SVCRT_PARTITION_VERSION   (2u)`
 
 ```c
-#define SVCRT_PARTITION_VERSION   (1u)
+#define SVCRT_PARTITION_VERSION   (2u)
 ```
 
-**分区表结构版本 */**
+**分区表结构版本。**
+v1 -> v2: driver 区状态由「单槽四个平铺字段」改为「与 App 同构的槽位数组」，
+结构尺寸与字段偏移都变了，因此版本必须升位，避免新旧镜像错配。 */
+
+### `#define SVCRT_SLOT_ARRAY_MAX      (8u)`
+
+```c
+#define SVCRT_SLOT_ARRAY_MAX      (8u)
+```
+
+**槽位数组的固定长度（ABI 形状常量）。**
+实际使用的槽位数由运行期字段 driver_max_count / app_max_count 决定，
+两者都必须 <= 本值；数组长度写死是为了让结构体尺寸与偏移跨版本稳定。 */
 
 ### `#define SVCRT_APP_SLOT_EMPTY      (0u)    /* 空槽位 */ #define SVCRT_APP_`
 
@@ -1159,13 +1257,15 @@ typedef struct {
 lock 为原子访问的锁字（0 空闲 / 1 占用），owner 记录持有者 CPU，
 nest 记录同一 CPU 的嵌套层数。
 
-### `#define SVCRT_SPINLOCK_INIT          { 0u, 0u, 0u }`
+### `#define SVCRT_SPINLOCK_INIT          { 0u, 0xffffffffu, 0u }`
 
 ```c
-#define SVCRT_SPINLOCK_INIT          { 0u, 0u, 0u }
+#define SVCRT_SPINLOCK_INIT          { 0u, 0xffffffffu, 0u }
 ```
 
-**自旋锁静态初始化值（用于定义全局锁对象） */**
+**Static initialiser for a global lock object.**
+> 说明：Must match svcrt_spin_init(): owner 0xffffffff means "no owner", so a
+freshly defined lock cannot be mistaken for one held by CPU 0. */
 
 ### `#define SVCRT_SPINLOCK_DEFINE(name)  svcrt_spinlock_t name = SVCRT_SPI`
 
@@ -1249,6 +1349,93 @@ static inline int32 svcrt_spin_is_locked(svcrt_spinlock_t *p_lock)
 **查询自旋锁当前是否被持有**
 - `p_lock`：锁对象指针
 **返回**：1=已持有，0=空闲
+
+## kernelsrc/include/svcrt_svc_call.h
+
+**Toolchain-independent SVC entry helpers for the App / Driver SDK.**
+The unprivileged side (App, Driver) never touches kernel internals:
+every system service is reached with an SVC instruction carrying the
+service number as its 8-bit immediate. How that instruction is
+
+### `#define SVCRT_SVC_DECL_1(ret, num, name, t0)          ret __svc(num) n`
+
+```c
+#define SVCRT_SVC_DECL_1(ret, num, name, t0)          ret __svc(num) name(t0);
+```
+
+Declare an SVC service that takes one argument and returns a value. */
+
+### `#define SVCRT_SVC_DECL_2(ret, num, name, t0, t1)      ret __svc(num) n`
+
+```c
+#define SVCRT_SVC_DECL_2(ret, num, name, t0, t1)      ret __svc(num) name(t0, t1);
+```
+
+Declare an SVC service that takes two arguments and returns a value. */
+
+### `#define SVCRT_SVC_DECL_3(ret, num, name, t0, t1, t2)  ret __svc(num) n`
+
+```c
+#define SVCRT_SVC_DECL_3(ret, num, name, t0, t1, t2)  ret __svc(num) name(t0, t1, t2);
+```
+
+Declare an SVC service that takes three arguments and returns a value. */
+
+### `#define SVCRT_SVC_DECL_V1(num, name, t0)              void __svc(num) `
+
+```c
+#define SVCRT_SVC_DECL_V1(num, name, t0)              void __svc(num) name(t0);
+```
+
+Declare an SVC service that takes one argument and returns nothing. */
+
+### `#define SVCRT_SVC_DECL_V2(num, name, t0, t1)          void __svc(num) `
+
+```c
+#define SVCRT_SVC_DECL_V2(num, name, t0, t1)          void __svc(num) name(t0, t1);
+```
+
+Declare an SVC service that takes two arguments and returns nothing. */
+
+### `#define SVCRT_SVC_DECL_1(ret, num, name, t0)                          `
+
+```c
+#define SVCRT_SVC_DECL_1(ret, num, name, t0)                          \ SVCRT_INLINE ret name(t0 a0)                                     \ {                                                                 \ register unsigned int r0 __asm("r0") = (unsigned int)a0;      \ __asm volatile ("svc #" SVCRT_STR(num) : "+r"(r0) : : "memory"); \ return (ret)r0;                                               \
+```
+
+Declare an SVC service that takes one argument and returns a value. */
+
+### `#define SVCRT_SVC_DECL_2(ret, num, name, t0, t1)                      `
+
+```c
+#define SVCRT_SVC_DECL_2(ret, num, name, t0, t1)                      \ SVCRT_INLINE ret name(t0 a0, t1 a1)                              \ {                                                                 \ register unsigned int r0 __asm("r0") = (unsigned int)a0;      \ register unsigned int r1 __asm("r1") = (unsigned int)a1;      \ __asm volatile ("svc #" SVCRT_STR(num)                        \
+```
+
+Declare an SVC service that takes two arguments and returns a value. */
+
+### `#define SVCRT_SVC_DECL_3(ret, num, name, t0, t1, t2)                  `
+
+```c
+#define SVCRT_SVC_DECL_3(ret, num, name, t0, t1, t2)                  \ SVCRT_INLINE ret name(t0 a0, t1 a1, t2 a2)                       \ {                                                                 \ register unsigned int r0 __asm("r0") = (unsigned int)a0;      \ register unsigned int r1 __asm("r1") = (unsigned int)a1;      \ register unsigned int r2 __asm("r2") = (unsigned int)a2;      \
+```
+
+Declare an SVC service that takes three arguments and returns a value. */
+
+### `#define SVCRT_SVC_DECL_V1(num, name, t0)                              `
+
+```c
+#define SVCRT_SVC_DECL_V1(num, name, t0)                              \ SVCRT_INLINE void name(t0 a0)                                    \ {                                                                 \ register unsigned int r0 __asm("r0") = (unsigned int)a0;      \ __asm volatile ("svc #" SVCRT_STR(num) : "+r"(r0) : : "memory"); \ }
+```
+
+Declare an SVC service that takes one argument and returns nothing. */
+
+### `#define SVCRT_SVC_DECL_V2(num, name, t0, t1)                          `
+
+```c
+#define SVCRT_SVC_DECL_V2(num, name, t0, t1)                          \ SVCRT_INLINE void name(t0 a0, t1 a1)                             \ {                                                                 \ register unsigned int r0 __asm("r0") = (unsigned int)a0;      \ register unsigned int r1 __asm("r1") = (unsigned int)a1;      \ __asm volatile ("svc #" SVCRT_STR(num)                        \
+```
+
+Declare an SVC service that takes two arguments and returns nothing. */
 
 ## kernelsrc/include/svcrt_task.h
 

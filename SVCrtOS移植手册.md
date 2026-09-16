@@ -84,7 +84,10 @@ SVCRTOS/
 
 ### 2.2 确认内核配置
 
-在 `svcrt_config.h` 和 `svcrt_board_config.h` 中确认以下配置：
+在 `svcrt_config.h` 和 `svcrt_board_config.h` 中确认以下配置
+（**任务容量已迁走**：`SVCRT_TASK_MAX_NUM` 与 `SVCRT_TASK_TABLE_RAM_MAX`
+现在只在 `config/svcrt_partition.h` 第九节定义，`svcrt_config.h` 改为 `#include` 该头；
+分区头里的定义用 `#ifndef` 包裹，板级配置仍可覆盖）：
 
 ```c
 /* svcrt_config.h 中的默认值 */
@@ -92,7 +95,7 @@ SVCRTOS/
 #define SVCRT_USE_FPU             1
 #define SVCRT_USE_MPU             1
 #define SVCRT_USE_PRIV            1
-#define SVCRT_TASK_MAX_NUM        (32)   /* 工业建议 ≥32；并受 SVCRT_TASK_TABLE_RAM_MAX 预算约束 */
+#define SVCRT_TASK_MAX_NUM        (48)   /* 默认值在 config/svcrt_partition.h，本文件已不含该定义 */
 #define SVCRT_TICK_PERIOD_US      (500)
 ```
 
