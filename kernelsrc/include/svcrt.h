@@ -417,9 +417,9 @@ uint32 svcrt_app_status(uint32 slot);
 * @brief 从设备安装驱动镜像到驱动区
 * @param dev       已打开的设备句柄（数据从镜像头开始）
 * @param image_len 期望镜像总长（含头），传 0 表示由镜像头决定
-* @return 0=成功，负值为错误码（见 svcrt_loader.h）
+* @return 成功返回驱动槽位号（>=0），负值为错误码（见 svcrt_loader.h）
 * @note 镜像头的 type 必须为驱动（SVCRT_APP_TYPE_DRIVER）；
-*       驱动区为单入口，写入前会整体擦除目标区间。
+*       镜像头的 load_addr 必须等于某个驱动槽位基址，写入前只擦除该槽区间。
 */
 int32  svcrt_driver_load(int32 dev, uint32 image_len);
 /** @} */

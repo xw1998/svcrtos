@@ -69,6 +69,27 @@ int32 svcrt_ptable_set_slot(uint32 slot, uint32 state, uint32 entry, uint32 task
 */
 int32 svcrt_ptable_get_slot(uint32 slot, uint32 *p_state, uint32 *p_entry, uint32 *p_task_id);
 
+/**
+* @brief 更新驱动槽位运行期状态
+* @param slot    驱动槽位号（0 ~ driver_max_count-1）
+* @param state   SVCRT_APP_SLOT_x
+* @param entry   驱动入口地址（清空槽位时传 0）
+* @param task_id 驱动任务号（未启动时传 0）
+* @return 0=成功，-1=槽位非法
+* @note 与 App 槽位共用一把自旋锁，保证三元组原子更新。
+*/
+int32 svcrt_ptable_set_driver_slot(uint32 slot, uint32 state, uint32 entry, uint32 task_id);
+
+/**
+* @brief 原子读取一个驱动槽位的状态三元组
+* @param slot      驱动槽位号
+* @param p_state   输出状态（可为 0）
+* @param p_entry   输出入口地址（可为 0）
+* @param p_task_id 输出任务号（可为 0）
+* @return 0=成功，-1=槽位非法
+*/
+int32 svcrt_ptable_get_driver_slot(uint32 slot, uint32 *p_state, uint32 *p_entry, uint32 *p_task_id);
+
 #if (defined(__cplusplus))
 }
 #endif

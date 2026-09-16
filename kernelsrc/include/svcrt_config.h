@@ -22,6 +22,15 @@
 #endif
 
 /* ============================================================
+ * Partition / capacity policy: single source of truth
+ * @brief Task table size and slot counts live in
+ *        config/svcrt_partition.h together with the Flash/RAM layout,
+ *        so a capacity change can never disagree with the layout.
+ *        Do not define SVCRT_TASK_MAX_NUM here anymore.
+ * ============================================================ */
+#include "svcrt_partition.h"
+
+/* ============================================================
  * 自旋锁 / 临界区
  * @brief 内核与驱动侧自旋锁（svcrt_spin.h）
  * ============================================================ */
@@ -122,14 +131,10 @@
 /* ============================================================
  * 任务与调度相关参数
  * ============================================================ */
-#ifndef SVCRT_TASK_MAX_NUM
-#define SVCRT_TASK_MAX_NUM        (32)   /* 任务（含内核服务任务）上限；
-                                          * 每个任务约 80 字节 TCB，调大时受
-                                          * SVCRT_TASK_TABLE_RAM_MAX 预算约束 */
-#endif
-#ifndef SVCRT_TASK_TABLE_RAM_MAX
-#define SVCRT_TASK_TABLE_RAM_MAX  (1024 * 8)   /* 任务表 TCB 数组的 RAM 预算上限（字节） */
-#endif
+/* Task capacity moved to config/svcrt_partition.h:
+ *   SVCRT_TASK_MAX_NUM        total task-table slots (static TCB array)
+ *   SVCRT_TASK_TABLE_RAM_MAX  RAM budget, derived from SVCRT_TASK_MAX_NUM
+ * Edit them there only; the partition header is included above. */
 #ifndef SVCRT_TICK_PERIOD_US
 #define SVCRT_TICK_PERIOD_US      (500)
 #endif

@@ -115,7 +115,9 @@ static void svcrt_installer_task(void)
                     if(r >= 0)
                     {
                         #if (DRIVER_AUTO_START == 1)
-                        svcrt_loader_start_driver();
+                        /* r 就是刚写入的驱动槽位号：只拉起刚落盘的那个槽，
+                         * 不能再去启动 0 号槽（否则多驱动并存时永远只启第一个） */
+                        svcrt_loader_start_driver_slot((uint32)r);
                         #endif
                     }
                     else

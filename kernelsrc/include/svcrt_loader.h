@@ -63,19 +63,41 @@ int32 svcrt_loader_load_dev(int32 dev, uint32 image_len);
 uint32 svcrt_loader_scan(void);
 
 /**
-* @brief 扫描驱动区（DRIVER_POOL），认定其中的驱动镜像
-* @return 1=驱动镜像有效且可启动，0=无有效驱动
-* @details 与 App 槽位共用同一套认定规则：带头的 .svcapp 或开发期裸镜像。
+* @brief 扫描全部驱动槽位，认定其中的驱动镜像
+* @return 有效（可启动）的驱动槽位数量，0=无有效驱动
+* @details 驱动池被等分为 driver_max_count 个槽位，逐个扫描。
+*          与 App 槽位共用同一套认定规则：带头的 .svcapp 或开发期裸镜像。
 */
 uint32 svcrt_loader_scan_driver(void);
 
 /**
-* @brief 启动驱动区的驱动（单驱动：DRIVER_POOL 内一个入口）
+* @brief 启动指定驱动槽位的驱动
+* @param slot 驱动槽位号（0 ~ driver_max_count-1）
 * @return 成功返回任务号（>0），失败返回 SVCRT_LOADER_ERR_x
-* @details 栈从 DRIVER_RAM 区顶部切出（与 App 同一套路），
+* @details 栈从本槽自己的驱动 RAM 顶部切出（与 App 同一套路），
 *          参数取 DRIVER_TASK_PRIORITY / STACK_SIZE / PERIOD_MS。
 */
+int32 svcrt_loader_start_driver_slot(uint32 slot);
+
+/**
+* @brief 启动驱动区的驱动（兼容包装：等价于启动 0 号驱动槽）
+* @return 成功返回任务号（>0），失败返回 SVCRT_LOADER_ERR_x
+*/
 int32 svcrt_loader_start_driver(void);
+
+/**
+* @brief 停止指定驱动槽位的任务（镜像仍保留在 Flash）
+* @param slot 驱动槽位号
+* @return 0=成功，负值为 SVCRT_LOADER_ERR_x
+*/
+int32 svcrt_loader_stop_driver_slot(uint32 slot);
+
+/**
+* @brief 查询驱动槽位状态
+* @param slot 驱动槽位号
+* @return SVCRT_APP_SLOT_x；槽位非法返回 0xffffffff
+*/
+uint32 svcrt_loader_state_driver(uint32 slot);
 
 /**
 * @brief 从设备流式加载（镜像头已由调用方读出）
@@ -92,15 +114,15 @@ int32 svcrt_loader_load_dev_hdr(int32 dev, const svcrt_app_header_t *p_hdr, uint
 * @brief 从设备安装驱动镜像（自行读头）
 * @param dev       已打开的设备句柄，位置在镜像头之前
 * @param image_len 期望镜像总长（含头），传 0 表示由镜像头决定
-* @return 成功返回 0，失败返回 SVCRT_LOADER_ERR_x
-* @note 镜像头的 type 必须为 SVCRT_APP_TYPE_DRIVER；驱动区为单入口，
-*       写入前会整体擦除目标区间。
+* @return 成功返回驱动槽位号（>=0），失败返回 SVCRT_LOADER_ERR_x
+* @note 镜像头的 type 必须为 SVCRT_APP_TYPE_DRIVER；镜像头 load_addr
+*       必须等于某个驱动槽位基址，写入前会擦除该槽区间。
 */
 int32 svcrt_loader_load_driver(int32 dev, uint32 image_len);
 
 /**
 * @brief 从设备安装驱动镜像（镜像头已由调用方读出）
-* @return 成功返回 0，失败返回 SVCRT_LOADER_ERR_x
+* @return 成功返回驱动槽位号（>=0），失败返回 SVCRT_LOADER_ERR_x
 */
 int32 svcrt_loader_load_driver_dev(int32 dev, const svcrt_app_header_t *p_hdr, uint32 image_len);
 

@@ -107,12 +107,31 @@ static int32 svcrt_loader_find_slot(void)
     svcrt_partition_table_t *pt = svcrt_ptable_get();
     uint32 i;
 
-    for(i = 0u; i < pt->app_max_count && i < 8u; i++)
+    for(i = 0u; i < pt->app_max_count && i < SVCRT_SLOT_ARRAY_MAX; i++)
     {
         uint32 st = pt->slot_state[i];
 
         if((st == SVCRT_APP_SLOT_EMPTY) || (st == SVCRT_APP_SLOT_INVALID) ||
            (st == SVCRT_APP_SLOT_LOADED))
+        {
+            return (int32)i;
+        }
+    }
+
+    return -1;
+}
+
+/* 根据镜像头声明的 load_addr 反查它要落在哪个驱动槽位，未命中返回 -1。
+ * 驱动镜像由 gen_scatter.py --slot N 按槽位基址链接，load_addr 因此
+ * 天然携带槽位信息；用地址反查比“挑第一个空槽”更能保证链接地址与
+ * 实际写入位置一致。 */
+static int32 svcrt_loader_driver_slot_of_addr(const svcrt_partition_table_t *pt, uint32 load_addr)
+{
+    uint32 i;
+
+    for(i = 0u; i < pt->driver_max_count && i < SVCRT_SLOT_ARRAY_MAX; i++)
+    {
+        if(load_addr == (pt->driver_pool_base + i * pt->driver_slot_size))
         {
             return (int32)i;
         }
@@ -484,6 +503,11 @@ int32 svcrt_loader_load_driver_dev(int32 dev, const svcrt_app_header_t *p_hdr, u
     svcrt_partition_table_t *pt = svcrt_ptable_get();
     svcrt_app_header_t hdr = *p_hdr;
     uint32 total;
+    uint32 slot;
+    uint32 slot_base;
+    uint32 slot_state;
+    uint32 slot_task_id;
+    int32  slot_idx;
     int32 ret;
 
     if(dev < 0)
@@ -508,56 +532,68 @@ int32 svcrt_loader_load_driver_dev(int32 dev, const svcrt_app_header_t *p_hdr, u
         return SVCRT_LOADER_ERR_SIZE;
     }
 
-    if(hdr.load_addr != pt->driver_pool_base)
+    /* 镜像头声明的 load_addr 必须正好是某个驱动槽位的基址：
+     * 这样就同时校验了“链接地址”与“实际写入位置”一致，不会把镜像
+     * 写到一个它并不打算运行的槽位上。 */
+    slot_idx = svcrt_loader_driver_slot_of_addr(pt, hdr.load_addr);
+    if(slot_idx < 0)
     {
         return SVCRT_LOADER_ERR_ADDR;
     }
+    slot = (uint32)slot_idx;
+    slot_base = pt->driver_pool_base + slot * pt->driver_slot_size;
 
-    /* 驱动区是单入口，不做槽位分配；容量按整个 DRIVER_POOL 计 */
-    if(total > pt->driver_pool_size)
+    /* 容量按单槽计，不再按整个 DRIVER_POOL */
+    if(total > pt->driver_slot_size)
     {
         return SVCRT_LOADER_ERR_SIZE;
     }
 
-    /* 旧驱动还在运行：先踢出调度再擦除，否则擦除正在执行的代码区必然取指崩溃。
-     * （若本次安装是由旧驱动自身经 SVC 发起，拒绝——SVC 返回后还会跳回已擦除的代码） */
-    if(pt->driver_state == SVCRT_APP_SLOT_RUNNING)
+    if(svcrt_ptable_get_driver_slot(slot, &slot_state, 0, &slot_task_id) != 0)
     {
-        if((int32)pt->driver_task_id == svcrt_current_task_id)
+        return SVCRT_LOADER_ERR_PARAM;
+    }
+
+    /* 该槽的旧驱动还在运行：先踢出调度再擦除，否则擦除正在执行的代码区必然取指崩溃。
+     * （若本次安装是由该驱动自身经 SVC 发起，拒绝——SVC 返回后还会跳回已擦除的代码） */
+    if(slot_state == SVCRT_APP_SLOT_RUNNING)
+    {
+        if(slot_task_id == (uint32)svcrt_current_task_id)
         {
             return SVCRT_LOADER_ERR_STATE;
         }
 
-        svcrt_loader_halt_task(pt->driver_task_id);
+        svcrt_loader_halt_task(slot_task_id);
     }
 
-    pt->driver_state = SVCRT_APP_SLOT_INSTALLING;
-    pt->driver_entry = 0u;
+    svcrt_ptable_set_driver_slot(slot, SVCRT_APP_SLOT_INSTALLING, 0u, 0u);
 
-    if(svcrt_port_flash_erase(pt->driver_pool_base, total) != 0)
+    if(svcrt_port_flash_erase(slot_base, total) != 0)
     {
-        pt->driver_state = SVCRT_APP_SLOT_EMPTY;
+        svcrt_ptable_set_driver_slot(slot, SVCRT_APP_SLOT_EMPTY, 0u, 0u);
         return SVCRT_LOADER_ERR_FLASH;
     }
 
-    ret = svcrt_loader_stream_payload(dev, pt->driver_pool_base, &hdr);
+    ret = svcrt_loader_stream_payload(dev, slot_base, &hdr);
     if(ret != 0)
     {
-        pt->driver_state = SVCRT_APP_SLOT_EMPTY;
+        svcrt_ptable_set_driver_slot(slot, SVCRT_APP_SLOT_EMPTY, 0u, 0u);
         return ret;
     }
 
-    if(svcrt_loader_image_crc((const uint8 *)pt->driver_pool_base, total) != hdr.crc32)
+    if(svcrt_loader_image_crc((const uint8 *)slot_base, total) != hdr.crc32)
     {
-        pt->driver_state = SVCRT_APP_SLOT_EMPTY;
+        svcrt_ptable_set_driver_slot(slot, SVCRT_APP_SLOT_EMPTY, 0u, 0u);
         return SVCRT_LOADER_ERR_CRC;
     }
 
-    pt->driver_crash_cnt = 0u;
-    pt->driver_entry     = svcrt_loader_entry_addr(pt->driver_pool_base, hdr.entry_offset);
-    pt->driver_state     = SVCRT_APP_SLOT_LOADED;
+    /* 新镜像写入成功：清零故障计数（重新安装 = 重新开始） */
+    pt->driver_slot_crash_cnt[slot] = 0u;
 
-    return 0;
+    svcrt_ptable_set_driver_slot(slot, SVCRT_APP_SLOT_LOADED,
+                                 svcrt_loader_entry_addr(slot_base, hdr.entry_offset), 0u);
+
+    return (int32)slot;
 }
 
 int32 svcrt_loader_load_driver(int32 dev, uint32 image_len)
@@ -649,7 +685,7 @@ uint32 svcrt_loader_scan(void)
     uint32 found = 0u;
     uint32 i;
 
-    for(i = 0u; i < pt->app_max_count && i < 8u; i++)
+    for(i = 0u; i < pt->app_max_count && i < SVCRT_SLOT_ARRAY_MAX; i++)
     {
         uint32 base = pt->app_user_base + i * pt->app_slot_size;
         uint32 entry;
@@ -672,45 +708,68 @@ uint32 svcrt_loader_scan(void)
 uint32 svcrt_loader_scan_driver(void)
 {
     svcrt_partition_table_t *pt = svcrt_ptable_get();
-    uint32 entry;
+    uint32 found = 0u;
+    uint32 i;
 
-    if(svcrt_loader_identify(pt->driver_pool_base, pt->driver_pool_size, SVCRT_APP_TYPE_DRIVER, &entry) == 0)
+    for(i = 0u; i < pt->driver_max_count && i < SVCRT_SLOT_ARRAY_MAX; i++)
     {
-        pt->driver_entry = entry;
-        pt->driver_state = SVCRT_APP_SLOT_LOADED;
-        return 1u;
+        uint32 base = pt->driver_pool_base + i * pt->driver_slot_size;
+        uint32 entry;
+
+        if(svcrt_loader_identify(base, pt->driver_slot_size, SVCRT_APP_TYPE_DRIVER, &entry) == 0)
+        {
+            svcrt_ptable_set_driver_slot(i, SVCRT_APP_SLOT_LOADED, entry, 0u);
+            found++;
+        }
+        else if(((const svcrt_app_header_t *)base)->magic != 0xFFFFFFFFu)
+        {
+            /* 有内容但认定失败：标记为不可用，避免被误启动 */
+            svcrt_ptable_set_driver_slot(i, SVCRT_APP_SLOT_INVALID, 0u, 0u);
+        }
     }
 
-    if(((const svcrt_app_header_t *)pt->driver_pool_base)->magic != 0xFFFFFFFFu)
-    {
-        pt->driver_entry = 0u;
-        pt->driver_state = SVCRT_APP_SLOT_INVALID;
-    }
-
-    return 0u;
+    return found;
 }
 
-int32 svcrt_loader_start_driver(void)
+int32 svcrt_loader_start_driver_slot(uint32 slot)
 {
     svcrt_partition_table_t *pt = svcrt_ptable_get();
+    uint32 slot_base;
+    uint32 slot_ram_base;
     uint32 stack_bottom;
+    uint32 slot_state;
+    uint32 entry;
     int32 task_id;
 
-    if(pt->driver_state != SVCRT_APP_SLOT_LOADED)
+    if(slot >= pt->driver_max_count || slot >= SVCRT_SLOT_ARRAY_MAX)
+    {
+        return SVCRT_LOADER_ERR_PARAM;
+    }
+
+    if(svcrt_ptable_get_driver_slot(slot, &slot_state, &entry, 0) != 0)
+    {
+        return SVCRT_LOADER_ERR_PARAM;
+    }
+
+    if(slot_state != SVCRT_APP_SLOT_LOADED)
     {
         return SVCRT_LOADER_ERR_STATE;
     }
 
-    if(pt->driver_entry == 0u)
+    if(entry == 0u)
     {
         return SVCRT_LOADER_ERR_STATE;
     }
 
-    /* 与 App 同一套路：栈从驱动 RAM 区顶部切出，App 端 .sct 的 ARM_LIB_STACK
-     * 指向同一地址（见 gen_scatter.py 的 driver target）。 */
-    stack_bottom = (DRIVER_RAM_BASE + DRIVER_RAM_SIZE) - DRIVER_TASK_STACK_SIZE;
+    slot_base     = pt->driver_pool_base + slot * pt->driver_slot_size;
+    slot_ram_base = pt->driver_ram_base + slot * pt->driver_slot_ram_size;
 
-    task_id = svcrt_task_register((void (*)(void))pt->driver_entry,
+    /* 与 App 同一套路：栈从本槽自己的驱动 RAM 顶部切出，.sct 的 ARM_LIB_STACK
+     * 指向同一地址（见 gen_scatter.py 的 driver --slot N）。每个槽用自己那块 RAM，
+     * 两个驱动镜像并存时不会互相覆盖栈。 */
+    stack_bottom = (slot_ram_base + pt->driver_slot_ram_size) - DRIVER_TASK_STACK_SIZE;
+
+    task_id = svcrt_task_register((void (*)(void))entry,
                                   (uint32 *)stack_bottom,
                                   (uint32)DRIVER_TASK_STACK_SIZE,
                                   (uint8)DRIVER_TASK_PRIORITY,
@@ -720,20 +779,68 @@ int32 svcrt_loader_start_driver(void)
         return SVCRT_LOADER_ERR_TASK;
     }
 
-    svcrt_task_table[task_id - 1].ram_start = DRIVER_RAM_BASE;
-    svcrt_task_table[task_id - 1].ram_size  = DRIVER_RAM_SIZE;
-    svcrt_task_table[task_id - 1].rom_start = pt->driver_pool_base;
-    svcrt_task_table[task_id - 1].rom_size  = pt->driver_pool_size;
+    svcrt_task_table[task_id - 1].ram_start = slot_ram_base;
+    svcrt_task_table[task_id - 1].ram_size  = pt->driver_slot_ram_size;
+    svcrt_task_table[task_id - 1].rom_start = slot_base;
+    svcrt_task_table[task_id - 1].rom_size  = pt->driver_slot_size;
 
     /* Windows are final now: build this task's MPU context from them. */
     svcrt_mpu_build_task(&svcrt_task_table[task_id - 1]);
 
-    pt->driver_task_id = (uint32)task_id;
-    pt->driver_state   = SVCRT_APP_SLOT_RUNNING;
+    svcrt_ptable_set_driver_slot(slot, SVCRT_APP_SLOT_RUNNING, entry, (uint32)task_id);
 
     svcrt_sched_activate_higher((uint8)DRIVER_TASK_PRIORITY);
 
     return task_id;
+}
+
+/* 兼容包装：无参启动等价于启动 0 号驱动槽 */
+int32 svcrt_loader_start_driver(void)
+{
+    return svcrt_loader_start_driver_slot(0u);
+}
+
+int32 svcrt_loader_stop_driver_slot(uint32 slot)
+{
+    svcrt_partition_table_t *pt = svcrt_ptable_get();
+    uint32 task_id;
+
+    if(slot >= pt->driver_max_count || slot >= SVCRT_SLOT_ARRAY_MAX)
+    {
+        return SVCRT_LOADER_ERR_PARAM;
+    }
+
+    task_id = pt->driver_slot_task_id[slot];
+    if(task_id == 0u || task_id > (uint32)svcrt_task_count)
+    {
+        return SVCRT_LOADER_ERR_STATE;
+    }
+
+    svcrt_task_release_resources((int32)task_id);
+
+    SVCRT_DISABLE_IRQ();
+    svcrt_task_table[task_id - 1u].recover_pending = 0u;
+    svcrt_task_table[task_id - 1u].status          = SVCRT_TASK_INVALID;
+    SVCRT_ENABLE_IRQ();
+
+    svcrt_ptable_set_driver_slot(slot, SVCRT_APP_SLOT_LOADED,
+                                 pt->driver_slot_entry[slot], 0u);
+
+    SVCRT_SWITCH_TASK();
+
+    return 0;
+}
+
+uint32 svcrt_loader_state_driver(uint32 slot)
+{
+    svcrt_partition_table_t *pt = svcrt_ptable_get();
+
+    if(slot >= pt->driver_max_count || slot >= SVCRT_SLOT_ARRAY_MAX)
+    {
+        return 0xffffffffu;
+    }
+
+    return pt->driver_slot_state[slot];
 }
 
 int32 svcrt_loader_on_fault(int32 task_id)
@@ -746,7 +853,7 @@ int32 svcrt_loader_on_fault(int32 task_id)
         return -1;
     }
 
-    for(i = 0u; i < pt->app_max_count && i < 8u; i++)
+    for(i = 0u; i < pt->app_max_count && i < SVCRT_SLOT_ARRAY_MAX; i++)
     {
         if(pt->slot_task_id[i] != (uint32)task_id)
         {
@@ -783,12 +890,17 @@ int32 svcrt_loader_on_fault(int32 task_id)
         return 0;       /* 未达上限：由调用方安排恢复（重启该 App） */
     }
 
-    if(pt->driver_task_id == (uint32)task_id)
+    for(i = 0u; i < pt->driver_max_count && i < SVCRT_SLOT_ARRAY_MAX; i++)
     {
-        pt->driver_crash_cnt++;
+        if(pt->driver_slot_task_id[i] != (uint32)task_id)
+        {
+            continue;
+        }
+
+        pt->driver_slot_crash_cnt[i]++;
 
         #if (APP_CRASH_RESTART_MAX > 0)
-        if(pt->driver_crash_cnt >= (uint32)APP_CRASH_RESTART_MAX)
+        if(pt->driver_slot_crash_cnt[i] >= (uint32)APP_CRASH_RESTART_MAX)
         {
             SVCRT_DISABLE_IRQ();
             svcrt_task_table[task_id - 1].recover_pending = 0u;
@@ -796,8 +908,10 @@ int32 svcrt_loader_on_fault(int32 task_id)
             svcrt_task_table[task_id - 1].status          = SVCRT_TASK_INVALID;
             SVCRT_ENABLE_IRQ();
 
-            pt->driver_state   = SVCRT_APP_SLOT_INVALID;
-            pt->driver_task_id = 0u;
+            svcrt_ptable_set_driver_slot(i, SVCRT_APP_SLOT_INVALID, pt->driver_slot_entry[i], 0u);
+
+            svcrt_mpu_reset();
+
             svcrt_fault_record(SVCRT_FAULT_APPDISABLED, task_id);
             return 1;
         }
@@ -814,13 +928,14 @@ int32 svcrt_loader_start(uint32 slot)
     svcrt_partition_table_t *pt = svcrt_ptable_get();
     svcrt_app_header_t hdr;
     uint32 slot_base;
+    uint32 slot_ram_base;
     uint32 entry;
     uint32 stack_top;
     uint32 stack_bottom;
     uint32 slot_state;
     int32 task_id;
 
-    if(slot >= pt->app_max_count)
+    if(slot >= pt->app_max_count || slot >= SVCRT_SLOT_ARRAY_MAX)
     {
         return SVCRT_LOADER_ERR_PARAM;
     }
@@ -842,14 +957,16 @@ int32 svcrt_loader_start(uint32 slot)
         return SVCRT_LOADER_ERR_STATE;
     }
 
-    /* 栈不是另外分配的缓冲区，而是从 App 自己的 RAM 区顶部切出来的：
-     *   stack_top    = APP_RAM_BASE + APP_RAM_SIZE
+    /* 栈不是另外分配的缓冲区，而是从本槽自己的 App RAM 顶部切出来的：
+     *   stack_top    = slot_ram_base + slot_ram_size
      *   stack_bottom = stack_top - APP_TASK_STACK_SIZE
-     * 该地址与 App 端 .sct 中 ARM_LIB_STACK 指向的栈顶完全一致（见 gen_scatter.py），
-     * 因此 __main 设置 SP 后与内核推导值一致，不存在“双份栈”。
+     * 该地址与 App 端 .sct 中 ARM_LIB_STACK 指向的栈顶完全一致（见 gen_scatter.py
+     * 的 app --slot N），因此 __main 设置 SP 后与内核推导值一致，不存在“双份栈”。
+     * 每个槽用自己那块 RAM，两个 App 镜像并存时不会互相覆盖栈。
      * 地址只在 config/svcrt_partition.h 定义一次，此处全部派生。 */
-    stack_top    = APP_RAM_BASE + APP_RAM_SIZE;
-    stack_bottom = stack_top - APP_TASK_STACK_SIZE;
+    slot_ram_base = pt->app_ram_base + slot * pt->app_slot_ram_size;
+    stack_top     = slot_ram_base + pt->app_slot_ram_size;
+    stack_bottom  = stack_top - APP_TASK_STACK_SIZE;
 
     task_id = svcrt_task_register((void (*)(void))entry,
                                   (uint32 *)stack_bottom,
@@ -865,8 +982,8 @@ int32 svcrt_loader_start(uint32 slot)
 
     /* 修正 TCB 的区域描述：任务的可访问范围是整个 App 分区，而不是只有栈。
      * 这是为后续 MPU 隔离预留的元数据（AnOs 的 kerAppInitMpu 就是按这组值配 MPU）。 */
-    svcrt_task_table[task_id - 1].ram_start = APP_RAM_BASE;
-    svcrt_task_table[task_id - 1].ram_size  = APP_RAM_SIZE;
+    svcrt_task_table[task_id - 1].ram_start = slot_ram_base;
+    svcrt_task_table[task_id - 1].ram_size  = pt->app_slot_ram_size;
     svcrt_task_table[task_id - 1].rom_start = slot_base;
     svcrt_task_table[task_id - 1].rom_size  = (svcrt_ptable_read_header(slot, &hdr) == 0)
                                               ? hdr.image_size : 0u;
@@ -885,13 +1002,18 @@ int32 svcrt_loader_stop(uint32 slot)
 {
     svcrt_partition_table_t *pt = svcrt_ptable_get();
     uint32 task_id;
+    uint32 entry;
 
-    if(slot >= pt->app_max_count)
+    if(slot >= pt->app_max_count || slot >= SVCRT_SLOT_ARRAY_MAX)
     {
         return SVCRT_LOADER_ERR_PARAM;
     }
 
-    task_id = pt->slot_task_id[slot];
+    /* task_id 与 entry 一次性读完，避免与故障路径写入竞争 */
+    if(svcrt_ptable_get_slot(slot, 0, &entry, &task_id) != 0)
+    {
+        return SVCRT_LOADER_ERR_PARAM;
+    }
     if(task_id == 0u || task_id > (uint32)svcrt_task_count)
     {
         return SVCRT_LOADER_ERR_STATE;
@@ -906,7 +1028,7 @@ int32 svcrt_loader_stop(uint32 slot)
     svcrt_task_table[task_id - 1u].status          = SVCRT_TASK_INVALID;
     SVCRT_ENABLE_IRQ();
 
-    svcrt_ptable_set_slot(slot, SVCRT_APP_SLOT_LOADED, pt->slot_entry[slot], 0u);
+    svcrt_ptable_set_slot(slot, SVCRT_APP_SLOT_LOADED, entry, 0u);
 
     SVCRT_SWITCH_TASK();
 
@@ -917,7 +1039,7 @@ uint32 svcrt_loader_state(uint32 slot)
 {
     svcrt_partition_table_t *pt = svcrt_ptable_get();
 
-    if(slot >= pt->app_max_count)
+    if(slot >= pt->app_max_count || slot >= SVCRT_SLOT_ARRAY_MAX)
     {
         return 0xffffffffu;
     }

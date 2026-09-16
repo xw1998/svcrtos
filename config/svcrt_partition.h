@@ -37,13 +37,16 @@
 #define KERNEL_SIZE          (256 * 1024)    /* 内核固件区 */
 #define DRIVER_POOL_SIZE     (256 * 1024)    /* 独立驱动固件池 */
 
-/* App 区：区大小与槽位策略 */
-#define APP_MAX_COUNT        1               /* App 槽位数量；最小闭环先用 1（单区间），后续扩多槽位 */
+/* 槽位策略：驱动池与 App 区都被等分为若干槽位，一个镜像占一个槽位。
+ * 两个数量都必须 <= SVCRT_SLOT_ARRAY_MAX（8，见 svcrt_share.h 的固定数组），
+ * 越界配置由下面的编译期断言拦住。 */
+#define DRIVER_MAX_COUNT     4               /* 驱动槽位数量 */
+#define APP_MAX_COUNT        4               /* App 槽位数量 */
 
-/* RAM 分区 */
+/* RAM 分区（驱动/App 的 RAM 也按槽等分，见下方派生宏） */
 #define SHARE_RAM_SIZE       (8  * 1024)     /* 共享内存：分区表 + 内核/App 数据交换 */
-#define DRIVER_RAM_SIZE      (16 * 1024)     /* 独立驱动固件 RAM */
-#define APP_RAM_SIZE         (16 * 1024)     /* App 固件 RAM（.data/.bss/栈） */
+#define DRIVER_RAM_SIZE      (32 * 1024)     /* 独立驱动固件 RAM（4 槽 x 8K） */
+#define APP_RAM_SIZE         (32 * 1024)     /* App 固件 RAM（4 槽 x 8K，含 4K 栈） */
 
 /* App 镜像运行参数（由内核在启动 App 任务时使用） */
 #define APP_TASK_PRIORITY    10              /* App 任务优先级 */
@@ -57,6 +60,40 @@
 #define DRIVER_TASK_STACK_SIZE  (1024 * 1)       /* 驱动任务栈大小（字节） */
 #define DRIVER_TASK_PERIOD_MS   1000             /* 驱动任务周期（ms） */
 #define DRIVER_AUTO_START       1                /* 扫描到有效驱动镜像后是否自动启动 */
+
+/* ============================================================
+ * 九、任务容量策略（唯一入口：只改这三个数字）
+ * @details 任务表是一块静态 TCB 数组，容量在编译期定死。为了让
+ *          “很多用户驱动 + 很多用户应用”的场景可以直接扩到大规模，
+ *          容量按 内核 / 驱动 / 应用 三类分层：
+ *
+ *            SVCRT_TASK_MAX_NUM   任务表总容量（静态 TCB 数组元素个数）
+ *            DRIVER_MAX_COUNT     驱动槽位数（每个驱动镜像占 PER_DRIVER 个任务）
+ *            APP_MAX_COUNT        App 槽位数（每个 App 镜像占 PER_APP 个任务）
+ *
+ *          其余全部由本文件派生：
+ *            SVCRT_TASK_NEED_MIN       三类需求之和（分区能装下所需的最小容量）
+ *            SVCRT_TASK_TABLE_RAM_MAX  静态 TCB 数组的 RAM 预算上限
+ *          两者都在下方编译期断言里校验：容量配小了直接编译报错，
+ *          而不是运行期静默注册失败。
+ * @note 运行时仍可继续用 svcrt_task_register() 动态创建任务，上限就是
+ *       SVCRT_TASK_MAX_NUM；上面两个 *_MAX_COUNT 只约束固定占用的那部分。
+ * ============================================================ */
+#ifndef SVCRT_TASK_MAX_NUM
+#define SVCRT_TASK_MAX_NUM        (48)   /* 任务表总容量（静态 TCB 数组元素个数） */
+#endif
+
+#define SVCRT_TASK_MAX_KERNEL     (8)    /* 内核自带任务 + 示例静态任务的预留 */
+#define SVCRT_TASK_PER_DRIVER     (1)    /* 每个驱动镜像占用的任务数 */
+#define SVCRT_TASK_PER_APP        (1)    /* 每个 App 镜像占用的任务数 */
+
+#define SVCRT_TASK_NEED_MIN       (SVCRT_TASK_MAX_KERNEL + \
+                                   (DRIVER_MAX_COUNT * SVCRT_TASK_PER_DRIVER) + \
+                                   (APP_MAX_COUNT * SVCRT_TASK_PER_APP))
+
+#ifndef SVCRT_TASK_TABLE_RAM_MAX
+#define SVCRT_TASK_TABLE_RAM_MAX  (SVCRT_TASK_MAX_NUM * 128)   /* 每个 TCB 按 128 字节预算 */
+#endif
 
 /* ============================================================
  * 七、镜像在槽位内的布局（安装路径 vs 开发调试路径）
@@ -107,7 +144,11 @@
 #define APP_USER_SIZE        (CHIP_FLASH_SIZE  - BOOT_SIZE - KERNEL_SIZE - DRIVER_POOL_SIZE)
 #define APP_SLOT_SIZE        (APP_USER_SIZE    / APP_MAX_COUNT)
 
-/* 单区间最小闭环：0 号槽位（也是当前唯一的 App 区） */
+/* 驱动池按槽等分（与 App 槽位同构：一个镜像占一个槽位） */
+#define DRIVER_SLOT_SIZE     (DRIVER_POOL_SIZE / DRIVER_MAX_COUNT)
+#define DRIVER_SLOT_BASE(n)  (DRIVER_POOL_BASE + (n) * DRIVER_SLOT_SIZE)
+
+/* 0 号 App 槽位（保留的名字，等价于 APP_USER_BASE/APP_SLOT_SIZE） */
 #define APP_SLOT0_BASE       (APP_USER_BASE)
 #define APP_SLOT0_SIZE       (APP_SLOT_SIZE)
 
@@ -120,10 +161,17 @@
 #define DRIVER_RAM_BASE      (KERNEL_RAM_BASE  + KERNEL_RAM_SIZE)
 #define APP_RAM_BASE         (DRIVER_RAM_BASE  + DRIVER_RAM_SIZE)
 
+/* RAM 按槽等分：每个槽位的 .data/.bss/栈都落在自己的区间内，
+ * 多个镜像并存时互不覆盖（栈从各自区间顶部向下生长）。 */
+#define DRIVER_SLOT_RAM_SIZE    (DRIVER_RAM_SIZE / DRIVER_MAX_COUNT)
+#define DRIVER_SLOT_RAM_BASE(n) (DRIVER_RAM_BASE + (n) * DRIVER_SLOT_RAM_SIZE)
+#define APP_SLOT_RAM_SIZE       (APP_RAM_SIZE    / APP_MAX_COUNT)
+#define APP_SLOT_RAM_BASE(n)    (APP_RAM_BASE    + (n) * APP_SLOT_RAM_SIZE)
+
 /* ---- 硬件兼容签名（App 与内核 ABI 匹配校验用） ----
  * 高 16 位：芯片型号标识；低 16 位：内核接口版本。
  * App 打包时应写入相同值，内核加载时校验，不匹配则拒绝加载。 */
-#define SVCRT_HW_COMPAT_ID   (0x42700001u)   /* 0x4270 = STM32F427, 0x0001 = ABI v1 */
+#define SVCRT_HW_COMPAT_ID   (0x42700002u)   /* 0x4270 = STM32F427, 0x0002 = ABI v2（驱动槽位数组化） */
 
 /* ============================================================
  * 八、MPU isolation windows (derived; do not edit by hand)
@@ -143,6 +191,14 @@
 #define SVCRT_MPU_DRIVER_RAM_SIZE   (DRIVER_RAM_SIZE)
 #define SVCRT_MPU_APP_RAM_BASE      (APP_RAM_BASE)
 #define SVCRT_MPU_APP_RAM_SIZE      (APP_RAM_SIZE)
+
+/* Per-slot windows: a user task is granted exactly its own slot, so two
+ * images can never see each other's code or data. All four sizes must be
+ * powers of two and the bases aligned to them (checked below). */
+#define SVCRT_MPU_DRIVER_SLOT_SIZE      (DRIVER_SLOT_SIZE)
+#define SVCRT_MPU_APP_SLOT_SIZE         (APP_SLOT_SIZE)
+#define SVCRT_MPU_DRIVER_SLOT_RAM_SIZE  (DRIVER_SLOT_RAM_SIZE)
+#define SVCRT_MPU_APP_SLOT_RAM_SIZE     (APP_SLOT_RAM_SIZE)
 #define SVCRT_MPU_SHARE_RAM_BASE    (SHARE_RAM_BASE)
 #define SVCRT_MPU_SHARE_RAM_SIZE    (SHARE_RAM_SIZE)
 
@@ -156,6 +212,10 @@ typedef char svcrt_mpu_window_check[
     * (SVCRT_IS_POW2(APP_SLOT_SIZE)              ? 1 : -1)
     * (SVCRT_IS_POW2(APP_RAM_SIZE)               ? 1 : -1)
     * (SVCRT_IS_POW2(DRIVER_RAM_SIZE)            ? 1 : -1)
+    * (SVCRT_IS_POW2(DRIVER_SLOT_SIZE)           ? 1 : -1)
+    * (SVCRT_IS_POW2(APP_SLOT_SIZE)              ? 1 : -1)
+    * (SVCRT_IS_POW2(DRIVER_SLOT_RAM_SIZE)       ? 1 : -1)
+    * (SVCRT_IS_POW2(APP_SLOT_RAM_SIZE)          ? 1 : -1)
     * (SVCRT_IS_POW2(SHARE_RAM_SIZE)             ? 1 : -1)
     * (((KERNEL_BASE      % KERNEL_SIZE)      == 0) ? 1 : -1)
     * (((DRIVER_POOL_BASE % DRIVER_POOL_SIZE) == 0) ? 1 : -1)
@@ -163,6 +223,10 @@ typedef char svcrt_mpu_window_check[
     * (((APP_RAM_BASE     % APP_RAM_SIZE)     == 0) ? 1 : -1)
     * (((DRIVER_RAM_BASE  % DRIVER_RAM_SIZE)  == 0) ? 1 : -1)
     * (((SHARE_RAM_BASE   % SHARE_RAM_SIZE)   == 0) ? 1 : -1)
+    * (((DRIVER_POOL_BASE % DRIVER_SLOT_SIZE) == 0) ? 1 : -1)
+    * (((APP_USER_BASE    % APP_SLOT_SIZE)    == 0) ? 1 : -1)
+    * (((DRIVER_RAM_BASE  % DRIVER_SLOT_RAM_SIZE) == 0) ? 1 : -1)
+    * (((APP_RAM_BASE     % APP_SLOT_RAM_SIZE)    == 0) ? 1 : -1)
     * 1];
 
 /* ============================================================
@@ -190,5 +254,33 @@ typedef char svcrt_mpu_window_check[
 #if (DRIVER_POOL_BASE < KERNEL_BASE) || (APP_USER_BASE < DRIVER_POOL_BASE)
 #error "Flash 分区顺序错误"
 #endif
+
+/* ---- 任务容量：分层需求必须装得进任务表 ---- */
+typedef char svcrt_task_capacity_check[
+    (SVCRT_TASK_MAX_NUM >= SVCRT_TASK_NEED_MIN) ? 1 : -1];
+
+/* ---- 槽位数不能超过共享内存 ABI 的固定数组长度（8，见 svcrt_share.h） ---- */
+typedef char svcrt_slot_count_check[
+    ((DRIVER_MAX_COUNT <= 8) && (APP_MAX_COUNT <= 8)) ? 1 : -1];
+
+/* ---- 驱动池 / 驱动 RAM 必须能被槽位数整除（否则槽位基址无处安放） ---- */
+typedef char svcrt_driver_slot_divide_check[
+    (((DRIVER_POOL_SIZE % DRIVER_MAX_COUNT) == 0) &&
+     ((DRIVER_RAM_SIZE  % DRIVER_MAX_COUNT) == 0) &&
+     (DRIVER_MAX_COUNT > 0)) ? 1 : -1];
+
+/* ---- 每个槽位要装得下：镜像头 + 最小负载；RAM 要装得下栈 + 最小数据 ---- */
+typedef char svcrt_driver_slot_fit_check[
+    ((DRIVER_SLOT_SIZE >= (APP_IMAGE_HEADER_SIZE + 1024)) &&
+     (DRIVER_SLOT_RAM_SIZE >= (DRIVER_TASK_STACK_SIZE + 512))) ? 1 : -1];
+typedef char svcrt_app_slot_fit_check[
+    ((APP_SLOT_SIZE >= (APP_IMAGE_HEADER_SIZE + 1024)) &&
+     (APP_SLOT_RAM_SIZE >= (APP_TASK_STACK_SIZE + 512))) ? 1 : -1];
+
+/* ---- App RAM 每槽至少能装下它的栈（loader 按槽顶切栈） ---- */
+typedef char svcrt_app_slot_stack_check[
+    (APP_TASK_STACK_SIZE <= APP_SLOT_RAM_SIZE) ? 1 : -1];
+typedef char svcrt_driver_slot_stack_check[
+    (DRIVER_TASK_STACK_SIZE <= DRIVER_SLOT_RAM_SIZE) ? 1 : -1];
 
 #endif /* SVCRT_PARTITION_H */

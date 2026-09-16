@@ -81,18 +81,22 @@ static int32 svcrt_mpu_rom_window(uint32 addr, uint32 *p_base, uint32 *p_size)
     if((addr >= SVCRT_MPU_DRIVER_ROM_BASE) &&
        (addr < (SVCRT_MPU_DRIVER_ROM_BASE + SVCRT_MPU_DRIVER_ROM_SIZE)))
     {
-        *p_base = SVCRT_MPU_DRIVER_ROM_BASE;
-        *p_size = SVCRT_MPU_DRIVER_ROM_SIZE;
+        /* Driver pool is split into slots: grant only the slot the image was
+         * linked into, so two driver images cannot read each other's code. */
+        uint32 slot = (addr - SVCRT_MPU_DRIVER_ROM_BASE) / SVCRT_MPU_DRIVER_SLOT_SIZE;
+
+        *p_base = SVCRT_MPU_DRIVER_ROM_BASE + (slot * SVCRT_MPU_DRIVER_SLOT_SIZE);
+        *p_size = SVCRT_MPU_DRIVER_SLOT_SIZE;
         return 0;
     }
 
     if((addr >= SVCRT_MPU_APP_ROM_BASE) &&
        (addr < (SVCRT_MPU_APP_ROM_BASE + SVCRT_MPU_APP_ROM_SIZE)))
     {
-        uint32 slot = (addr - SVCRT_MPU_APP_ROM_BASE) / APP_SLOT_SIZE;
+        uint32 slot = (addr - SVCRT_MPU_APP_ROM_BASE) / SVCRT_MPU_APP_SLOT_SIZE;
 
-        *p_base = SVCRT_MPU_APP_ROM_BASE + (slot * APP_SLOT_SIZE);
-        *p_size = APP_SLOT_SIZE;
+        *p_base = SVCRT_MPU_APP_ROM_BASE + (slot * SVCRT_MPU_APP_SLOT_SIZE);
+        *p_size = SVCRT_MPU_APP_SLOT_SIZE;
         return 0;
     }
 
@@ -109,16 +113,21 @@ static void svcrt_mpu_ram_window(uint32 addr, uint32 *p_base, uint32 *p_size)
     if((addr >= SVCRT_MPU_APP_RAM_BASE) &&
        (addr < (SVCRT_MPU_APP_RAM_BASE + SVCRT_MPU_APP_RAM_SIZE)))
     {
-        *p_base = SVCRT_MPU_APP_RAM_BASE;
-        *p_size = SVCRT_MPU_APP_RAM_SIZE;
+        /* Per-slot window: each App owns its own slice of App RAM. */
+        uint32 slot = (addr - SVCRT_MPU_APP_RAM_BASE) / SVCRT_MPU_APP_SLOT_RAM_SIZE;
+
+        *p_base = SVCRT_MPU_APP_RAM_BASE + (slot * SVCRT_MPU_APP_SLOT_RAM_SIZE);
+        *p_size = SVCRT_MPU_APP_SLOT_RAM_SIZE;
         return;
     }
 
     if((addr >= SVCRT_MPU_DRIVER_RAM_BASE) &&
        (addr < (SVCRT_MPU_DRIVER_RAM_BASE + SVCRT_MPU_DRIVER_RAM_SIZE)))
     {
-        *p_base = SVCRT_MPU_DRIVER_RAM_BASE;
-        *p_size = SVCRT_MPU_DRIVER_RAM_SIZE;
+        uint32 slot = (addr - SVCRT_MPU_DRIVER_RAM_BASE) / SVCRT_MPU_DRIVER_SLOT_RAM_SIZE;
+
+        *p_base = SVCRT_MPU_DRIVER_RAM_BASE + (slot * SVCRT_MPU_DRIVER_SLOT_RAM_SIZE);
+        *p_size = SVCRT_MPU_DRIVER_SLOT_RAM_SIZE;
         return;
     }
 

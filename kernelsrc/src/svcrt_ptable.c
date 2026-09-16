@@ -26,6 +26,12 @@
  * safe (the lock stays re-entrant per CPU, see svcrt_spin_lock_irqsave). */
 static svcrt_spinlock_t svcrt_ptable_lock = SVCRT_SPINLOCK_INIT;
 
+/* 槽位数组的固定长度必须真实存在于结构体里，否则下面的循环会越界。
+ * 两边都是编译期常量，配置错了直接编译不过。 */
+typedef char svcrt_ptable_slot_array_check[
+    ((DRIVER_MAX_COUNT <= SVCRT_SLOT_ARRAY_MAX) &&
+     (APP_MAX_COUNT    <= SVCRT_SLOT_ARRAY_MAX)) ? 1 : -1];
+
 /* 共享内存中的分区表实例（按绝对地址访问，不占用链接器分配的 RAM） */
 static svcrt_partition_table_t *svcrt_ptable_ptr(void)
 {
@@ -45,6 +51,8 @@ void svcrt_ptable_init(void)
     pt->kernel_size    = KERNEL_SIZE;
     pt->driver_pool_base = DRIVER_POOL_BASE;
     pt->driver_pool_size = DRIVER_POOL_SIZE;
+    pt->driver_slot_size = DRIVER_SLOT_SIZE;
+    pt->driver_max_count = DRIVER_MAX_COUNT;
     pt->app_user_base  = APP_USER_BASE;
     pt->app_user_size  = APP_USER_SIZE;
     pt->app_slot_size  = APP_SLOT_SIZE;
@@ -56,21 +64,23 @@ void svcrt_ptable_init(void)
     pt->kernel_ram_size = KERNEL_RAM_SIZE;
     pt->driver_ram_base = DRIVER_RAM_BASE;
     pt->driver_ram_size = DRIVER_RAM_SIZE;
+    pt->driver_slot_ram_size = DRIVER_SLOT_RAM_SIZE;
     pt->app_ram_base   = APP_RAM_BASE;
     pt->app_ram_size   = APP_RAM_SIZE;
+    pt->app_slot_ram_size = APP_SLOT_RAM_SIZE;
 
-    for(i = 0; i < 8u; i++)
+    for(i = 0; i < SVCRT_SLOT_ARRAY_MAX; i++)
     {
         pt->slot_state[i]    = SVCRT_APP_SLOT_EMPTY;
         pt->slot_entry[i]    = 0;
         pt->slot_task_id[i]  = 0;
         pt->slot_crash_cnt[i] = 0;
-    }
 
-    pt->driver_state     = SVCRT_APP_SLOT_EMPTY;
-    pt->driver_entry     = 0;
-    pt->driver_task_id   = 0;
-    pt->driver_crash_cnt = 0;
+        pt->driver_slot_state[i]    = SVCRT_APP_SLOT_EMPTY;
+        pt->driver_slot_entry[i]    = 0;
+        pt->driver_slot_task_id[i]  = 0;
+        pt->driver_slot_crash_cnt[i] = 0;
+    }
 }
 
 svcrt_partition_table_t *svcrt_ptable_get(void)
@@ -116,7 +126,7 @@ int32 svcrt_ptable_set_slot(uint32 slot, uint32 state, uint32 entry, uint32 task
     svcrt_partition_table_t *pt = svcrt_ptable_get();
     uint32 irq_state;
 
-    if(slot >= pt->app_max_count || slot >= 8u)
+    if(slot >= pt->app_max_count || slot >= SVCRT_SLOT_ARRAY_MAX)
     {
         return -1;
     }
@@ -132,12 +142,63 @@ int32 svcrt_ptable_set_slot(uint32 slot, uint32 state, uint32 entry, uint32 task
     return 0;
 }
 
+int32 svcrt_ptable_set_driver_slot(uint32 slot, uint32 state, uint32 entry, uint32 task_id)
+{
+    svcrt_partition_table_t *pt = svcrt_ptable_get();
+    uint32 irq_state;
+
+    if(slot >= pt->driver_max_count || slot >= SVCRT_SLOT_ARRAY_MAX)
+    {
+        return -1;
+    }
+
+    svcrt_spin_lock_irqsave(&svcrt_ptable_lock, &irq_state);
+
+    pt->driver_slot_state[slot]   = state;
+    pt->driver_slot_entry[slot]   = entry;
+    pt->driver_slot_task_id[slot] = task_id;
+
+    svcrt_spin_unlock_irqrestore(&svcrt_ptable_lock, irq_state);
+
+    return 0;
+}
+
+int32 svcrt_ptable_get_driver_slot(uint32 slot, uint32 *p_state, uint32 *p_entry, uint32 *p_task_id)
+{
+    svcrt_partition_table_t *pt = svcrt_ptable_get();
+    uint32 irq_state;
+
+    if(slot >= pt->driver_max_count || slot >= SVCRT_SLOT_ARRAY_MAX)
+    {
+        return -1;
+    }
+
+    svcrt_spin_lock_irqsave(&svcrt_ptable_lock, &irq_state);
+
+    if(p_state != 0)
+    {
+        *p_state = pt->driver_slot_state[slot];
+    }
+    if(p_entry != 0)
+    {
+        *p_entry = pt->driver_slot_entry[slot];
+    }
+    if(p_task_id != 0)
+    {
+        *p_task_id = pt->driver_slot_task_id[slot];
+    }
+
+    svcrt_spin_unlock_irqrestore(&svcrt_ptable_lock, irq_state);
+
+    return 0;
+}
+
 int32 svcrt_ptable_get_slot(uint32 slot, uint32 *p_state, uint32 *p_entry, uint32 *p_task_id)
 {
     svcrt_partition_table_t *pt = svcrt_ptable_get();
     uint32 irq_state;
 
-    if(slot >= pt->app_max_count || slot >= 8u)
+    if(slot >= pt->app_max_count || slot >= SVCRT_SLOT_ARRAY_MAX)
     {
         return -1;
     }
