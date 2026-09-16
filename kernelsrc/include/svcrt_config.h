@@ -133,7 +133,7 @@
  * ============================================================ */
 /* Task capacity moved to config/svcrt_partition.h:
  *   SVCRT_TASK_MAX_NUM        total task-table slots (static TCB array)
- *   SVCRT_TASK_TABLE_RAM_MAX  RAM budget, derived from SVCRT_TASK_MAX_NUM
+ *   SVCRT_TASK_TABLE_RAM_MAX  static TCB table RAM budget, fixed in bytes
  * Edit them there only; the partition header is included above. */
 #ifndef SVCRT_TICK_PERIOD_US
 #define SVCRT_TICK_PERIOD_US      (500)

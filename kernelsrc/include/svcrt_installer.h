@@ -29,8 +29,23 @@ extern "C" {
 * @brief 初始化并注册安装任务
 * @return 成功返回任务号（>0）；INSTALLER_ENABLE 为 0 时返回 0
 * @details 需在调度启动之前调用（建议跟在 svcrt_loader_scan() 之后）。
+*          开启内核 Shell（SHELL_ENABLE == 1）时不要调用本函数：常驻安装任务
+*          会与控制台抢同一个串口 FIFO，此时改用 svcrt_installer_run_once()
+*          由 `install` 命令触发一次性窗口，串行占用串口。
 */
 int32 svcrt_installer_init(void);
+
+/**
+* @brief 在指定设备上接收并安装一个镜像（阻塞式，带超时）
+* @param dev        已打开的镜像接收设备句柄（控制台复用同一个句柄）
+* @param timeout_ms 等待镜像头的超时（ms）；超时后清空接收状态并返回
+* @return 成功返回槽位号（>=0），失败返回 SVCRT_LOADER_ERR_x
+* @details 与常驻任务共用同一套同步/校验/落盘逻辑，区别只在调用方式：
+*          本函数在一个任务上下文内同步跑完「等头 → 落盘 → 按自启标志启动」，
+*          期间调用方不应再去读同一个设备。
+*          是否自启由镜像头 flags（SVCRT_APP_FLAG_AUTOSTART）决定。
+*/
+int32 svcrt_installer_run_once(int32 dev, uint32 timeout_ms);
 
 #if (defined(__cplusplus))
 }

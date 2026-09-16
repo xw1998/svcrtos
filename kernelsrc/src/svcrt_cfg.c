@@ -35,13 +35,39 @@ int32 svcrt_task_register(void (*entry)(void), uint32 *stack_bottom, uint32 stac
                           uint8 priority, uint32 period_ms)
 {
     svcrt_task_t *p_task;
+    int32 free_idx = -1;
+    int32 i;
 
-    /* 注册失败一律记录故障，不再静默返回：
-     * 任务没跑起来时能通过 svcrt_fault_record_read() 看到原因 */
-    if(svcrt_task_count >= SVCRT_TASK_MAX_NUM)
+    /* Slot allocation: reuse a released task slot before growing the table.
+     * Without this, every App start/stop pair permanently consumes one
+     * task slot, and a few dozen cycles exhaust the whole table.
+     * Only INVALID slots without a pending recovery flag are reusable
+     * (svcrt_task_recover_mark sets INVALID + recover_pending=1, and such
+     * a slot will be revived by svcrt_task_recover_pending later).
+     * Registration failures are always recorded, so a task that never
+     * started can be diagnosed through svcrt_fault_record_read(). */
+    for(i = 0; i < svcrt_task_count; i++)
     {
-        svcrt_fault_record(SVCRT_FAULT_NOSLOT, 0);
-        return -1;
+        if((svcrt_task_table[i].status == SVCRT_TASK_INVALID) &&
+           (svcrt_task_table[i].recover_pending == 0))
+        {
+            free_idx = i;
+            break;
+        }
+    }
+
+    if(free_idx < 0)
+    {
+        if(svcrt_task_count < SVCRT_TASK_MAX_NUM)
+        {
+            free_idx = svcrt_task_count;
+            svcrt_task_count++;
+        }
+        else
+        {
+            svcrt_fault_record(SVCRT_FAULT_NOSLOT, 0);
+            return -1;
+        }
     }
 
     if((entry == 0) || (stack_bottom == 0) || (stack_size < 64u))
@@ -52,7 +78,7 @@ int32 svcrt_task_register(void (*entry)(void), uint32 *stack_bottom, uint32 stac
 
     stack_bottom[0] = SVCRT_STACK_END_FLAG_VAL;
 
-    p_task = &svcrt_task_table[svcrt_task_count];
+    p_task = &svcrt_task_table[free_idx];
     p_task->ram_start   = (uint32)stack_bottom;
     p_task->ram_size    = stack_size;
     p_task->stack_size  = stack_size;
@@ -77,8 +103,7 @@ int32 svcrt_task_register(void (*entry)(void), uint32 *stack_bottom, uint32 stac
 
     svcrt_task_stack_init(p_task, entry, stack_bottom, stack_size);
 
-    svcrt_task_count++;
-    return svcrt_task_count;
+    return (free_idx + 1);
 }
 
 #if (SVCRT_USE_STACK_USAGE == 1)

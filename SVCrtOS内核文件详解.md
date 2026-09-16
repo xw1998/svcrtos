@@ -940,5 +940,6 @@ RAM 从低到高的分区顺序是：
 > + `APP_MAX_COUNT`×`SVCRT_TASK_PER_APP`，默认（8 / 4×1 / 4×1）结果为 16。
 > 要压到 16 以下，必须同时调小 `DRIVER_MAX_COUNT`、`APP_MAX_COUNT`
 > 或 `SVCRT_TASK_MAX_KERNEL`，只改 `SVCRT_TASK_MAX_NUM` 不够。
-> 另外静态 TCB 数组的 RAM 占用是 `SVCRT_TASK_MAX_NUM × 128` 字节
-> （默认 48 槽即 6144 字节，由 `SVCRT_TASK_TABLE_RAM_MAX` 约束）。
+> 另外静态 TCB 数组的 RAM 占用是 `SVCRT_TASK_MAX_NUM × sizeof(svcrt_task_t)` 字节，
+> 实测单 TCB 为 76 字节（MPU 关）/ 140 字节（MPU 开），默认 48 槽即 3648 / 6720 字节，
+> 由固定的 8KB 预算 `SVCRT_TASK_TABLE_RAM_MAX` 约束。

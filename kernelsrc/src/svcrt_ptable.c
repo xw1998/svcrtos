@@ -80,6 +80,11 @@ void svcrt_ptable_init(void)
         pt->driver_slot_entry[i]    = 0;
         pt->driver_slot_task_id[i]  = 0;
         pt->driver_slot_crash_cnt[i] = 0;
+
+        /* 自启标志在镜像认定时由 loader 按镜像头 flags 回填；
+         * 这里先清 0，避免未认定的槽位带着上一轮（共享 RAM 未清零时）的残留值。 */
+        pt->slot_autostart[i]        = 0;
+        pt->driver_slot_autostart[i] = 0;
     }
 }
 

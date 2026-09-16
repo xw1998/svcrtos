@@ -160,6 +160,24 @@ int32 svcrt_loader_stop(uint32 slot);
 */
 uint32 svcrt_loader_state(uint32 slot);
 
+/**
+* @brief 按各驱动槽的自启标志批量启动驱动
+* @return 实际启动的驱动数量
+* @details 自启标志在 svcrt_loader_scan_driver() 中由镜像头 flags 回填
+*          （裸镜像取 DRIVER_AUTO_START）。未设自启的驱动不会被拉起，
+*          需由上层（如 shell 的 driver start）显式启动。
+*          必须在 svcrt_loader_scan_driver() 之后调用。
+*/
+uint32 svcrt_loader_start_autostart_driver(void);
+
+/**
+* @brief 按各 App 槽的自启标志批量启动 App
+* @return 实际启动的 App 数量
+* @details 与 svcrt_loader_start_autostart_driver() 同口径。
+*          必须在 svcrt_loader_scan() 之后调用。
+*/
+uint32 svcrt_loader_start_autostart(void);
+
 #if (defined(__cplusplus))
 }
 #endif

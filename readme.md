@@ -316,7 +316,7 @@ svcrt_dev_write(h, &on, 1);            /* 点亮蓝灯 */
 | `SVCRT_USE_MPU` | 由架构派生，本板 0 | MPU 内存保护使能（**未接线**，见 `kernelsrc/src/svcrt_mpu.c` 的 @warning） |
 | `SVCRT_USE_PRIV` | 依赖 `SVCRT_USE_MPU`，本板 0 | 特权级分离使能 |
 | `SVCRT_TASK_MAX_NUM` | 48 | 任务表总容量（静态 TCB 数组元素个数）。默认值已**移到 `config/svcrt_partition.h` 第九节**，与分区策略同源，见下文「任务容量分层」 |
-| `SVCRT_TASK_TABLE_RAM_MAX` | 6144 | TCB 数组的 RAM 预算上限（字节），由 `SVCRT_TASK_MAX_NUM × 128` 派生；超出则编译报错 |
+| `SVCRT_TASK_TABLE_RAM_MAX` | 8192 | TCB 数组的 RAM 预算上限（字节），**固定 8KB，不随容量派生**；守护断言直接比较 `sizeof(svcrt_task_table)`，超出则编译报错 |
 | `SVCRT_TICK_PERIOD_US` | 500 | 滴答周期（微秒） |
 | `SVCRT_EVENT_NUM` | 10 | 事件对象数量 |
 | `SVCRT_MAX_EVENT_WAITERS` | 4 | 单个事件的等待者上限 |
@@ -354,7 +354,9 @@ svcrt_dev_write(h, &on, 1);            /* 点亮蓝灯 */
 | `APP_AUTO_START` / `DRIVER_AUTO_START` | 1 | 上电扫描到有效镜像后自动启动；调试时置 0 |
 | `APP_ALLOW_RAW_IMAGE` | 0 | 只认带镜像头的 `.svcapp`。本板在 `board/stm32f427/svcrt_board_config.h` 里显式置 1，保住"固定地址烧录 + MDK 下断点调试"的旁路 |
 | `APP_CRASH_RESTART_MAX` | 3 | App/驱动连续故障重启上限，达到即禁用；0 = 不限次 |
-| `INSTALLER_ENABLE` | 1 | 内核内安装任务（占用 COM1）；不用串口安装时置 0 |
+| `INSTALLER_ENABLE` | 1 | 内核内安装模块（占用 COM1）；不用串口安装时置 0 |
+| `SHELL_ENABLE` | 1 | 内核 Shell 控制台（ark-shell，占用 `SHELL_DEV_NAME`）；置 1 时不注册常驻安装任务，安装改由 `install` 命令触发一次性窗口 |
+| 镜像头 `flags` | 0x1 | 逐槽开机自启标志，打包时由 `tools/pack_app.py --autostart / --no-autostart` 写入；运行期用 `app list` / `drv list` 的 auto 列查看 |
 | `DRIVER_MAX_COUNT` / `APP_MAX_COUNT` | 4 / 4 | 驱动与 App 的槽位数量，驱动池与 App 区按此等分。两者都必须 ≤ `SVCRT_SLOT_ARRAY_MAX`（8，见 `svcrt_share.h` 的固定数组），越界由编译期断言拦住 |
 | `DRIVER_TASK_STACK_SIZE` / `APP_TASK_STACK_SIZE` | 1K / 4K | 驱动 / App 任务栈，从**各自槽位那块 RAM** 的顶部切出 |
 
@@ -373,7 +375,7 @@ svcrt_dev_write(h, &on, 1);            /* 点亮蓝灯 */
 | `SVCRT_TASK_PER_DRIVER` | 1 | 每个驱动镜像占用的任务数 |
 | `SVCRT_TASK_PER_APP` | 1 | 每个 App 镜像占用的任务数 |
 | `SVCRT_TASK_NEED_MIN` | 派生 | `内核 + 槽位数 × 每槽任务数` 之和，即分区策略要求的最小容量 |
-| `SVCRT_TASK_TABLE_RAM_MAX` | 派生 | `SVCRT_TASK_MAX_NUM × 128`，TCB 数组的 RAM 预算 |
+| `SVCRT_TASK_TABLE_RAM_MAX` | 8192 | 静态 TCB 数组的 RAM 预算（字节），固定值；实测 `sizeof(svcrt_task_t)` = 76 字节（MPU 关）/ 140 字节（MPU 开） |
 
 编译期断言 `svcrt_task_capacity_check` 会拦住「容量装不下当前槽位策略」的配置；
 `svcrt_cfg.c` 的 `svcrt_task_table_ram_check` 再拦一道 RAM 预算。

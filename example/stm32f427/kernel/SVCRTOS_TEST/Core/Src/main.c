@@ -31,6 +31,7 @@
 #include "svcrt_ptable.h"
 #include "svcrt_loader.h"
 #include "svcrt_installer.h"
+#include "svcrt_shell.h"
 #include "svcrt_mq.h"
 #include "svcrt_timer.h"
 #include "svcrt_fault.h"
@@ -315,20 +316,38 @@ static void svcrt_kernel_init(void)
     /* ---- 分区表与外部映像 ---- */
     svcrt_ptable_init();
 
-    /* 驱动区先于 App 认定并启动（驱动优先级更高，App 依赖的驱动服务应先就绪） */
-    if((svcrt_loader_scan_driver() > 0u) && (DRIVER_AUTO_START != 0))
+    /* Drivers are identified and started before Apps (drivers have the higher
+     * priority, and App services depend on driver services being ready).
+     * Whether a slot starts on boot comes from the scan result: an image with
+     * a header uses the flags field written by the packer (see --autostart in
+     * tools/pack_app.py), while a raw image (development flash-and-run) falls
+     * back to the global DRIVER_AUTO_START switch. Slots without the flag are
+     * left stopped and must be started explicitly by an upper layer
+     * (for example the kernel shell's "driver start"). */
+    if(svcrt_loader_scan_driver() > 0u)
     {
-        svcrt_loader_start_driver();
+        svcrt_loader_start_autostart_driver();
     }
 
-    /* App 槽位：裸镜像（开发调试）或带镜像头（安装/烧录）被认定后按策略启动 */
-    if((svcrt_loader_scan() > 0u) && (APP_AUTO_START != 0))
+    /* App slots: raw images (development) or headed images (install / flash)
+     * are identified first, then started according to the per-slot flag;
+     * raw images fall back to APP_AUTO_START. */
+    if(svcrt_loader_scan() > 0u)
     {
-        svcrt_loader_start(0u);
+        svcrt_loader_start_autostart();
     }
 
-    /* 安装任务：常驻接收镜像流，使 App 落位从“烧录器刷固件”变为“设备自己安装” */
+    #if (SHELL_ENABLE == 1)
+    /* Console enabled: the shell task owns the serial port, so the resident
+     * installer task is not registered here. Image installation is triggered
+     * on demand by the shell's "install" command, which opens a one-shot
+     * receive window on the very same device handle (svcrt_installer_run_once).
+     * This keeps a single reader on the UART FIFO. */
+    svcrt_shell_init();
+    #else
+    /* No console: the resident installer task receives images by itself. */
     svcrt_installer_init();
+    #endif
 }
 
 static void svcrt_start_idle(void)

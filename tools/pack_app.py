@@ -70,8 +70,13 @@ TYPE_NAME = {TYPE_APP: "app", TYPE_DRIVER: "driver"}
 DEFAULT_ENTRY = {TYPE_APP: "APPSTART", TYPE_DRIVER: "DRVSTART"}
 SLOT_MACRO = {"app": "APP_SLOT0", "driver": "DRIVER_POOL"}   # 键为 --type 取值
 
-RESERVED_SIZE = 160                  # 与 svcrt_app_image.h 的 reserved[160] 保持一致
-MANIFEST_MAX = RESERVED_SIZE - 1     # 首字节存清单长度
+FLAGS_OFFSET = 96                    # 与 svcrt_app_image.h 的 svcrt_app_header_t.flags 一致
+RESERVED_OFFSET = 100               # flags（4 字节）之后的预留区起点
+RESERVED_SIZE = 156                 # 与 svcrt_app_image.h 的 reserved[156] 保持一致
+MANIFEST_MAX = RESERVED_SIZE - 1     # 预留区首字节存清单长度
+
+FLAG_AUTOSTART = 1 << 0              # SVCRT_APP_FLAG_AUTOSTART：扫描认定后自动启动
+FLAG_KNOWN_MASK = FLAG_AUTOSTART     # 已知标志位掩码，用于校验未知位
 
 
 # ---------------------------------------------------------------- ELF32 解析
@@ -194,7 +199,7 @@ def version_str(v):
 
 # ---------------------------------------------------------------- 打包
 def build_header(img_type, hw_compat, version, image_size, entry_offset,
-                 load_addr, crc32, manifest):
+                 load_addr, crc32, manifest, flags=0):
     """按 svcrt_app_header_t 组装 256 字节头"""
     reserved = bytearray(RESERVED_SIZE)
     if manifest:
@@ -208,7 +213,8 @@ def build_header(img_type, hw_compat, version, image_size, entry_offset,
     head = struct.pack("<IIIIIIII", MAGIC, img_type, hw_compat, version,
                        image_size, entry_offset, load_addr, crc32)
     head += b"\x00" * 64                # signature[64]：预留（信任链落地后启用）
-    head += bytes(reserved)             # reserved[192]
+    head += struct.pack("<I", flags)    # flags：自启等策略位（见 svcrt_app_image.h）
+    head += bytes(reserved)             # reserved[156]
     assert len(head) == HEADER_SIZE
     return head
 
@@ -292,9 +298,13 @@ def do_pack(args):
         manifest = {k: x for k, x in manifest.items() if x}
 
     version = parse_version(args.version) if args.version else 0
+    # 自启与否写进镜像头 flags：内核扫描认定后据此决定是否拉起本槽。
+    # 默认自启（与旧的 INSTALLER_AUTO_START 行为一致），--no-autostart 可关掉，
+    # 关掉后镜像仍然有效，只是需要上层（shell 的 app start）显式启动。
+    flags = FLAG_AUTOSTART if args.autostart else 0
     # 镜像头里的 load_addr = 目标槽位基址（内核据此校验镜像是否装到了正确的槽位）
     header = build_header(img_type, hw_compat, version, len(payload), entry_offset,
-                          slot_base, 0, manifest)
+                          slot_base, 0, manifest, flags)
     crc = calc_crc(header, payload)
     header = header[:28] + struct.pack("<I", crc) + header[32:]
 
@@ -319,6 +329,7 @@ def do_pack(args):
     print("[pack] 入口偏移    : 0x%08X" % entry_offset)
     print("[pack] 版本        : %s" % version_str(version))
     print("[pack] 硬件兼容 ID : 0x%08X" % hw_compat)
+    print("[pack] flags       : 0x%08X（%s）" % (flags, "自启" if flags & FLAG_AUTOSTART else "不自启"))
     print("[pack] CRC32       : 0x%08X" % crc)
     print("[pack] 文件总大小  : %d 字节" % len(image))
     return 0
@@ -334,7 +345,8 @@ def read_header(path):
      load_addr, crc32) = struct.unpack_from("<IIIIIIII", raw, 0)
     if magic != MAGIC:
         raise SystemExit("镜像魔数错误: 0x%08X（期望 0x%08X \"SVCA\"）" % (magic, MAGIC))
-    reserved = raw[32 + 64:HEADER_SIZE]
+    flags = struct.unpack_from("<I", raw, FLAGS_OFFSET)[0]
+    reserved = raw[RESERVED_OFFSET:HEADER_SIZE]
     manifest = None
     if reserved[0]:
         try:
@@ -343,7 +355,7 @@ def read_header(path):
             manifest = None
     return dict(raw=raw, type=img_type, hw_compat=hw_compat, version=version,
                 image_size=image_size, entry_offset=entry_offset,
-                load_addr=load_addr, crc32=crc32, manifest=manifest)
+                load_addr=load_addr, crc32=crc32, flags=flags, manifest=manifest)
 
 
 def do_info(path):
@@ -358,6 +370,10 @@ def do_info(path):
     print("入口地址 : 0x%08X" % (h["load_addr"] + HEADER_SIZE + h["entry_offset"]))
     print("负载长度 : %d 字节" % h["image_size"])
     print("CRC32    : 0x%08X" % h["crc32"])
+    print("flags    : 0x%08X（%s）"
+          % (h["flags"], "开机自启" if h["flags"] & FLAG_AUTOSTART else "不自启（需显式启动）"))
+    if h["flags"] & ~FLAG_KNOWN_MASK:
+        print("           注意：含本工具未知的标志位 0x%08X" % (h["flags"] & ~FLAG_KNOWN_MASK))
     if h["manifest"]:
         print("清单     : %s" % json.dumps(h["manifest"], ensure_ascii=False))
     else:
@@ -399,6 +415,9 @@ def do_verify(path, header_path, hw_compat_expected=None):
             problems.append("镜像 %d 字节超出槽位容量 %d 字节" % (total, size))
         if h["hw_compat"] != layout.v("SVCRT_HW_COMPAT_ID"):
             problems.append("硬件兼容 ID 与 config/svcrt_partition.h 不一致")
+        if h["flags"] & ~FLAG_KNOWN_MASK:
+            problems.append("flags 含未知位 0x%08X（内核对未知位忽略，仅提示）"
+                            % (h["flags"] & ~FLAG_KNOWN_MASK))
         print("[verify] 槽位 %s = 0x%08X（容量 %d KB），镜像占用 %d 字节"
               % (slot, base, size // 1024, total))
 
@@ -429,6 +448,10 @@ def main():
     src.add_argument("--header", default="config/svcrt_partition.h", help="分区配置头文件")
     out = ap.add_argument_group("输出与动作")
     out.add_argument("--out", help="输出 .svcapp 路径（默认与输入同目录同名）")
+    out.add_argument("--autostart", dest="autostart", action="store_true", default=True,
+                     help="写入 SVCRT_APP_FLAG_AUTOSTART（默认）：开机扫描认定后自动启动")
+    out.add_argument("--no-autostart", dest="autostart", action="store_false",
+                     help="清除自启标志：镜像照样安装，但需上层（shell 的 app start）显式启动")
     out.add_argument("--info", metavar="SVCRT_IMAGE", help="查看已有镜像头")
     out.add_argument("--verify", metavar="SVCRT_IMAGE", help="校验已有镜像")
     args = ap.parse_args()

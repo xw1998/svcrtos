@@ -340,7 +340,7 @@
               <MiscControls></MiscControls>
               <Define>USE_HAL_DRIVER,STM32F427xx,SVCRT_USE_FPU=1,SVCRT_BOARD_CONFIG=\"svcrt_board_config.h\"</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../../../../../kernelsrc/include;../../../../../board/stm32f427;../../../../../config</IncludePath>
+              <IncludePath>../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../../../../../kernelsrc/include;../../../../../board/stm32f427;../../../../../config;../../../../../kernelsrc/shell;../../../../../kernelsrc/shell/ark_shell</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -722,6 +722,46 @@
               <FileName>svcrt_installer.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_installer.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>SVCRTOS/Shell</GroupName>
+          <Files>
+            <File>
+              <FileName>platform_svcrtos.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\shell\platform_svcrtos.c</FilePath>
+            </File>
+            <File>
+              <FileName>svcrt_shell.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\shell\svcrt_shell.c</FilePath>
+            </File>
+            <File>
+              <FileName>ark_shell.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\shell\ark_shell\ark_shell.c</FilePath>
+            </File>
+            <File>
+              <FileName>ark_shell_commands.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\shell\ark_shell\ark_shell_commands.c</FilePath>
+            </File>
+            <File>
+              <FileName>ark_shell_history.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\shell\ark_shell\ark_shell_history.c</FilePath>
+            </File>
+            <File>
+              <FileName>ark_shell_line_editor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\shell\ark_shell\ark_shell_line_editor.c</FilePath>
+            </File>
+            <File>
+              <FileName>ark_shell_autocomplete.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\shell\ark_shell\ark_shell_autocomplete.c</FilePath>
             </File>
           </Files>
         </Group>

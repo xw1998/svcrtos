@@ -72,8 +72,12 @@ extern svcrt_dev_drv_t led_drv;
 
 void svcrt_dev_board_init(void)
 {
+    /* Three on-board LEDs are all registered: "LED" = red, "LED2" = green,
+     * "LED3" = blue. Each name maps to one logical LED id, so an App can
+     * open several of them at once and tell them apart by name. */
     svcrt_dev_register("LED",  &led_drv, LED_ID_RED);
     svcrt_dev_register("LED2", &led_drv, LED_ID_GREEN);
+    svcrt_dev_register("LED3", &led_drv, LED_ID_BLUE);
     svcrt_dev_register("COM1", &usart_drv, 0);
 }
 

@@ -22,6 +22,14 @@
 #define SVCRT_APP_TYPE_APP        (1u)
 #define SVCRT_APP_TYPE_DRIVER     (2u)
 
+/** @brief 镜像头 flags 位定义（见 svcrt_app_header_t.flags）
+ *  @note 该字段落在头部 offset 96（原 reserved 区首 4 字节）。旧镜像该位置
+ *        恒为 0，等价于「不设任何标志」，因此新增本字段不破坏旧镜像。 */
+#define SVCRT_APP_FLAG_AUTOSTART  (1u << 0)   /* 开机扫描认定后被自动启动 */
+
+/** @brief 未设置任何标志 */
+#define SVCRT_APP_FLAG_NONE       (0u)
+
 /**
 * @brief App 镜像头（固定 256 字节）
 * @note crc32 覆盖范围：本头结构体（crc32 字段自身置 0）+ 头之后的镜像数据。
@@ -38,7 +46,8 @@ typedef struct {
     uint32 crc32;               /* 镜像校验值 */
 
     uint8  signature[64];       /* 预留：数字签名 */
-    uint8  reserved[160];       /* 预留：填充至 256 字节 */
+    uint32 flags;               /* SVCRT_APP_FLAG_x；0 表示不自启（旧镜像即为此值） */
+    uint8  reserved[156];       /* 预留：填充至 256 字节 */
 } svcrt_app_header_t;
 
 /**

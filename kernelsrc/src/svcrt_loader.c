@@ -622,7 +622,8 @@ int32 svcrt_loader_load_driver(int32 dev, uint32 image_len)
  *      发布固件时应把 APP_ALLOW_RAW_IMAGE 关掉，只接受 .svcapp。
  * 返回 0=有效（*out_entry 为入口），-1=空或无效。 */
 static int32 svcrt_loader_identify(uint32 region_base, uint32 region_size,
-                                    uint32 expect_type, uint32 *out_entry)
+                                    uint32 expect_type, uint32 *out_entry,
+                                    uint32 *out_autostart)
 {
     const svcrt_app_header_t *p_hdr = (const svcrt_app_header_t *)region_base;
     uint32 total;
@@ -659,6 +660,10 @@ static int32 svcrt_loader_identify(uint32 region_base, uint32 region_size,
         }
 
         *out_entry = svcrt_loader_entry_addr(region_base, p_hdr->entry_offset);
+
+        /* 自启与否由打包时写进镜像头的 flags 决定（见 svcrt_app_image.h）。
+         * 未知位一律忽略，保证后续新增标志不会让旧内核拒绝新镜像。 */
+        *out_autostart = ((p_hdr->flags & SVCRT_APP_FLAG_AUTOSTART) != 0u) ? 1u : 0u;
         return 0;
     }
 
@@ -673,6 +678,12 @@ static int32 svcrt_loader_identify(uint32 region_base, uint32 region_size,
     #if (SVCRT_ARCH_IS_ARM == 1)
     *out_entry |= 1u;               /* Cortex-M：Thumb 指令集标志位 */
     #endif
+
+    /* 裸镜像没有镜像头，无法携带 per-slot 策略，沿用原全局开关作为其默认：
+     * 开发期“烧录即运行”的体验不变，而带头的 .svcapp 可以逐个槽单独设定。 */
+    *out_autostart = (expect_type == SVCRT_APP_TYPE_DRIVER)
+                     ? ((DRIVER_AUTO_START != 0) ? 1u : 0u)
+                     : ((APP_AUTO_START != 0) ? 1u : 0u);
     return 0;
     #else
     return -1;
@@ -689,16 +700,21 @@ uint32 svcrt_loader_scan(void)
     {
         uint32 base = pt->app_user_base + i * pt->app_slot_size;
         uint32 entry;
+        uint32 autostart;
 
-        if(svcrt_loader_identify(base, pt->app_slot_size, SVCRT_APP_TYPE_APP, &entry) == 0)
+        if(svcrt_loader_identify(base, pt->app_slot_size, SVCRT_APP_TYPE_APP,
+                                 &entry, &autostart) == 0)
         {
             svcrt_ptable_set_slot(i, SVCRT_APP_SLOT_LOADED, entry, 0u);
+            /* scan 在调度启动之前单线程执行，此处直接写共享字段即可 */
+            pt->slot_autostart[i] = autostart;
             found++;
         }
         else if(((const svcrt_app_header_t *)base)->magic != 0xFFFFFFFFu)
         {
             /* 有内容但认定失败：标记为不可用，避免被误启动 */
             svcrt_ptable_set_slot(i, SVCRT_APP_SLOT_INVALID, 0u, 0u);
+            pt->slot_autostart[i] = 0u;
         }
     }
 
@@ -715,16 +731,20 @@ uint32 svcrt_loader_scan_driver(void)
     {
         uint32 base = pt->driver_pool_base + i * pt->driver_slot_size;
         uint32 entry;
+        uint32 autostart;
 
-        if(svcrt_loader_identify(base, pt->driver_slot_size, SVCRT_APP_TYPE_DRIVER, &entry) == 0)
+        if(svcrt_loader_identify(base, pt->driver_slot_size, SVCRT_APP_TYPE_DRIVER,
+                                 &entry, &autostart) == 0)
         {
             svcrt_ptable_set_driver_slot(i, SVCRT_APP_SLOT_LOADED, entry, 0u);
+            pt->driver_slot_autostart[i] = autostart;
             found++;
         }
         else if(((const svcrt_app_header_t *)base)->magic != 0xFFFFFFFFu)
         {
             /* 有内容但认定失败：标记为不可用，避免被误启动 */
             svcrt_ptable_set_driver_slot(i, SVCRT_APP_SLOT_INVALID, 0u, 0u);
+            pt->driver_slot_autostart[i] = 0u;
         }
     }
 
@@ -1045,4 +1065,49 @@ uint32 svcrt_loader_state(uint32 slot)
     }
 
     return pt->slot_state[slot];
+}
+
+uint32 svcrt_loader_start_autostart_driver(void)
+{
+    svcrt_partition_table_t *pt = svcrt_ptable_get();
+    uint32 started = 0u;
+    uint32 i;
+
+    for(i = 0u; i < pt->driver_max_count && i < SVCRT_SLOT_ARRAY_MAX; i++)
+    {
+        if(pt->driver_slot_autostart[i] == 0u)
+        {
+            continue;
+        }
+
+        /* 只有已认定（LOADED）的槽位会被拉起；start_xxx_slot 内部还会再校验一次状态 */
+        if(svcrt_loader_start_driver_slot(i) > 0)
+        {
+            started++;
+        }
+    }
+
+    return started;
+}
+
+uint32 svcrt_loader_start_autostart(void)
+{
+    svcrt_partition_table_t *pt = svcrt_ptable_get();
+    uint32 started = 0u;
+    uint32 i;
+
+    for(i = 0u; i < pt->app_max_count && i < SVCRT_SLOT_ARRAY_MAX; i++)
+    {
+        if(pt->slot_autostart[i] == 0u)
+        {
+            continue;
+        }
+
+        if(svcrt_loader_start(i) > 0)
+        {
+            started++;
+        }
+    }
+
+    return started;
 }

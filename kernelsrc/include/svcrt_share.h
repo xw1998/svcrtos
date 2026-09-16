@@ -19,8 +19,11 @@
 
 /** @brief 分区表结构版本。
  *  v1 -> v2: driver 区状态由「单槽四个平铺字段」改为「与 App 同构的槽位数组」，
- *  结构尺寸与字段偏移都变了，因此版本必须升位，避免新旧镜像错配。 */
-#define SVCRT_PARTITION_VERSION   (2u)
+ *  结构尺寸与字段偏移都变了，因此版本必须升位，避免新旧镜像错配。
+ *  v2 -> v3: 末尾追加每槽 autostart 标志（App / 驱动各一组）。新字段追加在
+ *  结构尾部，v2 读者读到的布局字段偏移不变，但为了让「结构形状」有明确边界，
+ *  版本仍然升位。 */
+#define SVCRT_PARTITION_VERSION   (3u)
 
 /** @brief 槽位数组的固定长度（ABI 形状常量）。
  *  实际使用的槽位数由运行期字段 driver_max_count / app_max_count 决定，
@@ -79,6 +82,10 @@ typedef struct {
     uint32 driver_slot_entry[SVCRT_SLOT_ARRAY_MAX];     /* 每个驱动槽位入口地址（0 表示无效） */
     uint32 driver_slot_task_id[SVCRT_SLOT_ARRAY_MAX];   /* 每个驱动槽位对应任务号（0 表示未启动） */
     uint32 driver_slot_crash_cnt[SVCRT_SLOT_ARRAY_MAX]; /* 每个驱动槽位的连续故障重启次数 */
+
+    /* ---- 每槽自启标志（来自镜像头 flags，打包时决定；裸镜像取编译期默认） ---- */
+    uint32 slot_autostart[SVCRT_SLOT_ARRAY_MAX];        /* 非 0 = 开机扫描后自动启动 */
+    uint32 driver_slot_autostart[SVCRT_SLOT_ARRAY_MAX]; /* 驱动槽位同上 */
 } svcrt_partition_table_t;
 
 #endif /* __SVCRT_SHARE_H__ */

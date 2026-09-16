@@ -73,7 +73,7 @@
  *
  *          其余全部由本文件派生：
  *            SVCRT_TASK_NEED_MIN       三类需求之和（分区能装下所需的最小容量）
- *            SVCRT_TASK_TABLE_RAM_MAX  静态 TCB 数组的 RAM 预算上限
+ *            SVCRT_TASK_TABLE_RAM_MAX  静态 TCB 数组的 RAM 预算上限（字节）
  *          两者都在下方编译期断言里校验：容量配小了直接编译报错，
  *          而不是运行期静默注册失败。
  * @note 运行时仍可继续用 svcrt_task_register() 动态创建任务，上限就是
@@ -91,8 +91,15 @@
                                    (DRIVER_MAX_COUNT * SVCRT_TASK_PER_DRIVER) + \
                                    (APP_MAX_COUNT * SVCRT_TASK_PER_APP))
 
+/* 静态 TCB 数组的 RAM 预算（字节）。守护断言直接比较真实的
+ * sizeof(svcrt_task_table)，不依赖「每个 TCB 多少字节」的估算：
+ * Cortex-M4 上实测 sizeof(svcrt_task_t) = 76 字节（SVCRT_USE_MPU=0）
+ * / 140 字节（SVCRT_USE_MPU=1），48 槽分别占 3648 / 6720 字节。
+ * 预算固定 8KB，把 SVCRT_TASK_MAX_NUM 提到约 110（MPU 关）或约 58
+ * （MPU 开）以上才会触发断言；确实要更大规模时把本宏显式改大即可，
+ * 改多少就是显式占用多少内核 RAM。 */
 #ifndef SVCRT_TASK_TABLE_RAM_MAX
-#define SVCRT_TASK_TABLE_RAM_MAX  (SVCRT_TASK_MAX_NUM * 128)   /* 每个 TCB 按 128 字节预算 */
+#define SVCRT_TASK_TABLE_RAM_MAX  (8u * 1024u)
 #endif
 
 /* ============================================================
@@ -241,6 +248,27 @@ typedef char svcrt_mpu_window_check[
 #define INSTALLER_TASK_STACK_SIZE (1024 * 2)     /* 安装任务栈大小（字节，取自内核 RAM） */
 #define INSTALLER_TASK_PERIOD_MS 50              /* 无数据时的轮询间隔（ms） */
 #define INSTALLER_AUTO_START     1               /* 安装完成后是否自动启动该 App */
+
+/* ============================================================
+ * 四、内核 Shell 控制台（ark-shell 移植）
+ * @details 内核跑一个低优先级控制台任务，独占串口提供人机命令：
+ *          App / 驱动的启停与查询、任务与内存概览、故障读数、串口安装。
+ *          开启 shell 后不再注册常驻安装任务（见 svcrt_installer.c），
+ *          改为 `install` 命令打开一次安装窗口：否则两个任务会同时读同一个
+ *          串口 FIFO，把镜像字节流随机分掉，谁都装不成。
+ *          「是否开机自启」由镜像头 flags 决定（tools/pack_app.py --autostart），
+ *          本节的 APP_AUTO_START / DRIVER_AUTO_START 只影响「裸镜像」这条
+ *          开发调试路径。
+ * ============================================================ */
+#ifndef SHELL_ENABLE
+#define SHELL_ENABLE             1               /* 1=启用内核 shell 控制台任务 */
+#endif
+#define SHELL_DEV_NAME           "COM1"          /* 控制台串口设备名 */
+#define SHELL_DEV_ARG            115200          /* 设备打开参数（波特率） */
+#define SHELL_TASK_PRIORITY      14              /* 控制台优先级（最低：人机交互，不抢业务 CPU） */
+#define SHELL_TASK_STACK_SIZE    (1024 * 3)      /* 控制台任务栈（字节，取自内核 RAM） */
+#define SHELL_TASK_PERIOD_MS     2               /* 无按键时的轮询间隔（ms） */
+#define SHELL_INSTALL_TIMEOUT_MS 120000          /* install 窗口最长等待（ms），超时回命令提示符 */
 
 /* ---- 一致性自检（编译期，配置错误在编译阶段就暴露） ---- */
 #if (KERNEL_RAM_SIZE <= 0)
