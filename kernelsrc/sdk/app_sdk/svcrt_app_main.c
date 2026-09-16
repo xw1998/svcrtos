@@ -4,7 +4,7 @@
 
 #include "svcrt.h"
 
-__weak void AppMain(void)
+SVCRT_WEAK void AppMain(void)
 {
 }
 

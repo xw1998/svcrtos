@@ -143,8 +143,26 @@ void svcrt_port_svc_set_ret(void *p_exc_ctx, uint32 value)
     ((uint32 *)p_exc_ctx)[0] = value;
 }
 
+/* Task switching stays latched off until the board has moved the CPU to
+ * the idle PSP context (svcrt_port_enter_idle) and calls
+ * svcrt_port_switch_enable(). A switch requested before that runs while
+ * the CPU still uses MSP, so the saved PSP is garbage and the PendSV
+ * return would go back to the caller instead of starting the new task. */
+static uint8 svcrt_port_switch_ready = 0u;
+
 void svcrt_port_switch_task(void)
 {
+    if(svcrt_port_switch_ready != 0u)
+    {
+        SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
+    }
+}
+
+/* Enable task switching and request the first switch. Call it after
+ * svcrt_port_enter_idle() and svcrt_port_start_timer(). */
+void svcrt_port_switch_enable(void)
+{
+    svcrt_port_switch_ready = 1u;
     SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
 }
 
@@ -173,7 +191,8 @@ uint32 svcrt_port_stack_init(uint32 stack_top, void (*entry)(void))
     p_sp = (uint32 *)stack_top;
 
     *(--p_sp) = 0x01000000;        /* xPSR: Thumb ¦Ë */
-    *(--p_sp) = (uint32)entry;     /* PC */
+    /* The hardware pushes/loads the frame PC without its thumb bit. */
+    *(--p_sp) = (uint32)entry & ~1u;  /* PC */
     *(--p_sp) = 0;                 /* LR */
     *(--p_sp) = 0;                 /* R12 */
     *(--p_sp) = 0;                 /* R3 */

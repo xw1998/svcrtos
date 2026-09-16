@@ -15,4 +15,13 @@ typedef signed   short int16;
 typedef unsigned char  uint8;
 typedef signed   char  int8;
 
+
+
+/* Toolchain-independent weak-symbol attribute (AC5 vs AC6/GCC/Clang). */
+#if defined(__CC_ARM)
+#define SVCRT_WEAK __weak
+#else
+#define SVCRT_WEAK __attribute__((weak))
+#endif
+
 #endif

@@ -179,6 +179,14 @@ uint32 svcrt_port_stack_init(uint32 stack_top, void (*entry)(void));
 */
 void svcrt_port_enter_idle(uint32 stack_ptr, uint32 use_priv);
 
+/**
+* @brief Enable task switching and request the first switch
+* @details Must be called after svcrt_port_enter_idle() (CPU on PSP) and
+*          svcrt_port_start_timer(). Switching requests issued before this
+*          call are ignored on purpose.
+*/
+void   svcrt_port_switch_enable(void);
+
 /* ============================================================
  * 定时器层
  * @brief 系统节拍定时器与微秒延时，由port层实现

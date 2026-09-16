@@ -346,6 +346,11 @@ static void svcrt_start_idle(void)
 
     svcrt_port_start_timer(SVCRT_TICK_PERIOD_US);
 
+    /* The idle PSP context now exists, so the scheduler may switch: this
+     * is what starts the first registered task (driver/App tasks were
+     * kept READY while the loader ran). */
+    svcrt_port_switch_enable();
+
     while(1)
     {
         SVCRT_WFI();

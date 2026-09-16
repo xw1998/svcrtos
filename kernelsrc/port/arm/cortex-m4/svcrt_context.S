@@ -20,27 +20,42 @@ PendSV_Handler		PROC
 
     MRS     R1, PSP
 
+    ; The BLX above may clobber R0-R3/R12, so reload the interrupted
+    ; context's EXC_RETURN from the entry PUSH {R0, LR} (LR is SP+4).
+    LDR     R12, [SP, #4]
+
  IF {FPU} != "SoftVFP"
     ; extended frame in use (EXC_RETURN bit4=0): save S16-S31 as well
-    TST     LR, #0x10
+    TST     R12, #0x10
     IT      EQ
     VSTMDBEQ R1!, {S16-S31}
  ENDIF
 
-    STMDB   R1!, {R4-R11, LR}
+    ; Save R4-R11 and this context's EXC_RETURN. R12 > R11, so the
+    ; EXC_RETURN lands at the top of the block, i.e. directly below
+    ; the hardware frame - the layout svcrt_port_stack_init() builds.
+    STMDB   R1!, {R4-R11, R12}
 
     LDR     R2, =svcrt_sched_activate
     BLX     R2
 
-    LDMIA   R0!, {R4-R11, LR}
+    ; R0 = incoming task stack, R3 = incoming task's own EXC_RETURN.
+    LDMIA   R0!, {R4-R11, R12}
 
  IF {FPU} != "SoftVFP"
-    TST     LR, #0x10
+    ; The incoming task's EXC_RETURN says whether it owns S16-S31.
+    TST     R12, #0x10
     IT      EQ
     VLDMIAEQ R0!, {S16-S31}
  ENDIF
 
     MSR     PSP, R0
+
+    ; Return through the incoming task's EXC_RETURN instead of the value
+    ; pushed on entry: only that value makes the hardware restore Thread
+    ; mode on PSP, which is what actually performs the switch.
+    POP     {R0, LR}
+    BX      R12
 
 endpend
     POP     {R0, PC}

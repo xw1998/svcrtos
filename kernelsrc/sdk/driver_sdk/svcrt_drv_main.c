@@ -6,7 +6,7 @@
 
 #include "svcrt_driver_sdk.h"
 
-__weak void DrvMain(void)
+SVCRT_WEAK void DrvMain(void)
 {
 }
 
