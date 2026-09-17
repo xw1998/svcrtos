@@ -30,6 +30,7 @@
 #include "svcrt_ptable.h"
 #include "svcrt_share.h"
 #include "svcrt_partition.h"
+#include "svcrt_log.h"
 
 #if (INSTALLER_ENABLE == 1)
 
@@ -113,44 +114,53 @@ static int32 svcrt_installer_commit(int32 dev)
     svcrt_partition_table_t *pt = svcrt_ptable_get();
     int32 r;
 
-    /* 按镜像头里的 type 自动分流：驱动镜像进驱动区，其余进 App 槽位 */
+    /* App and driver share one install path; the landing slot is picked by the */
+    /* pool allocator at install time (highest-density append), it is not */
+    /* declared by the image header any more. A driver entry only additionally */
+    /* requires type = DRIVER, which keeps the by-type routing explicit. */
     if(svcrt_installer_hdr.type == SVCRT_APP_TYPE_DRIVER)
     {
         r = svcrt_loader_load_driver_dev(dev, &svcrt_installer_hdr, 0u);
-        svcrt_installer_got = 0u;
-
-        if(r >= 0)
-        {
-            pt->driver_slot_autostart[r] = autostart;
-
-            if(autostart != 0u)
-            {
-                /* r 就是刚写入的驱动槽位号：只拉起刚落盘的那个槽，
-                 * 不能再去启动 0 号槽（否则多驱动并存时永远只启第一个） */
-                svcrt_loader_start_driver_slot((uint32)r);
-            }
-        }
     }
     else
     {
         r = svcrt_loader_load_dev_hdr(dev, &svcrt_installer_hdr, 0u);
-        svcrt_installer_got = 0u;
+    }
 
-        if(r >= 0)
+    svcrt_installer_got = 0u;
+
+    if(r >= 0)
+    {
+        /* r 是刚写入的槽位记录号：只拉起刚落盘的那个槽，
+         * 不能再去启动 0 号槽（否则多槽并存时永远只启第一个）。
+         * svcrt_loader_start() 按槽位类型自动分流 App / 驱动。 */
+        pt->slot_autostart[r] = autostart;
+
+        if(autostart != 0u)
         {
-            pt->slot_autostart[r] = autostart;
-
-            if(autostart != 0u)
-            {
-                svcrt_loader_start((uint32)r);
-            }
+            svcrt_loader_start((uint32)r);
         }
     }
 
     if(r < 0)
     {
-        /* 安装失败不能静默：记录故障，便于用故障读数接口（shell 的 fault）事后定位 */
+        /* 安装失败不能静默：既上控制台（当场看得见错误码），也记录故障，
+         * 便于用故障读数接口（shell 的 fault）事后定位。
+         * 错误码含义见 svcrt_loader.h 的 SVCRT_LOADER_ERR_x。 */
+        SVCRT_LOGE("INSTALL", "rejected: err %d, type %u, payload %u B, reloc %u",
+                   (int)r,
+                   (unsigned)svcrt_installer_hdr.type,
+                   (unsigned)svcrt_installer_hdr.image_size,
+                   (unsigned)svcrt_installer_hdr.reloc_count);
         svcrt_fault_record(SVCRT_FAULT_INSTALLFAIL, svcrt_current_task_id);
+    }
+    else
+    {
+        SVCRT_LOGI("INSTALL", "slot %d committed: type %u, payload %u B, autostart %u",
+                   (int)r,
+                   (unsigned)svcrt_installer_hdr.type,
+                   (unsigned)svcrt_installer_hdr.image_size,
+                   (unsigned)autostart);
     }
 
     return r;
@@ -212,6 +222,8 @@ int32 svcrt_installer_run_once(int32 dev, uint32 timeout_ms)
 
         if(waited >= timeout_ms)
         {
+            SVCRT_LOGE("INSTALL", "window timed out after %u ms (got %u B)",
+                       (unsigned)waited, (unsigned)svcrt_installer_got);
             svcrt_installer_got = 0u;
             svcrt_fault_record(SVCRT_FAULT_INSTALLFAIL, svcrt_current_task_id);
             return SVCRT_LOADER_ERR_PARAM;

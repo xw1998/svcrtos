@@ -14,6 +14,7 @@
 #define __SVCRT_H__
 
 #include "svcrt_types.h"
+#include "svcrt_ulog.h"
 
 /** @defgroup task 任务管理
  *  @{ */

@@ -85,13 +85,49 @@ static svcrt_dev_drv_t temp_drv = {
     temp_drv_ctrl
 };
 
+/* ---- console services: user log (SVC 0x19) and user command (SVC 0x1A) - */
+
+static int drv_cmd_temp(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+
+    (void)svcrt_shell_printf("TEMP raw=%d (0.1 deg), unit=%d\r\n",
+                             (int)temp_obj.last_temp, (int)temp_obj.unit);
+    return 0;
+}
+
+static svcrt_ushell_cmd_t g_drv_cmd =
+{
+    "temp",
+    drv_cmd_temp,
+    "Simulated temperature driver, registered by the driver via SVC 0x1A",
+    1
+};
+
+
 void DrvMain(void)
 {
+    uint8 cmd_done = 0u;
+
     svcrt_drv_register("TEMP", &temp_drv, 0);
+
+    (void)svcrt_log_printf(SVCRT_LOG_INFO, "TEMPDRV", "temperature driver registered\r\n");
 
     while(1)
     {
-        /* 注册完成后驱动无需后台动作：睡下去让出 CPU 给 App。 */
         svcrt_task_wait(1000);
+
+        /* The console command table is built by the shell task once the
+         * scheduler is running, and drivers are started before it, so the
+         * first console registration waits one period to be sure. */
+        if(cmd_done == 0u)
+        {
+            int32 gr = svcrt_shell_cmd_register(&g_drv_cmd);
+
+            (void)svcrt_log_printf(SVCRT_LOG_INFO, "TEMPDRV",
+                                   "console command 'temp' register rc=%d\r\n", (int)gr);
+            cmd_done = 1u;
+        }
     }
 }

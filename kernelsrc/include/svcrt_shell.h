@@ -15,6 +15,7 @@
 #define __SVCRT_SHELL_H__
 
 #include "svcrt_types.h"
+#include "svcrt_ushell.h"
 
 #if (defined(__cplusplus))
 extern "C" {
@@ -39,6 +40,33 @@ int32 svcrt_shell_uart_handle(void);
 * @return 设备句柄；打开失败返回 -1
 */
 int32 svcrt_shell_uart_open(void);
+
+/**
+* @brief 往内核控制台注册一条用户态（App / 驱动）命令
+* @param cmd 用户态描述符；name / help 会被复制进内核 RAM，
+*            所以镜像卸载后不会留下指向已擦除 Flash 的悬垂指针
+* @return SVCRT_USHELL_OK 或负错误码（见 svcrt_ushell.h）
+* @details 供内核分发层（SVC 0x1A 子命令 1）调用；用户态请用
+*          svcrt_shell_cmd_register()，不要直接调用本函数。
+*/
+int32 svcrt_shell_ext_register(const svcrt_ushell_cmd_t *cmd);
+
+/**
+* @brief 注销一条用户态命令（按名字，不区分大小写）
+* @return SVCRT_USHELL_OK 或负错误码
+*/
+int32 svcrt_shell_ext_unregister(const char *name);
+
+/**
+* @brief 向控制台输出一段有界长度的文本（不追加换行）
+* @param msg 文本首地址
+* @param len 输出长度；由分发层先探测上限，避免在内核侧做无界 strlen
+* @return SVCRT_USHELL_OK 或负错误码
+* @details SVC 处理运行在用户任务的 PSP 上（App 栈 4K、驱动栈 1K），
+*          因此这里用内核静态缓冲分段输出，不在调用者栈上开临时数组。
+*/
+int32 svcrt_shell_print_n(const char *msg, uint32 len);
+
 
 #if (defined(__cplusplus))
 }

@@ -1,13 +1,26 @@
 /**
 * @file svcrt_loader.h
-* @brief SVCrtOS App 镜像加载器（分区内加载 / 校验 / 启动）
-* @details 负责把 App 镜像写入空闲槽位，并按镜像头信息校验后拉起为任务。
+* @brief SVCrtOS App 镜像加载器（分区内加载 / 校验 / 启动 / 搬移 / 卸载）
+* @details 负责把 App 镜像写入池内空闲空间，并按镜像头信息校验后拉起为任务。
 *          镜像格式见 svcrt_app_image.h；分区布局运行期从共享内存分区表获取
 *          （见 svcrt_ptable.h），本模块不硬编码任何地址。
 *
+*          v4 起，镜像自带重定位表，落点不再需要链接期钉死：
+*            - 分配：从池底往上找第一段足够长的**已擦除**空间（首适配），
+*              因此镜像天然按实际长度紧邻排列，密度等于实际占用之和；
+*            - 搬移：镜像可被整体搬到别处（重定位表按 delta 打补丁），
+*              使卸载后的死区能够被回收；
+*            - 事务：新副本先以 UNCOMMITTED 写入并校验，通过后只改
+*              state 一个字提交，最后才擦旧副本。任何时刻掉电，
+*              上电扫描都能依 UNCOMMITTED / 重复 image_id 两条规则恢复到
+*              确定状态，因此不需要日志扇区。
+*
+*          分配不依赖任何元数据：Flash 里「连续 0xFF 段」就是可用空间，
+*          活镜像必然含非 0xFF 字节（镜像头魔数），所以物理扫描同时完成了
+*          「找空位」与「避开已装镜像」两件事，重启后无需恢复分配器状态。
+*
 *          支持两种来源：
 *          1) 内存缓冲区（svcrt_loader_load_buffer）——预留给内核自测 / 后续 OTA 复用；
-*             ⚠ 当前内核内没有任何调用者（安装走设备流式路径），改动时勿据此判断其可用性；
 *          2) 设备流式读取（svcrt_loader_load_dev）——从 UART / SD 等设备接收。
 *
 * @note 本文件属于内核内部接口；对外经 SVC 0x18（APP_MGR）暴露给用户态。
@@ -27,26 +40,32 @@ extern "C" {
 #define SVCRT_LOADER_ERR_PARAM    (-1)   /* 参数非法 */
 #define SVCRT_LOADER_ERR_MAGIC    (-2)   /* 镜像头魔数错误 */
 #define SVCRT_LOADER_ERR_COMPAT   (-3)   /* 硬件兼容签名不匹配 */
-#define SVCRT_LOADER_ERR_SIZE     (-4)   /* 镜像长度非法或超出槽位 */
+#define SVCRT_LOADER_ERR_SIZE     (-4)   /* 镜像长度非法或超出可用空间 */
 #define SVCRT_LOADER_ERR_CRC      (-5)   /* CRC32 校验失败 */
 #define SVCRT_LOADER_ERR_FLASH    (-6)   /* Flash 擦写失败 */
-#define SVCRT_LOADER_ERR_NO_SLOT  (-7)   /* 无空闲槽位 */
+#define SVCRT_LOADER_ERR_NO_SLOT  (-7)   /* 无空闲槽位记录 */
 #define SVCRT_LOADER_ERR_TASK     (-8)   /* 任务注册失败 */
 #define SVCRT_LOADER_ERR_STATE    (-9)   /* 槽位状态不允许该操作 */
-#define SVCRT_LOADER_ERR_ADDR     (-10)  /* 镜像头 load_addr 与目标分区基址不一致 */
+#define SVCRT_LOADER_ERR_ADDR     (-10)  /* 落点非法（越界 / 未按分配粒度对齐） */
 #define SVCRT_LOADER_ERR_ENTRY    (-11)  /* 镜像头 entry_offset 越界（入口不在负载范围内） */
+#define SVCRT_LOADER_ERR_OCCUPIED (-12)  /* 目标区间与已登记槽位重叠 */
+#define SVCRT_LOADER_ERR_RELOC    (-13)  /* 重定位表非法，或修补后校验不一致 */
+#define SVCRT_LOADER_ERR_NOSPACE  (-14)  /* 池内没有足够大的已擦除空间 */
+#define SVCRT_LOADER_ERR_BUSY     (-15)  /* 镜像正在运行，不允许搬移或卸载 */
 
 /**
 * @brief 从内存缓冲区加载完整 App 镜像
 * @param image     指向镜像起始（含 256 字节头）的缓冲区
-* @param image_len 缓冲区长度（字节），必须 >= 头长 + image_size
+* @param image_len 缓冲区长度（字节），必须 >= 镜像总长
 * @return 成功返回槽位号（>=0），失败返回 SVCRT_LOADER_ERR_x
+* @details 与设备流式路径共用同一套判定：校验头 -> 找空闲区 -> 登记槽位 ->
+*          应用重定位并写入 -> CRC 复核 -> 事务提交 -> 置 LOADED。
 */
 int32 svcrt_loader_load_buffer(const uint8 *image, uint32 image_len);
 
 /**
-* @brief 从设备流式加载 App 镜像
-* @param dev       已打开的设备句柄（数据从镜像头开始）
+* @brief 从设备流式加载完整镜像（自行同步并读取镜像头）
+* @param dev       已打开的设备句柄（数据从镜像头之前开始）
 * @param image_len 期望的镜像总长（含头）；传 0 表示由镜像头中的 image_size 决定
 * @return 成功返回槽位号（>=0），失败返回 SVCRT_LOADER_ERR_x
 * @note 边读边写 Flash，仅使用固定大小分块缓冲，不要求整镜像驻留 RAM。
@@ -54,33 +73,71 @@ int32 svcrt_loader_load_buffer(const uint8 *image, uint32 image_len);
 int32 svcrt_loader_load_dev(int32 dev, uint32 image_len);
 
 /**
-* @brief 扫描全部槽位，把 Flash 中已存在且校验通过的镜像标记为 LOADED
-* @return 有效（可启动）的槽位数量
+* @brief 扫描整个镜像池，把 Flash 中已存在且校验通过的镜像标记为 LOADED
+* @return 有效（可启动）的 App 数量
 * @details 槽位状态原本只存在于共享 RAM，重启后会丢失；本函数在启动时按
 *          镜像头魔数 + 硬件兼容签名 + CRC32 重新认定槽位，使“先烧录镜像、
 *          再上电运行”的最小闭环成立。
+*
+*          扫描按分配粒度（SVCRT_POOL_ALLOC_UNIT）线性遍历整个池：
+*          遇到带头镜像则按头的 type 归类为 App / 驱动；遇到裸镜像则查编译期
+*          开发槽位表（SVCRT_DEV_SLOTn_*）判定类型与跨度。
+*          同时执行断电恢复：
+*            - state = UNCOMMITTED 的副本一律作废（搬移中途掉电）；
+*            - 同一 image_id 出现两份有效副本时保留地址较低的那份。
+*          两者都登记为 INVALID，随后由 svcrt_loader_reclaim() 擦除回收。
 */
 uint32 svcrt_loader_scan(void);
 
 /**
-* @brief 扫描全部驱动槽位，认定其中的驱动镜像
-* @return 有效（可启动）的驱动槽位数量，0=无有效驱动
-* @details 驱动池被等分为 driver_max_count 个槽位，逐个扫描。
-*          与 App 槽位共用同一套认定规则：带头的 .svcapp 或开发期裸镜像。
+* @brief 扫描镜像池，返回其中的驱动数量
+* @return 有效（可启动）的驱动数量，0=无有效驱动
+* @details 与 svcrt_loader_scan() 共用同一份扫描结果（同一次扫描的驱动视图），
+*          因此两者不区分调用顺序，可各自独立调用。
 */
 uint32 svcrt_loader_scan_driver(void);
 
 /**
+* @brief 回收死区：把「不含活镜像的扇区」擦成 0xFF，使空间重新可用
+* @return 本次擦除的扇区数；负值为 SVCRT_LOADER_ERR_x
+* @details Flash 擦除粒度是整扇区，因此一个扇区里只要有活镜像就不能擦。
+*          本函数对每个含死字节的扇区执行：
+*            1) 扇区内已无活镜像 -> 直接擦；
+*            2) 扇区内仍有活镜像 -> 先把这些镜像搬到池内最低的已擦除空位
+*               （应用重定位，走 UNCOMMITTED -> VALID 事务），再擦。
+*          搬不动的镜像（正在运行、或没有足够空位）会让该扇区保留死区，
+*          函数跳过它并继续处理其它扇区。卸载/安装后调用一次即可。
+*/
+int32 svcrt_loader_reclaim(void);
+
+/**
+* @brief 查询池内还剩多少可装镜像的物理空间
+* @param p_largest 非空时写入最长的一段连续空闲字节数
+* @return 所有 0xFF 连续段的总字节数
+*/
+uint32 svcrt_loader_pool_free(uint32 *p_largest);
+
+/**
+* @brief 卸载一个镜像：停止任务、注销记录，然后回收它占用的空间
+* @param slot 槽位记录号
+* @return 0=成功，负值为 SVCRT_LOADER_ERR_x
+* @details 正在运行的任务会被先停止（镜像字节仍在 Flash，可再次启动）；
+*          随后注销槽位记录并调用 svcrt_loader_reclaim() 尽量把空间收回来。
+* @note 卸载是破坏性操作：擦除后镜像不可恢复，需要重新安装。
+*/
+int32 svcrt_loader_uninstall(uint32 slot);
+
+/**
 * @brief 启动指定驱动槽位的驱动
-* @param slot 驱动槽位号（0 ~ driver_max_count-1）
+* @param slot 驱动槽位号
 * @return 成功返回任务号（>0），失败返回 SVCRT_LOADER_ERR_x
-* @details 栈从本槽自己的驱动 RAM 顶部切出（与 App 同一套路），
-*          参数取 DRIVER_TASK_PRIORITY / STACK_SIZE / PERIOD_MS。
+* @details 栈从该镜像分配到的 RAM 块顶部切出；RAM 块由伙伴分配器按镜像头
+*          声明的 ram_size 现算，因此不同镜像永不共用 RAM。
 */
 int32 svcrt_loader_start_driver_slot(uint32 slot);
 
 /**
-* @brief 启动驱动区的驱动（兼容包装：等价于启动 0 号驱动槽）
+* @brief 启动 0 号驱动槽（兼容包装）
 * @return 成功返回任务号（>0），失败返回 SVCRT_LOADER_ERR_x
 */
 int32 svcrt_loader_start_driver(void);
@@ -105,8 +162,18 @@ uint32 svcrt_loader_state_driver(uint32 slot);
 * @param p_hdr     已读出的镜像头（调用方已完成魔数同步）
 * @param image_len 期望镜像总长（含头），传 0 表示由镜像头决定
 * @return 成功返回槽位号（>=0），失败返回 SVCRT_LOADER_ERR_x
-* @details 供安装任务使用：先逐字节同步到镜像头魔数，再把头交给本函数继续
-*          流式写入负载，避免整镜像驻留 RAM。
+* @details 本函数是**唯一的安装实现**，其余安装入口均为其薄包装。流程：
+*          1) 校验头部（魔数 / 类型 / 兼容签名 / 长度 / 入口 / 重定位表）；
+*          2) 在池内找一段足够大的已擦除空间（首适配，天然紧邻排列）；
+*          3) 登记槽位（INSTALLING）；
+*          4) 写入镜像头（state=UNCOMMITTED）；
+*          5) 流式接收重定位表并落盘；
+*          6) 流式接收负载，逐块按 delta 打补丁后落盘（每块回一个 ACK）；
+*          7) CRC32 复核（头按 crc32/state 归零计算）；
+*          8) 唯一的一个字写入：state = VALID，提交完成；
+*          9) 置 LOADED 并清零故障计数，返回槽位号；自启标志不在本函数内
+*             写入，由调用方（安装模块）按镜像头 flags 填槽位表。
+*          供安装任务使用：先逐字节同步到镜像头魔数，再把头交本函数延续。
 */
 int32 svcrt_loader_load_dev_hdr(int32 dev, const svcrt_app_header_t *p_hdr, uint32 image_len);
 
@@ -115,14 +182,14 @@ int32 svcrt_loader_load_dev_hdr(int32 dev, const svcrt_app_header_t *p_hdr, uint
 * @param dev       已打开的设备句柄，位置在镜像头之前
 * @param image_len 期望镜像总长（含头），传 0 表示由镜像头决定
 * @return 成功返回驱动槽位号（>=0），失败返回 SVCRT_LOADER_ERR_x
-* @note 镜像头的 type 必须为 SVCRT_APP_TYPE_DRIVER；镜像头 load_addr
-*       必须等于某个驱动槽位基址，写入前会擦除该槽区间。
+* @note 镜像头的 type 必须为 SVCRT_APP_TYPE_DRIVER。
 */
 int32 svcrt_loader_load_driver(int32 dev, uint32 image_len);
 
 /**
 * @brief 从设备安装驱动镜像（镜像头已由调用方读出）
 * @return 成功返回驱动槽位号（>=0），失败返回 SVCRT_LOADER_ERR_x
+* @details 校验 hdr.type 为 DRIVER 后转交 svcrt_loader_load_dev_hdr()。
 */
 int32 svcrt_loader_load_driver_dev(int32 dev, const svcrt_app_header_t *p_hdr, uint32 image_len);
 
@@ -130,17 +197,17 @@ int32 svcrt_loader_load_driver_dev(int32 dev, const svcrt_app_header_t *p_hdr, u
 * @brief 按“崩溃重启上限”策略处理 App 任务故障
 * @param task_id 发生故障的任务号
 * @return 1=已达上限并已禁用该 App，0=未达上限（调用方应恢复/重启该 App），
-*         -1=不属于任何 App 槽位（内核任务，调用方沿用默认处理）
-* @details 计数按槽位累计：故障一次加一，达到 APP_CRASH_RESTART_MAX 后
-*          将该槽位置为 INVALID 并让任务脱离调度（不再重启）。
+*         -1=不属于任何槽位（内核任务，调用方沿用默认处理）
+* @details 计数按槽位累计（从分区表反查 task_id 归属）：故障一次加一，
+*          达到 APP_CRASH_RESTART_MAX 后将该槽位置为 INVALID 并让任务脱离调度。
 *          重新安装镜像时计数清零。
 * @note 计数保存在共享 RAM，掉电即清零，因此当前可挡住“App 反复崩溃重启”，
-*       但擋不住“崩溃导致整机复位”的启动环——那需要把计数持久化（如备份寄存器）。
+*       但挡不住“崩溃导致整机复位”的启动环——那需要把计数持久化（如备份寄存器）。
 */
 int32 svcrt_loader_on_fault(int32 task_id);
 
 /**
-* @brief 把已加载的槽位拉起为任务
+* @brief 把已加载的槽位拉起为任务（按槽位类型自动分流 App / 驱动）
 * @param slot 槽位号
 * @return 成功返回任务号（>0），失败返回 SVCRT_LOADER_ERR_x
 */
@@ -163,9 +230,8 @@ uint32 svcrt_loader_state(uint32 slot);
 /**
 * @brief 按各驱动槽的自启标志批量启动驱动
 * @return 实际启动的驱动数量
-* @details 自启标志在 svcrt_loader_scan_driver() 中由镜像头 flags 回填
-*          （裸镜像取 DRIVER_AUTO_START）。未设自启的驱动不会被拉起，
-*          需由上层（如 shell 的 driver start）显式启动。
+* @details 自启标志在扫描时由镜像头 flags 回填（裸镜像取开发槽位表配置）。
+*          未设自启的驱动不会被拉起，需由上层（如 shell 的 drv start）显式启动。
 *          必须在 svcrt_loader_scan_driver() 之后调用。
 */
 uint32 svcrt_loader_start_autostart_driver(void);

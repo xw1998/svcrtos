@@ -72,7 +72,7 @@
           <BeforeMake>
             <RunUserProg1>1</RunUserProg1>
             <RunUserProg2>0</RunUserProg2>
-            <UserProg1Name>python ..\..\..\..\..\tools\gen_scatter.py --target driver --output ..\..\..\..\..\build\driver.sct</UserProg1Name>
+            <UserProg1Name>py -3 ..\..\..\..\..\tools\gen_app_sct.py --project bled_drv.uvprojx --type driver --dev-slot 2 --ram-size 4096</UserProg1Name>
             <UserProg2Name></UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
@@ -370,7 +370,7 @@
             <TextAddressRange>0x08060000</TextAddressRange>
             <DataAddressRange>0x2001A000</DataAddressRange>
             <pXoBase></pXoBase>
-            <ScatterFile>..\..\..\..\..\build\driver.sct</ScatterFile>
+            <ScatterFile>..\..\..\..\..\build\bled_drv.sct</ScatterFile>
             <IncludeLibs></IncludeLibs>
             <IncludeLibsPath></IncludeLibsPath>
             <Misc></Misc>

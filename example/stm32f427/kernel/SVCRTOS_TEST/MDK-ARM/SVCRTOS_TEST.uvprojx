@@ -72,7 +72,7 @@
           <BeforeMake>
             <RunUserProg1>1</RunUserProg1>
             <RunUserProg2>0</RunUserProg2>
-            <UserProg1Name>python ..\..\..\..\..\tools\gen_scatter.py --target kernel --output ..\..\..\..\..\build\kernel.sct</UserProg1Name>
+            <UserProg1Name>py -3 ..\..\..\..\..\tools\gen_scatter.py --target kernel --output ..\..\..\..\..\build\kernel.sct</UserProg1Name>
             <UserProg2Name></UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
@@ -722,6 +722,11 @@
               <FileName>svcrt_installer.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_installer.c</FilePath>
+            </File>
+            <File>
+              <FileName>svcrt_log.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_log.c</FilePath>
             </File>
           </Files>
         </Group>

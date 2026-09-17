@@ -72,7 +72,7 @@ typedef struct {
 #endif
 
 #if (SVCRT_USE_CPU_LOAD == 1)
-extern uint16 svcrt_cpu_idle_millis;
+extern uint16 svcrt_cpu_busy_ticks;
 #endif
 
 extern volatile uint32 svcrt_interrupt_nest;
@@ -97,7 +97,7 @@ int32  svcrt_sched_next(void);
 svcrt_task_t *svcrt_task_get_current(void);
 uint32 svcrt_kernel_get_time(void);
 uint32 svcrt_kernel_get_tick(void);
-uint16 svcrt_kernel_get_cpu_idle(void);
+uint16 svcrt_kernel_get_cpu_busy_ticks(void);
 
 void svcrt_task_wait_internal(uint32 ms);
 void svcrt_task_wait_period_internal(void);

@@ -147,6 +147,34 @@ static void on_timer(void *arg)
 
 /* =================================================================== */
 
+/* ---- console services: user log (SVC 0x19) and user command (SVC 0x1A) - */
+
+static int app_cmd_status(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+
+    /* Console output also goes through SVC 0x1A: the App never owns the UART. */
+    (void)svcrt_shell_printf("APP_DEMO t=%d ms cpu=%d%% timer_hits=%d\r\n",
+                             (int)svcrt_get_time_ms(),
+                             (int)svcrt_get_cpu_usage(),
+                             (int)g_timer_hits);
+
+    return 0;
+}
+
+/* The descriptor itself must sit in the App's own RAM - the kernel reads it
+ * through SVC and checks the pointer against the caller's windows. The name
+ * and help strings may live in the App's read-only data as well. */
+static svcrt_ushell_cmd_t g_app_cmd =
+{
+    "appstat",
+    app_cmd_status,
+    "APP_DEMO status, registered by the App via SVC 0x1A",
+    1
+};
+
+
 void AppMain(void)
 {
     uint32 t0;
@@ -211,7 +239,7 @@ void AppMain(void)
     sem = svcrt_sem_create("app_sem", 0);
     report("sem.create", (sem >= 0), sem);
 
-    r = svcrt_sem_wait(sem, -1);            /* empty -> must fail now */
+    r = svcrt_sem_wait(sem, 0);             /* empty + no wait -> must fail now */
     report("sem.wait_empty", (r <= 0), r);
 
     r = svcrt_sem_post(sem);
@@ -307,6 +335,32 @@ void AppMain(void)
      * partition table through SVC - no address is known on the App side. */
     r = svcrt_app_status(0u);
     report("app.status(slot0)", ((r >= 0) && (r <= 3)), r);
+
+    /* ---------------------------------------------------------------
+     * 8b) console services: user log and user command
+     * --------------------------------------------------------------- */
+    r = svcrt_log_print(SVCRT_LOG_INFO, "APPDEMO", "user log service online\r\n");
+    report("log.print", (r == 0), r);
+
+    r = svcrt_log_printf(SVCRT_LOG_INFO, "APPDEMO",
+                         "log.printf smoke: dec=%d hex=0x%08X str=%s\r\n",
+                         1234, 0xA5A5u, "ok");
+    report("log.printf", (r == 0), r);
+
+    r = svcrt_shell_cmd_register(&g_app_cmd);
+    report("shell.register", (r == 0), r);
+
+    r = svcrt_shell_cmd_register(&g_app_cmd);       /* duplicate name */
+    report("shell.register_dup", (r < 0), r);
+
+    r = svcrt_shell_cmd_unregister("appstat");
+    report("shell.unregister", (r == 0), r);
+
+    r = svcrt_shell_cmd_unregister("appstat");      /* already gone */
+    report("shell.unregister_miss", (r < 0), r);
+
+    r = svcrt_shell_cmd_register(&g_app_cmd);       /* keep it for the console */
+    report("shell.re_register", (r == 0), r);
 
     /* ---------------------------------------------------------------
      * 9) cleanup of the objects this App created

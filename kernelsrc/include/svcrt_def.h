@@ -23,6 +23,8 @@
 #define SVCRT_SVC_SYNC_CTRL         (0x15)
 #define SVCRT_SVC_MQ_CTRL           (0x16)
 #define SVCRT_SVC_TIMER_CTRL        (0x17)
+#define SVCRT_SVC_LOG               (0x19)
+#define SVCRT_SVC_SHELL             (0x1A)
 #define SVCRT_SVC_APP_MGR           (0x18)   /* App 镜像管理与分区查询 */
 
 /* 同步原语（信号量/互斥锁）返回码：0=成功，负值=失败。

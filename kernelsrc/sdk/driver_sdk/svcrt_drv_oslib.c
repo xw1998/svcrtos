@@ -6,6 +6,7 @@
 */
 
 #include "svcrt_driver_sdk.h"
+#include "svcrt_ulog.h"
 #include "svcrt_svc_call.h"
 
 SVCRT_SVC_DECL_1(int32, 0x10, svcrt_call_dev_io, uint32 *);
@@ -56,4 +57,40 @@ void svcrt_event_set(int32 handle)
     p[0] = 3;
     p[1] = handle;
     svcrt_call_event_ctrl(p);
+}
+
+/* ============================================================
+ * Log and console services (SVC 0x19 / 0x1A)
+ *
+ * The formatting itself is done on this side (see svcrt_ulog.h), so the
+ * kernel only has to filter by level and push the bytes out. One level
+ * setting therefore applies to the kernel and to every App / driver.
+ * ============================================================ */
+SVCRT_SVC_DECL_3(int32, 0x19, svcrt_call_log, uint32, uint32, uint32);
+SVCRT_SVC_DECL_1(int32, 0x1A, svcrt_call_shell_svc, uint32 *);
+
+int32 svcrt_log_print(uint32 level, const char *tag, const char *msg)
+{
+    return svcrt_call_log(level, (uint32)tag, (uint32)msg);
+}
+
+int32 svcrt_shell_cmd_register(const svcrt_ushell_cmd_t *cmd)
+{
+    uint32 p[3];
+    p[0] = 1; p[1] = (uint32)cmd; p[2] = 0;
+    return svcrt_call_shell_svc(p);
+}
+
+int32 svcrt_shell_cmd_unregister(const char *name)
+{
+    uint32 p[3];
+    p[0] = 2; p[1] = (uint32)name; p[2] = 0;
+    return svcrt_call_shell_svc(p);
+}
+
+int32 svcrt_shell_print(const char *msg)
+{
+    uint32 p[3];
+    p[0] = 3; p[1] = (uint32)msg; p[2] = 0;
+    return svcrt_call_shell_svc(p);
 }

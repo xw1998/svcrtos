@@ -6,16 +6,19 @@
 *          independent: this file decides *which* windows a task may touch, the
 *          port decides *how* a window is encoded into hardware registers.
 *
-*          Window addresses come from config/svcrt_partition.h only, so the
-*          project still has exactly one place where addresses are defined.
-*          The peripheral policy comes from SVCRT_MPU_PERIPH* (board setting).
+*          Fixed window addresses come from config/svcrt_partition.h only;
+*          per-image windows come from the TCB region (rom_start/rom_size,
+*          ram_start/ram_size) that the loader fills in from the runtime slot
+*          table, so the project still has exactly one place where addresses
+*          are defined. The peripheral policy comes from SVCRT_MPU_PERIPH*
+*          (board setting).
 *
-* @note SVCRT_USE_MPU == 0 (the current board default) removes the whole body.
-*       The isolation path is compiled and syntax checked with MPU forced on,
-*       but it has NOT been validated on hardware. Before flipping
-*       SVCRT_USE_MPU to 1, walk the on-board checklist in
-*       docs/死代码与未接线审计.md (MemManage trigger points, window edges,
-*       peripheral range, and the App/Driver slot isolation).
+* @note SVCRT_USE_MPU == 0 removes the whole body. On Cortex-M4 it defaults to
+*       1 (SVCRT_ARCH_HAS_MPU), so every window built here must satisfy the
+*       hardware rule "power of two in size, aligned to that size" - that rule
+*       is enforced at compile time for the fixed windows, and for every image
+*       window by svcrt_mpu_rom_window() / svcrt_mpu_ram_window(), which either
+*       produce an exact region or the smallest enclosing aligned one.
 *
 * @author xw
 * @date 2026.09.12
@@ -66,72 +69,84 @@ static void svcrt_mpu_add_region(svcrt_arch_mpu_t *p_mpu, uint32 idx,
     (void)svcrt_port_mpu_encode(p_mpu, idx, base, size, mem);
 }
 
-/* Flash window that contains addr. App slots are isolated from each other,
- * so exactly one slot window is granted. Returns 0 on success. */
-static int32 svcrt_mpu_rom_window(uint32 addr, uint32 *p_base, uint32 *p_size)
+/* Flash window a task may execute from.
+ * External images (App / Driver) live in the unified image pool, so the image
+ * no longer sits at a link-time address: the loader records the landing point
+ * and the occupied span in the TCB. Those two numbers do not necessarily form
+ * an MPU region, because placement prefers a 2^n-aligned address but falls
+ * back to a tightly packed one when an aligned slot does not fit.
+ *
+ * The window is therefore the **smallest aligned power-of-two region that
+ * contains the image**:
+ *   - aligned landing point (= the normal case)  -> base == rom_start,
+ *     size == round_up_pow2(span): an exact window, isolation is as strict as
+ *     a fixed-slot layout used to be;
+ *   - tight landing point (degraded case)        -> the window reaches below
+ *     the image start, so the immediately preceding image becomes readable.
+ *     The over-reach is bounded by the window size and never crosses the
+ *     pool: neighbouring code can be read, nothing outside the pool can.
+ *
+ * Kernel internal tasks carry rom_start == 0 and fall back to kernel flash. */
+static void svcrt_mpu_rom_window(const svcrt_task_t *p_task,
+                                 uint32 *p_base, uint32 *p_size)
 {
-    if((addr >= SVCRT_MPU_KERNEL_ROM_BASE) &&
-       (addr < (SVCRT_MPU_KERNEL_ROM_BASE + SVCRT_MPU_KERNEL_ROM_SIZE)))
+    uint32 start = p_task->rom_start;
+    uint32 span  = p_task->rom_size;
+
+    if((start >= SVCRT_MPU_IMAGE_POOL_BASE) &&
+       (start <  (SVCRT_MPU_IMAGE_POOL_BASE + SVCRT_MPU_IMAGE_POOL_SIZE)) &&
+       (span != 0u) &&
+       ((start + span) <= (SVCRT_MPU_IMAGE_POOL_BASE + SVCRT_MPU_IMAGE_POOL_SIZE)))
     {
-        *p_base = SVCRT_MPU_KERNEL_ROM_BASE;
-        *p_size = SVCRT_MPU_KERNEL_ROM_SIZE;
-        return 0;
+        uint32 size = svcrt_mpu_round_up(span);
+        uint32 base = start & ~(size - 1u);
+
+        /* Grow until the window also covers the tail of the image. */
+        while((base + size) < (start + span))
+        {
+            size <<= 1;
+            base = start & ~(size - 1u);
+        }
+
+        *p_base = base;
+        *p_size = size;
+        return;
     }
 
-    if((addr >= SVCRT_MPU_DRIVER_ROM_BASE) &&
-       (addr < (SVCRT_MPU_DRIVER_ROM_BASE + SVCRT_MPU_DRIVER_ROM_SIZE)))
-    {
-        /* Driver pool is split into slots: grant only the slot the image was
-         * linked into, so two driver images cannot read each other's code. */
-        uint32 slot = (addr - SVCRT_MPU_DRIVER_ROM_BASE) / SVCRT_MPU_DRIVER_SLOT_SIZE;
-
-        *p_base = SVCRT_MPU_DRIVER_ROM_BASE + (slot * SVCRT_MPU_DRIVER_SLOT_SIZE);
-        *p_size = SVCRT_MPU_DRIVER_SLOT_SIZE;
-        return 0;
-    }
-
-    if((addr >= SVCRT_MPU_APP_ROM_BASE) &&
-       (addr < (SVCRT_MPU_APP_ROM_BASE + SVCRT_MPU_APP_ROM_SIZE)))
-    {
-        uint32 slot = (addr - SVCRT_MPU_APP_ROM_BASE) / SVCRT_MPU_APP_SLOT_SIZE;
-
-        *p_base = SVCRT_MPU_APP_ROM_BASE + (slot * SVCRT_MPU_APP_SLOT_SIZE);
-        *p_size = SVCRT_MPU_APP_SLOT_SIZE;
-        return 0;
-    }
-
-    return -1;
+    *p_base = SVCRT_MPU_KERNEL_ROM_BASE;
+    *p_size = SVCRT_MPU_KERNEL_ROM_SIZE;
 }
 
-/* RAM window a task may use, derived from the partition its stack lives in.
+/* RAM window a task may use, taken from the TCB region the loader recorded.
+ * The window is no longer derived from a slot number: the image RAM pool is a
+ * buddy allocator, so the block that an image owns is already a power of two
+ * aligned to its own size - exactly what one MPU region needs. Two images can
+ * therefore never read each other's stack or data, whatever sizes they ask
+ * for.
  * Kernel internal tasks fall back to the whole chip RAM window: KERNEL_RAM_SIZE
  * absorbs the remainder and is not a power of two, so it cannot be an MPU
  * region. Kernel tasks are trusted code, the restriction only matters for
  * App / Driver tasks. */
-static void svcrt_mpu_ram_window(uint32 addr, uint32 *p_base, uint32 *p_size)
+static void svcrt_mpu_ram_window(const svcrt_task_t *p_task,
+                                 uint32 *p_base, uint32 *p_size)
 {
-    if((addr >= SVCRT_MPU_APP_RAM_BASE) &&
-       (addr < (SVCRT_MPU_APP_RAM_BASE + SVCRT_MPU_APP_RAM_SIZE)))
-    {
-        /* Per-slot window: each App owns its own slice of App RAM. */
-        uint32 slot = (addr - SVCRT_MPU_APP_RAM_BASE) / SVCRT_MPU_APP_SLOT_RAM_SIZE;
+    uint32 addr = p_task->ram_start;
+    uint32 size = p_task->ram_size;
 
-        *p_base = SVCRT_MPU_APP_RAM_BASE + (slot * SVCRT_MPU_APP_SLOT_RAM_SIZE);
-        *p_size = SVCRT_MPU_APP_SLOT_RAM_SIZE;
+    if((addr >= SVCRT_MPU_SLOT_RAM_BASE) &&
+       (addr <  (SVCRT_MPU_SLOT_RAM_BASE + SVCRT_MPU_SLOT_RAM_TOTAL)) &&
+       (size >= SVCRT_MPU_RAM_BLOCK_MIN) &&
+       (size <= SVCRT_MPU_RAM_BLOCK_MAX) &&
+       ((size & (size - 1u)) == 0u) &&
+       ((addr & (size - 1u)) == 0u) &&
+       ((addr + size) <= (SVCRT_MPU_SLOT_RAM_BASE + SVCRT_MPU_SLOT_RAM_TOTAL)))
+    {
+        *p_base = addr;
+        *p_size = size;
         return;
     }
 
-    if((addr >= SVCRT_MPU_DRIVER_RAM_BASE) &&
-       (addr < (SVCRT_MPU_DRIVER_RAM_BASE + SVCRT_MPU_DRIVER_RAM_SIZE)))
-    {
-        uint32 slot = (addr - SVCRT_MPU_DRIVER_RAM_BASE) / SVCRT_MPU_DRIVER_SLOT_RAM_SIZE;
-
-        *p_base = SVCRT_MPU_DRIVER_RAM_BASE + (slot * SVCRT_MPU_DRIVER_SLOT_RAM_SIZE);
-        *p_size = SVCRT_MPU_DRIVER_SLOT_RAM_SIZE;
-        return;
-    }
-
-    *p_base = CHIP_RAM_BASE;
+    *p_base = SVCRT_MPU_KERNEL_RAM_FALLBACK;
     *p_size = svcrt_mpu_round_up(CHIP_RAM_SIZE);
 }
 
@@ -163,15 +178,11 @@ void svcrt_mpu_build_task(svcrt_task_t *p_task)
 
     /* Region 0: code. rom_start == 0 marks a kernel internal task, which runs
      * kernel code, so it gets the kernel flash window. */
-    if(svcrt_mpu_rom_window(p_task->rom_start, &rom_base, &rom_size) != 0)
-    {
-        rom_base = SVCRT_MPU_KERNEL_ROM_BASE;
-        rom_size = SVCRT_MPU_KERNEL_ROM_SIZE;
-    }
+    svcrt_mpu_rom_window(p_task, &rom_base, &rom_size);
     svcrt_mpu_add_region(p_mpu, SVCRT_MPU_RGN_CODE, rom_base, rom_size, SVCRT_MPU_MEM_ROM);
 
     /* Region 1: data / stack. */
-    svcrt_mpu_ram_window(p_task->ram_start, &ram_base, &ram_size);
+    svcrt_mpu_ram_window(p_task, &ram_base, &ram_size);
     svcrt_mpu_add_region(p_mpu, SVCRT_MPU_RGN_DATA, ram_base, ram_size, SVCRT_MPU_MEM_RAM);
 
     /* Region 2: shared RAM, where the partition table lives. Every external

@@ -32,6 +32,7 @@
 #include "svcrt_loader.h"
 #include "svcrt_installer.h"
 #include "svcrt_shell.h"
+#include "svcrt_log.h"
 #include "svcrt_mq.h"
 #include "svcrt_timer.h"
 #include "svcrt_fault.h"
@@ -310,11 +311,32 @@ static void svcrt_kernel_init(void)
     /* 各内核模块 + 内置服务任务：统一走公共初始化，避免与内核默认入口漂移 */
     svcrt_kernel_module_init();
 
+    /* Log first: everything after this point can leave a trace on the
+     * console, which is the only cheap way to see where a boot stops. */
+    svcrt_log_init();
+    SVCRT_LOGI("BOOT", "SVCrtOS kernel starting, build %s %s",
+               __DATE__, __TIME__);
+
     /* 内核内置 LED 任务共用的互斥量 */
     g_led_mutex = svcrt_mtx_create_internal("ledmtx");
 
     /* ---- 分区表与外部映像 ---- */
     svcrt_ptable_init();
+
+    /* Power-on recovery: erase what an interrupted install or an aborted
+     * compaction left behind, and push any hole towards the top of the
+     * pool. Runs before any task is started so images can be moved
+     * without touching running state.
+     *
+     * It MUST run after the pool scan, not before: reclaim() decides what
+     * is garbage from the slot table, and right after svcrt_ptable_init()
+     * that table is empty - every remaining image in the pool would look
+     * like garbage and be erased, so a reboot would uninstall everything.
+     * The scan below registers the live images first; it is idempotent
+     * (svcrt_loader_scan_pool() runs once), so the calls further down
+     * reuse its result and cost nothing. */
+    (void)svcrt_loader_scan_driver();
+    (void)svcrt_loader_reclaim();
 
     /* Drivers are identified and started before Apps (drivers have the higher
      * priority, and App services depend on driver services being ready).
@@ -348,6 +370,18 @@ static void svcrt_kernel_init(void)
     /* No console: the resident installer task receives images by itself. */
     svcrt_installer_init();
     #endif
+
+    /* One line that answers the two questions asked most often on the
+     * console: how much room is left for images, and how many tasks the
+     * application set has already consumed. */
+    {
+        uint32 pool_largest = 0u;
+        uint32 pool_free    = svcrt_loader_pool_free(&pool_largest);
+
+        SVCRT_LOGI("POOL", "free %u B (largest run %u B), tasks %d/%u",
+                   pool_free, pool_largest,
+                   (int)svcrt_task_count, (uint32)SVCRT_TASK_MAX_NUM);
+    }
 }
 
 static void svcrt_start_idle(void)

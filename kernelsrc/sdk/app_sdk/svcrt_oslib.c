@@ -6,6 +6,7 @@
 */
 
 #include "svcrt.h"
+#include "svcrt_ulog.h"
 #include "svcrt_svc_call.h"
 
 SVCRT_SVC_DECL_1(int32, 0x10, svcrt_call_dev_io, uint32 *);
@@ -88,7 +89,17 @@ uint32 svcrt_get_time_ms(void)
 
 uint32 svcrt_get_cpu_usage(void)
 {
-    return svcrt_call_sys_info(2);
+    /* The kernel counts "a task was running" ticks inside a 1024 tick window,
+     * so the raw value is 0..1024. svcrt.h publishes a 0..100 percentage, so
+     * scale it here instead of leaking the internal fixed point value. */
+    uint32 busy = svcrt_call_sys_info(2);
+
+    if(busy > 1024u)
+    {
+        busy = 1024u;
+    }
+
+    return (busy * 100u) / 1024u;
 }
 
 int32 svcrt_event_create(char *name)
@@ -336,4 +347,40 @@ int32 svcrt_driver_load(int32 dev, uint32 image_len)
     uint32 p[6];
     p[0] = 6; p[1] = (uint32)dev; p[2] = image_len; p[3] = 0; p[4] = 0; p[5] = 0;
     return svcrt_call_app_mgr(p);
+}
+
+/* ============================================================
+ * Log and console services (SVC 0x19 / 0x1A)
+ *
+ * The formatting itself is done on this side (see svcrt_ulog.h), so the
+ * kernel only has to filter by level and push the bytes out. One level
+ * setting therefore applies to the kernel and to every App / driver.
+ * ============================================================ */
+SVCRT_SVC_DECL_3(int32, 0x19, svcrt_call_log, uint32, uint32, uint32);
+SVCRT_SVC_DECL_1(int32, 0x1A, svcrt_call_shell_svc, uint32 *);
+
+int32 svcrt_log_print(uint32 level, const char *tag, const char *msg)
+{
+    return svcrt_call_log(level, (uint32)tag, (uint32)msg);
+}
+
+int32 svcrt_shell_cmd_register(const svcrt_ushell_cmd_t *cmd)
+{
+    uint32 p[3];
+    p[0] = 1; p[1] = (uint32)cmd; p[2] = 0;
+    return svcrt_call_shell_svc(p);
+}
+
+int32 svcrt_shell_cmd_unregister(const char *name)
+{
+    uint32 p[3];
+    p[0] = 2; p[1] = (uint32)name; p[2] = 0;
+    return svcrt_call_shell_svc(p);
+}
+
+int32 svcrt_shell_print(const char *msg)
+{
+    uint32 p[3];
+    p[0] = 3; p[1] = (uint32)msg; p[2] = 0;
+    return svcrt_call_shell_svc(p);
 }

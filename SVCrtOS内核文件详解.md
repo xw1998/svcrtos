@@ -375,7 +375,7 @@ svcrt_port_mpu_init()       # MPU 初始化（仅 MPU 使能时）
 uint32 svcrt_kernel_tick = 0;        // 全局节拍计数
 int32  svcrt_current_task_id = 0;    // 当前运行任务 ID（0=idle, 1~N=任务）
 uint16 svcrt_cpu_load_counter = 0;   // CPU 负载计数
-uint16 svcrt_cpu_idle_millis = 0;    // CPU 空闲毫秒数
+uint16 svcrt_cpu_busy_ticks = 0;    // 上一个 1024-tick 窗口内的忙 tick 数（0~1024，0 = 全空闲；窗口边界无条件刷新）
 static uint32 svcrt_idle_stack_ptr = 0;  // idle 任务栈指针
 ```
 
@@ -409,7 +409,7 @@ SVC 号 = ((char *)p_svc_ctx->pc)[-2]  # 从 SVC 指令字节中取出立即数
 |--------|--------|------|
 | 0x10 (DEV_IO) | p[0]=1: open, 2: read, 3: write, 4: ctrl, 5: close | 设备操作 |
 | 0x11 (TASK_CTRL) | r0=1: wait, 2: wait_period, 3: delay, 4: kill | 任务控制 |
-| 0x12 (SYS_INFO) | r0=1: get_time, 2: get_cpu_idle | 系统信息 |
+| 0x12 (SYS_INFO) | r0=1: get_time, 2: get_cpu_busy_ticks | 系统信息 |
 | 0x13 (EVENT_CTRL) | p[0]=1: create, 2: wait, 3: set | 事件控制 |
 | 0x14 (DRV_MGR) | 驱动注册/注销 | 驱动管理 |
 | 0x15 (SYNC_CTRL) | 信号量/互斥锁的 create/wait/post/lock/unlock/delete | 同步原语 |

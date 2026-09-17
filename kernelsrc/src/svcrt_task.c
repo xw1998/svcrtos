@@ -9,6 +9,8 @@
 */
 
 #include "svcrt_cfg.h"
+#include "svcrt_log.h"
+#include "svcrt_shell.h"
 #include "svcrt_task.h"
 #include "svcrt_event.h"
 #include "svcrt_hal.h"
@@ -30,8 +32,8 @@
  * 设备名、定时器回调……），不做校验时用户态可借这些接口读写内核任意地址、
  * 或让内核在特权态执行任意函数。
  * 这里按“地址必须落在用户可见窗口内”做最低限度校验：
- *   RAM 窗口：SHARE / APP_RAM / DRIVER_RAM（可写缓冲区允许的范围）
- *   固件窗口：DRIVER_POOL / APP_USER（用户代码与只读常量所在）
+ *   RAM 窗口：SHARE / SLOT_RAM（镜像 RAM 池，可写缓冲区允许的范围）
+ *   固件窗口：IMAGE_POOL（用户代码与只读常量所在）
  * 内核 RAM（任务表、内核栈）与内核 Flash 一律拒绝。
  * ------------------------------------------------------------------ */
 static uint8 svcrt_kernel_in_window(uint32 start, uint32 end, uint32 base, uint32 size)
@@ -45,6 +47,10 @@ static uint8 svcrt_kernel_in_window(uint32 start, uint32 end, uint32 base, uint3
     return ((start >= base) && (end <= limit)) ? 1u : 0u;
 }
 
+/* Set only while svcrt_shell_ext_trampoline() runs an App callback; see the
+ * trampoline in svcrt_shell.c for the reasoning. */
+uint32 svcrt_kernel_ushell_active = 0;
+
 static uint8 svcrt_kernel_ptr_ram_ok(const void *p, uint32 len)
 {
     uint32 start = (uint32)p;
@@ -54,15 +60,19 @@ static uint8 svcrt_kernel_ptr_ram_ok(const void *p, uint32 len)
     {
         return 0u;
     }
+    if(svcrt_kernel_ushell_active != 0u)
+    {
+        /* An App shell callback is running on the kernel shell task stack, so
+         * its buffers are in kernel RAM and match none of the user windows.
+         * Accept them for the duration of the call, otherwise print / log /
+         * queue services invoked from the callback would all be rejected. */
+        return 1u;
+    }
     if(svcrt_kernel_in_window(start, end, SHARE_RAM_BASE, SHARE_RAM_SIZE) != 0u)
     {
         return 1u;
     }
-    if(svcrt_kernel_in_window(start, end, APP_RAM_BASE, APP_RAM_SIZE) != 0u)
-    {
-        return 1u;
-    }
-    if(svcrt_kernel_in_window(start, end, DRIVER_RAM_BASE, DRIVER_RAM_SIZE) != 0u)
+    if(svcrt_kernel_in_window(start, end, SLOT_RAM_BASE, SLOT_RAM_TOTAL) != 0u)
     {
         return 1u;
     }
@@ -82,11 +92,7 @@ static uint8 svcrt_kernel_ptr_flash_ok(const void *p, uint32 len)
     {
         return 1u;
     }
-    if(svcrt_kernel_in_window(start, end, DRIVER_POOL_BASE, DRIVER_POOL_SIZE) != 0u)
-    {
-        return 1u;
-    }
-    if(svcrt_kernel_in_window(start, end, APP_USER_BASE, APP_USER_SIZE) != 0u)
+    if(svcrt_kernel_in_window(start, end, IMAGE_POOL_BASE, IMAGE_POOL_SIZE) != 0u)
     {
         return 1u;
     }
@@ -155,6 +161,31 @@ static uint8 svcrt_kernel_dev_buf_ok(const void *p, int32 len)
     return svcrt_kernel_ptr_ram_ok(p, (uint32)len);
 }
 
+/* User read only buffer: the whole range sits either in the user visible RAM
+ * or inside the caller's own firmware window. Used by the paths where the
+ * kernel only READS the bytes (print / log / feed a device), so read only
+ * string literals are legal and the feature matches its documented contract.
+ * Paths where the kernel WRITES into the buffer (dev_read) must keep using
+ * svcrt_kernel_dev_buf_ok below. */
+static uint8 svcrt_kernel_user_ro_ok(const void *p, uint32 len)
+{
+    const char *s = (const char *)p;
+
+    if(len == 0u)
+    {
+        return 0u;
+    }
+    if(svcrt_kernel_ptr_ram_ok(p, len) != 0u)
+    {
+        return 1u;
+    }
+    if(svcrt_kernel_cb_own_region_ok(p) == 0u)
+    {
+        return 0u;
+    }
+    return svcrt_kernel_cb_own_region_ok((const void *)&s[len - 1u]);
+}
+
 /* 驱动回调表：表本身位于用户可见 RAM，5 个回调指针必须落在用户代码区。
  * （这挡不住“用自己的代码提权”，但能挡住内核跳到内核 Flash 执行。） */
 static uint8 svcrt_kernel_dev_drv_ok(const svcrt_dev_drv_t *drv)
@@ -206,7 +237,7 @@ volatile uint32 svcrt_sched_lock_nest = 0;
 
 #if (SVCRT_USE_CPU_LOAD == 1)
 uint16 svcrt_cpu_load_counter = 0;
-uint16 svcrt_cpu_idle_millis = 0;
+uint16 svcrt_cpu_busy_ticks = 0;   /* busy ticks of the last 1024-tick window */
 #endif
 
 static uint32 svcrt_idle_stack_ptr = 0;
@@ -218,6 +249,14 @@ static void svcrt_task_recover_pending(void);
 void svcrt_kernel_tick_handler(void)
 {
     svcrt_kernel_tick++;
+    #if (SVCRT_USE_CPU_LOAD == 1)
+    /* sample the preempted context BEFORE switching tasks: count this tick */
+    /* as busy only when a real task was on the CPU (idle = task id 0) */
+    if(svcrt_current_task_id > 0)
+    {
+        svcrt_cpu_load_counter++;
+    }
+    #endif
     #if (SVCRT_USE_TIMER == 1)
     /* 软定时器倒计时与到期唤醒（不在中断里执行用户回调） */
     svcrt_timer_tick_handler();
@@ -230,14 +269,12 @@ void svcrt_kernel_tick_handler(void)
     }
 
     #if (SVCRT_USE_CPU_LOAD == 1)
-    if(svcrt_current_task_id > 0)
+    /* close the window unconditionally so the snapshot stays periodic even */
+    /* when the boundary tick happens to land on the idle task */
+    if((svcrt_kernel_tick & 0x3ff) == 0)
     {
-        svcrt_cpu_load_counter++;
-        if((svcrt_kernel_tick & 0x3ff) == 0)
-        {
-            svcrt_cpu_idle_millis = svcrt_cpu_load_counter;
-            svcrt_cpu_load_counter = 0;
-        }
+        svcrt_cpu_busy_ticks = svcrt_cpu_load_counter;
+        svcrt_cpu_load_counter = 0;
     }
     #endif
 }
@@ -287,7 +324,7 @@ void SVC_Server(void *p_svc_ctx)
                 break;
             #if (SVCRT_USE_CPU_LOAD == 1)
             case 2:
-                SVCRT_SVC_RET(p_svc_ctx, svcrt_kernel_get_cpu_idle());
+                SVCRT_SVC_RET(p_svc_ctx, svcrt_kernel_get_cpu_busy_ticks());
                 break;
             #endif
             case 3:
@@ -311,6 +348,23 @@ void SVC_Server(void *p_svc_ctx)
                     }
                 }
                 break;
+            case 5:
+                /* Pool space still available for installing images. r1, when
+                 * non-zero, receives the longest free run so the caller can
+                 * tell one big hole from the same total split into pieces. */
+                {
+                    uint32 pool_largest = 0u;
+                    uint32 pool_total = svcrt_loader_pool_free(&pool_largest);
+
+                    if(SVCRT_SVC_ARG(p_svc_ctx, 1) != 0u)
+                    {
+                        ((uint32 *)SVCRT_SVC_ARG(p_svc_ctx, 1))[0] = pool_largest;
+                    }
+
+                    SVCRT_SVC_RET(p_svc_ctx, pool_total);
+                }
+                break;
+
             default:
                 break;
         }
@@ -393,7 +447,14 @@ void SVC_Server(void *p_svc_ctx)
                 SVCRT_SVC_RET(p_svc_ctx, svcrt_dev_read_internal(p[1], (uint8 *)p[2], p[3]));
                 break;
             case 3:
-                if(svcrt_kernel_dev_buf_ok((const void *)p[2], (int32)p[3]) == 0u)
+                /* len > 0 : the kernel reads len bytes from the caller
+                 *           buffer, so the range must be user visible.
+                 * len <= 0: no payload is read; the value is a driver
+                 *           defined command (led: 0=off, <0=toggle) and
+                 *           must reach the driver like the internal
+                 *           svcrt_dev_write_internal() path does. */
+                if(((int32)p[3] > 0) &&
+                   (svcrt_kernel_user_ro_ok((const void *)p[2], (uint32)p[3]) == 0u))
                 {
                     SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
                     break;
@@ -566,7 +627,8 @@ void SVC_Server(void *p_svc_ctx)
              * 参数指针必须位于用户可见 RAM */
             if(svcrt_kernel_svc_args_ok(p, 24u) == 0u ||
                svcrt_kernel_cb_own_region_ok((const void *)p[4]) == 0u ||
-               svcrt_kernel_ptr_ram_ok((const void *)p[5], 1u) == 0u)
+               ((p[5] != 0u) &&
+                (svcrt_kernel_ptr_ram_ok((const void *)p[5], 1u) == 0u)))
             {
                 SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
                 break;
@@ -585,6 +647,119 @@ void SVC_Server(void *p_svc_ctx)
             break;
         }
         break;
+
+    case SVCRT_SVC_LOG:
+        /* User log: r0=level, r1=tag, r2=msg. Both strings must sit in the
+         * caller's own RAM or inside the caller's own firmware window (read
+         * only string literals are the normal case); kernel RAM and kernel
+         * flash stay rejected. */
+        {
+            const char *tag = (const char *)SVCRT_SVC_ARG(p_svc_ctx, 1);
+            const char *msg = (const char *)SVCRT_SVC_ARG(p_svc_ctx, 2);
+
+            if((svcrt_kernel_user_ro_ok(tag, 1u) == 0u) ||
+               (svcrt_kernel_user_ro_ok(msg, 1u) == 0u))
+            {
+                SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                break;
+            }
+
+            SVCRT_SVC_RET(p_svc_ctx,
+                          (uint32)svcrt_log_svc(SVCRT_SVC_ARG(p_svc_ctx, 0), tag, msg));
+        }
+        break;
+
+    case SVCRT_SVC_SHELL:
+        /* User console service:
+         *   p[0] = 1 register   (p[1] = svcrt_ushell_cmd_t * in caller RAM)
+         *   p[0] = 2 unregister (p[1] = name string)
+         *   p[0] = 3 print      (p[1] = text string)
+         * The descriptor lives in the caller's RAM and the handler must stay
+         * inside the caller's own firmware window - the same policy the timer
+         * callbacks use, so nobody can borrow shell privilege to run someone
+         * else's code. */
+        {
+            uint32 *q = (uint32 *)SVCRT_SVC_ARG(p_svc_ctx, 0);
+
+            if(svcrt_kernel_svc_args_ok(q, 16u) == 0u)
+            {
+                SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                break;
+            }
+
+            switch(q[0])
+            {
+                case 1:
+                    {
+                        const svcrt_ushell_cmd_t *cmd = (const svcrt_ushell_cmd_t *)q[1];
+
+                        if((svcrt_kernel_ptr_ram_ok(cmd, (uint32)sizeof(svcrt_ushell_cmd_t)) == 0u) ||
+                           ((svcrt_kernel_ptr_ram_ok(cmd->name, 1u) == 0u) &&
+                            (svcrt_kernel_cb_own_region_ok(cmd->name) == 0u)) ||
+                           ((svcrt_kernel_ptr_ram_ok(cmd->help, 1u) == 0u) &&
+                            (svcrt_kernel_cb_own_region_ok(cmd->help) == 0u)) ||
+                           (svcrt_kernel_cb_own_region_ok((const void *)cmd->func) == 0u))
+                        {
+                            SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                            break;
+                        }
+
+                        SVCRT_SVC_RET(p_svc_ctx, (uint32)svcrt_shell_ext_register(cmd));
+                    }
+                    break;
+
+                case 2:
+                    {
+                        const char *name = (const char *)q[1];
+
+                        if(svcrt_kernel_user_name_ok((const void *)name, 16u) == 0u)
+                        {
+                            SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                            break;
+                        }
+
+                        SVCRT_SVC_RET(p_svc_ctx, (uint32)svcrt_shell_ext_unregister(name));
+                    }
+                    break;
+
+                case 3:
+                    {
+                        const char *msg = (const char *)q[1];
+                        uint32 len;
+
+                        if(svcrt_kernel_user_ro_ok(msg, 1u) == 0u)
+                        {
+                            SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                            break;
+                        }
+
+                        /* Bound the length here: the shell side copies into its
+                         * own static buffer, so nothing is allocated on the
+                         * caller's (shallow) task stack. */
+                        for(len = 0u; len < 128u; len++)
+                        {
+                            if(msg[len] == '\0')
+                            {
+                                break;
+                            }
+                        }
+                        if(len >= 128u)
+                        {
+                            SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                            break;
+                        }
+
+                        SVCRT_SVC_RET(p_svc_ctx, (uint32)svcrt_shell_print_n(msg, len));
+                    }
+                    break;
+
+                default:
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+            }
+        }
+        break;
+
 
     case SVCRT_SVC_APP_MGR:
         p = (uint32 *)SVCRT_SVC_ARG(p_svc_ctx, 0);
@@ -1135,10 +1310,10 @@ uint32 svcrt_kernel_get_tick(void)
     return svcrt_kernel_tick;
 }
 
-uint16 svcrt_kernel_get_cpu_idle(void)
+uint16 svcrt_kernel_get_cpu_busy_ticks(void)
 {
     #if (SVCRT_USE_CPU_LOAD == 1)
-    return svcrt_cpu_idle_millis;
+    return svcrt_cpu_busy_ticks;
     #else
     return 0;
     #endif

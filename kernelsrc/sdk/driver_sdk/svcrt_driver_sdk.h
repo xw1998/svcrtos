@@ -13,6 +13,7 @@
 #define __SVCRT_DRIVER_SDK_H__
 
 #include "svcrt_types.h"
+#include "svcrt_ulog.h"
 #include "svcrt_svc_call.h"
 
 #define SVCRT_DEV_CTRL_OPEN          (0x0001)
