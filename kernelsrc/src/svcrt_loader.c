@@ -1951,6 +1951,7 @@ int32 svcrt_loader_uninstall(uint32 slot)
     svcrt_partition_table_t *pt = svcrt_ptable_get();
     uint32 state = SVCRT_APP_SLOT_EMPTY;
     uint32 task_id = 0u;
+    uint32 dead_type = 0u;
 
     if((slot >= pt->slot_max) || (slot >= SVCRT_SLOT_ARRAY_MAX) ||
        (pt->slot_type[slot] == SVCRT_SLOT_FREE))
@@ -1976,12 +1977,35 @@ int32 svcrt_loader_uninstall(uint32 slot)
         svcrt_loader_halt_task(task_id);
     }
 
-    /* 注销记录（同时释放它绑定的 RAM 块），随后尽量把空间收回来。
-     * 回收失败（无可搬空间）不影响卸载本身：镜像已经不可启动。 */
-    svcrt_ptable_free(slot);
-    (void)svcrt_loader_reclaim();
+    /* The authoritative uninstall action is invalidating the on-flash header.
+     * Dropping the RAM record alone is not enough: erase granularity is the
+     * whole pool sector, and a sector that still holds a live image can never
+     * be erased (a RUNNING image is never moved). Those dead bytes would stay
+     * VALID on flash and the next power-on scan would register the image again
+     * - so uninstall must not depend on the erase succeeding.
+     *
+     * The invalidation must be a program the hardware can actually perform:
+     * Flash programming only clears bits (1 -> 0). The image is committed, so
+     * state is already 0 and writing UNCOMMITTED (1) would need a 0 -> 1 set
+     * that the hardware silently refuses - the header would keep reading back
+     * as VALID and the image would return after the next power cycle. What is
+     * still writable is a field whose zero value is invalid: type = 0 is not a
+     * known image type, so check_header() rejects the header and the boot scan
+     * drops it. magic is left intact on purpose - it is the marker that tells
+     * reclaim (erase this sector once no valid slot is left in it) and the
+     * raw-image claim path that the range holds headed content. */
+    if(svcrt_port_flash_write(pt->slot_base[slot] + SVCRT_APP_OFF_TYPE,
+                              (const uint8 *)&dead_type, 4u) != 0)
+    {
+        return SVCRT_LOADER_ERR_FLASH;   /* keep the record: never report this as uninstalled */
+    }
 
-    return 0;
+    svcrt_ptable_free(slot);
+
+    /* Best effort from here on: the image is already dead even when its sector
+     * stays pinned by a live neighbour. Return the reclaimed sector count so
+     * the caller can tell "space back" from "marked dead, space still pinned". */
+    return svcrt_loader_reclaim();
 }
 
 /* ============================================================

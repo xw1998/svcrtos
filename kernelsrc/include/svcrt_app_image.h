@@ -58,6 +58,12 @@
 *          上电扫描见到 UNCOMMITTED 一律丢弃；见到同 image_id 的两份 VALID
 *          则保留地址较低的那份。两条规则合起来使断电恢复幂等且确定，
 *          因此不需要额外的日志扇区。
+*
+*          注意：本字段只能表达「安装/搬移的提交点」。不能拿它表达「卸载」：
+*          镜像一旦提交，state 已经是 0，而 Flash 编程只能把 1 清成 0，
+*          写 UNCOMMITTED（=1）要求把 0 置 1，硬件会静默保持 0——卸载因此
+*          变成空操作，镜像在下次上电又会被扫回来。卸载走的是清 type 字段
+*          （见 SVCRT_APP_OFF_TYPE）。
 */
 #define SVCRT_APP_STATE_VALID       (0u)      /* 已提交，可用（旧镜像恒为该值） */
 #define SVCRT_APP_STATE_UNCOMMITTED (1u)      /* 未提交，上电必须丢弃 */
@@ -193,6 +199,12 @@ typedef struct {
 /** @brief state 字段在头内的偏移（同上） */
 #define SVCRT_APP_OFF_STATE       (100u)
 
+/** @brief type 字段在头内的偏移。卸载把镜像作废时清这一个字：
+ *         0 -> 0 之外没有任何位要动，是合法的 1 -> 0 编程；
+ *         而「类型不是已知镜像」会被 check_header 拒收、上电扫描丢弃。
+ *         magic 故意留着，好让回收沿用「本区间有带头内容」的判断。 */
+#define SVCRT_APP_OFF_TYPE        (4u)
+
 /**
 * @brief 镜像头尺寸静态校验
 * @details 头结构与 SVCRT_APP_HEADER_SIZE 必须严格一致：打包工具与 Loader 分别按
@@ -212,6 +224,8 @@ typedef char svcrt_app_off_crc32_check[
     (((uint32)&(((svcrt_app_header_t *)0)->crc32)) == SVCRT_APP_OFF_CRC32) ? 1 : -1];
 typedef char svcrt_app_off_state_check[
     (((uint32)&(((svcrt_app_header_t *)0)->state)) == SVCRT_APP_OFF_STATE) ? 1 : -1];
+typedef char svcrt_app_off_type_check[
+    (((uint32)&(((svcrt_app_header_t *)0)->type)) == SVCRT_APP_OFF_TYPE) ? 1 : -1];
 
 #if (defined(__cplusplus))
 extern "C" {

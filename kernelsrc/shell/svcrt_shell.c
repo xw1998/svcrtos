@@ -298,13 +298,23 @@ static int cmd_app(int argc, char *argv[])
             return -1;
         }
 
-        if(svcrt_loader_uninstall(slot) == 0)
         {
-            sh_out("app: uninstalled, pool reclaimed\r\n");
-        }
-        else
-        {
-            sh_out("app: uninstall failed (raw images are not managed here)\r\n");
+            int32 rc;
+
+            rc = svcrt_loader_uninstall(slot);
+
+            if(rc > 0)
+            {
+                sh_out("app: uninstalled (image invalidated, its sector was erased)\r\n");
+            }
+            else if(rc == 0)
+            {
+                sh_out("app: uninstalled (image invalidated; space returns once its sector is free)\r\n");
+            }
+            else
+            {
+                sh_out("app: uninstall failed (raw images are not managed here)\r\n");
+            }
         }
         return 0;
     }
@@ -398,13 +408,23 @@ static int cmd_drv(int argc, char *argv[])
             return -1;
         }
 
-        if(svcrt_loader_uninstall(slot) == 0)
         {
-            sh_out("drv: uninstalled, pool reclaimed\r\n");
-        }
-        else
-        {
-            sh_out("drv: uninstall failed (raw images are not managed here)\r\n");
+            int32 rc;
+
+            rc = svcrt_loader_uninstall(slot);
+
+            if(rc > 0)
+            {
+                sh_out("drv: uninstalled (image invalidated, its sector was erased)\r\n");
+            }
+            else if(rc == 0)
+            {
+                sh_out("drv: uninstalled (image invalidated; space returns once its sector is free)\r\n");
+            }
+            else
+            {
+                sh_out("drv: uninstall failed (raw images are not managed here)\r\n");
+            }
         }
         return 0;
     }
