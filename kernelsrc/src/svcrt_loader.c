@@ -789,10 +789,26 @@ static int32 svcrt_loader_stream_image(int32 dev, uint32 base, const svcrt_app_h
     /* 表体到这一刻才落盘，也才能被寻址：在这里校验它。
      * 表体非法的话，后面的补丁会按乱序/越界的偏移乱改 Flash，
      * 而且改完就不可逆，所以必须在收负载之前先拒掉。 */
-    if(svcrt_loader_check_header(p_hdr, (const uint32 *)(base + SVCRT_APP_RELOC_OFFSET)) != 0)
     {
-        svcrt_loader_nak(dev);
-        return SVCRT_LOADER_ERR_RELOC;
+        int32 chk = svcrt_loader_check_header(p_hdr,
+                                              (const uint32 *)(base + SVCRT_APP_RELOC_OFFSET));
+
+        if(chk != 0)
+        {
+            /* NAK 在协议里只是一个字节（0x15 = 本帧到此为止），不带原因。主机的做法是
+             * 读同一路串口，所以**这里打出来的日志就是主机唯一能拿到的失败原因**。
+             * 以前这里闷着不响，主机只好自己猜一个原因（曾把任何 NAK 都印成
+             * "relocation table invalid"），而真正的失败点可能是魔数/兼容号/类型/
+             * 尺寸/入口中的任何一个，猜错方向会让排查白跑一轮。 */
+            SVCRT_LOGE("LOADER", "frame rejected before payload: err=%d", (int)chk);
+            SVCRT_LOGE("LOADER", "hdr: magic=%08X compat=%08X type=%u size=%u ent=%u r_off=%u r_cnt=%u r_kind=%u",
+                       (unsigned)p_hdr->magic, (unsigned)p_hdr->hw_compat_id,
+                       (unsigned)p_hdr->type, (unsigned)p_hdr->image_size,
+                       (unsigned)p_hdr->entry_offset, (unsigned)p_hdr->reloc_offset,
+                       (unsigned)p_hdr->reloc_count, (unsigned)p_hdr->reloc_kind);
+            svcrt_loader_nak(dev);
+            return chk;         /* 返回细分码，不再一律报 RELOC：上层与日志都按真实原因走 */
+        }
     }
 
     /* 表和字段都过了，主机可以开始送负载 */

@@ -14,7 +14,13 @@ the install fails.
 
 The device sends one ACK byte (0x06) once it has taken everything it needs
 before the payload, and after each payload chunk has been programmed. A NAK
-byte (0x15) means "this frame is over, stop sending".
+byte (0x15) means "this frame is over, stop sending" - and nothing more: the
+flow byte has no room for a reason code. The device prints the actual cause on
+the same port just before the NAK (err=<SVCRT_LOADER_ERR_x> plus the header
+fields that failed the check). This tool relays those lines verbatim; it does
+not label the NAK itself. Guessing is worse than not knowing: this script used
+to print "relocation table invalid" for every NAK, and a reader who believes a
+wrong cause spends a round verifying something that was never broken.
 
 Frame layout (must match kernelsrc/src/svcrt_loader.c)
 ------------------------------------------------------
@@ -57,19 +63,36 @@ OFF_PAYLOAD_OFFSET = 124
 def wait_ack(ser, timeout):
     """Wait for the device's flow-control byte.
 
-    Returns 'ack', 'nak' or 'timeout'. Anything else the device prints
-    (log lines, the shell echo) is ignored.
+    Returns (verdict, lines): verdict is 'ack' / 'nak' / 'timeout', lines holds
+    whatever else the device printed while we waited - which is where the only
+    statement of *why* a NAK happened lives (the flow byte itself carries none).
     """
+    buf = bytearray()
     deadline = time.time() + timeout
     while time.time() < deadline:
         b = ser.read(1)
         if not b:
             continue
         if b[0] == ACK_BYTE:
-            return 'ack'
+            return 'ack', device_lines(buf)
         if b[0] == NAK_BYTE:
-            return 'nak'
-    return 'timeout'
+            return 'nak', device_lines(buf)
+        buf += b
+    return 'timeout', device_lines(buf)
+
+def device_lines(buf):
+    """把等待期间收到的非流控字节切成日志行（UTF-8 容错解码）。"""
+    text = bytes(buf).decode('utf-8', errors='replace')
+    return [ln.strip() for ln in text.replace('\r', '\n').split('\n') if ln.strip()]
+
+def show_device_log(lines):
+    """原样转发设备日志——这是 NAK 原因的唯一出处。"""
+    if not lines:
+        print('note: the device printed nothing while we waited - its log may be '
+              'disabled, or another reader is holding the port', file=sys.stderr)
+        return
+    for ln in lines:
+        print('device: %s' % ln, file=sys.stderr)
 
 
 def main():
@@ -120,13 +143,16 @@ def main():
         ser.flush()
 
         if not args.no_ack:
-            r = wait_ack(ser, ACK_TIMEOUT_S)
-            if r == 'nak':
-                print('device rejected the frame (relocation table invalid)', file=sys.stderr)
+            verdict, lines = wait_ack(ser, ACK_TIMEOUT_S)
+            if verdict == 'nak':
+                print('device NAKed the frame (header %d B + relocation table %d B)'
+                      % (HEADER_SIZE, reloc_len), file=sys.stderr)
+                show_device_log(lines)
                 return 1
-            if r == 'timeout':
+            if verdict == 'timeout':
                 print('no ACK for the header - is the installer running on this port?',
                       file=sys.stderr)
+                show_device_log(lines)
                 return 1
 
         sent = payload_offset
@@ -135,12 +161,14 @@ def main():
             ser.write(piece)
             ser.flush()
             if not args.no_ack:
-                r = wait_ack(ser, ACK_TIMEOUT_S)
-                if r == 'nak':
-                    print('device rejected the frame after offset %d' % sent, file=sys.stderr)
+                verdict, lines = wait_ack(ser, ACK_TIMEOUT_S)
+                if verdict == 'nak':
+                    print('device NAKed the frame after offset %d' % sent, file=sys.stderr)
+                    show_device_log(lines)
                     return 1
-                if r == 'timeout':
+                if verdict == 'timeout':
                     print('no ACK after offset %d - transfer aborted' % sent, file=sys.stderr)
+                    show_device_log(lines)
                     return 1
             sent += len(piece)
             if args.no_ack:
