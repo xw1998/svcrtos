@@ -10,8 +10,20 @@ PendSV_Handler		PROC
     EXPORT  PendSV_Handler
     IMPORT  svcrt_sched_is_switching
     IMPORT  svcrt_sched_activate
+    IMPORT  svcrt_trace_isr
 
     PUSH    {R0, LR}
+
+; 插桩：上下文切换现场。PendSV 是真正换栈的地方，
+; 任务级「谁换成谁」由 svcrt_sched_activate 另外记一笔。
+; 调用 C 函数前必须自己保护 R0-R3/R12/LR（AAPCS 允许被调方改它们），
+; 这里 R0 与 R12 在本函数后面还要用。
+    PUSH    {R0-R3, R12, LR}
+    MOVS    R0, #14
+    MOVS    R1, #0
+    LDR     R2, =svcrt_trace_isr
+    BLX     R2
+    POP     {R0-R3, R12, LR}
 
     LDR     R2, =svcrt_sched_is_switching
     BLX     R2
@@ -51,6 +63,15 @@ PendSV_Handler		PROC
 
     MSR     PSP, R0
 
+; 插桩：切换完成。R12 此时是目标任务自己的 EXC_RETURN，
+; 马上就要拿它异常返回，所以要保护到 BLX 之后再恢复。
+    PUSH    {R0-R3, R12, LR}
+    MOVS    R0, #14
+    MOVS    R1, #1
+    LDR     R2, =svcrt_trace_isr
+    BLX     R2
+    POP     {R0-R3, R12, LR}
+
     ; Return through the incoming task's EXC_RETURN instead of the value
     ; pushed on entry: only that value makes the hardware restore Thread
     ; mode on PSP, which is what actually performs the switch.
@@ -58,6 +79,15 @@ PendSV_Handler		PROC
     BX      R12
 
 endpend
+; 插桩：本次 PendSV 没有真正切换（调度器判定不需要），
+; 进出仍然成对记，否则时间线上会出现「只进不出」的中断。
+    PUSH    {R0-R3, R12, LR}
+    MOVS    R0, #14
+    MOVS    R1, #1
+    LDR     R2, =svcrt_trace_isr
+    BLX     R2
+    POP     {R0-R3, R12, LR}
+
     POP     {R0, PC}
     ENDP
 

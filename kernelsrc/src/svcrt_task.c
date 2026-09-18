@@ -19,6 +19,7 @@
 #include "svcrt_def.h"
 #include "svcrt_config.h"
 #include "svcrt_mq.h"
+#include "svcrt_trace.h"
 #include "svcrt_timer.h"
 #include "svcrt_fault.h"
 #include "svcrt_ptable.h"
@@ -281,6 +282,7 @@ void svcrt_kernel_tick_handler(void)
 
 void SVC_Server(void *p_svc_ctx)
 {
+    svcrt_trace_isr(SVCRT_TR_IRQ_SVC, SVCRT_TR_ISR_ENTER);
     uint32 svc_num = SVCRT_SVC_NUM(p_svc_ctx);
     uint32 *p;
 
@@ -795,6 +797,7 @@ void SVC_Server(void *p_svc_ctx)
     default:
         break;
     }
+    svcrt_trace_isr(SVCRT_TR_IRQ_SVC, SVCRT_TR_ISR_EXIT);
 }
 
 /* ============================================================
@@ -928,6 +931,9 @@ int32 svcrt_sched_activate(int32 new_task, uint32 old_psp)
         }
     }
 
+    svcrt_trace_switch(
+        (uint8)((svcrt_current_task_id > 0) ? (svcrt_current_task_id - 1) : SVCRT_TR_ID_IDLE),
+        (uint8)((new_task > 0) ? (new_task - 1) : SVCRT_TR_ID_IDLE));
     svcrt_current_task_id = new_task;
     if(svcrt_current_task_id > 0)
     {
@@ -1096,6 +1102,7 @@ void svcrt_task_wait_internal(uint32 ms)
         p_tsk = &svcrt_task_table[svcrt_current_task_id - 1];
         p_tsk->wait_time = SVCRT_MS_TO_TICK(ms);
         p_tsk->status = SVCRT_TASK_WAIT;
+        svcrt_trace_wait((uint8)(svcrt_current_task_id - 1));
         SVCRT_SWITCH_TASK();
     }
     SVCRT_ENABLE_IRQ();
@@ -1117,6 +1124,7 @@ void svcrt_task_wait_period_internal(void)
     {
         p_tsk = &svcrt_task_table[svcrt_current_task_id - 1];
         p_tsk->status = SVCRT_TASK_WAIT;
+        svcrt_trace_wait((uint8)(svcrt_current_task_id - 1));
         SVCRT_SWITCH_TASK();
     }
     SVCRT_ENABLE_IRQ();
@@ -1138,6 +1146,7 @@ void svcrt_task_block_internal(void)
     {
         p_tsk = &svcrt_task_table[svcrt_current_task_id - 1];
         p_tsk->wait_time = -1;          /* 无限阻塞，仅能被 post/unlock 唤醒 */
+        svcrt_trace_wait((uint8)(svcrt_current_task_id - 1));
         p_tsk->status = SVCRT_TASK_WAIT;
         SVCRT_SWITCH_TASK();
     }
@@ -1174,6 +1183,7 @@ int32 svcrt_task_block_in_critical(uint32 timeout_ms)
      * MS_TO_TICK 溢出成一个不可控的巨大节拍数。 */
     p_tsk->wait_time   = ((int32)timeout_ms > 0) ? (int32)SVCRT_MS_TO_TICK((uint32)timeout_ms) : -1;
     p_tsk->status      = SVCRT_TASK_WAIT;
+    svcrt_trace_wait((uint8)(svcrt_current_task_id - 1));
 
     SVCRT_SWITCH_TASK();                /* 只是置 PendSV pending，此刻中断还关着 */
     SVCRT_ENABLE_IRQ();                 /* 开中断：PendSV 切走与 ISR 唤醒才有机会发生 */

@@ -20,6 +20,7 @@
 #include "drvled.h"
 #include "drvuart.h"
 #include "svcrt_fault.h"
+#include "svcrt_trace.h"
 
 /* ============================================================
  * 板级初始化 - 实现 port 层板级接口
@@ -28,6 +29,13 @@ void svcrt_port_board_init(void)
 {
     SCB->CPACR |= (3UL << 20) | (3UL << 22);
     FPU->FPCCR = FPU_FPCCR_ASPEN_Msk;
+
+    /* 插桩组件在这里就位：上电即开始录制，主机随时可以来读。
+     * 放在板级初始化里而不是等 shell 命令，是因为「漏掉启动那段」
+     * 恰恰是复位类问题最难补的证据。
+     * 环是静态的（config/stm32f401/mdk_trace_config.h 里选的后端），
+     * init 只清零游标与字典，不做任何分配。 */
+    svcrt_trace_init();
 }
 
 /* ============================================================
@@ -86,6 +94,9 @@ void svcrt_dev_board_init(void)
  * ============================================================ */
 void SysTick_Handler(void)
 {
+    /* 节拍中断进出各记一笔。2kHz 的节拍加上 2kHz 的退出事件，
+     * 编码开销是每条几次 store，不改节拍自身的时序。 */
+    svcrt_trace_isr(SVCRT_TR_IRQ_SYSTICK, SVCRT_TR_ISR_ENTER);
     /* HAL 的毫秒基准必须跟着内核节拍一起走。
      * CubeMX 生成的那个 SysTick_Handler（内含 HAL_IncTick()）已在
      * stm32f4xx_it.c 里用 #if 0 整体屏蔽，全工程再无第二处调用 ——
@@ -102,9 +113,110 @@ void SysTick_Handler(void)
     }
 
     svcrt_kernel_tick_handler();
+
+    svcrt_trace_isr(SVCRT_TR_IRQ_SYSTICK, SVCRT_TR_ISR_EXIT);
 }
 
+/* ============================================================
+ * 异常向量入口
+ * @brief 进 C 处理体之前，先把异常现场交给 trace
+ * @details 要采的是 EXC_RETURN（LR）、MSP、PSP，而且必须在任何 C 语句之前
+ *          完成。Keil ARMCC 5（AC5）在 C 里根本读不到 LR：它的内联汇编不
+ *          接受 lr/r14 作操作数，把变量绑到 "lr" 又会被编译器静默换成普通
+ *          寄存器（实测生成 STR r0，而不是 MOV r0, lr）—— 那样记下来的栈和
+ *          PC 全是编的。所以这几个入口用嵌入汇编函数写：此刻 lr 真的就是
+ *          EXC_RETURN。AC6/armclang 走 SVCRT_TRACE_FAULT_CAPTURE() 宏。
+ *          PUSH/POP 里带上 r0-r3、r4、lr 是为了对齐栈并保住异常返回用的
+ *          lr；处理体逻辑一字未改，只是改了名字。
+ * ============================================================ */
+void svcrt_board_hardfault_body(void);
+void svcrt_board_memmanage_body(void);
+void svcrt_board_busfault_body(void);
+void svcrt_board_usgfault_body(void);
+
+#if defined(__CC_ARM) && !defined(__clang__)
+
+__asm void HardFault_Handler(void)
+{
+    IMPORT mdk_trace_fault_capture
+    IMPORT svcrt_board_hardfault_body
+    PUSH   {r0-r3, r4, lr}
+    MOV    r0, lr
+    MRS    r1, MSP
+    MRS    r2, PSP
+    BL     mdk_trace_fault_capture
+    POP    {r0-r3, r4, lr}
+    B      svcrt_board_hardfault_body
+}
+
+__asm void MemManage_Handler(void)
+{
+    IMPORT mdk_trace_fault_capture
+    IMPORT svcrt_board_memmanage_body
+    PUSH   {r0-r3, r4, lr}
+    MOV    r0, lr
+    MRS    r1, MSP
+    MRS    r2, PSP
+    BL     mdk_trace_fault_capture
+    POP    {r0-r3, r4, lr}
+    B      svcrt_board_memmanage_body
+}
+
+__asm void BusFault_Handler(void)
+{
+    IMPORT mdk_trace_fault_capture
+    IMPORT svcrt_board_busfault_body
+    PUSH   {r0-r3, r4, lr}
+    MOV    r0, lr
+    MRS    r1, MSP
+    MRS    r2, PSP
+    BL     mdk_trace_fault_capture
+    POP    {r0-r3, r4, lr}
+    B      svcrt_board_busfault_body
+}
+
+__asm void UsageFault_Handler(void)
+{
+    IMPORT mdk_trace_fault_capture
+    IMPORT svcrt_board_usgfault_body
+    PUSH   {r0-r3, r4, lr}
+    MOV    r0, lr
+    MRS    r1, MSP
+    MRS    r2, PSP
+    BL     mdk_trace_fault_capture
+    POP    {r0-r3, r4, lr}
+    B      svcrt_board_usgfault_body
+}
+
+#else
+
 void HardFault_Handler(void)
+{
+    SVCRT_TRACE_FAULT_CAPTURE();
+    svcrt_board_hardfault_body();
+}
+
+void MemManage_Handler(void)
+{
+    SVCRT_TRACE_FAULT_CAPTURE();
+    svcrt_board_memmanage_body();
+}
+
+void BusFault_Handler(void)
+{
+    SVCRT_TRACE_FAULT_CAPTURE();
+    svcrt_board_busfault_body();
+}
+
+void UsageFault_Handler(void)
+{
+    SVCRT_TRACE_FAULT_CAPTURE();
+    svcrt_board_usgfault_body();
+}
+
+#endif /* __CC_ARM */
+
+void svcrt_board_hardfault_body(void)
 {
     volatile uint32 hfsr  = SCB->HFSR;
     volatile uint32 cfsr  = SCB->CFSR;
@@ -136,7 +248,7 @@ void HardFault_Handler(void)
  *          内核返回可恢复的任务栈指针时，直接恢复该任务上下文并异常返回；
  *          返回 0（内核/中断上下文故障）时落回 while(1)，停机等调试器接管。
  * ============================================================ */
-void MemManage_Handler(void)
+void svcrt_board_memmanage_body(void)
 {
     uint32 sp = svcrt_cpu_fault_handler(SVCRT_FAULT_MEMFAULT);
 
@@ -149,7 +261,7 @@ void MemManage_Handler(void)
     while(1) { }
 }
 
-void BusFault_Handler(void)
+void svcrt_board_busfault_body(void)
 {
     uint32 sp = svcrt_cpu_fault_handler(SVCRT_FAULT_BUSFAULT);
 
@@ -162,7 +274,7 @@ void BusFault_Handler(void)
     while(1) { }
 }
 
-void UsageFault_Handler(void)
+void svcrt_board_usgfault_body(void)
 {
     uint32 sp = svcrt_cpu_fault_handler(SVCRT_FAULT_USGFAULT);
 

@@ -36,6 +36,7 @@
 #include "svcrt_log.h"
 #include "svcrt_share.h"
 #include "svcrt_task.h"
+#include "svcrt_trace.h"
 #include "svcrt_partition.h"
 
 #include <string.h>
@@ -888,7 +889,7 @@ static int cmd_pool(int argc, char *argv[])
 static int register_kernel_commands(void)
 {
     int idx = g_cmd_count;
-    int need = 8;
+    int need = 9;
 
     if((idx + need) > ARK_SHELL_MAX_COMMANDS)
     {
@@ -912,6 +913,8 @@ static int register_kernel_commands(void)
         "Get or set runtime log level: log [0..4]", 2);
     g_cmd_table[idx++] = ARK_SHELL_CMD("pool", cmd_pool,
         "Free space left in the image pool", 1);
+    g_cmd_table[idx++] = ARK_SHELL_CMD("trace", svcrt_trace_shell_cmd,
+        "Kernel event trace: trace [start | stop | reset | dump | mark <n>]", 3);
 
     g_cmd_table[idx].name = NULL;
     g_cmd_table[idx].func = NULL;
