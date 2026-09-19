@@ -28,4 +28,7 @@ svcrt_fifo_t *svcrt_fifo_create(uint8 *buff, int32 size);
 int32 svcrt_fifo_write(svcrt_fifo_t *fifo, uint8 *pdata, int32 len);
 int32 svcrt_fifo_read(svcrt_fifo_t *fifo, uint8 *pdata, int32 len);
 
+/* @return bytes refused because the FIFO was full (all FIFOs, both directions) */
+uint32 svcrt_fifo_write_refused(void);
+
 #endif

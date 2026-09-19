@@ -32,15 +32,17 @@ DRV_DEMO/
 
 ## 地址从哪来（重要）
 
-**本工程不含任何物理地址。** 驱动固件池的基址与容量只在
+**本工程不含任何物理地址。** App 与驱动共用的统一镜像池 `IMAGE_POOL` 的基址与容量只在
 [`config/svcrt_partition.h`](../../../../config/svcrt_partition.h) 定义一次
-（`DRIVER_POOL_BASE` / `DRIVER_POOL_SIZE`），编译前由
-[`tools/gen_scatter.py`](../../../../tools/gen_scatter.py) 自动生成
-`build/driver.sct`，由 MDK 的 Before Make 钩子自动执行。
+（`IMAGE_POOL_BASE` / `IMAGE_POOL_SIZE` / `IMAGE_POOL_SECTOR`），编译前由
+[`tools/gen_app_sct.py`](../../../../tools/gen_app_sct.py)（内部调
+[`tools/gen_scatter.py`](../../../../tools/gen_scatter.py)）自动生成
+`build/dev0.sct`，由 MDK 的 Before Make 钩子自动执行。
 
 - 改布局 → 只改 `config/svcrt_partition.h`；
-- 驱动固件池现在按槽位切分（`DRIVER_MAX_COUNT`，默认 4 槽），每个槽位独立擦写、互不覆盖；但 `tools/gen_scatter.py` 与 `tools/pack_app.py` **尚未支持指定槽位**，所以当前实际只能用 0 号槽，本示例即链接到 0 号槽；
-- 驱动栈由内核按 `DRIVER_TASK_STACK_SIZE` 从**本驱动槽自己的 RAM 顶部**切出，驱动侧不需要声明。多槽并存时每个槽各占一块 RAM，栈不会互相覆盖。
+- 池按**分配单元**（一个单元 = 一个物理擦除扇区）切分，每个单元独立擦写、互不覆盖。本工程用的是开发槽位表的 **0 号条目**（`SVCRT_DEV_SLOT0_UNIT = 0`，类型驱动，占 1 个单元），scatter 由 `py -3 tools\gen_app_sct.py --project drv_demo.uvprojx --type driver --dev-slot 0 --ram-size 4096` 生成；
+- `gen_app_sct.py` 支持 `--dev-slot`，`gen_scatter.py` 支持 `--dev-slot` / `--unit` / `--units`，`pack_app.py` 支持 `--dev-slot`，都写进命令参数，不再有「只能落在 0 号槽」的限制；
+- 驱动栈由内核从**该镜像自己的 RAM 窗口顶部**切出，驱动侧不需要声明。带镜像头的 `.svcapp` 用头部声明的 `ram_size` 走伙伴分配；裸镜像没有头部，窗口由 `SVCRT_DEV_SLOT_RAM_BASE(unit)` 静态给出（本板 `SVCRT_DEV_RAM_WINDOW = 16KB`）。多镜像并存时各占一块 RAM，栈不会互相覆盖。
 
 ## 编译步骤
 
@@ -53,8 +55,8 @@ DRV_DEMO/
 
 | 场景 | 做法 |
 |------|------|
-| 正式安装包 | `python tools/pack_app.py --axf <axf> --type driver --out drv_demo.svcapp`，由内核安装任务按镜像头 `type` 自动分流进驱动区 |
-| 开发期快速验证 | 直接把裸 `.bin` 烧到驱动池基址，内核扫描时按裸镜像识别入口 |
+| 正式安装包 | `python tools/pack_app.py --axf <axf> --type driver --out drv_demo.svcapp`，由内核安装任务按镜像头 `type` 落进统一镜像池（驱动与 App 共用一个池） |
+| 开发期快速验证 | 直接把裸 `.bin` 烧到开发槽位 0 的单元基址（`IMAGE_POOL_BASE + 0 × IMAGE_POOL_SECTOR`），内核扫描时按裸镜像识别入口（需 `APP_ALLOW_RAW_IMAGE=1`） |
 | MDK 在线调试 | 固定地址烧录后直接在 MDK 里 Load & Debug，可对 `DrvMain()` 下断点 |
 
 ## 驱动实现说明

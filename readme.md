@@ -17,6 +17,10 @@ SVCrtOS 是一个面向 ARM Cortex-M 系列微控制器的安全实时操作系�
 - **自旋锁与调度器锁**：内核/驱动侧自旋锁（原子 CAS + 关中断变体，面向 SMP 扩展），用户态调度器锁（禁止任务切换的轻量临界区）
 - **CPU 负载统计**：实时统计 CPU 空闲率
 - **FPU 支持**：Cortex-M4F/M7 浮点寄存器（S16-S31）按需自动保存/恢复
+- **统一镜像池 + 两种安装策略**：App 与驱动共用一个池，安装时按 1 KB 粒度贴合放置；整机可选「固定槽位」（落点与 RAM 窗口按配置走，适合交付客户二次开发）或「自动选址」（在池内找最大连续空位，卸载按力度回收）
+- **设备端持久配置区**：安装策略、槽位表与运行期参数写在独立的配置扇区，由上位机在线写入；改完 `cfg load` 即生效，不必重新编译
+- **线程服务**：App / 驱动可以在自己的固件与 RAM 窗口内创建线程（SVC 0x1B），入口与栈都要落在调用者自己的窗口内，否则拒绝
+- **POSIX / Windows 兼容层**：`pthread` / `semaphore` / `mqueue` / `unistd` 与 `CreateThread` / `Sleep` / `strcpy_s` 等常用名直接可用，移植既有 C 程序改 include 列表即可
 - **双 SDK 架构**：独立的应用 SDK 和驱动 SDK，支持编译为独立分区固件
 - **内核与芯片解耦**：采用 RT-Thread 类似的分层架构，内核零芯片依赖，移植只需修改 board/ 目录
 
@@ -76,7 +80,9 @@ SVCRTOS/
 │   ├── app/                        # 应用模板
 │   ├── sdk/                        # SDK 开发包
 │   │   ├── app_sdk/                # App SDK
-│   │   └── driver_sdk/             # Driver SDK
+│   │   ├── driver_sdk/             # Driver SDK
+│   │   └── posix/                  # POSIX / Windows 兼容层（App 侧，见其 README）
+│   ├── shell/                      # 内核控制台（ark-shell + SVCrtOS 平台适配层）
 │   └── components/                 # 可选组件
 │
 ├── board/                          # ★ 板级移植层（芯片相关）
@@ -93,6 +99,8 @@ SVCRTOS/
 │       ├── svcrt_context.S         # PendSV 上下文切换汇编（含 FPU 寄存器）
 │       └── svcrt_port.c            # 系统调用上下文/栈帧/临界区/定时器/MPU 实现
 │
+├── tools/                          # 上位机工具（gen_scatter / pack_app / svcrt_layout / gen_api_doc）
+├── docs/                           # 文档，索引见 docs/README.md
 └── example/                        # 工程示例
     └── stm32f427/                  # MDK 工程
 ```
@@ -199,12 +207,15 @@ svcrt_mutex_lock(mtx, 0);    /* 只试一次，拿不到就返回超时 */
 
 | API | 说明 |
 |-----|------|
-| `svcrt_mq_create(name)` | 创建消息队列（容量 `SVCRT_MQ_DEPTH`，单条 `SVCRT_MQ_MSG_WORDS` 字） |
-| `svcrt_mq_send(h, buf, len_words, timeout)` | 发送消息（拷贝语义，满时阻塞可超时） |
-| `svcrt_mq_recv(h, buf, len_words, timeout)` | 接收消息（空时阻塞可超时） |
+| `svcrt_mq_create(name)` | 创建消息队列（深度 `SVCRT_MQ_DEPTH`，单条最长 `SVCRT_MQ_MSG_WORDS` 字） |
+| `svcrt_mq_send(h, buf, len_words, timeout)` | 发送一条 `len_words` 字的消息（1..`SVCRT_MQ_MSG_WORDS`；拷贝语义，满时阻塞可超时） |
+| `svcrt_mq_recv(h, buf, len_words, timeout)` | 接收一条消息，拷入 `len_words` 字的调用者缓冲（空时阻塞可超时） |
 | `svcrt_mq_delete(h)` | 删除消息队列 |
 
-返回值约定：0=成功，1=超时，-1=错误。
+**消息是变长的**：`len_words` 由调用者给出，内核只拷这么多字、槽内其余字节补 0，并在槽内记下实际长度。
+`len_words` 必须 ≤ 接收缓冲的容量——**调用者缓冲是硬边界**。
+
+返回值约定：`svcrt_mq_send` 返回 0=成功、负值=超时或错误；`svcrt_mq_recv` 返回**实际收到的字数**（>0），负值=超时或错误。
 
 ### 软定时器（SVC 0x17）
 
@@ -227,6 +238,27 @@ svcrt_mutex_lock(mtx, 0);    /* 只试一次，拿不到就返回超时 */
 | `svcrt_fault_record_read(index, out3)` | 读取第 index 条记录（类型/任务号/tick） |
 
 HardFault/栈溢出自动写入故障环形记录（容量 `SVCRT_FAULT_RECORD_NUM`，记满覆盖最旧）；使能 `SVCRT_USE_FAULT_RECOVER` 后故障任务自动重建恢复，不再永久丢失任务槽位。
+
+### 线程服务（SVC 0x1B）
+
+App / 驱动在**自己的 RAM 窗口内**创建线程。线程需要 TCB 与调度器槽位，只有内核有，
+所以必须走这一组调用：
+
+| API | 说明 |
+|-----|------|
+| `svcrt_thread_create(entry, stack, stack_size, priority, period_ms)` | 创建线程，返回任务号（>0）；`period_ms=0` 为事件驱动，>0 为周期线程 |
+| `svcrt_thread_self()` | 当前任务号（>0） |
+| `svcrt_thread_exit()` | 结束当前线程，不再返回 |
+
+内核在创建时做两道边界校验，不通过就拒绝而不是静默接受：
+
+1. **入口必须落在调用者自己的固件窗口内**；
+2. **整段栈必须落在调用者自己的 RAM 窗口内**（内核不会给别人分配或跨窗口使用栈）。
+
+`priority` 取 1..254，`255` 是调度器「无候选」哨兵，会被显式拒绝。
+
+不想直接用它的话，`kernelsrc/sdk/posix/` 提供了一层 POSIX / Windows 兼容层，
+用 `pthread_create` / `CreateThread` 的写法即可，见 [POSIX与Windows兼容层说明.md](docs/POSIX与Windows兼容层说明.md)。
 
 ### 中断上下文安全 API（特权态直调，不经 SVC）
 
@@ -351,13 +383,15 @@ svcrt_dev_write(h, &on, 1);            /* 点亮蓝灯 */
 
 | 宏 | `config/` 默认 | 说明 |
 |----|----|----|
-| `APP_AUTO_START` / `DRIVER_AUTO_START` | 1 | 上电扫描到有效镜像后自动启动；调试时置 0 |
-| `APP_ALLOW_RAW_IMAGE` | 0 | 只认带镜像头的 `.svcapp`。本板在 `board/stm32f427/svcrt_board_config.h` 里显式置 1，保住"固定地址烧录 + MDK 下断点调试"的旁路 |
+| `APP_AUTO_START` / `DRIVER_AUTO_START` | 1 | **只影响裸镜像路径**（Keil 直接烧录的镜像没有镜像头，无法自带自启标志）。带头的 `.svcapp` 的自启由镜像头 `flags` 决定，并可在设备端配置区里逐槽改写 |
+| `APP_ALLOW_RAW_IMAGE` | 0 | 是否认领裸镜像（无镜像头、直接烧进池的固件）。编译期默认 0，F427 板级置 1；**运行期还要设备端配置区 `flags` 的 `RAW_ALLOW` 位一起成立**，两处都开才生效 |
 | `APP_CRASH_RESTART_MAX` | 3 | App/驱动连续故障重启上限，达到即禁用；0 = 不限次 |
 | `INSTALLER_ENABLE` | 1 | 内核内安装模块（占用 COM1）；不用串口安装时置 0 |
 | `SHELL_ENABLE` | 1 | 内核 Shell 控制台（ark-shell，占用 `SHELL_DEV_NAME`）；置 1 时不注册常驻安装任务，安装改由 `install` 命令触发一次性窗口 |
 | 镜像头 `flags` | 0x1 | 逐槽开机自启标志，打包时由 `tools/pack_app.py --autostart / --no-autostart` 写入；运行期用 `app list` / `drv list` 的 auto 列查看 |
-| `DRIVER_MAX_COUNT` / `APP_MAX_COUNT` | 4 / 4 | 驱动与 App 的槽位数量，驱动池与 App 区按此等分。两者都必须 ≤ `SVCRT_SLOT_ARRAY_MAX`（8，见 `svcrt_share.h` 的固定数组），越界由编译期断言拦住 |
+| `SLOT_MAX` / `SVCRT_CFG_SLOT_MAX` | 16 / 8 | 槽位记录条数上限（共享表数组 / 设备端配置区容量）。两者都必须 ≤ `SVCRT_SLOT_ARRAY_MAX`（16，见 `svcrt_share.h`），越界由编译期断言拦住 |
+| `SVCRT_DEV_SLOT_MAX` / `SVCRT_DEV_RAM_WINDOW` | 4 / 16 KB | 开发槽位表条目数与每条的 RAM 窗口。窗口序号 = 起始单元号 % 条目数，公式与 `tools/gen_scatter.py` 的 `dev_ram_base` 同源 |
+| `SVCRT_RECLAIM_MODE` | `SVCRT_RECLAIM_GLOBAL` | 自动选址模式下的卸载回收力度：全局压实 / 只处理含失效字节的扇区 |
 | `DRIVER_TASK_STACK_SIZE` / `APP_TASK_STACK_SIZE` | 1K / 4K | 驱动 / App 任务栈，从**各自槽位那块 RAM** 的顶部切出 |
 
 > 注意：Loader / App 工程**禁止** `#include "svcrt_partition.h"`，布局在运行期经 SVC 0x18 获取。
@@ -383,21 +417,33 @@ svcrt_dev_write(h, &on, 1);            /* 点亮蓝灯 */
 `svcrt_config.h` 不再自带这两个宏的默认值，而是 `#include "svcrt_partition.h"`；
 板级配置仍然优先（分区头里的定义用 `#ifndef` 包裹，且板级配置先于它加载）。
 
-### 槽位与 ABI 版本
+### 分区、槽位与 ABI 版本
 
-驱动池与 App 区各自等分为多个槽位，一个镜像占一个槽位：
+Flash 布局（F427，1 MB）：`BOOT(0)` → `KERNEL(128 KB)` → `CONFIG(128 KB，一个物理扇区)` → `IMAGE_POOL(768 KB，6 × 128 KB 单元)`。
 
 | 项 | 值 | 说明 |
 |----|----|----|
-| 驱动槽 | 4 × 64 KB | `DRIVER_SLOT_BASE(n)` / `DRIVER_SLOT_SIZE`；RAM `DRIVER_SLOT_RAM_BASE(n)`（4 × 8 KB） |
-| App 槽 | 4 × 128 KB | `APP_SLOT0_BASE` / `APP_SLOT_SIZE`；RAM `APP_SLOT_RAM_BASE(n)`（4 × 8 KB） |
-| 共享内存 ABI | `SVCRT_PARTITION_VERSION` = **2** | 驱动区状态由「单槽四个平铺字段」改为与 App 同构的槽位数组，结构尺寸与偏移都变了 |
-| 硬件兼容签名 | `SVCRT_HW_COMPAT_ID` = **`0x42700002`** | 低 16 位即 ABI 版本；旧镜像会被兼容校验拦下，必须重新打包 |
+| 内核区 | `KERNEL_SIZE` = 128 KB @ `0x08000000` | **可按编译结果调整**（内核大了就给它更多）；改动只在这一个宏 |
+| 配置区 | `CONFIG_SIZE` = 128 KB @ `0x08020000` | 设备端持久配置：安装策略、槽位表、运行期参数，由上位机在线写入 |
+| 镜像池 | `IMAGE_POOL_SIZE` = 768 KB @ `0x08040000`，6 × 128 KB 单元 | App 与驱动**共用统一池**；单元内按 1 KB 粒度分配 |
+| 槽位条目 | `SLOT_MAX` = 16（配置区 `SVCRT_CFG_SLOT_MAX` = 8） | 一次能记录的镜像条目数，≤ `SVCRT_SLOT_ARRAY_MAX`(16) |
+| 开发槽位 | `SVCRT_DEV_SLOT_MAX` = 4，窗口 `SVCRT_DEV_RAM_WINDOW` = 16 KB | 只服务「Keil 直接烧录 + 下断点」这条旁路；裸镜像不可搬移、不参与回收 |
+| RAM 池 | `SLOT_RAM_TOTAL` = 64 KB @ `0x20010000` | 伙伴分配，块大小 1 KB ~ 32 KB |
+| 共享内存 ABI | `SVCRT_PARTITION_VERSION` = **7** | 分区表 / 配置区 / 开发槽位表都在这个结构里交换 |
+| 硬件兼容签名 | `SVCRT_HW_COMPAT_ID` = **`0x42700005`** | 低 16 位是镜像兼容世代；旧的 `.svcapp` 会被兼容校验拦下，必须重新打包 |
 
-> **ABI v2 影响**：升级到本版本后，此前打包的 `.svcapp`（驱动 / App）都会被
-> `SVCRT_LOADER_ERR_COMPAT` 拒绝，需要重新打包。单驱动 / 单 App（都落在 0 号槽）
-> 的路径依旧可用，因为 `DRIVER_SLOT_BASE(0) == DRIVER_POOL_BASE`、
-> `APP_SLOT0_BASE == APP_USER_BASE`。
+**两种安装策略，整机二选一**，由设备端配置区决定（编译期只给回退默认）：
+
+| 策略 | 语义 |
+|------|------|
+| **固定槽位**（`fixed`） | 镜像落点与 RAM 窗口都按配置里的槽位走。卸载只擦本槽，不做压实、空间不退回池。适合「设备交给客户二次开发、客户直接接 MDK 下载调试」的场景 |
+| **自动选址**（`auto`） | 安装时在池内找最大连续空位，以 1 KB 粒度贴合放置；卸载按 `SVCRT_RECLAIM_MODE` 做全局压实或最小移动 |
+
+> 两句话记住边界：**地址只在 `config/svcrt_partition.h` 定义一次**，其余地址一律派生；
+> **Loader / App 工程禁止 `#include "svcrt_partition.h"`**，布局在运行期经 SVC 0x18 获取。
+
+配置记录的字节布局、错误码、槽位表语义与上位机用法见
+[配置区与安装策略.md](docs/配置区与安装策略.md)。
 
 ## API 文档
 
@@ -459,17 +505,17 @@ SVCrtOS 可移植到任何 ARM Cortex-M MCU，只需在 `board/` 目录下创建
 完整示例见 `example/stm32f427/app_sdk/`（应用）、`example/stm32f427/driver_sdk/`（驱动）以及蓝灯端到端示例 `example/stm32f427/BLUE_LED_E2E_README.md`。
 
 集成要点（详见 [SDK 用户手册](kernelsrc/sdk/sdk_user_manual.md) 第三部分）：
-1. 内核侧将外部分区入口地址注册为任务（`入口 = 分区基址 | 1`）
+1. 镜像装入后由 loader 认领：从镜像头/槽位表取得入口，按槽分配 RAM 块并注册为任务（入口带 Thumb 位 `| 1`）
 2. 外部固件启动汇编必须经 C 库入口 `__main` 完成 `.data` 拷贝、`.bss` 清零，否则驱动接口函数指针表为随机值导致 HardFault
 3. 内核、各固件的 ROM/RAM 分区地址必须互不重叠
 
-> **多槽位当前进度（不要按已完成使用）**：内核侧已完整支持多槽位——分区按槽等分、
-> 分区表 ABI v2 槽位数组化、`svcrt_loader_scan_driver()` 遍历全部驱动槽、
-> `start/stop/state_driver_slot()`、`on_fault()` 按驱动槽累计崩溃次数、
-> MPU 窗口按槽计算、App 与驱动任务的栈各取自己槽位的 RAM 顶部。
-> 但**镜像侧与示例侧尚未跟上**：`tools/gen_scatter.py` 还没有 `--slot`、
-> `tools/pack_app.py` 的槽位宏仍写死 0 号槽，因此实际仍只能装到 0 号槽。
-> 详见 [Loader 工程化落地说明](docs/Loader工程化落地说明.md) 的「未闭环项」。
+> **安装与布局现状**：App 与驱动共用一个 768 KB 镜像池（F427），池内按 1 KB 粒度贴合放置。
+> 安装策略（固定槽位 / 自动选址）与槽位表由**设备端配置区**决定，编译期只给回退默认。
+> 工具链：`tools/svcrt_layout.py` 生成配置记录、`tools/gen_scatter.py --target image --unit N`
+> 生成各固件的分散加载文件、`tools/pack_app.py` 打包 `.svcapp`。
+> 交给客户用 MDK 直接烧录调试的路径走**开发槽位表**（裸镜像，不参与回收）。
+> 完整语义见 [配置区与安装策略](docs/配置区与安装策略.md) 与
+> [应用安装与调试指南](docs/SVCrtOS应用安装与调试指南.md)。
 
 ## 启动流程
 
@@ -531,20 +577,28 @@ Keil 界面，即可完成「编译 -> 烧录 -> 进入调试 -> 运行控制 ->
 
 ## 验证状态
 
-已验证到两层证据：**Keil UV4 全量重建**（内核 + 示例工程，0 Error）+ **F429 真机**。
+已验证到两层证据：**Keil UV4 全量重建**（内核 + 四个示例工程，0 Error）+ **F427 真机**（DAPLink，SWD 两线，USART1 → 主机 COM3）。
 
 真机上已闭环的部分：
 
-- PendSV 按目标任务的 `EXC_RETURN` 返回、两级软件帧布局与 `svcrt_port_stack_init()`
-  一致——`led_blink_task` / `AppMain` 断点均能命中，6 个任务都有真实栈用量
-- App 灭灯写 `len = 0`（`led_drv_write` 按 len 判定，写 1 会把灯钉死常亮）
-- DAP 烧录闭环（`BIN\CMSIS_AGDI.dll`），内核 / App 工程都有 DAP 配置
+| 项 | 证据 |
+|----|------|
+| 内核节拍与调度 | 心跳任务持续输出（`APP_ALIVE`，`cpu=0%`），周期与超时唤醒正常 |
+| 应用安装闭环 | `.svcapp` 经串口装入、上电扫描认领、按槽启动 |
+| 卸载与空间回收 | 卸载作废镜像；最后一个活槽位所在的物理单元空出后扇区才真擦，`pool free` 由 776244 B 回到 786432 B |
+| 掉电后的镜像状态 | 复位后能正确区分「有效安装镜像 / 已作废 / 裸镜像」 |
+| 裸镜像（开发槽位）路径 | 直接烧到池内的镜像被认领，RAM 窗口 `0x20014000` 绑定正确，开机自启跑完十段自测；`app stop` 退回 `RAW`、`app start` 可再起 |
+| 消息队列 | 变长语义与返回值修正后，`mq.send` / `mq.recv` / `mq.recv_timeout` 在真机全部通过 |
+| POSIX / Windows 兼容层 | APP_DEMO 第九节自测（堆、pthread 创建/join/返回值、mutex、sem 空判、`usleep`、`CreateThread`/`Wait`、`strcpy_s` 越界）全部 `OK` |
+| 设备端配置区 | `cfg show` / `cfg load` / `cfg clear` 三态与 CRC / 硬件签名 / 槽位校验在真机核对 |
+| F401 移植 | 双板同源编译通过（F401 `Code=46526`） |
 
-**本轮的多槽位改造只做到编译验证**：内核 / `BLED_DRV` / `APP_DEMO` 三个工程
-全量重建 0 Error（内核剩 1 条既有的 `svcrt_context.S` padding 警告），
-槽位切分、驱动多槽扫描、按槽切栈、ABI v2 抖动**都还没有上板跑过**。
+仍未上板验证或未闭环的项：
 
-仍未上板验证的项：MPU 隔离、故障恢复的「连续重启 3 次禁用」、串口安装的 256B
-契约、HAL 毫秒时基的补 tick 精度。
-已知未闭环项与每一轮的改动记录见
-[死代码与未接线审计](docs/死代码与未接线审计.md)。
+- **MPU 隔离**（`SVCRT_USE_MPU` 默认关，`svcrt_mpu.c` 有 @warning）：分区与栈的地址已按槽派生，但保护尚未启用验证
+- **故障恢复的「连续重启 3 次禁用」**策略未做专项真机验证
+- **内核日志 / shell / App 三者在同一 console 上并发打印时字符级交错**（缺行级互斥，App 侧 `app_puts` 是逐字节写）
+- **调度器 `touch_tick` 的 32 位溢出边界**（约 24.8 天）未实测
+
+已知未闭环项与每一轮的改动记录见 [死代码与未接线审计](docs/死代码与未接线审计.md)。
+文档索引见 [docs/README.md](docs/README.md)。

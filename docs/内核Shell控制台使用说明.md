@@ -37,11 +37,15 @@
 |------|------|------|
 | `help` | `help` | 列出全部命令（含下面这些） |
 | `info` | `info` | 内核版本时间、分区表（ABI/硬件签名/各段地址与大小）、任务占用、时基 |
-| `app` | `app [list \| start <slot> \| stop <slot>]` | App 槽位表：状态 / auto / 任务号 / 崩溃计数 / 入口；启停单个槽 |
-| `drv` | `drv [list \| start <slot> \| stop <slot>]` | 驱动槽位表，语义同 `app` |
+| `app` | `app [list \| start <slot> \| stop <slot> \| uninstall <slot>]` | App 槽位表：type / 状态 / auto / 任务号 / 崩溃计数 / 基址 / 大小 / RAM 窗口 / 入口；启停或卸载单个槽 |
+| `drv` | `drv [list \| start <slot> \| stop <slot> \| uninstall <slot>]` | 驱动槽位表，语义同 `app` |
 | `task` | `task` | 内核任务表：优先级 / 状态 / 周期 / 等待时间 / 栈峰值 / 入口 |
 | `fault` | `fault` | 故障环形记录：类型 + 任务号 + 时刻（含 `INSTALLFAIL`） |
 | `install` | `install` | 打开一次性安装窗口，等待一个 `.svcapp` 镜像（主控先敲命令，再发文件） |
+| `log` | `log [0..4]` | 不带参数读当前运行日志级别，带参数改（0=off…4=debug） |
+| `pool` | `pool` | 镜像池空闲：`free` / `largest`，以及池内固定槽位类型占用 |
+| `trace` | `trace [start \| stop \| reset \| dump \| mark <n>]` | 内核事件 trace 的开关、复位、导出与打标记 |
+| `cfg` | `cfg [show \| load \| clear]` | 设备端布局配置：查看当前生效值 / 从配置区重新加载 / 清空配置区并回到编译期默认 |
 | 内置 | `version` / `clear` / `echo` / `reboot` | `reboot` 走平台钩子，直接写 `AIRCR.SYSRESETREQ` 复位整机 |
 
 ## 4. 典型操作
@@ -50,16 +54,24 @@
 
 ```
 ark> app list
-slot  state     auto  task  crash  entry
- 0    LOADED    no    0     0      0x08080201
+id  type  state     auto  task  crash  base        size    ram         entry
+ 0   app   RUNNING   yes   4     0      0x08060000  131072  0x20014000  0x08060001
+ark> app stop 0
+app: stopped (image kept in flash)
+ark> app list
+id  type  state     auto  task  crash  base        size    ram         entry
+ 0   app   RAW       yes   0     0      0x08060000  131072  0x20014000  0x08060001
 ark> app start 0
 app: started
-ark> app stop 0
-app: stopped, slot released
 ```
 
-`stop` 会把任务从调度里摘掉并把槽位状态退回 `LOADED`（镜像仍留在 Flash），
-所以可以反复 start / stop 而不必重新安装。
+列的含义：`ram` 是该槽位的 RAM 窗口基址，`entry` 的 bit0 是 Thumb 位。
+
+`stop` 把任务从调度里摘掉、`task` 归零，镜像**仍留在 Flash**，可以反复 start / stop。
+状态退回哪个值取决于槽里是什么：
+
+- 安装的镜像 → `LOADED`（下次压实仍可被当作可搬移镜像）；
+- 裸烧的开发镜像 → `RAW`（不可搬移、不参与回收，见 §5）。
 
 ### 4.2 开机自启（系统服务类）
 
@@ -86,6 +98,31 @@ flags : 0x00000001（开机自启）
 4. 控制台打印 `install: ok, slot 0`；失败或超时会打印提示并在 `fault` 里留一条 `INSTALLFAIL`。
 
 > 窗口期间控制台不处理输入（读权已交给安装器），串口是半双工，属正常现象。
+
+### 4.4 设备端布局配置（`cfg`）
+
+```
+ark> cfg show
+... 当前生效的策略、槽位表、运行期参数 ...
+ark> cfg load        # 从配置区重新读一遍（写完配置后不用重启）
+ark> cfg clear       # 擦掉配置区，回到编译期默认
+```
+
+能改什么、格式是什么、上位机怎么写这份配置，见
+[配置区与安装策略.md](配置区与安装策略.md)。这里只强调两点：
+
+- `cfg load` 是**重新读取并校验**，不是“把文件写进去”——写入由上位机在线完成；
+- 校验不过（CRC / 硬件签名 / 模式 / 槽位重叠等）时会保留原有配置并报错，不是带病生效。
+
+### 4.5 镜像池空闲（`pool`）
+
+```
+ark> pool
+pool: free 641592 B (largest run 510504 B), tasks 5/48
+```
+
+`free` 是 Flash 上为 `0xFF` 的字节数，含每个镜像槽位没被写到的尾巴；
+`largest` 才是“现在能装下的最大镜像”。判断能不能装下要同时看这两个。
 
 ## 5. 与其它路径的关系
 

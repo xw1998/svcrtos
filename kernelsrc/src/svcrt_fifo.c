@@ -27,6 +27,18 @@ svcrt_fifo_t *svcrt_fifo_create(uint8 *buff, int32 size)
 /* @return 实际写入的字节数（FIFO 满时可能小于 len）。
  * @note   本函数不做临界区保护，按单生产者-单消费者模型使用：
  *         要么只在任务里调用，要么生产者固定为 ISR；混用时由调用方加锁。 */
+/* Bytes a writer had to leave behind because the FIFO was full.  A short
+ * count is legal for this API, so without a counter the loss is invisible
+ * from the outside - which is how a shredded console line got read as a
+ * transport problem instead of an overflow.  Read it, do not infer it. */
+static volatile uint32 g_fifo_write_refused = 0u;
+
+/* Refused byte count over all FIFOs (transmit and receive). */
+uint32 svcrt_fifo_write_refused(void)
+{
+    return g_fifo_write_refused;
+}
+
 int32 svcrt_fifo_write(svcrt_fifo_t *fifo, uint8 *pdata, int32 len)
 {
     int32 cnt;
@@ -44,6 +56,10 @@ int32 svcrt_fifo_write(svcrt_fifo_t *fifo, uint8 *pdata, int32 len)
         }
         fifo->data[fifo->wt_idx] = pdata[cnt];
         fifo->wt_idx = next;
+    }
+    if(cnt < len)
+    {
+        g_fifo_write_refused += (uint32)(len - cnt);
     }
     return cnt;
 }

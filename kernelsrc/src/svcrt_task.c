@@ -547,7 +547,17 @@ void SVC_Server(void *p_svc_ctx)
                     SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
                     break;
                 }
-                SVCRT_SVC_RET(p_svc_ctx, svcrt_dev_write_internal(p[1], (uint8 *)p[2], p[3]));
+                if(((int32)p[3] > 0) && (svcrt_console_is_handle(p[1]) != 0))
+                {
+                    /* Console: the whole buffer is one output unit, so a
+                     * user mode write() can never be cut in half by a
+                     * kernel log line. */
+                    SVCRT_SVC_RET(p_svc_ctx, svcrt_console_write((const uint8 *)p[2], (uint32)p[3]));
+                }
+                else
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, svcrt_dev_write_internal(p[1], (uint8 *)p[2], p[3]));
+                }
                 break;
             case 4:
                 SVCRT_SVC_RET(p_svc_ctx, svcrt_dev_ctrl_internal(p[1], p[2], p[3]));

@@ -897,15 +897,21 @@ python tools/gen_scatter.py --dump     # 打印各分区基址/大小
 python tools/gen_scatter.py --check    # 校验无重叠、无越界
 ```
 
-Flash 从低到高的分区顺序是：`KERNEL` → `DRIVER_POOL` → `APP_USER`。
-`DRIVER_POOL` 内部按 `DRIVER_SLOT_SIZE` 均分为 `DRIVER_MAX_COUNT` 个驱动槽位，
-`APP_USER` 内部按 `APP_SLOT_SIZE` 均分为 `APP_MAX_COUNT` 个 App 槽位（默认各 4 个）。
+Flash 从低到高的分区顺序是：`KERNEL` → `CONFIG` → `IMAGE_POOL`。
+`CONFIG` 是**设备端布局配置区**，占一个物理擦除单位，存安装模式（固定槽位 /
+自动选址）与固定槽位表，由上位机经串口在线写入，是 SVCrtOS 唯一的「非编译期」
+布局来源（`CONFIG_SIZE=0` 表示不划，退回纯编译期布局）。`IMAGE_POOL` 是**统一
+镜像池**，App 与驱动共用，按「分配单元 = 一个物理擦除扇区」分配（F427 上
+`IMAGE_POOL_BASE=0x08040000`、`IMAGE_POOL_SIZE=768KB`、6 个 128KB 单元）；
+镜像按实际长度紧凑落位，不再整扇区占用。`BOOT_SIZE=0` 时不预留 Boot 区。
 
 RAM 从低到高的分区顺序是：
-`SHARE_RAM`（分区表 + 内核/用户数据交换）→ `KERNEL_RAM` → `DRIVER_RAM` → `APP_RAM`；
-`DRIVER_RAM` / `APP_RAM` 同样按槽位均分（`DRIVER_SLOT_RAM_SIZE` / `APP_SLOT_RAM_SIZE`），
-每个槽位内部再切出自己的栈（App 栈从本槽 RAM 顶部切、驱动栈从本槽 RAM 顶部切），
-且链接期的 RW 上限已扣除栈区，撞栈会在链接期而不是运行期暴露。
+`SHARE_RAM`（分区表 + 内核/用户数据交换）→ `KERNEL_RAM` → `SLOT_RAM`（镜像 RAM 池）；
+镜像的 .data/.bss/栈从 `SLOT_RAM` 里按**伙伴分配**切块：镜像头声明 `ram_size`，
+内核向上取整到 2 的幂后分配，块大小在 `SLOT_RAM_MIN_BLOCK`（1KB）~ `SLOT_RAM_MAX_BLOCK`
+（32KB）之间，池总量 `SLOT_RAM_TOTAL`（64KB）。伙伴分配天然满足 MPU region
+「2 的幂 + 按大小对齐」的硬约束，所以 RAM 池不需要按槽位均分。开发调试用的
+裸镜像没有镜像头、读不到 `ram_size`，其窗口由 `SVCRT_DEV_SLOT_RAM_BASE(unit)` 静态给出。
 
 ```
 （原手写布局图已删除：地址会在配置变更后失真，一律以 gen_scatter.py --dump 为准。）
@@ -930,16 +936,19 @@ RAM 从低到高的分区顺序是：
 #define SVCRT_USE_PRIV         0
 #define SVCRT_USE_CPU_LOAD     0
 #define SVCRT_USE_STACK_CHECK  0
-#define SVCRT_TASK_MAX_NUM     (16)   /* 不得小于 SVCRT_TASK_NEED_MIN */
+#define SVCRT_TASK_MAX_NUM     (24)   /* 不得小于 SVCRT_TASK_NEED_MIN */
 #define SVCRT_TICK_PERIOD_US   (1000)
 ```
 
-> **容量下限（写小于 16 的值会编译失败）**：`config/svcrt_partition.h` 里的
-> `svcrt_task_capacity_check` 断言要求 `SVCRT_TASK_MAX_NUM >= SVCRT_TASK_NEED_MIN`。
-> `SVCRT_TASK_NEED_MIN` = `SVCRT_TASK_MAX_KERNEL` + `DRIVER_MAX_COUNT`×`SVCRT_TASK_PER_DRIVER`
-> + `APP_MAX_COUNT`×`SVCRT_TASK_PER_APP`，默认（8 / 4×1 / 4×1）结果为 16。
-> 要压到 16 以下，必须同时调小 `DRIVER_MAX_COUNT`、`APP_MAX_COUNT`
-> 或 `SVCRT_TASK_MAX_KERNEL`，只改 `SVCRT_TASK_MAX_NUM` 不够。
+> **容量下限**：`config/svcrt_partition.h` 里的 `svcrt_task_capacity_check` 断言要求
+> `SVCRT_TASK_MAX_NUM >= SVCRT_TASK_NEED_MIN`，配小了直接编译报错，
+> 而不是运行期静默注册失败。
+> `SVCRT_TASK_NEED_MIN` = `SVCRT_TASK_MAX_KERNEL`（默认 8）
+> + `SLOT_MAX` × max(`SVCRT_TASK_PER_DRIVER`, `SVCRT_TASK_PER_APP`)（每镜像 1 个任务）。
+> 默认 `SLOT_MAX=16`，故下限 = 8 + 16 = **24**，而 `SVCRT_TASK_MAX_NUM` 默认 **48**。
+> 早期按「驱动 / App 各 4 槽均分」推出的 16 已作废——现在两者共用一个池，
+> 上限都取 `SLOT_MAX`，需求只按一次计。要压低下限，调小 `SLOT_MAX`
+> 或 `SVCRT_TASK_MAX_KERNEL`；只改 `SVCRT_TASK_MAX_NUM` 而不顾下限无效。
 > 另外静态 TCB 数组的 RAM 占用是 `SVCRT_TASK_MAX_NUM × sizeof(svcrt_task_t)` 字节，
 > 实测单 TCB 为 76 字节（MPU 关）/ 140 字节（MPU 开），默认 48 槽即 3648 / 6720 字节，
 > 由固定的 8KB 预算 `SVCRT_TASK_TABLE_RAM_MAX` 约束。

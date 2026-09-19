@@ -821,7 +821,15 @@ static int32 svcrt_loader_stream_image(int32 dev, uint32 base, const svcrt_app_h
 
         while(written < p_hdr->image_size)
         {
-            uint32 want = p_hdr->image_size - written;
+            /* How many bytes still have to arrive over the wire: the payload
+             * that is left, minus the tail already held in carry.  Sizing this
+             * from image_size - written alone over-reads by carry, and that
+             * only shows up on the last round: when a relocation entry
+             * straddles the final host block, the loop would wait for bytes
+             * the host has already finished sending (it sent the whole
+             * payload), stalling until the read times out with ERR_SIZE. */
+            uint32 left = p_hdr->image_size - written;
+            uint32 want = (left > carry) ? (left - carry) : 0u;
             uint32 submit;
             uint32 keep;
 
@@ -832,6 +840,19 @@ static int32 svcrt_loader_stream_image(int32 dev, uint32 base, const svcrt_app_h
 
             {
                 uint32 recv = want;     /* 本轮真正新收到的字节数（不含上一轮的尾巴） */
+
+                if(want == 0u)
+                {
+                    /* Nothing left to read yet the payload is not committed:
+                     * the relocation table runs past the end of the image.
+                     * The packer must never produce that, so refuse the frame
+                     * instead of spinning on bytes that will never arrive. */
+                    SVCRT_LOGE("LOADER", "reloc table runs past payload end: written=%u carry=%u size=%u",
+                               (unsigned)written, (unsigned)carry,
+                               (unsigned)p_hdr->image_size);
+                    svcrt_loader_nak(dev);
+                    return SVCRT_LOADER_ERR_RELOC;
+                }
 
                 if(svcrt_loader_read_dev(dev, svcrt_loader_chunk + carry, want) != (int32)want)
                 {

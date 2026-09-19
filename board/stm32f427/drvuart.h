@@ -23,8 +23,13 @@ typedef struct {
     svcrt_fifo_t *tx_pipe;
     svcrt_fifo_t *rx_pipe;
     USART_TypeDef *usart_addr;
-    uint8   opened;
-    uint8   tx_idle;
+    /* ISR shared: tx_idle is written by USART1_IRQHandler and read by */
+    /* uart_drv_write, so it must be volatile or the task side can act on */
+    /* a stale value, skip uart_start_first_tx() and leave the pipe full */
+    /* with TXEIE disabled - the transmit pipe then never drains and every */
+    /* writer above it spins and drops bytes. */
+    volatile uint8 opened;
+    volatile uint8 tx_idle;
 } uart_dev_t;
 
 #define UART_PIPE_SIZE  (128)

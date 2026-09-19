@@ -58,6 +58,21 @@ void platform_uart_send_string(const char *str);
 void platform_uart_send_buf(const unsigned char *buf, uint16_t len);
 
 /* ============================================================
+ * platform_console_begin / platform_console_end
+ *
+ * Hold the console for a composite output unit: colour escape + text +
+ * reset, a prompt, a table header followed by its rows.  While held no
+ * other writer (kernel log, another task, a user mode write) can splice
+ * bytes into the middle of those calls.
+ *
+ * Must be paired.  Must NOT be held across a blocking wait: the console
+ * lock masks interrupts, so waiting for input while holding it would
+ * stall the whole system.
+ * ============================================================ */
+void platform_console_begin(void);
+void platform_console_end(void);
+
+/* ============================================================
  * platform_uart_recv - Receive a single byte (non-blocking)
  *
  * Returns:

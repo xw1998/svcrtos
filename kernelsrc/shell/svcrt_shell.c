@@ -36,6 +36,7 @@
 #include "svcrt_layout.h"
 #include "svcrt_ptable.h"
 #include "svcrt_log.h"
+#include "svcrt_fifo.h"
 #include "svcrt_share.h"
 #include "svcrt_task.h"
 #include "svcrt_trace.h"
@@ -951,6 +952,15 @@ static int cmd_log(int argc, char *argv[])
 
     ark_shell_printf("log level: %u (%s)\r\n",
                      svcrt_log_get_level(), names[svcrt_log_get_level() & 7u]);
+
+    /* Console health.  lock_giveup counts output units written without the
+     * console lock (they may have been spliced); fifo_refused counts bytes
+     * the transmit pipe refused, i.e. output that never left the MCU. */
+    ark_shell_printf("console   : lock_giveup=%u tx_drop=%u B fifo_full_retries=%u\r\n",
+                     svcrt_console_busy_count(), svcrt_console_tx_drop_count(),
+                     svcrt_fifo_write_refused());
+                     /* tx_drop is the number that matters: bytes that never
+                      * left the MCU.  fifo_full_retries is attempts, not loss. */
 
     return 0;
 }

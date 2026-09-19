@@ -22,6 +22,7 @@
 
 #include "svcrt_config.h"
 #include "svcrt_dev.h"
+#include "svcrt_log.h"
 #include "svcrt_task.h"
 #include "svcrt_partition.h"      /* SHELL_DEV_NAME / SHELL_DEV_ARG */
 
@@ -36,6 +37,11 @@
 
 static int32       g_shell_uart = -1;
 static uart_mode_t g_uart_mode  = UART_MODE_IRQ;
+
+/* Nested hold state for platform_console_begin/end, so the pair can be
+ * nested with the per call locking done by the send helpers. */
+static uint32 g_console_hold_ok    = 0u;
+static uint32 g_console_hold_depth = 0u;
 
 void platform_uart_init(uint32_t baudrate)
 {
@@ -52,13 +58,51 @@ void platform_uart_init(uint32_t baudrate)
     g_uart_mode = UART_MODE_IRQ;
 }
 
+void platform_console_begin(void)
+{
+    if(g_console_hold_depth == 0u)
+    {
+        g_console_hold_ok = (uint32)svcrt_console_lock();
+    }
+    g_console_hold_depth++;
+}
+
+void platform_console_end(void)
+{
+    if(g_console_hold_depth == 0u)
+    {
+        return;
+    }
+
+    g_console_hold_depth--;
+    if((g_console_hold_depth == 0u) && (g_console_hold_ok != 0u))
+    {
+        svcrt_console_unlock();
+    }
+}
+
+/* 1 = the caller must take the lock itself; 0 = platform_console_begin()
+ * already holds it, so taking it again would lock the caller out. */
+static uint32 console_needs_lock(void)
+{
+    return (g_console_hold_depth == 0u) ? 1u : 0u;
+}
+
 void platform_uart_send(unsigned char byte)
 {
     uint32 spin = 0u;
+    int32  held = 0;
 
     if(g_shell_uart < 0)
     {
         return;
+    }
+
+    /* Single byte echo: only one byte can appear, but it still must
+     * not land inside somebody else's line. */
+    if(console_needs_lock() != 0u)
+    {
+        held = svcrt_console_lock();
     }
 
     while((svcrt_dev_write_internal(g_shell_uart, (uint8 *)&byte, 1) != 1) &&
@@ -66,10 +110,17 @@ void platform_uart_send(unsigned char byte)
     {
         spin++;
     }
+
+    if(held != 0)
+    {
+        svcrt_console_unlock();
+    }
 }
 
 void platform_uart_send_string(const char *str)
 {
+    int32 held = 0;
+
     if((str == 0) || (g_shell_uart < 0))
     {
         return;
@@ -77,6 +128,12 @@ void platform_uart_send_string(const char *str)
 
     /* 逐字节写：板级发送 FIFO 只有 128 字节，整串一次写会写不进去；
      * 逐字节写同时避免了在任务栈上开临时缓冲。 */
+    /* One string = one output unit. */
+    if(console_needs_lock() != 0u)
+    {
+        held = svcrt_console_lock();
+    }
+
     while(*str != '\0')
     {
         uint32 spin = 0u;
@@ -88,15 +145,26 @@ void platform_uart_send_string(const char *str)
         }
         str++;
     }
+
+    if(held != 0)
+    {
+        svcrt_console_unlock();
+    }
 }
 
 void platform_uart_send_buf(const unsigned char *buf, uint16_t len)
 {
     uint16_t i;
+    int32    held = 0;
 
     if((buf == 0) || (g_shell_uart < 0))
     {
         return;
+    }
+
+    if(console_needs_lock() != 0u)
+    {
+        held = svcrt_console_lock();
     }
 
     for(i = 0u; i < len; i++)
@@ -108,6 +176,11 @@ void platform_uart_send_buf(const unsigned char *buf, uint16_t len)
         {
             spin++;
         }
+    }
+
+    if(held != 0)
+    {
+        svcrt_console_unlock();
     }
 }
 

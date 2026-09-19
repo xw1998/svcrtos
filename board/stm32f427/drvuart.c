@@ -69,7 +69,12 @@ svcrt_dev_hdr_t *uart_drv_open(uint32 name, uint32 baudrate)
             uart_handle[name].Init.OverSampling = UART_OVERSAMPLING_16;
             HAL_UART_Init(&uart_handle[name]);
 
-            HAL_NVIC_SetPriority(USART1_IRQn, 10, 10);
+                        /* Preemption priority must be numerically lower (that is more
+             * urgent) than SVCall.  The SVC handler spins while waiting for
+             * room in the transmit pipe, so whenever the UART interrupt can
+             * not preempt that spin the pipe never drains and bytes are
+             * dropped no matter how long the caller waits. */
+            HAL_NVIC_SetPriority(USART1_IRQn, 0, 0);
             HAL_NVIC_EnableIRQ(USART1_IRQn);
             break;
         default:
@@ -95,6 +100,7 @@ int32 uart_drv_read(svcrt_dev_hdr_t *p, uint8 *pdata, int32 len)
 
 int32 uart_drv_write(svcrt_dev_hdr_t *p, uint8 *pdata, int32 len)
 {
+    uint32 primask;
     uart_dev_t *p_dev = (uart_dev_t *)p;
     if((p == 0) || (sizeof(uart_dev_t) != p->block_size))
     {
@@ -106,10 +112,25 @@ int32 uart_drv_write(svcrt_dev_hdr_t *p, uint8 *pdata, int32 len)
         return 0;
     }
     len = svcrt_fifo_write(p_dev->tx_pipe, pdata, len);
+    if(len <= 0)
+    {
+        return len;
+    }
+
+    /* The transmit interrupt may now preempt an SVC handler that is
+     * spinning on this very pipe, so the idle test and the kick have to
+     * form one atomic step.  Otherwise the interrupt could run between
+     * them, observe tx_idle == 0, and return to a caller that then arms
+     * TXEIE on an empty pipe: TXEIE stays set while idle and the UART
+     * interrupts in a storm. */
+    primask = __get_PRIMASK();
+    __disable_irq();
     if(p_dev->tx_idle != 0)
     {
         uart_start_first_tx(p_dev);
     }
+    __set_PRIMASK(primask);
+
     return len;
 }
 
@@ -147,7 +168,12 @@ static void handle_usart_service(uart_dev_t *p_dev)
         d = (uint8)(p_dev->usart_addr->DR & 0xFF);
         svcrt_fifo_write(p_dev->rx_pipe, &d, 1);
     }
-    else
+
+    /* TXE is served independently of RX.  With the old if/else a sustained
+     * receive stream kept the transmit branch from ever running, so the
+     * transmit pipe stayed full while the host was sending (image download)
+     * and every writer above it spun until its budget ran out and dropped. */
+    if(0 != (sr & USART_SR_TXE))
     {
         if(p_dev->tx_idle == 0)
         {
@@ -162,7 +188,14 @@ static void handle_usart_service(uart_dev_t *p_dev)
                 p_dev->usart_addr->CR1 |= USART_CR1_TCIE;
             }
         }
-        else
+    }
+
+    /* TC needs its own branch: when the line has drained TXE is set as well,
+     * so testing TXE alone would never clear TCIE and the interrupt would
+     * storm.  The tx_idle test keeps the original "idle only" semantics. */
+    if(0 != (sr & USART_SR_TC))
+    {
+        if(p_dev->tx_idle != 0)
         {
             p_dev->usart_addr->CR1 &= ~USART_CR1_TCIE;
         }

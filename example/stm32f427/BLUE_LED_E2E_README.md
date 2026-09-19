@@ -21,7 +21,7 @@
 +------------------+   svcrt_drv_register("BLED")          v
 |   BLED_DRV        | --------------------------> +------------------+
 | (用户态驱动固件)  |                              |  bled_drv 接口    |
-|  烧在驱动池       |   直接操作 PC2 寄存器 ----->|  GPIOC->BSRR      |
+|  烧进镜像池       |   直接操作 PC2 寄存器 ----->|  GPIOC->BSRR      |
 +------------------+                              +------------------+
                                                             |
                                                             v
@@ -49,15 +49,22 @@ example/stm32f427/
 | 固件 | 所在分区 | 由谁加载 |
 |------|----------|----------|
 | 内核 | KERNEL | 复位向量直接运行 |
-| BLED_DRV | DRIVER_POOL 槽位 0 | 内核启动扫描 / 安装任务 |
-| BLED_APP | APP_USER 槽位 0 | 内核启动扫描 / 安装任务 |
+| BLED_DRV | IMAGE_POOL 开发槽位 2（驱动，单元 2） | 内核启动扫描 / 安装任务 |
+| BLED_APP | IMAGE_POOL 开发槽位 3（App，单元 3） | 内核启动扫描 / 安装任务 |
 
-> 内核侧已按槽位寻址（`DRIVER_MAX_COUNT` / `APP_MAX_COUNT`，默认各 4 槽），
-> 但 `tools/gen_scatter.py` 尚未支持 `--slot`，`tools/pack_app.py` 的槽位宏也写死在 0 号槽，
-> 所以**当前实际只能使用 0 号驱动槽和 0 号 App 槽**，本示例即运行在 0 号槽。
+> App 与驱动现在**共用一个统一镜像池** `IMAGE_POOL`（F427 上从 0x08040000 起 768KB，
+> 按「分配单元 = 一个物理擦除扇区」分配，共 6 个 128KB 单元），
+> 不再有 `DRIVER_POOL` / `APP_USER` 两块，也没有 `DRIVER_MAX_COUNT` / `APP_MAX_COUNT`。
+> 本示例走的是**开发槽位表**（`config/svcrt_partition.h` 的 `SVCRT_DEV_SLOTn_*`，
+> 当前 4 条：单元 0/1/2/3，类型依次为 驱动/App/驱动/App）：裸镜像没有镜像头，
+> 扫描器读不出它的类型与占几个单元，只能由这张表显式声明。
+> 两个工程各自在 Before Make 钩子里生成 `.sct`，槽位写进命令参数——
+> `gen_app_sct.py --project bled_drv.uvprojx --type driver --dev-slot 2 --ram-size 4096`、
+> `gen_app_sct.py --project bled_app.uvprojx --type app --dev-slot 3 --ram-size 8192`；
+> 打包用 `tools/pack_app.py ... --dev-slot <n>`。
+> **「尚未支持指定槽位、只能用 0 号槽」是早期工具的限制，已经过时。**
 
-内核在启动时对驱动池与各 App 槽位做**镜像识别**（`svcrt_loader_scan` /
-`svcrt_loader_scan_driver`），识别方式二选一：
+内核在启动时对镜像池做**镜像识别**（`svcrt_loader_scan`），识别方式二选一：
 
 - **带 256 字节镜像头 + CRC 的 `.svcapp`**（安装路径，正式形态）；
 - **裸镜像**（开发期直接烧录，需 `APP_ALLOW_RAW_IMAGE=1`）。
@@ -163,12 +170,12 @@ python tools/pack_app.py --axf <bled_app.axf> --type app    --out bled_app.svcap
 
 | 方式 | 做法 |
 |------|------|
-| 安装路径（推荐） | 通过内核安装任务（串口）依次下发 `bled_drv.svcapp`、`bled_app.svcapp`；内核按镜像头 `type` 自动分流到驱动池 / App 槽位 |
+| 安装路径（推荐） | 通过内核安装任务（串口）依次下发 `bled_drv.svcapp`、`bled_app.svcapp`；内核按镜像头 `type` 落进统一镜像池（两者共用同一个池，类型只决定启动优先级与权限） |
 | 开发期烧录 | 直接用下载器把 `bled_drv.bin`、`bled_app.bin` 烧到各自分区基址（基址见 `config/svcrt_partition.h`），内核按裸镜像识别 |
 
 ### 运行现象
 
-- 内核启动 -> 扫描驱动池 -> BLED_DRV 注册 "BLED" 设备 -> 驱动任务运行
+- 内核启动 -> 扫描镜像池 -> BLED_DRV 注册 "BLED" 设备 -> 驱动任务运行
 - 内核扫描 App 槽位 -> BLED_APP 打开 "BLED" -> 周期点亮 / 熄灭
 - **现象**：RGB 灯珠**蓝色**以 0.8 秒节奏闪烁（同时红 / 绿由内核任务驱动）
 

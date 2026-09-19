@@ -20,12 +20,22 @@
 #include "svcrt_config.h"
 #include "svcrt_log.h"
 #include "svcrt_dev.h"
+#include "svcrt_hal.h"
 
-/* 发送忙等上限：串口彻底卡死时不死循环（与 shell 平台层同一策略） */
-#define SVCRT_LOG_TX_SPIN_LIMIT   (64u)
-/* Per-byte budget. svcrt_log_puts runs inside the SVC handler, so it has to */
-/* return fast: when the board TX FIFO stays full the byte is dropped instead */
-/* of stalling the whole system (no other task can be scheduled meanwhile). */
+/* Per-byte budget while the transmit pipe is full. */
+/* The console device queues into a 128 byte pipe that the TXE interrupt */
+/* drains, so a byte waits about 87 us at 115200 - and longer when the */
+/* producers stay ahead of the line, which is the normal case for a burst. */
+/* Measured on board: with a 4000 iteration budget the counters showed */
+/* tx_drop=420 B alongside 1.69M full-pipe retries, i.e. the budget was */
+/* still shorter than the time one byte needed.  Budget for a complete pipe */
+/* drain (127 x 87 us ~= 11 ms) so a burst is never cut; the value stays */
+/* bounded, so a dead port still cannot hang the caller forever.  Lower it */
+/* with the `log` counters in hand, never on a guess.  Same value as the */
+/* shell platform layer (SHELL_TX_SPIN_LIMIT): the shell never lost a */
+/* byte while the console path used 64, and that gap was the whole */
+/* difference between the two. */
+#define SVCRT_CONSOLE_TX_WAIT     (200000u)
 
 /* 前缀缓冲：颜色 + [级别] + [tag:行号] + 空格 */
 #define SVCRT_LOG_HEAD_SIZE       (64)
@@ -36,6 +46,27 @@ static int32  g_log_dev   = -1;
 /* 运行期级别：初值取编译期配置，保证「配置里关掉的级别」不会因为
  * 忘了调用 svcrt_log_set_level() 而在运行期被打开 */
 static uint32 g_log_level = (uint32)SVCRT_LOG_LEVEL;
+
+/* Console sink lock.  Held across one complete output unit so that no two
+ * writers can interleave half a line.  Deliberately does NOT mask
+ * interrupts: the console device is interrupt driven, so masking them
+ * stops the transmit FIFO from draining and the byte loop then drops the
+ * line.  A plain CAS busy flag is also the right shape here - the
+ * re-entrant spinlock would silently hand the lock to a handler that
+ * preempted the holder, which is exactly the case this lock exists for.
+ * See svcrt_log.h. */
+static volatile uint32 g_console_busy    = 0u;
+static volatile uint32 g_console_busy_ev = 0u;
+
+/* Bytes the writer gave up on after the whole wait budget.  This is real
+ * output loss, not a retry: the transmit pipe stayed full for the entire
+ * budget and the byte never left the MCU. */
+static volatile uint32 g_console_tx_drop = 0u;
+
+/* Bounded spin: long enough to cover a console line, short enough that a
+ * handler never looks hung. */
+#define SVCRT_CONSOLE_SPIN_LIMIT  (400000u)
+
 
 /* ============================================================
  * 输出通道
@@ -53,8 +84,103 @@ static int32 svcrt_log_dev(void)
     return g_log_dev;
 }
 
+/* Console API ------------------------------------------------------- */
+
+int32 svcrt_console_handle(void)
+{
+    return svcrt_log_dev();
+}
+
+int32 svcrt_console_is_handle(int32 handle)
+{
+    return (handle == svcrt_log_dev()) ? 1 : 0;
+}
+
+int32 svcrt_console_lock(void)
+{
+    uint32 spin = 0u;
+
+    while(svcrt_port_atomic_cas(&g_console_busy, 0u, 1u) == 0u)
+    {
+        if(++spin > SVCRT_CONSOLE_SPIN_LIMIT)
+        {
+            /* Console stayed busy for the whole budget.  Write the unit
+             * anyway: output is never dropped because of contention, and
+             * no context can deadlock waiting for a task that cannot run. */
+            g_console_busy_ev++;
+            return 0;
+        }
+    }
+
+    SVCRT_DMB();
+    return 1;
+}
+
+void svcrt_console_unlock(void)
+{
+    SVCRT_DMB();
+    g_console_busy = 0u;
+}
+
+uint32 svcrt_console_busy_count(void)
+{
+    return g_console_busy_ev;
+}
+
+uint32 svcrt_console_tx_drop_count(void)
+{
+    return g_console_tx_drop;
+}
+
+int32 svcrt_console_write(const uint8 *p_data, uint32 len)
+{
+    int32  dev = svcrt_log_dev();
+    int32  held;
+    uint32 i;
+
+    if((p_data == 0) || (len == 0u))
+    {
+        return 0;
+    }
+
+    if(dev < 0)
+    {
+        return -1;
+    }
+
+    held = svcrt_console_lock();
+    for(i = 0u; i < len; i++)
+    {
+        uint32 spin = 0u;
+        int32  queued = 0;
+
+        do
+        {
+            if(svcrt_dev_write_internal(dev, (uint8 *)&p_data[i], 1) == 1)
+            {
+                queued = 1;
+                break;
+            }
+            spin++;
+        } while(spin < SVCRT_CONSOLE_TX_WAIT);
+
+        if(queued == 0)
+        {
+            g_console_tx_drop++;
+        }
+    }
+    if(held != 0)
+    {
+        svcrt_console_unlock();
+    }
+
+    return (int32)len;
+}
+
 /* 逐字节写：板级发送 FIFO 只有 128 字节，整串一次写会写不进去 */
-static void svcrt_log_puts(const char *s)
+/* Raw byte loop.  Callers must hold the console lock; svcrt_log_emit()
+ * takes it once for the whole line. */
+static void svcrt_log_puts_raw(const char *s)
 {
     int32 dev = svcrt_log_dev();
 
@@ -66,11 +192,21 @@ static void svcrt_log_puts(const char *s)
     while(*s != '\0')
     {
         uint32 spin = 0u;
+        int32  queued = 0;
 
-        while((svcrt_dev_write_internal(dev, (uint8 *)s, 1) != 1) &&
-              (spin < SVCRT_LOG_TX_SPIN_LIMIT))
+        do
         {
+            if(svcrt_dev_write_internal(dev, (uint8 *)s, 1) == 1)
+            {
+                queued = 1;
+                break;
+            }
             spin++;
+        } while(spin < SVCRT_CONSOLE_TX_WAIT);
+
+        if(queued == 0)
+        {
+            g_console_tx_drop++;
         }
         s++;
     }
@@ -133,6 +269,7 @@ uint32 svcrt_log_get_level(void)
 void svcrt_log_emit(uint32 level, const char *tag, uint32 line, const char *msg)
 {
     char head[SVCRT_LOG_HEAD_SIZE];
+    int32  held;
 
     if(msg == 0)
     {
@@ -168,9 +305,16 @@ void svcrt_log_emit(uint32 level, const char *tag, uint32 line, const char *msg)
                        tag);
     }
 
-    svcrt_log_puts(head);
-    svcrt_log_puts(msg);
-    svcrt_log_puts("\r\n");
+    /* One output unit = one lock.  Nothing can be spliced into the
+     * middle of a log line. */
+    held = svcrt_console_lock();
+    svcrt_log_puts_raw(head);
+    svcrt_log_puts_raw(msg);
+    svcrt_log_puts_raw("\r\n");
+    if(held != 0)
+    {
+        svcrt_console_unlock();
+    }
 }
 
 int32 svcrt_log_svc(uint32 level, const char *tag, const char *msg)

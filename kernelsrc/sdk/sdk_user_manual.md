@@ -1071,3 +1071,101 @@ python tools/gen_scatter.py --dump      # 打印当前布局
 | 外部固件一运行就 HardFault / 复位 | 启动汇编未经 `__main`，.data/.bss 未初始化（条件 B） |
 | App `svcrt_dev_open` 返回 -1 | 对应 Driver 固件未烧录或未注册设备 |
 | 多固件随机崩溃 | ROM/RAM 分区地址重叠（条件 C） |
+
+---
+
+## 第四部分：线程服务与兼容层（新）
+
+前三部分讲的是「一个 App/驱动 = 一个任务」的写法。从内核加入线程服务起，App 还可以在
+自己的 RAM 窗口里再开线程；不想用 SVCrtOS 风格接口的项目，也可以直接用 POSIX / Windows 名字。
+
+### A. 线程服务（SVC 0x1B）
+
+线程需要 TCB 与调度器槽位，这两样只有内核有，所以创建线程必须走 SVC。
+头文件里就三个调用（`svcrt.h`）：
+
+| API | 说明 |
+|-----|------|
+| `svcrt_thread_create(entry, stack, stack_size, priority, period_ms)` | 返回任务号（>0），失败返回负值 |
+| `svcrt_thread_self()` | 当前任务号（>0）；内核上下文或失败返回 0 |
+| `svcrt_thread_exit()` | 结束当前线程，不再返回 |
+
+```c
+#include "svcrt.h"
+
+static uint32 g_worker_stack[256];      /* 由调用者提供，1 KB */
+
+static void worker(void)
+{
+    while(1)
+    {
+        /* 干活 */
+        svcrt_task_wait(500);           /* 事件驱动线程：等 500 ms */
+    }
+}
+
+void app_main(void)
+{
+    int32 tid = svcrt_thread_create(worker, g_worker_stack,
+                                    sizeof(g_worker_stack), 10u, 0u);
+    if(tid <= 0)
+    {
+        /* 被拒的可能：入口不在自己的固件窗口 / 整段栈不在自己的 RAM 窗口 /
+         * 没有空闲任务槽位 / 参数非法（priority 255 等） */
+    }
+}
+```
+
+内核在创建时做**两道边界校验**，不通过就拒绝，而不是静默接受：
+
+1. **入口必须落在调用者自己的固件窗口内**；
+2. **整段栈必须落在调用者自己的 RAM 窗口内**——内核不会替别人分配栈，也不会接受落在内核或
+   别的 App RAM 里的栈指针。
+
+`priority` 取 1..254，`255` 是调度器「无候选」哨兵。`period_ms = 0` 表示事件驱动
+（线程阻塞在等待上，由唤醒驱动），大于 0 表示周期线程（由 `svcrt_task_wait_period()` 驱动）。
+
+### B. POSIX / Windows 兼容层
+
+让一份为 Linux / Windows 写的 C 程序在 SVCrtOS 上编译运行：**改 include 列表，不改程序结构。**
+位置：`kernelsrc/sdk/posix/`；工程里把 `svcrt_posix.c` 加进编译即可。
+
+```c
+#include "svcrt_posix.h"        /* 伞头，一次引入 pthread / semaphore / mqueue / unistd / time */
+/* 或只要一个模块 */
+#include "semaphore.h"
+/* 或要 Windows 风格的名字 */
+#include "svcrt_win_compat.h"
+```
+
+| 族 | 能用的名字 |
+|----|-----------|
+| 线程与同步 | `pthread_create/join/exit/self`、`pthread_mutex_*`、`sem_init/wait/post/timedwait` |
+| 消息队列 | `mq_open/close/send/receive`（**长度单位是字**，超时是毫秒参数） |
+| 设备与时间 | `open/read/write/close`、`sleep/usleep/nanosleep`、`time/clock_gettime`、`sched_yield` |
+| 内存与字符串 | `svcrt_posix_malloc/free/calloc/realloc`（含 `SVCRT_POSIX_WRAP_STDLIB` 开关） |
+| Windows | `Sleep`、`GetTickCount`、`CreateThread`、`WaitForSingleObject`、临界区、`strcpy_s` / `sprintf_s` / `ZeroMemory` |
+
+档位（包含头文件前定义）：`SVCRT_POSIX_THREAD_MAX`(2)、`SVCRT_POSIX_STACK_WORDS`(256)、
+`SVCRT_POSIX_HEAP_SIZE`(1024)、`SVCRT_POSIX_DEFAULT_PRIO`(10)、`SVCRT_POSIX_NO_TIMESPEC`、
+`SVCRT_POSIX_WRAP_STDLIB`。默认档位按开发槽位的 8 KB RAM 窗口配（2 × 1 KB 线程栈 + 1 KB 堆）。
+
+三条硬边界（细节见 [POSIX与Windows兼容层说明](../../docs/POSIX与Windows兼容层说明.md)）：
+
+1. **做不到的一律报错**：`sem_getvalue` / `mq_unlink` / `CloseHandle` 返回失败并置 `errno`；
+   条件变量、`fork`/`exec`、`O_CREAT`、`localtime` 直接不提供——用了就是编译错误，而不是运行期怪现象。
+2. **单位看契约**：消息长度是**字**，超时是**毫秒**。
+3. **`errno` 每次访问是一次 SVC**（每线程一格，存在 App RAM）；热循环里缓存到局部变量。
+
+### C. 排错速查（线程与兼容层）
+
+| 现象 | 可能原因 |
+|------|---------|
+| `svcrt_thread_create` / `pthread_create` 返回失败 | 线程槽位用尽（`SVCRT_POSIX_THREAD_MAX`）、内核任务表满、栈小于 128 字节，或入口/栈不在调用者自己的窗口内 |
+| `pthread_join` 一直不返回 | 目标线程没有退出（join 等的是线程退出信号量） |
+| `pthread_join` 之后又出现一个线程占着槽位 | 线程创建后从未 join，槽位不会自己回收 |
+| `svcrt_posix_malloc` 返回 0 | arena（默认 1 KB）用尽，或指针不在 arena 内被拒；调 `SVCRT_POSIX_HEAP_SIZE` |
+| 读 `errno` 像是没更新 | `errno` 是**每线程**的，在另一个线程里读到的是另一格 |
+| `WaitForSingleObject` 总返回 `WAIT_TIMEOUT` | 只支持 `INFINITE`；有限超时按设计直接返回超时 |
+| `CreateThread` 请求的栈大于线程池栈 | 被拒（`EOPNOTSUPP`）——调用者要自己提供这么大的栈 |
+

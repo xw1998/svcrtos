@@ -79,6 +79,84 @@ void   svcrt_log_emit(uint32 level, const char *tag, uint32 line, const char *ms
 */
 int32  svcrt_log_svc(uint32 level, const char *tag, const char *msg);
 
+/* ============================================================
+ * Console sink (SHELL_DEV_NAME)
+ *
+ * One physical serial port carries three writers that can talk at the
+ * same time: kernel log lines (task context), the shell (task context)
+ * and user mode output relayed by the kernel through SVC 0x10 (handler
+ * context).  Without a common lock a line gets cut in half by another
+ * writer - and the console is exactly the channel you rely on once
+ * something has already gone wrong.
+ *
+ * Every writer therefore pushes one complete output unit through here.
+ *
+ * The lock is a plain busy flag, deliberately WITHOUT masking interrupts:
+ * the console device is interrupt driven, so masking them stops the
+ * transmit FIFO from draining and the line gets shredded by dropped bytes.
+ * Acquisition spins for a bounded time and then gives up - the caller
+ * writes anyway.  Losing the guarantee (a rare splice) is acceptable;
+ * dropping output or deadlocking a handler that waits for a task which
+ * cannot run is not.
+ *
+ * Byte pacing: each byte of a unit waits for room in the transmit pipe
+ * (128 bytes, drained by the TXE interrupt) instead of being dropped when
+ * the pipe is full, so a burst longer than the pipe stays intact.  See
+ * SVCRT_CONSOLE_TX_WAIT in svcrt_log.c.
+ *
+ * Held time must stay short.  Do not hold it across a blocking wait.
+ * ============================================================ */
+
+/**
+* @brief Console device handle, negative while the console is not open
+*/
+int32  svcrt_console_handle(void);
+
+/**
+* @brief Is this handle the console device?
+* @return 1 = yes, 0 = no
+*/
+int32  svcrt_console_is_handle(int32 handle);
+
+/**
+* @brief Write one complete output unit atomically
+* @param p_data byte stream, need not be NUL terminated
+* @param len    byte count
+* @return bytes accepted, -1 when the console is not open
+*/
+int32  svcrt_console_write(const uint8 *p_data, uint32 len);
+
+/**
+* @brief Console bytes the writer gave up on (real output loss)
+* @details Counts bytes that were still not accepted after the whole wait
+*          budget, i.e. output that never left the MCU.  Distinguishes a
+*          retry (FIFO full, room appeared) from a loss.  Non zero means
+*          the transmit pipe stayed full for the entire budget; raise
+*          SVCRT_CONSOLE_TX_WAIT or slow the producers down.
+*/
+uint32 svcrt_console_tx_drop_count(void);
+
+/**
+* @brief Take the console across several write calls
+* @details For composite output such as colour escape + prompt + reset.
+* @return 1 = held, 0 = console stayed busy and the caller must not release
+*/
+int32  svcrt_console_lock(void);
+
+/**
+* @brief Release the console
+* @note Must only be called when svcrt_console_lock() returned 1.
+*/
+void   svcrt_console_unlock(void);
+
+/**
+* @brief How many times a console unit was written without the lock
+* @details Non zero means the console was busy for longer than the bounded
+*          spin budget; output is intact but may have been spliced.  A
+*          diagnostic counter, not an error path.
+*/
+uint32 svcrt_console_busy_count(void);
+
 #ifdef __cplusplus
 }
 #endif

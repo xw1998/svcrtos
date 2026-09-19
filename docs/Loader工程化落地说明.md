@@ -1,5 +1,20 @@
 # SVCrtOS Loader 工程化落地说明（灵活分区版）
 
+> ⚠️ **本文是历史落地记录。** 记录的是「Loader 工程化」那一轮从零到通的实现过程，
+> 其中的分区模型后来被**统一镜像池 + 设备端配置区**取代。阅读时请注意：
+>
+> | 本文出现的旧名词 | 现状 |
+> |---|---|
+> | `DRIVER_POOL`(0x08040000, 256 KB) + `APP_USER`(0x08080000, 512 KB) | 合并为 **`IMAGE_POOL`**(0x08040000, 768 KB, 6 × 128 KB 单元)，App 与驱动共用 |
+> | `KERNEL` 256 KB | **128 KB**（`KERNEL_SIZE`，可按编译结果调整） |
+> | `DRIVER_MAX_COUNT` / `APP_MAX_COUNT` | **`SLOT_MAX`**（槽位记录条数）+ 设备端配置区 `SVCRT_CFG_SLOT_MAX` |
+> | `app.sct` / `app_dev.sct` / `--raw` | `gen_scatter.py --target image --unit N --raw`，按池内单元生成 |
+> | 共享内存分区表 ABI | `SVCRT_PARTITION_VERSION` 已升到 **7**；安装策略与运行期参数也进了配置区 |
+> | `APP_ALLOW_RAW_IMAGE` 单一开关 | 编译期开关 + **配置区 `flags` 的 `RAW_ALLOW` 位**，两处都开才认领裸镜像 |
+>
+> **现行模型请看**：[配置区与安装策略](配置区与安装策略.md)、[应用安装与调试指南](SVCrtOS应用安装与调试指南.md)。
+> 本文仍适用的部分：镜像格式与校验、加载流程、故障围栏、SVC 0x18 接口、硬编码清理过程。
+>
 > 落地范围：按《SVCRTOS Loader 工程化落地指导（灵活分区版）》实现分区配置、分散加载自动生成、
 > 共享分区表、镜像格式、Flash 驱动、分区内加载器、SVC 0x18 用户接口与 MDK 工程挂接。
 > 采用**单区间最小闭环**（`APP_MAX_COUNT = 1`）与 **Loader 内核内服务**（不新建独立固件工程）。
@@ -24,25 +39,29 @@ Flash（1MB，`CHIP_FLASH_SIZE`）：
 
 | 分区 | 基址 | 大小 | 槽位 |
 |---|---|---|---|
-| KERNEL | `0x08000000` | 256 KB | — |
-| DRIVER_POOL | `0x08040000` | 256 KB | 4 × 64 KB（`DRIVER_SLOT_BASE(n)`） |
-| APP_USER | `0x08080000` | 512 KB | 4 × 128 KB（`APP_SLOT0_BASE` + n × `APP_SLOT_SIZE`） |
+| KERNEL | `0x08000000` | `KERNEL_SIZE` = 128 KB（可调） | — |
+| CONFIG | `0x08020000` | `CONFIG_SIZE` = 128 KB（一个物理扇区） | — |
+| IMAGE_POOL | `0x08040000` | 768 KB | 6 × 128 KB 单元；App 与驱动**共用**，单元内 1 KB 粒度 |
+
+> 旧模型（`DRIVER_POOL` 0x08040000/256 KB + `APP_USER` 0x08080000/512 KB 等分槽位）
+> 已被上表取代，仅作为历史保留在本文的叙述里。
 
 RAM（128KB，`CHIP_RAM_SIZE`）：
 
-| 分区 | 基址 | 大小 | 槽位 |
-|---|---|---|---|
-| SHARE（分区表） | `0x20000000` | 8 KB | — |
-| KERNEL | `0x20002000` | 56 KB | — |
-| DRIVER | `0x20010000` | 32 KB | 4 × 8 KB（`DRIVER_SLOT_RAM_BASE(n)`） |
-| APP | `0x20018000` | 32 KB | 4 × 8 KB（`APP_SLOT_RAM_BASE(n)`） |
+RAM 布局（**至今未变**）：
 
-槽位数量由 `DRIVER_MAX_COUNT` / `APP_MAX_COUNT` 决定（默认 4），必须 ≤
-`SVCRT_SLOT_ARRAY_MAX`（8，见 `svcrt_share.h` 的固定数组），越界由编译期断言拦住；
-驱动池与 App 区的大小必须能被槽位数整除，同样有编译期断言。
+| 分区 | 基址 | 大小 | 用途 |
+|---|---|---|---|
+| SHARE（分区表 + 共享内存） | `0x20000000` | 8 KB | — |
+| KERNEL | `0x20002000` | 56 KB | 内核 TCB / 对象表 / 内核栈 |
+| SLOT RAM 池 | `0x20010000` | `SLOT_RAM_TOTAL` = 64 KB | 伙伴分配，块 1 KB ~ 32 KB；安装镜像的 RAM 块与开发槽位的 16 KB 窗口都从这里切 |
+
+槽位记录条数由 `SLOT_MAX`（默认 16）与设备端配置区的 `SVCRT_CFG_SLOT_MAX`（默认 8）约束，
+两者都必须 ≤ `SVCRT_SLOT_ARRAY_MAX`（16，见 `svcrt_share.h` 的固定数组），越界由编译期断言拦住。
 
 **修改芯片容量只需改 `CHIP_FLASH_SIZE` / `CHIP_RAM_SIZE`**，其余地址与 `.sct` 均由脚本推导。
-验收测试：把 `CHIP_FLASH_SIZE` 改为 2MB 后，`APP_SLOT0` 自动扩展到 1536KB，其他文件无需改动。
+验收测试（当时）：把 `CHIP_FLASH_SIZE` 改为 2MB 后，槽位随之扩展，其他文件无需改动。
+现在同样的道理适用于 `IMAGE_POOL_SIZE`：池大小由 `CHIP_FLASH_SIZE - BOOT - KERNEL - CONFIG` 派生。
 
 ## 3. 运行期接口
 
@@ -330,3 +349,23 @@ python tools/pack_app.py --verify build/APP_DEMO/APP_DEMO.svcapp
    `Lib$$Request$$armlib`（链接时由 C 库解析）——无悬空符号。
    但**尚未在 Keil 里做过一次真实的 axf 链接与板上验证**，仍需上板后方可视为定稿。
 
+---
+
+### 10.1 这些遗留项的现状（2026-09-19 追记）
+
+> 编号与上面一一对应。上面的正文保持原样，作为**当时的判断记录**；
+> 下表是今天的事实。
+
+| # | 当时的判断 | 现状 |
+|---|---|---|
+| 1 | App 无 MPU 隔离 | 未变。`SVCRT_USE_MPU` / `SVCRT_USE_PRIV` 仍为 0，打开前须先做《安装协议与上板标定清单》§2 的标定 |
+| 2 | 槽位元数据只在 RAM，掉电丢失 | **已解决**：`CONFIG` 区（内核之后一个物理擦除单位）持久化安装模式与固定槽位表，掉电不丢；镜像可用性仍由池内镜像头 + CRC 重新认定 |
+| 3 | 故障围栏只有「重启上限」一档 | 未变，magic/CRC 自检与独立看门狗仍未做 |
+| 4 | SVC 边界非零信任 | 未变。**兼容层把这条边界放大了**：POSIX facade 会在内核里代用户拷贝缓冲（如 `svcrt_posix_read`），但句柄归属校验仍未建立 |
+| 5 | 驱动 / App 只能装 0 号槽（工具链未打通） | **已解决**：`gen_scatter.py` 支持 `--unit` / `--units` / `--dev-slot`，`gen_app_sct.py` 与 `pack_app.py` 支持 `--dev-slot`，池按单元分配；本仓示例工程已分别链接到 0 / 2 / 3 号开发槽位 |
+| 6 | 崩溃计数未持久化 | 未变 |
+| 7 | 符号级链接审计完成，缺真实 axf 链接与上板 | **已解决**：F401 与 F427 两块板的全量编译、链接、上板已多轮跑通，见根 `README.md` 的「验证状态」一节 |
+
+现行模型与全部真机结论见：[配置区与安装策略](配置区与安装策略.md)、
+[SVCrtOS应用安装与调试指南](SVCrtOS应用安装与调试指南.md)、
+[死代码与未接线审计](死代码与未接线审计.md) §九。

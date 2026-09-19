@@ -36,6 +36,7 @@ static void shell_send_newline(void)
 static void shell_show_prompt(const ark_shell_t *shell)
 {
     (void)shell;
+    platform_console_begin();
 #if ARK_SHELL_ENABLE_COLOR
     platform_uart_send_string(ARK_SHELL_COLOR_PROMPT);
     platform_uart_send_string(ARK_SHELL_PROMPT);
@@ -43,6 +44,7 @@ static void shell_show_prompt(const ark_shell_t *shell)
 #else
     platform_uart_send_string(ARK_SHELL_PROMPT);
 #endif
+    platform_console_end();
 }
 
 /* ============================================================
@@ -117,7 +119,9 @@ void ark_shell_init(ark_shell_t *shell, uint32_t baudrate)
     ark_shell_commands_init();
 
     /* Show welcome message */
+    platform_console_begin();
     platform_uart_send_string(ARK_SHELL_WELCOME);
+    platform_console_end();
 
     /* Show prompt */
     shell_show_prompt(shell);
@@ -158,6 +162,7 @@ void ark_shell_execute_line(ark_shell_t *shell)
     /* Lookup command */
     cmd = ark_shell_find_command(argv[0]);
     if (cmd == NULL) {
+        platform_console_begin();
 #if ARK_SHELL_ENABLE_COLOR
         platform_uart_send_string(ARK_SHELL_COLOR_ERROR);
         platform_uart_send_string("Command not found: ");
@@ -170,10 +175,12 @@ void ark_shell_execute_line(ark_shell_t *shell)
         platform_uart_send_string("\r\n");
 #endif
         platform_uart_send_string("Type 'help' for available commands.\r\n");
+        platform_console_end();
     } else {
         int ret;
         /* Check argument count */
         if (cmd->max_args > 0 && argc > cmd->max_args) {
+            platform_console_begin();
 #if ARK_SHELL_ENABLE_COLOR
             platform_uart_send_string(ARK_SHELL_COLOR_ERROR);
             platform_uart_send_string("Too many arguments (max ");
@@ -197,6 +204,7 @@ void ark_shell_execute_line(ark_shell_t *shell)
 #else
             platform_uart_send_string("Too many arguments\r\n");
 #endif
+            platform_console_end();
         } else {
             /* Execute command */
             ret = cmd->func(argc, argv);

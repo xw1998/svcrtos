@@ -29,12 +29,21 @@
 
 static int32 g_con = -1;
 
+/* One write() per string instead of one per byte: every svcrt_dev_write is a
+ * full SVC round trip, and the console sink below it may have to wait for room
+ * in the transmit pipe.  A single call keeps that wait bounded to one place
+ * and lets the sink lock the console once for the whole string. */
 static void app_puts(const char *s)
 {
-    while(*s != '\0')
+    int32 len = 0;
+
+    while(s[len] != '\0')
     {
-        (void)svcrt_dev_write(g_con, (void *)s, 1);
-        s++;
+        len++;
+    }
+    if(len > 0)
+    {
+        (void)svcrt_dev_write(g_con, (void *)s, len);
     }
 }
 
@@ -66,23 +75,38 @@ static void app_num(int32 v)
         u /= 10u;
     }
 
-    while(i > 0)
+    /* The digits came out least significant first; reverse them in place and
+     * hand the whole number to one write(). */
     {
-        i--;
-        (void)svcrt_dev_write(g_con, (void *)&buf[i], 1);
+        int32 a = 0;
+        int32 b = i - 1;
+
+        while(a < b)
+        {
+            char t = buf[a];
+            buf[a] = buf[b];
+            buf[b] = t;
+            a++;
+            b--;
+        }
+    }
+    if(i > 0)
+    {
+        (void)svcrt_dev_write(g_con, (void *)buf, i);
     }
 }
 
 static void app_hex8(uint32 v)
 {
     static const char hex[] = "0123456789ABCDEF";
+    char buf[8];
     int32 i;
 
-    for(i = 7; i >= 0; i--)
+    for(i = 0; i < 8; i++)
     {
-        char c = hex[(v >> ((uint32)i * 4u)) & 0xFu];
-        (void)svcrt_dev_write(g_con, (void *)&c, 1);
+        buf[i] = hex[(v >> ((uint32)(7 - i) * 4u)) & 0xFu];
     }
+    (void)svcrt_dev_write(g_con, (void *)buf, 8);
 }
 
 /* ---- test bookkeeping ------------------------------------------------ */
