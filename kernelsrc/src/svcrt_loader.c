@@ -1610,8 +1610,11 @@ static void svcrt_loader_scan_pool(void)
     }
     svcrt_loader_scan_done = 1u;
 
-    /* 扫描前清空槽位表：共享 RAM 掉电不清，旧记录必须先全部丢弃 */
-    svcrt_ptable_init();
+    /* 扫描前清空槽位表：共享 RAM 掉电不清，旧记录必须先全部丢弃。
+     * 只清槽位表，不能重新种布整张分区表：它里
+     * 还有 svcrt_layout_init() 从设备端配置区得出的安装模式与
+     * 槽表，本扫描就要按它分流。 */
+    svcrt_ptable_clear_slots();
     pt = svcrt_ptable_get();
 
     svcrt_loader_scan_apps    = 0u;

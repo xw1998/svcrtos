@@ -206,7 +206,6 @@ static int32 svcrt_pt_find_gap(uint32 pool_base, uint32 pool_end,
 void svcrt_ptable_init(void)
 {
     svcrt_partition_table_t *pt = svcrt_ptable_ptr();
-    uint32 i;
 
     pt->magic          = SVCRT_PARTITION_MAGIC;
     pt->version        = SVCRT_PARTITION_VERSION;
@@ -241,6 +240,23 @@ void svcrt_ptable_init(void)
     pt->image_ram_total = SLOT_RAM_TOTAL;
     pt->image_ram_min_block = SLOT_RAM_MIN_BLOCK;
     pt->image_ram_max_block = SLOT_RAM_MAX_BLOCK;
+
+    svcrt_ptable_clear_slots();
+}
+
+/* Drop every slot record. This is the part of the reset that the pool scan
+ * actually wants: shared RAM survives a reset, so stale records must go.
+ * The layout the device is running on (install mode, slot table, reclaim
+ * policy) is NOT seed data -- it was resolved from the CONFIG region and
+ * published into this same structure, so it must be left alone. Calling
+ * svcrt_ptable_init() here instead used to wipe it back to the compile-time
+ * default, which silently turned a configured fixed-slot device back into
+ * auto placement.
+ */
+void svcrt_ptable_clear_slots(void)
+{
+    svcrt_partition_table_t *pt = svcrt_ptable_ptr();
+    uint32 i;
 
     for(i = 0; i < SVCRT_SLOT_ARRAY_MAX; i++)
     {

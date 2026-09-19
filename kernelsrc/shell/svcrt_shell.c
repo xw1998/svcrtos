@@ -1145,6 +1145,22 @@ static int cmd_cfg_load(void)
 
     dev = svcrt_shell_uart_open();
 
+    /* Drop whatever the console still holds before the handshake starts.
+     * The shell ends a command line on CR, so a CRLF terminator leaves the
+     * LF behind; a stray byte left here would shift the whole record by one
+     * and the record would only fail its magic check at the very end.
+     * Draining before the ready line is printed (not after) keeps the
+     * host's first chunk, which is sent once it sees that line, intact. */
+    {
+        uint8 sink[32];
+        uint32 spins = 0u;
+
+        while((spins < 64u) && (svcrt_dev_read_internal(dev, sink, (int32)sizeof(sink)) > 0))
+        {
+            spins++;
+        }
+    }
+
     ark_shell_printf("\r\ncfg load: ready, send %u bytes as %u chunks of %u\r\n",
                      (unsigned)SVCRT_CFG_RECORD_SIZE,
                      (unsigned)SVCRT_CFG_CHUNK_COUNT,

@@ -156,22 +156,33 @@ def do_reboot(ser):
 def cmd_write(ser, args):
     rec = load_record(args)
 
-    ser.write(b"cfg load\r\n")
+    # CR only: the shell ends a command line on CR. A CRLF terminator leaves
+    # the LF in the console receive FIFO, and that stray byte would shift the
+    # whole record by one -- the device would collect 512 bytes and reject
+    # them with 'bad magic'.
+    ser.write(b"cfg load\r")
     ser.flush()
 
-    # Wait for the ready line before the first byte of the record: the device
-    # spends this window printing, and its UART receive path holds a single
-    # byte, so anything sent early is dropped on the floor.
+    # Wait for the whole handshake banner, not just the word 'ready': the
+    # device is still printing after 'ready' appears, and the record must not
+    # start before it has entered the receive loop. The banner ends with the
+    # flow-byte legend; a short silence is the fallback in case that line is
+    # lost on the wire.
     buf = bytearray()
     deadline = time.time() + READY_TIMEOUT_S
     ready = False
+    last_rx = time.time()
     while time.time() < deadline:
         b = ser.read(1)
         if not b:
+            if ready and (time.time() - last_rx) > QUIET_S:
+                break
             continue
         buf += b
+        last_rx = time.time()
         if b"ready" in buf:
             ready = True
+        if b"0x15 = stop" in buf:
             break
     if not ready:
         report(device_lines(buf))

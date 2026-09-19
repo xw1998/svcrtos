@@ -35,6 +35,10 @@ extern "C" {
 */
 void svcrt_ptable_init(void);
 
+/* Reset only the slot records; the layout fields published by
+ * svcrt_layout_init() are preserved (see svcrt_ptable.c). */
+void svcrt_ptable_clear_slots(void);
+
 /**
 * @brief 获取分区表指针
 * @return 指向共享内存中分区表的指针；未初始化时同样返回有效地址
