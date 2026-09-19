@@ -77,10 +77,11 @@ app: started
 
 ```bash
 # 打包时带上自启位（默认就是带的，显式写更清楚）
-python tools/pack_app.py --axf build/APP_DEMO/app_demo.axf --type app \
-       --out app_demo.svcapp --autostart
+python tools/pack_app.py \
+       --project example/stm32f427/app_sdk/APP_DEMO/MDK-ARM/app_demo.uvprojx \
+       --type app --name APP_DEMO --out build/APP_DEMO/APP_DEMO.svcapp --autostart
 # 若希望它“要喊一声才启动”：
-python tools/pack_app.py --axf build/xxx.axf --type app --out xxx.svcapp --no-autostart
+python tools/pack_app.py --project <app.uvprojx> --type app --out xxx.svcapp --no-autostart
 ```
 
 `--info` 可以直接看清单里的自启状态：

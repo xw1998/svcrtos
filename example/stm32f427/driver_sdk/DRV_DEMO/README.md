@@ -55,7 +55,7 @@ DRV_DEMO/
 
 | 场景 | 做法 |
 |------|------|
-| 正式安装包 | `python tools/pack_app.py --axf <axf> --type driver --out drv_demo.svcapp`，由内核安装任务按镜像头 `type` 落进统一镜像池（驱动与 App 共用一个池） |
+| 正式安装包 | `python tools/pack_app.py --project MDK-ARM/drv_demo.uvprojx --type driver --name DRV_DEMO --out drv_demo.svcapp`（工具自动编译 A/B/C/D 四遍做差分重定位），由内核安装任务按镜像头 `type` 落进统一镜像池（驱动与 App 共用一个池） |
 | 开发期快速验证 | 直接把裸 `.bin` 烧到开发槽位 0 的单元基址（`IMAGE_POOL_BASE + 0 × IMAGE_POOL_SECTOR`），内核扫描时按裸镜像识别入口（需 `APP_ALLOW_RAW_IMAGE=1`） |
 | MDK 在线调试 | 固定地址烧录后直接在 MDK 里 Load & Debug，可对 `DrvMain()` 下断点 |
 

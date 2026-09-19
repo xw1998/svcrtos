@@ -288,13 +288,18 @@ Loader / App 工程**不包含** `config/svcrt_partition.h`，布局经 SVC 0x18
 `hw_compat_id` 全部由 `config/svcrt_partition.h` 推导，不硬编码。
 
 ```bash
-# 由 .axf 打包（推荐，自动从符号表解析入口偏移）
-python tools/pack_app.py --axf build/APP_DEMO/APP_DEMO.axf \
+# 由 Keil 工程打包（推荐：自动编译四遍做差分重定位，并解析入口符号）
+python tools/pack_app.py --project example/stm32f427/app_sdk/APP_DEMO/MDK-ARM/app_demo.uvprojx \
     --type app --version 1.0.0 --name "LED 闪烁示例" --out build/APP_DEMO/APP_DEMO.svcapp
 
-# 由 .bin 打包（需显式给出入口偏移）
-python tools/pack_app.py --bin build/BLED_DRV/bled_drv.bin \
-    --type driver --version 1.0.0 --entry-offset 0x0 --out build/BLED_DRV/BLED_DRV.svcapp
+# 由已有 .bin 离线打包（必须给 A/B/C 三遍；D 遍用于打包期验证）
+python tools/pack_app.py \
+    --bin-a build/pack/BLED_DRV/payload_A.bin \
+    --bin-b build/pack/BLED_DRV/payload_B.bin \
+    --bin-c build/pack/BLED_DRV/payload_C.bin \
+    --bin-d build/pack/BLED_DRV/payload_D.bin \
+    --entry-offset 0x0 --type driver --version 1.0.0 --name BLED_DRV \
+    --out build/BLED_DRV/bled_drv.svcapp
 
 # 查看 / 校验
 python tools/pack_app.py --info   build/APP_DEMO/APP_DEMO.svcapp

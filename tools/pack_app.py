@@ -644,13 +644,14 @@ def build_passes(args, layout, proj_ctx=None):
             if not getattr(args, name):
                 raise PackError("离线模式必须同时给出 --bin-a/--bin-b/--bin-c"
                                 "（建议再加 --bin-d 做验证）")
+        # 键名必须与主流程的 bins["A"]/["B"]/["C"]/["D"] 一致（tag 即遍次）
         bins = {}
-        for key, path in (("a", args.bin_a), ("b", args.bin_b),
-                          ("c", args.bin_c), ("d", args.bin_d)):
+        for tag, path in (("A", args.bin_a), ("B", args.bin_b),
+                          ("C", args.bin_c), ("D", args.bin_d)):
             if path:
                 with open(path, "rb") as f:
-                    bins[key] = f.read()
-                print("[pack] 读入镜像 %s: %s（%d 字节）" % (key.upper(), path, len(bins[key])))
+                    bins[tag] = f.read()
+                print("[pack] 读入镜像 %s: %s（%d 字节）" % (tag, path, len(bins[tag])))
         info = {}
         if args.axf:
             info["A"] = probe_elf(args.axf, entry_sym)

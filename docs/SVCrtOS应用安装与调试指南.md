@@ -224,9 +224,19 @@ python tools/pack_app.py --project example/stm32f427/app_sdk/APP_DEMO/MDK-ARM/ap
     --type app --version 1.0.0 --name "LED 闪烁示例" \
     --out build/APP_DEMO/APP_DEMO.svcapp
 
-# 由已有的 .axf 打包（离线模式）
-python tools/pack_app.py --axf build/APP_DEMO/APP_DEMO.axf \
-    --type app --version 1.0.0 --out build/APP_DEMO/APP_DEMO.svcapp
+# 由已有的 .bin 离线打包（离线模式：必须给 A/B/C 三遍，D 遍用于打包期验证）
+# A = 标称基址、B = ROM +delta、C = RAM +delta、D = ROM +2delta & RAM +delta
+python tools/pack_app.py \
+    --bin-a build/pack/APP_DEMO/payload_A.bin \
+    --bin-b build/pack/APP_DEMO/payload_B.bin \
+    --bin-c build/pack/APP_DEMO/payload_C.bin \
+    --bin-d build/pack/APP_DEMO/payload_D.bin \
+    --entry-offset 0x0 \
+    --type app --version 1.0.0 --name "LED 闪烁示例" \
+    --out build/APP_DEMO/APP_DEMO.svcapp
+# 入口偏移也可以不给数值，改成 --axf <标称基址那一遍的 .axf>：
+# 工具会从符号表解析入口，并校验该遍的链接基址确实是标称负载基址。
+# 只给 --axf 而不给 --bin-a/--bin-b/--bin-c 是不行的——重定位表靠三遍差分求得。
 
 python tools/pack_app.py --info build/APP_DEMO/APP_DEMO.svcapp      # 看镜像头
 python tools/pack_app.py --verify build/APP_DEMO/APP_DEMO.svcapp    # 校验完整性

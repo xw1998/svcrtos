@@ -16,6 +16,7 @@ description: SVCrtOS（Cortex-M 上的 SVC 特权隔离 RTOS）工程操作手�
 | `docs/SVCrtOS应用安装与调试指南.md` | 从编译到安装的完整闭环与排错 |
 | `docs/配置区与安装策略.md` | 布局/策略的 ABI、CLI、验收结论 |
 | `docs/内核Shell控制台使用说明.md` | shell 命令表与语义 |
+| `docs/F427运行trace采集与可视化.md` | 运行期 trace 采集/切段/渲染 + 事件语义 + LED 对照 |
 
 ---
 
@@ -68,6 +69,11 @@ py -3 tools/pack_app.py --project <app.uvprojx> --type app --name APP_X --out bu
 py -3 tools/pack_app.py --info build/APP_X.svcapp      # 看头（含 hw_compat）
 py -3 tools/pack_app.py --verify build/APP_X.svcapp
 ```
+
+离线打包（手上已有 A/B/C 三遍的 `.bin` 时）**必须给 `--bin-a/--bin-b/--bin-c`**
+（`--bin-d` 可选但强烈建议，它就是打包期的正确性证明）；入口用 `--entry-offset`
+或 **标称基址那一遍的** `--axf` 给。**只写 `--axf` 而不给三遍 bin 是跑不起来的**
+——重定位表靠三遍差分求得，给不了就退化成“不报错但也没打包”。
 
 ---
 
@@ -143,6 +149,8 @@ MCP 调试工具，可不下载、不打断地读写目标：
 | `read_var` / `write_var` / `read_regs` | 变量、寄存器组 |
 | `set_breakpoint` / `set_watchpoint` / `run_to_line` | 断点与运行控制 |
 | `uvprojx_edit` / `launch_uvision` | 工程配置与 Keil 实例管理 |
+| `trace_swd_status` / `trace_swd_reset` / `trace_swd_read` | 运行期 trace：状态 / 重新武装与切粒度 / 搬回并解码（`out_file=` 落盘） |
+| `view_render` / `view_guide` | 把上面搬回的数据渲染成单文件 HTML（参数是 `data`/`data_file`/`out`，**没有 `out_file`**） |
 
 **共享分区表是最快的取证点**（F427，小端 u32 数组，`0x20000000` 起）：
 
@@ -159,6 +167,23 @@ MCP 调试工具，可不下载、不打断地读写目标：
 注意事项：`UVSOCK` 下 `stop` 之后**第一次 `read_mem` 可能读到全 0 脏帧**，重读复核；
 裸地址带 Thumb 位（奇数）会报 `error 57 illegal address`。
 
+### 4.1 运行期 trace（只接 SWD 两线也能录）
+
+详细做法与实测数值见 [`../docs/F427运行trace采集与可视化.md`](../docs/F427运行trace采集与可视化.md)，
+这里只留三条**会直接决定成败**的：
+
+1. **先在设备上 `trace start` 武装**。SVCrtOS 的 `svcrt_trace_init()` 只由这条 shell
+   命令调用；没武装时控制块整片 `0x00`，工具报 `swd-read-degenerate`——那是**正确判据**，
+   不是工具坏了。
+2. **多轮采集必然混段，渲染前必须切段**。每停一次再跑，目标就重开录制段（`seq` 递增），
+   新旧段时间基不同。工具会在 `meta.notes` 里警告但**不替**你切；不切就直接渲染会得到
+   “几十秒长的时间轴、数据全挤在最后几百毫秒”的**看着像真图**的误导图。
+   做法：只留**最后一次 `sync` 之后**的事件。
+3. **trace 里的任务编号是 0 基任务表下标（15 = idle），且跨复位会重排**。
+   不要把它钉死成某个 App；认任务用 `task` 表的 `entry` 地址去比对。
+
+另外：环满**丢事件不覆盖**，`lost_events` 才是真相；渲染页的时间单位以页面声明为准。
+
 ---
 
 ## 5. 常见故障对照
@@ -173,6 +198,10 @@ MCP 调试工具，可不下载、不打断地读写目标：
 | `install: failed or timed out` | 看设备侧 `INSTALL` / `LOADER` 日志行 + `fault`；不要相信主机侧的"发送完成" |
 | `cfg show` 显示 fixed 但 `pool` 不列槽位 | 读 `0x20000000 + 52` 核对真正生效的 `layout_mode`，两个真相源要不一致就是 bug |
 | 编译 0 Error 但行为不对 | 检查宏是否真的进了命令行（uvprojx 的 `<Define>` 有静默不生效的坑） |
+| `trace start` 没敲就采集 → 报 `swd-read-degenerate` | 不是工具坏了：先在设备上 `trace start` 武装（§4.1） |
+| trace 出来的时间轴长得离谱（几十秒）而数据只占最后一点 | 混段了：按最后一次 `sync` 切段再渲染（§4.1） |
+| 只看到红/绿在闪、蓝灯不动 | 正常：红/绿是内核自带 1 Hz 反相任务，蓝是 App 心跳。蓝不动 = 池里没有正在跑的 App |
+| 装了 BLED_DRV 但灯没变化 | 正常：`DrvMain` 只 `svcrt_task_wait(1000)`，它不翻转任何灯 |
 
 ---
 
@@ -187,3 +216,7 @@ MCP 调试工具，可不下载、不打断地读写目标：
 
 图形界面上位机（人工操作用）：`py -3 tools/svcrt_host_gui.py`
 （连接 / 控制台 / 安装镜像 / 布局配置 / 帮助 五页，协议与命令行脚本完全一致）。
+
+想录一段运行过程给人看时：设备侧 `trace start` → 采集三件套 → 切段 →
+`view_render` 出单文件网页（做法见 §4.1，实测数值见
+[`../docs/F427运行trace采集与可视化.md`](../docs/F427运行trace采集与可视化.md)）。
