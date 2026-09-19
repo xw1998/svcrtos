@@ -236,3 +236,50 @@ view_render(data_file="trace_window.json",
   不作为缺陷宣称。
 - `APP_TEST shell.register ... FAIL (-2)` 只在首次启动出现、复位复跑即通过，
   怀疑与上一个 App 生命周期残留的 shell 命令注册未清理有关，**未定论**。
+
+### 7.1 第八轮补测新增（2026-09-19）
+
+前四条都是"会把人带偏的错答案"，用之前先知道：
+
+1. **`read_peripheral` 在目标运行中返回伪影值，而且不给任何提示。**
+   目标运行中连续读 `GPIOC`，拿到 `MODER=0x017C2EB0`、`OTYPER=0x017C354E`、`OSPEEDR=0x00000000`、
+   `PUPDR=0x017C4207`、`IDR=0x017C485B`、`ODR=0x017C4E9E`、`BSRR=0x017C54F2`、`LCKR=0x017C5BC1`、
+   `AFRL=0x017C6215`——这些值**随寄存器地址单调递增**（步长 0x69E），一眼就是地址伪影，不是寄存器内容。
+   `stop` 之后同一调用立刻返回完全自洽的值（`MODER=0x15`、`OTYPER=0`、`PUPDR=0x15`、`ODR=0x00000006`）。
+   对比 `read_registers`：它在目标运行时会明确返回 `pc_confidence:"low"` / `halt_verified:false` /
+   `target_running:true`，把通用寄存器列进 `unavailable`，并给出"读到的 PC 是上一次 halt 的残留值"警告——
+   `read_peripheral` 缺这道保险。**结论：读外设寄存器前先 `stop`；运行中的 `read_peripheral` 结果一律不可信。**
+
+2. **`uvprojx_read` 的 `include_path` 取错了元素。**
+   本工程 `.uvprojx` 里 `<IncludePath>` 共出现 18 次：第 40 行那次属于 `TargetCommonOption`（环境路径字段，本来就空），
+   真正的编译器搜索路径在第 343 行 `<Cads><VariousControls>` 里，共 **11 条**
+   （`kernelsrc/components/mdk_trace`、`../Core/Inc`、四个 HAL/CMSIS Inc、`kernelsrc/include`、
+   `board/stm32f427`、`config`、`kernelsrc/shell`、`kernelsrc/shell/ark_shell`）。
+   工具返回了前者，于是 `include_path: ""`。照它排查会得出"这工程没有包含路径"的错误结论。
+   同一个调用里的 `define` / `misc_controls` 是对的（`-DMDK_TRACE_SWD_EXTERNAL_PLATFORM -DMDK_TRACE_USE_CONFIG_FILE`）。
+
+3. **`toolchain_detect_project` 对 mdk 工程返回 `ok:false`，但同时给出 `kind:"mdk"` 与 evidence。**
+   mdk 是它自己文档里列明的合法识别结果之一，`ok:false` 很容易被读成"识别失败"。看 `kind`，别看 `ok`。
+
+4. **`toolchain_size` 在本机装了 `arm-none-eabi-size` 的情况下仍退化为 pyelftools**
+   （只给 `flash: 90732`，没有 RAM 细分），它自带 note 说明了退化，属诚实降级；
+   但"发现 size"的路径比 `toolchain_list` 弱——后者能列出 arm-none-eabi 全套工具。
+   同一份 `.axf` 用 `toolchain_elf_info` 读是对的（EM_ARM / entry `0x080001AD` / 5 个 alloc section / 2304 符号）。
+
+### 7.2 build 组实测（通过）
+
+- `build_project` 在 Keil **处于调试态、设备正在跑**的情况下仍能正常构建：
+  `exit_code 0`（0 Error / 0 Warning），`Program Size: Code=48774 RO-data=3638 RW-data=280 ZI-data=38040`，
+  构建前后 `keil` 自检均为 "Keil 与 UVSOCK 均就绪"，`ensure_debug_channel: true`。
+  Before-Build 钩子 `py -3 tools/gen_scatter.py --target kernel` 正常触发。
+- `parse_build_errors` 正确解析 AC5 的 `file(line)` 格式（`svcrt_context.S(0): warning: A1581W`，
+  `compiler:"AC5"` / `format:"file(line)"`），并给出把 message 交给 `explain_build_error` 的提示。
+- `explain_build_error` 对未收录的 A1581W 返回 `matched:false` / `confidence:"unknown"` + 通用处置清单，
+  **不猜**——这是正确行为。
+- `parse_map` 正常解析 564 KB 的 `.map`，按段给出 exec/load 地址与 object。
+
+### 7.3 仍未测（需要独占探针或会擦写 Flash）
+
+`ocd_start` / `ocd_probe` / `ocd_read_mem` / `ocd_reg` / `ocd_control` 等所有 `ocd_*`：
+OpenOCD 与 Keil 不能同时占用同一根 DAPLink，Keil 正持着探针，故本轮只测了无侵入的 `ocd_cfg_list`（329 个 cfg）。
+`flash_download` / `build_and_flash` / `flash_debug` / `ocd_flash` 会擦写设备 Flash，属不可逆操作，未执行。
