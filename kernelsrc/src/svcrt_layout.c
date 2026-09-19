@@ -331,6 +331,26 @@ uint32 svcrt_layout_validate(const svcrt_cfg_record_t *rec)
         {
             return SVCRT_CFG_ERR_SLOT_ALIGN;
         }
+
+        /* 固定槽位是「给客户用 MDK 直接下载」的稳定落点，因此多两条要求：
+         *   1) 整槽落在整个物理扇区上 —— 卸载时擦除的就是它自己，不会连带
+         *      擦掉邻居（擦除粒度是扇区，不是字节）；
+         *   2) RAM 窗口必须钉死 —— 固定地址的镜像若去抢伙伴分配器的块，
+         *      同一块 RAM 可能被两个镜像同时拿到。
+         * 只对 FIXED 生效：AUTO 模式里的槽表来自「上一次自动安装的结果」，
+         * 它本来就落在分配粒度上、RAM 也由伙伴分配器给出。 */
+        if(rec->mode == SVCRT_LAYOUT_MODE_FIXED)
+        {
+            if(((s->base % (uint32)IMAGE_POOL_SECTOR) != 0u) ||
+               ((s->size % (uint32)IMAGE_POOL_SECTOR) != 0u))
+            {
+                return SVCRT_CFG_ERR_SLOT_ALIGN;
+            }
+            if((s->ram_base == 0u) || (s->ram_size == 0u))
+            {
+                return SVCRT_CFG_ERR_SLOT_RAM;
+            }
+        }
         if(s->ram_size != 0u)
         {
             if((SVCRT_LAYOUT_IS_POW2(s->ram_size) == 0u) ||

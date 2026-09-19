@@ -30,6 +30,7 @@
 #include "svcrt_ptable.h"
 #include "svcrt_share.h"
 #include "svcrt_layout_def.h"   /* strategy constants (reclaim mode) */
+#include "svcrt_layout.h"       /* effective mode + fixed slot table */
 #include "svcrt_app_image.h"
 #include "svcrt_hal.h"
 #include "svcrt_config.h"
@@ -915,6 +916,120 @@ static int32 svcrt_loader_stream_image(int32 dev, uint32 base, const svcrt_app_h
 
 /* 在池里为 total 字节的镜像找落点、分配 RAM、登记槽位。
  * 成功时 *p_slot 为记录号，*p_base 为落点，*p_ram_base 为 RAM 块基址。 */
+/* ============================================================
+ * 安装策略：自动选址 / 固定槽位
+ *
+ * AUTO ：落点由 svcrt_loader_find_clean() 现算（第一段足够长的已擦除空间），
+ *        卸载后按 reclaim_mode 压实回收，空间回到池里。
+ * FIXED：落点与 RAM 窗口都取自设备端配置里的槽表（见 svcrt_layout.h），
+ *        槽位与配置一一对应；卸载只擦本槽、不搬移、空间不退回池。
+ *        这是「把设备交给客户二次开发、客户直接用 MDK 往固定地址下载」
+ *        的使用形态。
+ * ============================================================ */
+
+/* 下一次安装落在配置槽表的哪一条（-1 = 内核按类型自己挑）。一次性提示。 */
+static int32 svcrt_loader_slot_hint = -1;
+
+void svcrt_loader_slot_hint_set(int32 index)
+{
+    svcrt_loader_slot_hint = index;
+}
+
+int32 svcrt_loader_slot_hint_get(void)
+{
+    return svcrt_loader_slot_hint;
+}
+
+/* 固定槽位模式下挑槽：只认配置里登记的地址，不在池里另找空位。 */
+static int32 svcrt_loader_reserve_fixed(uint32 type, const svcrt_app_header_t *p_hdr,
+                                        uint32 total, uint32 *p_base, uint32 *p_ram_base)
+{
+    svcrt_partition_table_t *pt = svcrt_ptable_get();
+    const svcrt_cfg_slot_t *slots = svcrt_layout_slots();
+    uint32 count = svcrt_layout_slot_count();
+    uint32 want  = (type == SVCRT_SLOT_APP) ? (uint32)SVCRT_CFG_TYPE_APP
+                                            : (uint32)SVCRT_CFG_TYPE_DRIVER;
+    int32  hint  = svcrt_loader_slot_hint;
+    uint32 i;
+
+    (void)p_hdr;
+
+    /* 提示是一次性的：消费掉，后面的安装回到默认行为 */
+    svcrt_loader_slot_hint = -1;
+
+    for(i = 0u; i < count; i++)
+    {
+        uint32 s_base = slots[i].base;
+        uint32 s_size = slots[i].size;
+        uint32 j;
+        int32  slot;
+
+        if(slots[i].type != want)
+        {
+            continue;
+        }
+        if((hint >= 0) && ((uint32)hint != i))
+        {
+            continue;               /* 操作者点名了槽，别的槽一律不看 */
+        }
+        if(total > s_size)
+        {
+            /* 点名的槽装不下就直接说清楚；默默换下一个槽不是操作者要的结果 */
+            return (hint >= 0) ? SVCRT_LOADER_ERR_SIZE : SVCRT_LOADER_ERR_NOSPACE;
+        }
+
+        /* 正在运行的镜像不能被覆盖：擦写会让它当场跑飞。
+         * 其它状态（EMPTY / LOADED / INSTALLING / INVALID）都可以覆盖——
+         * 固定槽位的语义就是「这个地址永远属于这个槽」。 */
+        for(j = 0u; (j < pt->slot_max) && (j < SVCRT_SLOT_ARRAY_MAX); j++)
+        {
+            if(pt->slot_type[j] == SVCRT_SLOT_FREE)
+            {
+                continue;
+            }
+            if(!((s_base < (pt->slot_base[j] + pt->slot_size[j])) &&
+                 (pt->slot_base[j] < (s_base + s_size))))
+            {
+                continue;           /* 与这个槽没有交集 */
+            }
+            if(pt->slot_state[j] == SVCRT_APP_SLOT_RUNNING)
+            {
+                return SVCRT_LOADER_ERR_BUSY;
+            }
+        }
+
+        /* 覆盖安装：先把落在本槽内的旧记录摘掉，再按整槽登记，
+         * 这样分区表里的区间永远等于配置里的槽，不多不少。 */
+        for(j = 0u; (j < pt->slot_max) && (j < SVCRT_SLOT_ARRAY_MAX); j++)
+        {
+            if(pt->slot_type[j] == SVCRT_SLOT_FREE)
+            {
+                continue;
+            }
+            if((s_base < (pt->slot_base[j] + pt->slot_size[j])) &&
+               (pt->slot_base[j] < (s_base + s_size)))
+            {
+                svcrt_ptable_free(j);
+            }
+        }
+
+        slot = svcrt_ptable_alloc(type, s_base, s_size);
+
+        if(slot < 0)
+        {
+            return SVCRT_LOADER_ERR_NO_SLOT;
+        }
+
+        (void)svcrt_ptable_ram_bind((uint32)slot, slots[i].ram_base, slots[i].ram_size);
+
+        *p_base     = s_base;
+        *p_ram_base = slots[i].ram_base;
+        return slot;
+    }
+
+    return (hint >= 0) ? SVCRT_LOADER_ERR_NO_SLOT : SVCRT_LOADER_ERR_NOSPACE;
+}
+
 static int32 svcrt_loader_reserve(uint32 type, const svcrt_app_header_t *p_hdr,
                                   uint32 total, uint32 *p_base, uint32 *p_ram_base)
 {
@@ -927,6 +1042,16 @@ static int32 svcrt_loader_reserve(uint32 type, const svcrt_app_header_t *p_hdr,
     /* 记录与查找都按分配粒度向上取整后的跨度算：槽位里存的字节数必须与
      * 上电扫描重建出来的值完全一致，否则搬移时算出的长度会差一个尾巴。 */
     uint32 span = svcrt_loader_align_up(total, SVCRT_POOL_ALLOC_UNIT);
+
+    /* 安装策略来自设备端配置区（见 svcrt_layout.h）：固定槽位模式下
+     * 落点是人定的，池里有没有空位与本次安装无关。 */
+    if(pt->layout_mode == (uint32)SVCRT_LAYOUT_MODE_FIXED)
+    {
+        return svcrt_loader_reserve_fixed(type, p_hdr, total, p_base, p_ram_base);
+    }
+
+    /* 自动选址不认槽位提示，但同样要把它消费掉，免得留下一枚哑弹 */
+    svcrt_loader_slot_hint = -1;
 
     if(svcrt_loader_find_clean(span, 0u, 0u, &base) != 0)
     {
@@ -1957,6 +2082,8 @@ int32 svcrt_loader_uninstall(uint32 slot)
     uint32 state = SVCRT_APP_SLOT_EMPTY;
     uint32 task_id = 0u;
     uint32 dead_type = 0u;
+    uint32 uninstall_base = 0u;
+    uint32 uninstall_size = 0u;
 
     if((slot >= pt->slot_max) || (slot >= SVCRT_SLOT_ARRAY_MAX) ||
        (pt->slot_type[slot] == SVCRT_SLOT_FREE))
@@ -1982,6 +2109,11 @@ int32 svcrt_loader_uninstall(uint32 slot)
         svcrt_loader_halt_task(task_id);
     }
 
+    /* Remember the slot's own range before the record is dropped: in fixed-slot
+     * mode uninstall erases exactly this range and nothing else. */
+    uninstall_base = pt->slot_base[slot];
+    uninstall_size = pt->slot_size[slot];
+
     /* The authoritative uninstall action is invalidating the on-flash header.
      * Dropping the RAM record alone is not enough: erase granularity is the
      * whole pool sector, and a sector that still holds a live image can never
@@ -2006,6 +2138,22 @@ int32 svcrt_loader_uninstall(uint32 slot)
     }
 
     svcrt_ptable_free(slot);
+
+    /* 固定槽位模式：这块 Flash 永远属于这个槽，卸载就是把它自己擦干净。
+     * 既不搬别人、也不把空间交回池子（池里本来就没登记它）。配置校验要求
+     * 固定槽的 base/size 都是物理扇区整数倍，所以这里擦不到邻居。 */
+    if(pt->layout_mode == (uint32)SVCRT_LAYOUT_MODE_FIXED)
+    {
+        if(uninstall_size == 0u)
+        {
+            return 0;
+        }
+        if(svcrt_port_flash_erase(uninstall_base, uninstall_size) != 0)
+        {
+            return SVCRT_LOADER_ERR_FLASH;
+        }
+        return (int32)(uninstall_size / pt->pool_sector);
+    }
 
     /* Best effort from here on: the image is already dead even when its sector
      * stays pinned by a live neighbour. Return the reclaimed sector count so

@@ -282,7 +282,15 @@ static int32 svcrt_ptable_used(const svcrt_partition_table_t *pt, uint32 slot)
 
 int32 svcrt_ptable_range_check(uint32 base, uint32 size)
 {
+    const svcrt_partition_table_t *pt = svcrt_ptable_get();
     uint32 limit = IMAGE_POOL_BASE + IMAGE_POOL_USABLE_SIZE;
+
+    /* 尾部保留扇区只是给压实搬移留的余量；固定槽位模式从不压实，
+     * 因而整个池都是合法落点（把最后一个扇区划给某个固定槽是常见做法）。 */
+    if(pt->layout_mode == (uint32)SVCRT_LAYOUT_MODE_FIXED)
+    {
+        limit = IMAGE_POOL_BASE + IMAGE_POOL_SIZE;
+    }
 
     if((size == 0u) || (base < IMAGE_POOL_BASE))
     {

@@ -97,6 +97,24 @@ uint32 svcrt_loader_scan(void);
 */
 uint32 svcrt_loader_scan_driver(void);
 
+/* ============================================================
+ * 固定槽位模式（layout_mode == SVCRT_LAYOUT_MODE_FIXED）
+ * ============================================================ */
+
+/**
+* @brief 指定下一次安装落在配置槽表的哪一条（-1 = 让内核按类型自己挑）
+* @param index 配置槽表下标（0 .. svcrt_layout_slot_count()-1），-1 表示不指定
+* @details 只在固定槽位模式下起作用：这条提示只对**下一次**安装有效，
+*          安装一开始就被消费掉（无论成功与否），不会泄漏到后续安装。
+*          自动选址模式忽略它（同时也会消费掉，避免留下一个陈旧的值）。
+* @note 安装窗口由 shell 调用，提示也由 shell 设置；本接口不加锁，
+*       调用者必须保证同一时刻只有一次安装在进行。
+*/
+void  svcrt_loader_slot_hint_set(int32 index);
+
+/** @brief 读取当前的安装槽位提示（-1 = 未指定）。 @see svcrt_loader_slot_hint_set */
+int32 svcrt_loader_slot_hint_get(void);
+
 /**
 * @brief 回收死区：把「不含活镜像的扇区」擦成 0xFF，使空间重新可用
 * @return 本次擦除的扇区数；负值为 SVCRT_LOADER_ERR_x

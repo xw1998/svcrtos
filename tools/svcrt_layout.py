@@ -102,9 +102,11 @@ ERR_HINT = {
     7: "slot type must be 1 (app) or 2 (driver); 0 means the entry is not used",
     8: "slot base/size is not inside the image pool",
     9: "slot is smaller than the image header plus a minimal payload",
-    10: "slot base is not aligned to SVCRT_POOL_ALLOC_UNIT",
+    10: ("slot base is not aligned to SVCRT_POOL_ALLOC_UNIT, or (fixed mode) "
+         "base/size does not span whole IMAGE_POOL_SECTOR sectors"),
     11: "two slots overlap in Flash or in their RAM windows",
-    12: "RAM window is not a power of two, out of the RAM pool, or misaligned",
+    12: ("RAM window is not a power of two, out of the RAM pool, misaligned, "
+         "or (fixed mode) not pinned at all"),
     13: "more slots than the kernel can hold",
     14: "reclaim_mode must be 'global' or 'minimal'",
     15: "a runtime knob is out of range (log_level 0..4, fault_restart_max 0..64)",
@@ -344,8 +346,18 @@ def validate(cfg, board):
             return 9, "slot[%d] size 0x%X < header(%d)+256" % (i, size, hdr)
         if (base % unit) != 0:
             return 10, "slot[%d] base 0x%08X is not aligned to %d" % (i, base, unit)
+        if mode == MODE_FIXED:
+            sector = board.v("IMAGE_POOL_SECTOR")
+            if ((base % sector) != 0) or ((size % sector) != 0):
+                return 10, ("slot[%d] 0x%08X+0x%X must lie on whole %d-byte "
+                            "physical sectors: uninstalling a fixed slot erases "
+                            "exactly that slot, and a partial sector would take "
+                            "a neighbour with it" % (i, base, size, sector))
         ram_size = as_int(slot.get("ram_size"), "slot[%d].ram_size" % i)
         ram_base = as_int(slot.get("ram_base"), "slot[%d].ram_base" % i)
+        if mode == MODE_FIXED and (ram_size == 0 or ram_base == 0):
+            return 12, ("slot[%d] must pin its RAM window (ram_base and "
+                        "ram_size) in fixed-slot mode" % i)
         if ram_size != 0:
             if not pow2(ram_size) or ram_size < ram_min or ram_size > ram_max:
                 return 12, ("slot[%d] ram_size 0x%X must be a power of two in "
@@ -436,12 +448,19 @@ def cmd_template(args):
         "slots": [],
     }
     if args.mode == "fixed":
+        # A fixed slot pins both its Flash placement and its RAM window: the
+        # kernel refuses a fixed slot without one, because a fixed-address
+        # image that shares the buddy allocator can be handed RAM that another
+        # slot already owns. The template therefore emits both.
+        ram_pool = board.v("SLOT_RAM_BASE")
         tpl["slots"] = [
             {"type": "app", "base": "0x%08X" % base, "size": "0x%X" % sector,
+             "ram_base": "0x%08X" % ram_pool,
              "ram_size": "0x%X" % ram_app, "autostart": 1},
             {"type": "driver", "base": "0x%08X" % (base + sector),
-             "size": "0x%X" % sector, "ram_size": "0x%X" % ram_min,
-             "autostart": 1},
+             "size": "0x%X" % sector,
+             "ram_base": "0x%08X" % (ram_pool + ram_app),
+             "ram_size": "0x%X" % ram_min, "autostart": 1},
         ]
     print(json.dumps(tpl, indent=2))
     return 0

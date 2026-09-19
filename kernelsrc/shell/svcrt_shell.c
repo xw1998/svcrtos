@@ -10,7 +10,7 @@
 *
 *          命令集：
 *            help                  内置：列出所有命令
-*            info / app / drv / task / fault / install
+*            info / app / drv / task / fault / install [slot] / cfg
 *            app / drv 支持 uninstall <slot>：卸载镜像并回收池内空间
 *            version / clear / echo / reboot  为 ark-shell 内置命令
 *
@@ -32,6 +32,8 @@
 #include "svcrt_fault.h"
 #include "svcrt_installer.h"
 #include "svcrt_loader.h"
+#include "svcrt_dev.h"
+#include "svcrt_layout.h"
 #include "svcrt_ptable.h"
 #include "svcrt_log.h"
 #include "svcrt_share.h"
@@ -107,6 +109,63 @@ static const char *slot_type_name(uint32 t)
     }
 }
 
+static const char *cfg_mode_text(uint32 mode)
+{
+    if(mode == SVCRT_LAYOUT_MODE_FIXED)
+    {
+        return "fixed";
+    }
+    if(mode == SVCRT_LAYOUT_MODE_AUTO)
+    {
+        return "auto";
+    }
+    return "unknown";
+}
+
+static const char *cfg_source_text(uint32 src)
+{
+    if(src == SVCRT_LAYOUT_SOURCE_CONFIG)
+    {
+        return "device config region";
+    }
+    if(src == SVCRT_LAYOUT_SOURCE_DEFAULT)
+    {
+        return "compile-time default";
+    }
+    return "unknown";
+}
+
+static const char *cfg_reclaim_text(uint32 rm)
+{
+    if(rm == SVCRT_CFG_RECLAIM_GLOBAL)
+    {
+        return "global";
+    }
+    if(rm == SVCRT_CFG_RECLAIM_MINIMAL)
+    {
+        return "minimal";
+    }
+    if(rm == SVCRT_CFG_RECLAIM_NONE)
+    {
+        return "none";
+    }
+    return "unknown";
+}
+
+static const char *cfg_type_text(uint32 t)
+{
+    if(t == SVCRT_CFG_TYPE_APP)
+    {
+        return "app";
+    }
+    if(t == SVCRT_CFG_TYPE_DRIVER)
+    {
+        return "drv";
+    }
+    return "-";
+}
+
+// moved up: cmd_pool (defined below) prints the fixed slot types too
 static const char *task_state_name(uint32 st)
 {
     switch(st)
@@ -530,8 +589,35 @@ static int cmd_install(int argc, char *argv[])
 {
     int32 slot;
 
-    (void)argc;
-    (void)argv;
+    if(argc >= 2)
+    {
+        uint32 want;
+        const svcrt_cfg_slot_t *cs;
+
+        if((svcrt_ptable_get()->layout_mode != (uint32)SVCRT_LAYOUT_MODE_FIXED) ||
+           (parse_u32(argv[1], &want) != 0) ||
+           (want >= svcrt_layout_slot_count()))
+        {
+            sh_out("usage: install [slot]   (a slot number is only valid in fixed-slot mode)\r\n");
+            return -1;
+        }
+
+        cs = svcrt_layout_slot(want);
+
+        if(cs == 0)
+        {
+            sh_out("install: no such slot\r\n");
+            return -1;
+        }
+
+        svcrt_loader_slot_hint_set((int32)want);
+        ark_shell_printf("install: fixed slot %u -> 0x%08X\r\n",
+                         (unsigned)want, (unsigned)cs->base);
+    }
+    else
+    {
+        svcrt_loader_slot_hint_set(-1);
+    }
 
     sh_out("\r\ninstall: waiting for one .svcapp image on " SHELL_DEV_NAME "\r\n");
     sh_out("install: send the file now; console input is ignored while waiting\r\n");
@@ -883,13 +969,276 @@ static int cmd_pool(int argc, char *argv[])
     ark_shell_printf("\r\npool free : %u B (%uK)\r\n", total, total / 1024u);
     ark_shell_printf("largest   : %u B (%uK)\r\n", largest, largest / 1024u);
 
+    /* 固定槽位模式下「池里还剩多少字节」并不回答「我还能装下一个镜像吗」：
+     * 每个槽各占一块固定地址，能装多大事先已经由槽大小定死了。
+     * 所以这里直接列出各槽自己还有没有位置，免得操作者拿一个与本次安装
+     * 无关的数字去做决定。 */
+    if(svcrt_ptable_get()->layout_mode == (uint32)SVCRT_LAYOUT_MODE_FIXED)
+    {
+        const svcrt_partition_table_t *pt = svcrt_ptable_get();
+        const svcrt_cfg_slot_t *slots = svcrt_layout_slots();
+        uint32 count = svcrt_layout_slot_count();
+        uint32 i;
+
+        sh_out("\r\nfixed slots\r\n");
+        sh_out(" id  type  base        size     state\r\n");
+
+        for(i = 0u; i < count; i++)
+        {
+            const char *state = "empty";
+            uint32 j;
+
+            for(j = 0u; (j < pt->slot_max) && (j < SVCRT_SLOT_ARRAY_MAX); j++)
+            {
+                if((pt->slot_type[j] != SVCRT_SLOT_FREE) &&
+                   (pt->slot_base[j] == slots[i].base) &&
+                   (pt->slot_size[j] == slots[i].size))
+                {
+                    state = slot_state_name(pt->slot_state[j]);
+                    break;
+                }
+            }
+
+            ark_shell_printf(" %-3u %-4s  0x%08X  %-8u  %s\r\n",
+                             (unsigned)i, cfg_type_text(slots[i].type),
+                             (unsigned)slots[i].base, (unsigned)slots[i].size,
+                             state);
+        }
+    }
+
     return 0;
+}
+
+/* ============================================================
+ * cfg：设备端布局配置区（CONFIG 区）
+ *
+ * 记录格式见 kernelsrc/include/svcrt_layout_def.h（与上位机工具共用），
+ * 生成工具 tools/svcrt_layout.py，串口下发工具 tools/svcrt_cfg.py。
+ *
+ * 上位机协议（与 install 同构：窗口期间本任务不跑 ark_shell_run()，
+ * 串口读权全部交给本命令，不存在两个读者分掉同一 FIFO 的问题）：
+ *   1) 设备打印就绪行；
+ *   2) 主机按 SVCRT_CFG_CHUNK_SIZE 字节分块下行，每块发完等一个流控字节：
+ *      ACK(0x06) 表示「已收下，发下一块」，NAK(0x15) 表示「到此为止」；
+ *   3) 第 4 块收满后设备校验并写入：成功发 ACK，失败先打印原因行再发 NAK。
+ * 用二进制流而不是 hex 文本，是因为 ARK_SHELL_LINE_SIZE 只有 128 字节，
+ * 512 字节的记录没法走命令行文本（见 ark_shell_config.h）。
+ * ============================================================ */
+
+#define SVCRT_CFG_CHUNK_SIZE     (128u)
+#define SVCRT_CFG_CHUNK_COUNT    (SVCRT_CFG_RECORD_SIZE / SVCRT_CFG_CHUNK_SIZE)
+#define SVCRT_CFG_CHUNK_TIMEOUT  (5000u)   /* 单块等待上限（ms） */
+#define SVCRT_CFG_POLL_MS        (2u)      /* 空转一次让出 CPU 的步长（ms） */
+#define SVCRT_CFG_FLOW_ACK       (0x06u)
+#define SVCRT_CFG_FLOW_NAK       (0x15u)
+
+/* 收满 len 字节；idle 累计到 timeout_ms 仍没收满就放弃。
+ * 未收满时已收的字节就地丢弃（记录要么整条有效，要么整条不要）。 */
+static int32 cfg_recv_exact(int32 dev, uint8 *buf, uint32 len, uint32 timeout_ms)
+{
+    uint32 got = 0u;
+    uint32 idle = 0u;
+
+    while(got < len)
+    {
+        int32 r = svcrt_dev_read_internal(dev, buf + got, (int32)(len - got));
+
+        if(r > 0)
+        {
+            got += (uint32)r;
+            idle = 0u;
+            continue;
+        }
+
+        if(idle >= timeout_ms)
+        {
+            return -1;
+        }
+
+        svcrt_task_wait_internal(SVCRT_CFG_POLL_MS);
+        idle += SVCRT_CFG_POLL_MS;
+    }
+
+    return 0;
+}
+
+static void cfg_send_flow(int32 dev, uint8 flow)
+{
+    uint8 b = flow;
+
+    (void)svcrt_dev_write_internal(dev, &b, 1);
+}
+
+static int cmd_cfg_show(void)
+{
+    const svcrt_cfg_slot_t *slots = svcrt_layout_slots();
+    uint32 reason = svcrt_layout_reason();
+    uint32 count  = svcrt_layout_slot_count();
+    uint32 i;
+
+    ark_shell_printf("\r\nlayout    : %s (source: %s)\r\n",
+                     cfg_mode_text(svcrt_layout_mode()),
+                     cfg_source_text(svcrt_layout_source()));
+    ark_shell_printf("config    : 0x%08X +%uK, %u record(s) per sector\r\n",
+                     (unsigned)CONFIG_BASE,
+                     (unsigned)(CONFIG_SIZE / 1024u),
+                     (unsigned)(CONFIG_SIZE / SVCRT_CFG_RECORD_SIZE));
+    ark_shell_printf("reclaim   : %s\r\n", cfg_reclaim_text(svcrt_layout_reclaim_mode()));
+    ark_shell_printf("knobs     : log %u (record %u), restart max %u\r\n",
+                     svcrt_log_get_level(),
+                     svcrt_layout_cfg_log_level(),
+                     svcrt_layout_cfg_restart_max());
+
+    if(reason != SVCRT_CFG_OK)
+    {
+        ark_shell_printf("record    : rejected, %s\r\n", svcrt_layout_reason_text(reason));
+    }
+    else if(svcrt_layout_source() == SVCRT_LAYOUT_SOURCE_CONFIG)
+    {
+        sh_out("record    : accepted\r\n");
+    }
+    else
+    {
+        sh_out("record    : none, compile-time default in use\r\n");
+    }
+
+    if(count == 0u)
+    {
+        return 0;
+    }
+
+    sh_out("\r\nslot  type  base        size     ram         auto\r\n");
+
+    for(i = 0u; i < count; i++)
+    {
+        ark_shell_printf(" %-3u  %-4s  0x%08X  %-7u  0x%08X  %u\r\n",
+                         (unsigned)i,
+                         cfg_type_text(slots[i].type),
+                         (unsigned)slots[i].base,
+                         (unsigned)slots[i].size,
+                         (unsigned)slots[i].ram_base,
+                         (unsigned)slots[i].autostart);
+    }
+
+    return 0;
+}
+
+static int cmd_cfg_load(void)
+{
+    static uint8 rec[SVCRT_CFG_RECORD_SIZE];
+    int32 dev;
+    uint32 i;
+    uint32 erased = 0u;
+
+    dev = svcrt_shell_uart_open();
+
+    ark_shell_printf("\r\ncfg load: ready, send %u bytes as %u chunks of %u\r\n",
+                     (unsigned)SVCRT_CFG_RECORD_SIZE,
+                     (unsigned)SVCRT_CFG_CHUNK_COUNT,
+                     (unsigned)SVCRT_CFG_CHUNK_SIZE);
+    sh_out("cfg load: one flow byte per chunk (0x06 = next, 0x15 = stop)\r\n");
+
+    /* 收块阶段串口上的行编辑输入也一并被吃掉，这正是我们要的：
+     * ARK_SHELL_LINE_SIZE 装不下 512 字节，命令行文本走不通。 */
+    for(i = 0u; i < SVCRT_CFG_CHUNK_COUNT; i++)
+    {
+        uint8 *p = &rec[i * SVCRT_CFG_CHUNK_SIZE];
+        uint32 reason;
+        int32  rc;
+
+        if(cfg_recv_exact(dev, p, SVCRT_CFG_CHUNK_SIZE, SVCRT_CFG_CHUNK_TIMEOUT) != 0)
+        {
+            sh_out("cfg load: timed out waiting for the record\r\n");
+            cfg_send_flow(dev, SVCRT_CFG_FLOW_NAK);
+            return 0;
+        }
+
+        /* 前 3 块只回 ACK：此时记录还不完整，校验没有意义 */
+        if((i + 1u) < SVCRT_CFG_CHUNK_COUNT)
+        {
+            cfg_send_flow(dev, SVCRT_CFG_FLOW_ACK);
+            continue;
+        }
+
+        reason = svcrt_layout_validate((const svcrt_cfg_record_t *)rec);
+
+        if(reason != SVCRT_CFG_OK)
+        {
+            ark_shell_printf("cfg load: record rejected, %s\r\n",
+                             svcrt_layout_reason_text(reason));
+            cfg_send_flow(dev, SVCRT_CFG_FLOW_NAK);
+            return 0;
+        }
+
+        rc = svcrt_layout_write(rec, (uint32)SVCRT_CFG_RECORD_SIZE, &erased);
+
+        if(rc < 0)
+        {
+            ark_shell_printf("cfg load: write failed (%d), config region not usable\r\n",
+                             (int)rc);
+            cfg_send_flow(dev, SVCRT_CFG_FLOW_NAK);
+            return 0;
+        }
+
+        ark_shell_printf("cfg load: ok, record %d%s\r\n",
+                         (int)rc,
+                         (erased != 0u) ? " (region erased first)" : "");
+        sh_out("cfg load: applied immediately; it is also what the next boot reads\r\n");
+
+        cfg_send_flow(dev, SVCRT_CFG_FLOW_ACK);
+
+        /* 记录里写的是布局策略与运行期参数：分区几何、RAM 窗口和任务表都在
+         * 下一次 svcrt_layout_init() 之后才完全一致（池扫描用的是启动时的模式），
+         * 所以这里提示重启，而不是假装一切都已到位。 */
+        sh_out("cfg load: reboot recommended before installing images\r\n");
+    }
+
+    return 0;
+}
+
+static int cmd_cfg_clear(void)
+{
+    int32 rc = svcrt_layout_erase();
+
+    if(rc < 0)
+    {
+        ark_shell_printf("cfg clear: failed (%d)\r\n", (int)rc);
+        return -1;
+    }
+
+    sh_out("cfg clear: config region erased, compile-time default layout in use\r\n");
+    sh_out("cfg clear: reboot recommended before installing images\r\n");
+    return 0;
+}
+
+static int cmd_cfg(int argc, char *argv[])
+{
+    if(argc <= 1)
+    {
+        return cmd_cfg_show();
+    }
+
+    if(strcmp(argv[1], "show") == 0)
+    {
+        return cmd_cfg_show();
+    }
+    if(strcmp(argv[1], "load") == 0)
+    {
+        return cmd_cfg_load();
+    }
+    if(strcmp(argv[1], "clear") == 0)
+    {
+        return cmd_cfg_clear();
+    }
+
+    sh_out("usage: cfg [show | load | clear]\r\n");
+    return -1;
 }
 
 static int register_kernel_commands(void)
 {
     int idx = g_cmd_count;
-    int need = 9;
+    int need = 10;
 
     if((idx + need) > ARK_SHELL_MAX_COMMANDS)
     {
@@ -907,7 +1256,7 @@ static int register_kernel_commands(void)
     g_cmd_table[idx++] = ARK_SHELL_CMD("fault", cmd_fault,
         "Show recorded faults", 1);
     g_cmd_table[idx++] = ARK_SHELL_CMD("install", cmd_install,
-        "Open a one-shot install window on the console UART", 1);
+        "Open a one-shot install window on the console UART: install [slot]", 2);
 
     g_cmd_table[idx++] = ARK_SHELL_CMD("log", cmd_log,
         "Get or set runtime log level: log [0..4]", 2);
@@ -915,6 +1264,8 @@ static int register_kernel_commands(void)
         "Free space left in the image pool", 1);
     g_cmd_table[idx++] = ARK_SHELL_CMD("trace", svcrt_trace_shell_cmd,
         "Kernel event trace: trace [start | stop | reset | dump | mark <n>]", 3);
+    g_cmd_table[idx++] = ARK_SHELL_CMD("cfg", cmd_cfg,
+        "Device layout config: cfg [show | load | clear]", 2);
 
     g_cmd_table[idx].name = NULL;
     g_cmd_table[idx].func = NULL;
