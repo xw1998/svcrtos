@@ -230,6 +230,8 @@ void svcrt_ptable_init(void)
     pt->reclaim_mode   = (uint32)SVCRT_RECLAIM_MODE;
     pt->cfg_log_level  = (uint32)SVCRT_LOG_LEVEL;
     pt->cfg_restart_max = (uint32)APP_CRASH_RESTART_MAX;
+    pt->cfg_boot_delay_ms = 0u;
+    pt->cfg_raw_allow     = (uint32)APP_ALLOW_RAW_IMAGE;
 
     pt->share_ram_base = SHARE_RAM_BASE;
     pt->share_ram_size = SHARE_RAM_SIZE;

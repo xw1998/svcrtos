@@ -383,6 +383,15 @@
                                   (SVCRT_DEV_SLOT2_TYPE ? SVCRT_DEV_SLOT2_UNITS : 0) + \
                                   (SVCRT_DEV_SLOT3_TYPE ? SVCRT_DEV_SLOT3_UNITS : 0))
 
+/* 开发槽位的 RAM 窗口基址：参数取条目的**起始单元号**。
+ * 公式与 tools/gen_scatter.py 的 dev_ram_base() 必须同源（窗口序号 = 起始
+ * 单元号对条目数取模）：App 的 .sct 就是按这个地址链的，内核认领裸镜像时
+ * 把同一个窗口 bind 给槽位，svcrt_loader_start() 才能从窗口顶部切出与 App
+ * 期望一致的栈。裸镜像没有镜像头，扫描器读不到它的 ram_size，这个窗口只能
+ * 由本表静态给出。 */
+#define SVCRT_DEV_SLOT_RAM_BASE(unit)   (SLOT_RAM_BASE + \
+                                  (((unit) % SVCRT_DEV_SLOT_MAX) * SVCRT_DEV_RAM_WINDOW))
+
 /* 开发裸镜像的 RAM 窗口必须放得进 RAM 池，否则裸镜像路径会在运行期
  * 越出池尾。（本宏定义在池与开发槽位表之后，因此这里的 #if 能真正生效。） */
 #if (SVCRT_DEV_SLOT_MAX * SVCRT_DEV_RAM_WINDOW > SLOT_RAM_TOTAL)

@@ -1,10 +1,14 @@
 /**
 * @brief SVCrtOS 消息队列模块实现
-* @details 定长拷贝语义的消息队列：
+* @details 变长拷贝语义的消息队列（消息 1..SVCRT_MQ_MSG_WORDS 字）：
 *          - send：队列未满时拷贝消息并唤醒一个接收者；已满时阻塞（带超时）或立即失败
 *          - recv：队列非空时取出一条并唤醒一个发送者；为空时阻塞（带超时）或立即失败
 *          - send_from_isr：中断上下文安全，仅入队唤醒，不阻塞、不做上下文切换
-*          返回值约定：0=成功，1=超时，-1=错误（句柄非法/队列满且不等待/等待者满等）
+*          返回值约定：
+*            send：0=成功，负值=超时或错误（句柄非法/队列满且不等待/等待者满等）
+*            recv：>0=实际取到的字数，负值=超时或错误
+*          拷贝长度一律以调用者声明的 len_words 为准，绝不按槽宽整块拷——
+*          调用者缓冲可能只有 len_words 个字，整块拷会读写越界。
 */
 
 #include "svcrt_mq.h"
@@ -22,6 +26,10 @@ void svcrt_mq_module_init(void)
     {
         svcrt_mqs[i].name[0] = 0;
         svcrt_mqs[i].used    = 0;
+        for(j = 0; j < SVCRT_MQ_DEPTH; j++)
+        {
+            svcrt_mqs[i].msglen[j] = 0;
+        }
         svcrt_mqs[i].head    = 0;
         svcrt_mqs[i].tail    = 0;
         svcrt_mqs[i].count   = 0;
@@ -45,29 +53,45 @@ static void svcrt_mq_copy_name(char *dst, char *src)
     dst[7] = 0;
 }
 
-/* 队列操作统一假设：调用者已持有关中断临界区 */
-static void svcrt_mq_put(svcrt_mq_obj_t *p_mq, uint32 *p_src)
+/* 队列操作统一假设：调用者已持有关中断临界区。
+ * put：只拷调用者声明的 len 个字，槽内剩余位置补 0（避免把调用者缓冲之外的
+ *      内容读进来），实际长度记进 msglen[槽]，供 recv 原样返回。 */
+static void svcrt_mq_put(svcrt_mq_obj_t *p_mq, uint32 *p_src, int32 len)
 {
     uint32 *p_dst;
     int32 i;
 
     p_dst = &p_mq->buf[p_mq->tail * SVCRT_MQ_MSG_WORDS];
     for(i = 0; i < SVCRT_MQ_MSG_WORDS; i++)
-        p_dst[i] = p_src[i];
+    {
+        p_dst[i] = (i < len) ? p_src[i] : 0u;
+    }
+    p_mq->msglen[p_mq->tail] = (uint8)len;
     p_mq->tail = (p_mq->tail + 1) % SVCRT_MQ_DEPTH;
     p_mq->count++;
 }
 
-static void svcrt_mq_get(svcrt_mq_obj_t *p_mq, uint32 *p_dst)
+/* get：最多拷 max_len 个字到调用者缓冲，返回实际字数。
+ * 发送方声明的长度超过 max_len 时按 max_len 截断（调用者缓冲是硬边界）。 */
+static int32 svcrt_mq_get(svcrt_mq_obj_t *p_mq, uint32 *p_dst, int32 max_len)
 {
     uint32 *p_src;
+    int32 n;
     int32 i;
 
     p_src = &p_mq->buf[p_mq->head * SVCRT_MQ_MSG_WORDS];
-    for(i = 0; i < SVCRT_MQ_MSG_WORDS; i++)
+    n = (int32)p_mq->msglen[p_mq->head];
+    if(n > max_len)
+    {
+        n = max_len;
+    }
+    for(i = 0; i < n; i++)
+    {
         p_dst[i] = p_src[i];
+    }
     p_mq->head = (p_mq->head + 1) % SVCRT_MQ_DEPTH;
     p_mq->count--;
+    return n;
 }
 
 static void svcrt_mq_wake_one(svcrt_task_t **waiters)
@@ -228,7 +252,7 @@ int32 svcrt_mq_send_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
     SVCRT_DISABLE_IRQ();
     if(p_mq->count < SVCRT_MQ_DEPTH)
     {
-        svcrt_mq_put(p_mq, buf);
+        svcrt_mq_put(p_mq, buf, len_words);
         svcrt_mq_wake_one(p_mq->recv_waiters);
         SVCRT_ENABLE_IRQ();
         SVCRT_SWITCH_TASK();
@@ -279,11 +303,11 @@ int32 svcrt_mq_send_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
         return -1;
     }
 
-    if(ret == 1)
+    if(ret == SVCRT_WAKE_TIMEOUT)
     {
         svcrt_mq_waiter_remove(p_mq->send_waiters, p_tsk);
         SVCRT_ENABLE_IRQ();
-        return 1;
+        return -1;                          /* 超时未发送成功 */
     }
     /* 被唤醒时空间可能已被他人占用（多个发送者被同时唤醒的场景不存在，
      * 但为稳妥起见仍检查一次；占用则按错误处理） */
@@ -295,7 +319,7 @@ int32 svcrt_mq_send_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
         if(remain == 0)
         {
             SVCRT_ENABLE_IRQ();
-            return 1;                       /* 超时：未发送成功 */
+            return -1;                      /* 超时：未发送成功 */
         }
 
         if(svcrt_mq_waiter_add(p_mq->send_waiters, p_tsk) < 0)
@@ -312,12 +336,12 @@ int32 svcrt_mq_send_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
             SVCRT_ENABLE_IRQ();
             if(ret == SVCRT_WAKE_TIMEOUT)
             {
-                return 1;
+                return -1;
             }
             return -1;                      /* 对象被删 / 未能阻塞 */
         }
     }
-    svcrt_mq_put(p_mq, buf);
+    svcrt_mq_put(p_mq, buf, len_words);
     svcrt_mq_wake_one(p_mq->recv_waiters);
     SVCRT_ENABLE_IRQ();
     SVCRT_SWITCH_TASK();
@@ -331,6 +355,7 @@ int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
     svcrt_task_t *p_tsk;
     int32 reason;
     int32 remain = 0;
+    int32 got = 0;
     uint32 start_tick = 0u;
     uint32 deadline = 0u;
 
@@ -345,11 +370,11 @@ int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
     SVCRT_DISABLE_IRQ();
     if(p_mq->count > 0)
     {
-        svcrt_mq_get(p_mq, buf);
+        got = svcrt_mq_get(p_mq, buf, len_words);
         svcrt_mq_wake_one(p_mq->send_waiters);
         SVCRT_ENABLE_IRQ();
         SVCRT_SWITCH_TASK();
-        return 0;
+        return got;
     }
 
     if(timeout_ms == 0)
@@ -392,11 +417,11 @@ int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
         return -1;
     }
 
-    if(reason == 1)
+    if(reason == SVCRT_WAKE_TIMEOUT)
     {
         svcrt_mq_waiter_remove(p_mq->recv_waiters, p_tsk);
         SVCRT_ENABLE_IRQ();
-        return 1;
+        return -1;                          /* 超时未收到消息 */
     }
     /* 被唤醒不等于一定拿到消息：唤醒后消息可能已被其它接收者取走。
      * 原实现此时直接返回 -1（队列里明明有数据却被判失败）；这里按剩余时间重试。 */
@@ -406,7 +431,7 @@ int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
         if(remain == 0)
         {
             SVCRT_ENABLE_IRQ();
-            return 1;
+            return -1;                      /* 超时未收到消息 */
         }
 
         if(svcrt_mq_waiter_add(p_mq->recv_waiters, p_tsk) < 0)
@@ -423,16 +448,16 @@ int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
             SVCRT_ENABLE_IRQ();
             if(reason == SVCRT_WAKE_TIMEOUT)
             {
-                return 1;
+                return -1;
             }
             return -1;
         }
     }
-    svcrt_mq_get(p_mq, buf);
+    got = svcrt_mq_get(p_mq, buf, len_words);
     svcrt_mq_wake_one(p_mq->send_waiters);
     SVCRT_ENABLE_IRQ();
     SVCRT_SWITCH_TASK();
-    return 0;
+    return got;
 }
 
 int32 svcrt_mq_send_from_isr_internal(int32 handle, void *buf, int32 len_words)
@@ -454,7 +479,7 @@ int32 svcrt_mq_send_from_isr_internal(int32 handle, void *buf, int32 len_words)
         SVCRT_ENABLE_IRQ();
         return -1;
     }
-    svcrt_mq_put(p_mq, (uint32 *)buf);
+    svcrt_mq_put(p_mq, (uint32 *)buf, len_words);
     svcrt_mq_wake_one(p_mq->recv_waiters);
     SVCRT_ENABLE_IRQ();
     /* 不在 ISR 内做上下文切换：唤醒的任务置 READY 后由下一次调度接管 */
@@ -464,6 +489,7 @@ int32 svcrt_mq_send_from_isr_internal(int32 handle, void *buf, int32 len_words)
 int32 svcrt_mq_delete_internal(int32 handle)
 {
     int32 idx = handle & SVCRT_HANDLE_RELMASK;
+    int32 i;
 
     if(SVCRT_MQ_HANDLE_FLAG != (handle & SVCRT_HANDLE_MASK))
         return -1;
@@ -479,6 +505,10 @@ int32 svcrt_mq_delete_internal(int32 handle)
     svcrt_mqs[idx].head    = 0;
     svcrt_mqs[idx].tail    = 0;
     svcrt_mqs[idx].count   = 0;
+    for(i = 0; i < SVCRT_MQ_DEPTH; i++)
+    {
+        svcrt_mqs[idx].msglen[i] = 0;
+    }
     SVCRT_ENABLE_IRQ();
     SVCRT_SWITCH_TASK();
     return 0;

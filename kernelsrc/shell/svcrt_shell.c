@@ -1088,6 +1088,9 @@ static int cmd_cfg_show(void)
                      svcrt_log_get_level(),
                      svcrt_layout_cfg_log_level(),
                      svcrt_layout_cfg_restart_max());
+    ark_shell_printf("boot      : hold %u ms before autostart, raw images %s\r\n",
+                     svcrt_layout_boot_delay_ms(),
+                     (svcrt_layout_raw_allow() != 0u) ? "allowed" : "refused");
 
     if(reason != SVCRT_CFG_OK)
     {

@@ -66,6 +66,11 @@
 #endif
 #define SVCRT_CFG_CRC_OFFSET     (SVCRT_CFG_RECORD_SIZE - 4u) /* crc32 is the last word */
 
+/* Upper bound of svcrt_cfg_record_t.boot_delay_ms. The value only buys time
+ * for a debugger or a host tool to attach before anything autostarts, so an
+ * unbounded value would just look like a dead board; a minute is plenty. */
+#define SVCRT_CFG_BOOT_DELAY_MAX (60000u)
+
 /* ---- record flags (svcrt_cfg_record_t.flags) ---- */
 #define SVCRT_CFG_FLAG_RAW_ALLOW (0x1u)   /* dev bypass: accept a headed-less bare image burned at a slot base */
 
@@ -89,10 +94,20 @@
  *          按设备/客户不同而不同」。凡是会影响时基、分区几何、中断优先级
  *          的宏都**不能**放进来——那些值一改，链接脚本和 MPU 配置就跟着
  *          失效，属于必须重新编译的量。
- *          当前内核真正会去读的有：log_level、fault_restart_max（见
- *          svcrt_layout_apply_runtime()）。其余字段保留 0 值，写非 0 会被
- *          校验拒绝（SVCRT_CFG_ERR_NOT_IMPL），而不是默默忽略——
- *          「配置里写了但设备没照做」是最难查的一类问题。
+ *          当前内核真正会去读的有：log_level、fault_restart_max、
+ *          boot_delay_ms，以及 flags 里的 RAW_ALLOW 位。
+ *          其余三个字段仍然只接受 0，写非 0 会被校验拒绝
+ *          （SVCRT_CFG_ERR_NOT_IMPL），而不是默默忽略——「配置里写了但设备
+ *          没照做」是最难查的一类问题。它们留在记录里是为了让结构体大小
+ *          与偏移跨版本稳定，将来真接了再放开；今天不接的理由各自是：
+ *            watchdog_ms          内核没有 IWDG 端口层，而且 Flash 擦除
+ *                                 （一个 128K 扇区约 2s）会阻塞喂狗，安装
+ *                                 过程中有被看门狗复位的风险；
+ *            heap_size            POSIX 层的堆是 App 侧静态 arena，内核
+ *                                 自己不持有堆，「给内核一个堆」没有消费者；
+ *            thread_stack_default 线程栈由调用者在自己的 RAM 里声明
+ *                                 （svcrt_thread_create 的 stack 参数），
+ *                                 内核没有可分配的匿名栈池。
  * ============================================================ */
 #define SVCRT_CFG_KNOB_UNSET     (0u)
 
@@ -153,10 +168,10 @@ typedef struct {
     /* ---- runtime knobs ---- */
     uint32 log_level;                   /* 0 = keep the compile-time level; else SVCRT_LOG_NONE..DEBUG */
     uint32 fault_restart_max;           /* 0 = keep APP_CRASH_RESTART_MAX; else 1..64 consecutive faults */
-    uint32 boot_delay_ms;               /* reserved: must be 0 (autostart timing is compile-time today) */
-    uint32 watchdog_ms;                 /* reserved: must be 0 (no IWDG integration yet) */
-    uint32 heap_size;                   /* reserved: must be 0 (kernel heap lands with the POSIX layer) */
-    uint32 thread_stack_default;        /* reserved: must be 0 (same) */
+    uint32 boot_delay_ms;               /* ms to hold before autostart; 0 = none (debugger attach window) */
+    uint32 watchdog_ms;                 /* reserved: must be 0 (no IWDG port layer yet, see the knob notes) */
+    uint32 heap_size;                   /* reserved: must be 0 (the kernel owns no heap, see the knob notes) */
+    uint32 thread_stack_default;        /* reserved: must be 0 (stacks are caller-declared RAM, see the notes) */
     uint32 tool_version;                /* host tool revision, informational only */
 
     /* ---- tail ---- */

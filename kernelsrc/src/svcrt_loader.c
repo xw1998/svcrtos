@@ -1544,6 +1544,14 @@ static void svcrt_loader_claim_dev_slots(void)
 
             if(raw_slot >= 0)
             {
+                /* 裸镜像没有镜像头，扫描器读不到它的 ram_size，RAM 块只能由
+                 * 开发槽位表静态给出：窗口序号 = 起始单元号，与 gen_scatter.py
+                 * 生成 App .sct 用的是同一条公式。不 bind 的话
+                 * svcrt_loader_start() 会因 ram_base==0 直接拒绝启动。 */
+                (void)svcrt_ptable_ram_bind((uint32)raw_slot,
+                                            SVCRT_DEV_SLOT_RAM_BASE(unit),
+                                            (uint32)SVCRT_DEV_RAM_WINDOW);
+
                 /* 裸镜像没有镜像头，无法携带 per-slot 策略，沿用原全局开关 */
                 pt->slot_autostart[(uint32)raw_slot] =
                     (dev_type == SVCRT_APP_TYPE_DRIVER)
@@ -1664,8 +1672,14 @@ static void svcrt_loader_scan_pool(void)
         addr += SVCRT_POOL_ALLOC_UNIT;
     }
 
-    /* 带头镜像先认得，开发槽位里的裸镜像再认领 */
-    svcrt_loader_claim_dev_slots();
+    /* 带头镜像先认得，开发槽位里的裸镜像再认领。
+     * 编译期开关决定这段代码在不在，运行期开关（设备端配置区 flags 的
+     * RAW_ALLOW 位）决定这台设备要不要走它：整机交付后关掉，池里就只剩
+     * 「带头安装」一条路，烧错地址的裸镜像不会再被当成镜像跑起来。 */
+    if(svcrt_layout_raw_allow() != 0u)
+    {
+        svcrt_loader_claim_dev_slots();
+    }
 }
 
 uint32 svcrt_loader_scan(void)
@@ -2189,7 +2203,10 @@ int32 svcrt_loader_start(uint32 slot)
         return SVCRT_LOADER_ERR_PARAM;
     }
 
-    if((state != SVCRT_APP_SLOT_LOADED) || (entry == 0u))
+    /* RAW 是开发槽位的裸镜像：没有镜像头，但落点固定、RAM 窗口由开发槽位表
+     * 静态给出，具备与 LOADED 相同的启动条件。 */
+    if(((state != SVCRT_APP_SLOT_LOADED) && (state != SVCRT_APP_SLOT_RAW)) ||
+       (entry == 0u))
     {
         return SVCRT_LOADER_ERR_STATE;
     }
@@ -2257,6 +2274,7 @@ int32 svcrt_loader_stop(uint32 slot)
     svcrt_partition_table_t *pt = svcrt_ptable_get();
     uint32 entry = 0u;
     uint32 task_id = 0u;
+    uint32 rest_state = SVCRT_APP_SLOT_LOADED;
 
     if((slot >= pt->slot_max) || (slot >= SVCRT_SLOT_ARRAY_MAX))
     {
@@ -2273,9 +2291,18 @@ int32 svcrt_loader_stop(uint32 slot)
         return SVCRT_LOADER_ERR_STATE;
     }
 
+    /* 停下来的裸镜像要退回 RAW，不能落成 LOADED：LOADED 在压实/回收眼里是
+     * 「可搬移的安装镜像」，而裸镜像是开发者烧进固定槽位的，不能被搬。
+     * 判据与认领时一致——基址处没有镜像头就是裸镜像。 */
+    if((pt->slot_base[slot] == 0u) ||
+       (*(const volatile uint32 *)(pt->slot_base[slot]) != (uint32)SVCRT_APP_MAGIC))
+    {
+        rest_state = SVCRT_APP_SLOT_RAW;
+    }
+
     svcrt_loader_halt_task(task_id);
 
-    (void)svcrt_ptable_set_slot(slot, SVCRT_APP_SLOT_LOADED, entry, 0u);
+    (void)svcrt_ptable_set_slot(slot, rest_state, entry, 0u);
 
     SVCRT_SWITCH_TASK();
 

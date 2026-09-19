@@ -310,6 +310,17 @@ uint16 svcrt_cpu_busy_ticks = 0;   /* busy ticks of the last 1024-tick window */
 static uint32 svcrt_idle_stack_ptr = 0;
 
 static void svcrt_tick_tasks(svcrt_task_t *p_task);
+static void svcrt_sched_tick_sweep(void);
+static void svcrt_sched_pri_cache_rebuild(void);
+
+/* 优先级缓存：所有非 INVALID 任务里最小 / 次小的基准优先级，以及取到
+ * 最小值的任务个数。快速路径要用「除当前任务以外」的最小基准优先级，
+ * 所以两个最小值都要留：当前任务正好是最小值的唯一持有者时，取次小值。
+ * 定义必须早于 svcrt_sched_next()，它要用这几个量做 O(1) 判断。 */
+static uint8 svcrt_pri_min1     = 0xFFu;
+static uint8 svcrt_pri_min2     = 0xFFu;
+static uint8 svcrt_pri_min1_cnt = 0u;
+static uint8 svcrt_pri_cache_ok = 0u;
 static void svcrt_task_recover_mark(int32 task_id);
 static void svcrt_task_recover_pending(void);
 
@@ -328,6 +339,15 @@ void svcrt_kernel_tick_handler(void)
     /* 软定时器倒计时与到期唤醒（不在中断里执行用户回调） */
     svcrt_timer_tick_handler();
     #endif
+
+    /* 任务倒计时扫描：原先放在 svcrt_sched_next() 里，等于每做一次调度决策
+     * 就遍历一次全表并逐项调用 svcrt_tick_tasks()。倒计时只由节拍推进
+     * （escape_tick 是节拍增量），一个节拍扫一遍就够，因此搬到这里。
+     * 位置与原先等价：原先扫描发生在 svcrt_timer_tick_handler() 之后
+     * （sched_next 由 PendSV 触发），现在紧接其后、切换之前，
+     * 保证本拍超时唤醒的任务在当拍就能被选中。 */
+    svcrt_sched_tick_sweep();
+
     #if (SVCRT_USE_SCHED_LOCK == 1)
     if(svcrt_sched_lock_nest == 0u)         /* 调度器锁定期间不触发任务切换 */
     #endif
@@ -1063,10 +1083,32 @@ int32 svcrt_sched_next(void)
     /* execute pending task recovery (rebuild stack frame) */
     svcrt_task_recover_pending();
 
+    /* O(1) 快速路径：当前任务仍在可选态，且它的有效优先级严格小于
+     * 「其余任务的基准优先级」。优先级继承只会让别的任务数值变小（更紧急），
+     * 不会让它们数值变大，所以「严格小于所有基准」就等价于
+     * 「没有任何任务能抢在它前面」——此时不必扫表。
+     * 基准优先级只在创建/下线时变化，缓存因此长期有效；
+     * 条件不成立时原样退回下面的全表扫描，结果与原来完全一致。
+     * 倒计时扫描不在这里：它已随节拍处理走，见 svcrt_sched_tick_sweep()。 */
+    if((svcrt_pri_cache_ok != 0u) && (svcrt_current_task_id > 0))
+    {
+        svcrt_task_t *p_cur = &svcrt_task_table[svcrt_current_task_id - 1];
+        uint8 other_min = svcrt_pri_min1;
+
+        if((p_cur->base_priority == svcrt_pri_min1) && (svcrt_pri_min1_cnt == 1u))
+        {
+            other_min = svcrt_pri_min2;
+        }
+        if(((p_cur->status == SVCRT_TASK_READY) ||
+            (p_cur->status == SVCRT_TASK_RUNNING)) &&
+           (p_cur->priority < other_min))
+        {
+            return svcrt_current_task_id - 1;
+        }
+    }
+
     for(idx = 0; idx < svcrt_task_count; idx++)
     {
-        svcrt_tick_tasks(&svcrt_task_table[idx]);
-
         if((svcrt_task_table[idx].status == SVCRT_TASK_READY) ||
             (svcrt_task_table[idx].status == SVCRT_TASK_RUNNING))
         {
@@ -1087,6 +1129,66 @@ int32 svcrt_sched_next(void)
         }
     }
     return r;
+}
+
+/* ============================================================
+ * 调度路径上的两项瘦身
+ * ============================================================ */
+
+void svcrt_sched_pri_cache_drop(void)
+{
+    svcrt_pri_cache_ok = 0u;
+}
+
+static void svcrt_sched_pri_cache_rebuild(void)
+{
+    uint8 m1 = 0xFFu;
+    uint8 m2 = 0xFFu;
+    uint8 c1 = 0u;
+    uint8 i;
+
+    for(i = 0u; i < svcrt_task_count; i++)
+    {
+        uint8 p = svcrt_task_table[i].base_priority;
+
+        if(svcrt_task_table[i].status == SVCRT_TASK_INVALID)
+        {
+            continue;
+        }
+        if(p < m1)
+        {
+            m2 = m1;
+            m1 = p;
+            c1 = 1u;
+        }
+        else if(p == m1)
+        {
+            c1++;
+        }
+        else if(p < m2)
+        {
+            m2 = p;
+        }
+    }
+
+    svcrt_pri_min1     = m1;
+    svcrt_pri_min2     = m2;
+    svcrt_pri_min1_cnt = c1;
+    svcrt_pri_cache_ok = 1u;
+}
+
+/* 每个节拍扫一遍全表做倒计时，并顺带重建优先级缓存。
+ * 非 INVALID 任务才需要倒计时；INVALID 槽位在 svcrt_tick_tasks 里直接返回，
+ * 这里不额外过滤，保持与原实现一致的调用序列。 */
+static void svcrt_sched_tick_sweep(void)
+{
+    uint8 idx;
+
+    for(idx = 0u; idx < svcrt_task_count; idx++)
+    {
+        svcrt_tick_tasks(&svcrt_task_table[idx]);
+    }
+    svcrt_sched_pri_cache_rebuild();
 }
 
 static void svcrt_tick_tasks(svcrt_task_t *p_task)

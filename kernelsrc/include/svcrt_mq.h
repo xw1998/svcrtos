@@ -1,7 +1,9 @@
 /**
 * @brief SVCrtOS 消息队列模块（内核内部头文件）
-* @details 提供任务间数据传递原语：定长消息队列（拷贝语义）。
-*          每个队列容量与单条消息长度由 SVCRT_MQ_DEPTH / SVCRT_MQ_MSG_WORDS 统一约定。
+* @details 提供任务间数据传递原语：变长消息队列（拷贝语义）。
+*          队列深度由 SVCRT_MQ_DEPTH 约定，单条消息长度上限为
+*          SVCRT_MQ_MSG_WORDS 个字；每条消息实际占几个字由发送方声明并随消息记录，
+*          接收方按自己的缓冲容量取，recv 返回实际取到的字数。
 *          支持阻塞 send/recv（带超时）与中断上下文安全的 send_from_isr。
 *          应用程序应通过 svcrt.h 使用，不要直接包含本文件。
 */
@@ -23,7 +25,8 @@ typedef struct {
     uint32 count;                                       /* 当前消息条数 */
     svcrt_task_t *send_waiters[SVCRT_MAX_SYNC_WAITERS]; /* 队列满时阻塞的发送者 */
     svcrt_task_t *recv_waiters[SVCRT_MAX_SYNC_WAITERS]; /* 队列空时阻塞的接收者 */
-    uint32 buf[SVCRT_MQ_DEPTH * SVCRT_MQ_MSG_WORDS];    /* 消息存储区 */
+    uint32 buf[SVCRT_MQ_DEPTH * SVCRT_MQ_MSG_WORDS];    /* 消息存储区（定长槽） */
+    uint8  msglen[SVCRT_MQ_DEPTH];                      /* 每个槽里消息实际占的字数 */
 } svcrt_mq_obj_t;
 
 void  svcrt_mq_module_init(void);

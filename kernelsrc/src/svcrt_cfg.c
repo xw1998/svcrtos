@@ -103,6 +103,11 @@ int32 svcrt_task_register(void (*entry)(void), uint32 *stack_bottom, uint32 stac
 
     svcrt_task_stack_init(p_task, entry, stack_bottom, stack_size);
 
+    /* 任务表多了一项：作废调度器的优先级缓存，下一拍扫描时重建。
+     * 不作废的话，新任务可能带着更高的优先级出现而快速路径看不见，
+     * 当前任务会被误判成「无人能抢占」。 */
+    svcrt_sched_pri_cache_drop();
+
     return (free_idx + 1);
 }
 

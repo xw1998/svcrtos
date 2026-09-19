@@ -331,6 +331,32 @@ static void svcrt_kernel_init(void)
      * so a bad configuration never stops the kernel from booting. */
     svcrt_layout_init();
 
+    /* Debug-attach window: the device-side configuration may ask for a
+     * boot delay. It is held here -- after the effective layout is known
+     * (the delay itself comes from the CONFIG region) but before anything
+     * is scanned or started, so a debugger or a host tool can attach to a
+     * device that would otherwise have already begun running images.
+     * The wait is split into short chunks so a long delay does not ride on
+     * one enormous busy loop. */
+    {
+        uint32 boot_delay = svcrt_layout_boot_delay_ms();
+
+        if(boot_delay != 0u)
+        {
+            uint32 left = boot_delay;
+
+            SVCRT_LOGI("BOOT", "boot delay %u ms before autostart (debugger attach window)",
+                       boot_delay);
+            while(left > 0u)
+            {
+                uint32 chunk = (left > 10u) ? 10u : left;
+
+                svcrt_port_delay_us(chunk * 1000u);
+                left -= chunk;
+            }
+        }
+    }
+
     /* Power-on recovery: erase what an interrupted install or an aborted
      * compaction left behind, and push any hole towards the top of the
      * pool. Runs before any task is started so images can be moved

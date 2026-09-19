@@ -40,6 +40,8 @@ static uint32 svcrt_layout_reason_ram = SVCRT_CFG_OK;
 static uint32 svcrt_layout_reclaim_ram = (uint32)SVCRT_RECLAIM_MODE;
 static uint32 svcrt_layout_cfglvl_ram  = 0u;   /* 0 = keep the compile-time level */
 static uint32 svcrt_layout_restart_ram = (uint32)APP_CRASH_RESTART_MAX;
+static uint32 svcrt_layout_bootdly_ram = 0u;   /* 0 = 扫完就自启，不等待 */
+static uint32 svcrt_layout_rawallow_ram = (uint32)APP_ALLOW_RAW_IMAGE;
 
 /* 写操作的暂存区。写入只可能来自两条串行路径（启动期与 shell 命令），
  * 两者不会并发，因此用静态缓冲省下 1KB 的调用者栈。 */
@@ -210,6 +212,9 @@ static void svcrt_layout_use_default(void)
     svcrt_layout_reclaim_ram = (uint32)SVCRT_RECLAIM_MODE;
     svcrt_layout_cfglvl_ram  = 0u;
     svcrt_layout_restart_ram = (uint32)APP_CRASH_RESTART_MAX;
+    /* 编译期默认：不等待；裸镜像按 board 编译期开关决定 */
+    svcrt_layout_bootdly_ram  = 0u;
+    svcrt_layout_rawallow_ram = (uint32)APP_ALLOW_RAW_IMAGE;
     svcrt_layout_pin_ram();
 }
 
@@ -230,6 +235,8 @@ static void svcrt_layout_adopt(const svcrt_cfg_record_t *rec)
     svcrt_layout_cfglvl_ram  = rec->log_level;
     svcrt_layout_restart_ram = (rec->fault_restart_max != 0u)
                              ? rec->fault_restart_max : (uint32)APP_CRASH_RESTART_MAX;
+    svcrt_layout_bootdly_ram  = rec->boot_delay_ms;
+    svcrt_layout_rawallow_ram = ((rec->flags & (uint32)SVCRT_CFG_FLAG_RAW_ALLOW) != 0u) ? 1u : 0u;
     svcrt_layout_pin_ram();
 }
 
@@ -250,6 +257,8 @@ static void svcrt_layout_publish(void)
     pt->reclaim_mode    = svcrt_layout_reclaim_ram;
     pt->cfg_log_level   = svcrt_layout_cfglvl_ram;
     pt->cfg_restart_max = svcrt_layout_restart_ram;
+    pt->cfg_boot_delay_ms = svcrt_layout_bootdly_ram;
+    pt->cfg_raw_allow     = svcrt_layout_rawallow_ram;
 }
 
 /* ============================================================
@@ -425,12 +434,28 @@ uint32 svcrt_layout_validate(const svcrt_cfg_record_t *rec)
         return SVCRT_CFG_ERR_KNOB;
     }
 
-    /* 已知但本内核还没接的项：拒绝，不默默忽略 */
-    if(rec->flags != 0u)
+    /* flags 只认识 RAW_ALLOW 一位：其余位来自更新的工具，拒绝而不是当 0
+     * 用——把看不懂的位忽略掉，等于替设备猜了一个它没提出的配置。 */
+    if((rec->flags & ~(uint32)SVCRT_CFG_FLAG_RAW_ALLOW) != 0u)
     {
-        return SVCRT_CFG_ERR_NOT_IMPL;   /* RAW_ALLOW 随固定槽位路径一起生效 */
+        return SVCRT_CFG_ERR_RESERVED;
     }
-    if((rec->boot_delay_ms != 0u) || (rec->watchdog_ms != 0u) ||
+#if (APP_ALLOW_RAW_IMAGE != 1)
+    /* 这一份固件里根本没有裸镜像路径（svcrt_loader.c 用编译期宏把它裁掉了），
+     * 配置要求打开它也没有人能执行——必须当场拒绝。 */
+    if((rec->flags & (uint32)SVCRT_CFG_FLAG_RAW_ALLOW) != 0u)
+    {
+        return SVCRT_CFG_ERR_NOT_IMPL;
+    }
+#endif
+    /* 调试器/上位机挂接窗口：0 = 不等待；超过上限的值一律拒绝——
+     * 那种设备在操作者眼里与死机没有区别。 */
+    if(rec->boot_delay_ms > (uint32)SVCRT_CFG_BOOT_DELAY_MAX)
+    {
+        return SVCRT_CFG_ERR_KNOB;
+    }
+    /* 已知但本内核还没接的项：拒绝，不默默忽略 */
+    if((rec->watchdog_ms != 0u) ||
        (rec->heap_size != 0u) || (rec->thread_stack_default != 0u))
     {
         return SVCRT_CFG_ERR_NOT_IMPL;
@@ -547,8 +572,10 @@ void svcrt_layout_init(void)
 
 void svcrt_layout_apply_runtime(void)
 {
-    /* 只有这两个纽子是内核今就能真正生效的：
-     * 日志级别有现成的运行期设置，重启上限被加载器读到共享分区表里。
+    /* 这里只处理「必须立刻生效」的那一个纽子：日志级别有现成的运行期设置。
+     * 重启上限、自启等待、裸镜像开关各有自己的消费者，直接读访问器即可
+     * （加载器读共享分区表、kernel main 读 boot delay、池扫描读 raw allow），
+     * 不需要在这里再复制一份状态——复制出来的那一份迟早会和源头不一致。
      * 其余纽子在 validate 里就被拒绝了，不会走到这里。 */
     if(svcrt_layout_cfglvl_ram != 0u)
     {
@@ -569,6 +596,16 @@ uint32 svcrt_layout_cfg_log_level(void)
 uint32 svcrt_layout_cfg_restart_max(void)
 {
     return svcrt_layout_restart_ram;
+}
+
+uint32 svcrt_layout_boot_delay_ms(void)
+{
+    return svcrt_layout_bootdly_ram;
+}
+
+uint32 svcrt_layout_raw_allow(void)
+{
+    return svcrt_layout_rawallow_ram;
 }
 
 /* ============================================================

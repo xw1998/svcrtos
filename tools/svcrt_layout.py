@@ -109,8 +109,11 @@ ERR_HINT = {
          "or (fixed mode) not pinned at all"),
     13: "more slots than the kernel can hold",
     14: "reclaim_mode must be 'global' or 'minimal'",
-    15: "a runtime knob is out of range (log_level 0..4, fault_restart_max 0..64)",
-    16: "the field is valid but this kernel build does not honour it yet",
+    15: ("a runtime knob is out of range (log_level 0..4, fault_restart_max 0..64, "
+         "boot_delay_ms 0..60000)"),
+    16: ("the field is valid but this kernel build does not honour it: "
+         "watchdog_ms / heap_size / thread_stack_default must stay 0; "
+         "RAW_ALLOW needs a build with APP_ALLOW_RAW_IMAGE=1"),
     17: "reserved words must be zero",
     18: "'fixed' mode must carry a slot table, 'auto' mode must not",
 }
@@ -118,6 +121,10 @@ ERR_HINT = {
 # Knob limits as svcrt_layout_validate() checks them.
 LOG_LEVEL_MAX = 4          # SVCRT_LOG_DEBUG
 FAULT_RESTART_MAX = 64
+BOOT_DELAY_MAX = 60000     # SVCRT_CFG_BOOT_DELAY_MAX
+
+# svcrt_cfg_record_t.flags bits (SVCRT_CFG_FLAG_x).
+FLAG_RAW_ALLOW = 0x1       # accept a bare image burned directly in the pool
 
 # ------------------------------------------------------------------ helpers
 
@@ -395,9 +402,19 @@ def validate(cfg, board):
     if restart > FAULT_RESTART_MAX:
         return 15, "fault_restart_max %d > %d" % (restart, FAULT_RESTART_MAX)
 
-    if as_int(cfg.get("flags"), "flags") != 0:
-        return 16, "flags is valid but this kernel build ignores it"
-    for name in ("boot_delay_ms", "watchdog_ms", "heap_size", "thread_stack_default"):
+    boot_delay = as_int(knob.get("boot_delay_ms"), "knobs.boot_delay_ms")
+    if boot_delay > BOOT_DELAY_MAX:
+        return 15, "boot_delay_ms %d > %d" % (boot_delay, BOOT_DELAY_MAX)
+
+    flags = as_int(cfg.get("flags"), "flags")
+    if flags & ~FLAG_RAW_ALLOW:
+        return 17, ("flags 0x%X carries bits this kernel does not define "
+                    "(only RAW_ALLOW=0x1)" % flags)
+    # The three fields below are still placeholders in the record: the kernel
+    # rejects a non-zero value instead of silently ignoring it. Sending one
+    # from here would produce a configuration the operator believes in and the
+    # device does not honour, so the tool must refuse it first.
+    for name in ("watchdog_ms", "heap_size", "thread_stack_default"):
         if as_int(knob.get(name), "knobs.%s" % name) != 0:
             return 16, "%s is valid but this kernel build ignores it" % name
     return 0, ""
@@ -443,8 +460,15 @@ def cmd_template(args):
     tpl = {
         "mode": args.mode,
         "reclaim_mode": "global",
+        # flags: 0 = strict installation only. 0x1 (RAW_ALLOW) additionally
+        # accepts a bare image burned directly at a slot base; it only means
+        # something on a build whose board header sets APP_ALLOW_RAW_IMAGE=1.
         "flags": 0,
-        "knobs": {"log_level": 0, "fault_restart_max": 0},
+        "knobs": {
+            "log_level": 0,        # 0 = keep the compile-time level
+            "fault_restart_max": 0,
+            "boot_delay_ms": 0,    # ms to hold before autostart (0 = straight to work)
+        },
         "slots": [],
     }
     if args.mode == "fixed":

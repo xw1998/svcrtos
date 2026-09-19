@@ -94,6 +94,16 @@ int32  svcrt_task_stack_info_internal(int32 task_id, uint32 *out3);
 
 
 int32  svcrt_sched_next(void);
+
+/**
+ * @brief 作废调度器的优先级缓存（任务表发生变化时调用）
+ * @details 缓存的内容是「所有非 INVALID 任务的最小 / 次小基准优先级」，
+ *          供 svcrt_sched_next() 的 O(1) 快速路径判断当前任务能否被抢占。
+ *          任务注册后必须作废：新任务可能带着更高的优先级出现，
+ *          用旧缓存会让快速路径误判成「无人能抢占」。作废只是关掉快速路径
+ *          （退回全表扫描），不会算错。每个节拍的扫描末尾会自动重建缓存。
+ */
+void   svcrt_sched_pri_cache_drop(void);
 svcrt_task_t *svcrt_task_get_current(void);
 uint32 svcrt_kernel_get_time(void);
 uint32 svcrt_kernel_get_tick(void);

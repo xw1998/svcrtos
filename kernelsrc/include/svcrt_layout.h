@@ -65,6 +65,8 @@ void   svcrt_layout_apply_runtime(void);
 uint32 svcrt_layout_reclaim_mode(void);     /**< SVCRT_CFG_RECLAIM_x in effect */
 uint32 svcrt_layout_cfg_log_level(void);    /**< log level the record asked for (0 = compile-time) */
 uint32 svcrt_layout_cfg_restart_max(void);  /**< crash restart budget in effect */
+uint32 svcrt_layout_boot_delay_ms(void);    /**< ms to hold before autostart (0 = none) */
+uint32 svcrt_layout_raw_allow(void);        /**< non-zero = accept a bare image burned in the pool */
 
 /** @brief Effective fixed-slot table (SVCRT_CFG_SLOT_MAX entries, type 0 = unused). */
 const svcrt_cfg_slot_t *svcrt_layout_slots(void);

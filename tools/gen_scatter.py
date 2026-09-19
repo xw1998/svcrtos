@@ -167,8 +167,10 @@ class Layout(object):
     def dev_ram_base(self, unit):
         """开发调试裸镜像的 RAM 窗口基址
 
-        裸镜像走固定地址路径，没有伙伴分配器，因此按「每个单元一个
-        SLOT_RAM_MAX_BLOCK 大小的窗口」静态划分（序号 = 起始单元号）。
+        裸镜像走固定地址路径，没有伙伴分配器，因此按「每个条目一个
+        SVCRT_DEV_RAM_WINDOW 大小的窗口」静态划分，窗口序号取
+        起始单元号 % SVCRT_DEV_SLOT_MAX（与内核 config/svcrt_partition.h 的
+        SVCRT_DEV_SLOT_RAM_BASE 必须同源）。
         仅当 APP_ALLOW_RAW_IMAGE=1 时才有意义。
         """
         return self.v("SLOT_RAM_BASE") + (unit % self.v("SVCRT_DEV_SLOT_MAX")) \

@@ -34,8 +34,13 @@
  *            cfg_slot_count 五个字段；Flash 布局变为
  *            BOOT -> KERNEL -> CONFIG -> IMAGE_POOL，池基址随之后移
  *            （旧镜像与旧工具必须同步升级），硬件兼容签名低 16 位升到 5。
+ *  v6 -> v7: 设备端配置区里原本只能写 0 的两个旋钮开始生效——
+ *            boot_delay_ms（自启前的调试器挂接窗口）与 flags 的
+ *            RAW_ALLOW 位（是否接受池内直接烧录的裸镜像）。分区表末尾
+ *            追加 cfg_boot_delay_ms / cfg_raw_allow 两个生效值，
+ *            让上位机能一眼看出设备到底按哪套配置在跑。
  */
-#define SVCRT_PARTITION_VERSION   (6u)
+#define SVCRT_PARTITION_VERSION   (7u)
 
 /** @brief 槽位数组的固定长度（ABI 形状常量）。
  *  实际使用的槽位数由运行期字段 slot_max 决定，必须 <= 本值；
@@ -120,6 +125,11 @@ typedef struct {
 
     /* ---- 开发期裸镜像表（仅 APP_ALLOW_RAW_IMAGE=1 时由内核回填，供上位机查看） ---- */
     uint32 dev_slot_count;                      /* 回填的裸镜像条目数 */
+
+    /* ---- 设备端配置区里两个新旋钮的生效值（v7 新增，追加在末尾以免
+     *      移动已有字段的偏移） ---- */
+    uint32 cfg_boot_delay_ms;                   /* 自启前等待的毫秒数（0 = 不等待） */
+    uint32 cfg_raw_allow;                       /* 非 0 = 接受池内直接烧录的裸镜像 */
 } svcrt_partition_table_t;
 
 #endif /* __SVCRT_SHARE_H__ */
