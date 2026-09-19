@@ -129,6 +129,20 @@ void svcrt_task_release_resources(int32 task_id);
 void svcrt_task_delay_internal(uint32 us);
 void svcrt_task_kill_internal(void);
 int32  svcrt_task_status_get_internal(int32 task_id);
+
+/* ============================================================
+ * User thread service (SVC 0x1B) - kernel side
+ *
+ * Every entry point below is reachable from user mode through the SVC
+ * boundary. The create wrapper validates the entry point and the stack
+ * window against the caller's own firmware / RAM regions before a TCB is
+ * allocated, so a thread can never be handed a stack that overlaps the
+ * kernel or a neighbour App.
+ * ============================================================ */
+int32  svcrt_thread_create_internal(void (*entry)(void), uint32 *stack_bottom,
+                                    uint32 stack_size, uint8 priority, uint32 period_ms);
+int32  svcrt_thread_self_internal(void);
+void   svcrt_thread_exit_internal(void);
 int32  svcrt_task_recover(int32 task_id);
 
 void svcrt_sched_activate_higher(uint8 ck_pri);

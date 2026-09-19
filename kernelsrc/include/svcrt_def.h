@@ -25,7 +25,12 @@
 #define SVCRT_SVC_TIMER_CTRL        (0x17)
 #define SVCRT_SVC_LOG               (0x19)
 #define SVCRT_SVC_SHELL             (0x1A)
-#define SVCRT_SVC_APP_MGR           (0x18)   /* App 镜像管理与分区查询 */
+#define SVCRT_SVC_APP_MGR           (0x18)
+/* User thread service: create / self / exit. Backs the POSIX
+ * pthread facade in the App SDK; a thread needs a TCB and a scheduler slot,
+ * which only the kernel owns, so this is the one place user code can ask for
+ * a new execution context. */
+#define SVCRT_SVC_THREAD_CTRL       (0x1B)   /* App 镜像管理与分区查询 */
 
 /* 同步原语（信号量/互斥锁）返回码：0=成功，负值=失败。
  * 超时必须返回负值——调用方据此判断“本次没有拿到资源”；

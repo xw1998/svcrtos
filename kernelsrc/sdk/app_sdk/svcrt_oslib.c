@@ -384,3 +384,35 @@ int32 svcrt_shell_print(const char *msg)
     p[0] = 3; p[1] = (uint32)msg; p[2] = 0;
     return svcrt_call_shell_svc(p);
 }
+
+/* ============================================================
+ * User thread service (SVC 0x1B)
+ *
+ * The kernel owns the TCB and the scheduler, so a user mode thread has to be
+ * asked for across the SVC boundary. The entry point and the stack window are
+ * validated kernel side against the caller's own regions.
+ * ============================================================ */
+SVCRT_SVC_DECL_1(int32, 0x1B, svcrt_call_thread_ctrl, uint32 *);
+
+int32 svcrt_thread_create(void (*entry)(void), void *stack, uint32 stack_size,
+                          uint32 priority, uint32 period_ms)
+{
+    uint32 p[6];
+    p[0] = 1; p[1] = (uint32)entry; p[2] = (uint32)stack;
+    p[3] = stack_size; p[4] = priority; p[5] = period_ms;
+    return svcrt_call_thread_ctrl(p);
+}
+
+int32 svcrt_thread_self(void)
+{
+    uint32 p[6];
+    p[0] = 2; p[1] = 0; p[2] = 0; p[3] = 0; p[4] = 0; p[5] = 0;
+    return svcrt_call_thread_ctrl(p);
+}
+
+void svcrt_thread_exit(void)
+{
+    uint32 p[6];
+    p[0] = 3; p[1] = 0; p[2] = 0; p[3] = 0; p[4] = 0; p[5] = 0;
+    (void)svcrt_call_thread_ctrl(p);
+}

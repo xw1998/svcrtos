@@ -20,6 +20,10 @@
 */
 
 #include "svcrt.h"
+/* The compatibility layer is a plain App side library: it needs SVC 0x1B
+ * (thread control) plus the services the App SDK already publishes, so this
+ * single include is the whole "ported from Linux/Windows" story. */
+#include "svcrt_win_compat.h"
 
 /* ---- console helpers ------------------------------------------------- */
 
@@ -174,6 +178,32 @@ static svcrt_ushell_cmd_t g_app_cmd =
     1
 };
 
+
+/* ---- POSIX / Windows self test helpers -------------------------------- */
+
+static volatile int32 g_pth_hits = 0;
+
+/* pthread start routine: plain POSIX signature. */
+static void *pth_worker(void *arg)
+{
+    int32 i;
+
+    for(i = 0; i < 3; i++)
+    {
+        g_pth_hits++;
+        svcrt_task_wait(10u);
+    }
+    return arg;
+}
+
+/* Win32 start routine: DWORD(*)(LPVOID). Same argument/return registers on
+ * ARM, so the trampoline inside the layer calls it directly. */
+static svcrt_DWORD win_worker(svcrt_LPVOID arg)
+{
+    (void)arg;
+    g_pth_hits++;
+    return (svcrt_DWORD)0x1234u;
+}
 
 void AppMain(void)
 {
@@ -363,7 +393,116 @@ void AppMain(void)
     report("shell.re_register", (r == 0), r);
 
     /* ---------------------------------------------------------------
-     * 9) cleanup of the objects this App created
+     * 9) POSIX / Windows compatibility layer
+     *    Ordinary POSIX C below: no address, no slot, no kernel header.
+     *    Every call ends up in an SVC the App SDK already publishes.
+     * --------------------------------------------------------------- */
+    {
+        uint32 heap_before = svcrt_posix_heap_free_bytes();
+        void  *p = svcrt_posix_malloc(64u);
+        void  *q = svcrt_posix_calloc(4u, 16u);
+
+        report("posix.malloc", (p != 0), (int32)svcrt_posix_heap_free_bytes());
+        report("posix.calloc_zero", ((q != 0) && (((uint8 *)q)[0] == 0u)),
+               (int32)svcrt_posix_heap_free_bytes());
+
+        svcrt_posix_free(p);
+        p = svcrt_posix_realloc(q, 256u);
+        report("posix.realloc", (p != 0), (int32)svcrt_posix_heap_free_bytes());
+        svcrt_posix_free(p);
+        report("posix.heap_reclaim",
+               (svcrt_posix_heap_free_bytes() >= (heap_before - 8u)),
+               (int32)svcrt_posix_heap_free_bytes());
+    }
+
+    {
+        pthread_t th = 0u;
+        void     *ret = 0;
+        int32     hits0 = g_pth_hits;
+        int32     cr = pthread_create(&th, 0, pth_worker, (void *)0x5A5Au);
+
+        report("posix.pthread_create", (cr == 0), cr);
+        if(cr == 0)
+        {
+            int32 jr = pthread_join(th, &ret);
+
+            report("posix.pthread_join", (jr == 0), jr);
+            report("posix.pthread_ran", ((g_pth_hits - hits0) == 3),
+                   (int32)(g_pth_hits - hits0));
+            report("posix.pthread_retval", (ret == (void *)0x5A5Au),
+                   (int32)(ret != 0));
+        }
+    }
+
+    {
+        svcrt_pthread_mutex_t pm = PTHREAD_MUTEX_INITIALIZER;
+        svcrt_sem_t ps;
+        int32 r1;
+        int32 r2;
+
+        r1 = pthread_mutex_lock(&pm);
+        r2 = pthread_mutex_unlock(&pm);
+        report("posix.mutex", ((r1 == 0) && (r2 == 0)), (r1 | r2));
+
+        r1 = sem_init(&ps, 0, 1u);
+        r2 = sem_trywait(&ps);
+        report("posix.sem_trywait", ((r1 == 0) && (r2 == 0)), (r1 | r2));
+
+        r1 = sem_trywait(&ps);              /* empty: must report, not block */
+        report("posix.sem_empty", (r1 < 0), r1);
+
+        r1 = sem_post(&ps);
+        r2 = sem_wait(&ps);
+        report("posix.sem_wait", ((r1 == 0) && (r2 == 0)), (r1 | r2));
+        (void)sem_destroy(&ps);
+    }
+
+    {
+        uint32 ta = (uint32)svcrt_get_time_ms();
+        int32  rr = usleep(20000u);
+        uint32 tb = (uint32)svcrt_get_time_ms();
+
+        report("posix.usleep", ((rr == 0) && ((tb - ta) >= 15u)),
+               (int32)(tb - ta));
+    }
+
+    {
+        svcrt_HANDLE wh;
+        svcrt_DWORD  wr;
+        int32        hits0 = g_pth_hits;
+
+        wh = CreateThread(0, 1024u, win_worker, 0, 0u, 0);
+        report("win.createthread", (wh != 0), (int32)(wh != 0));
+        if(wh != 0)
+        {
+            wr = WaitForSingleObject(wh, INFINITE);
+            report("win.wait_infinite", (wr == WAIT_OBJECT_0), (int32)wr);
+            report("win.thread_ran", (g_pth_hits > hits0), g_pth_hits);
+        }
+
+        wr = WaitForSingleObject(wh, 0u);   /* 0 ms: must report, not hang */
+        report("win.wait_timeout", (wr == WAIT_TIMEOUT), (int32)wr);
+    }
+
+    {
+        char  dst[8];
+        int32 sr;
+
+        ZeroMemory(dst, sizeof(dst));
+        sr = strcpy_s(dst, sizeof(dst), "hello");
+        report("win.strcpy_s", ((sr == 0) && (dst[0] == 'h') && (dst[5] == 0)),
+               sr);
+
+        sr = strcpy_s(dst, sizeof(dst), "toolongforbuffer");
+        report("win.strcpy_s_bounds", (sr < 0), sr);
+
+        sr = sprintf_s(dst, sizeof(dst), "%d", 42);
+        report("win.sprintf_s", ((sr > 0) && (dst[0] == '4') && (dst[2] == 0)),
+               sr);
+    }
+
+    /* ---------------------------------------------------------------
+     * 10) cleanup of the objects this App created
      * --------------------------------------------------------------- */
     r  = svcrt_sem_delete(sem);
     r |= svcrt_mutex_delete(mtx);
@@ -380,7 +519,7 @@ void AppMain(void)
     app_puts("\r\n");
 
     /* ---------------------------------------------------------------
-     * 10) heartbeat: visible activity + periodic status line
+     * 11) heartbeat: visible activity + periodic status line
      * --------------------------------------------------------------- */
     app_puts("APP_TEST heartbeat: LED3 toggles 4x/s, line every 5s\r\n");
 

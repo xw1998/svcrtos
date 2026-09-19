@@ -423,6 +423,37 @@ uint32 svcrt_app_status(uint32 slot);
 *       镜像头的 load_addr 必须等于某个驱动槽位基址，写入前只擦除该槽区间。
 */
 int32  svcrt_driver_load(int32 dev, uint32 image_len);
+
+/** @defgroup thread 用户态线程服务（SVC 0x1B）
+ *  @{
+ */
+
+/**
+* @brief 在当前 App/驱动的 RAM 里创建一个线程
+* @param entry      线程入口，必须位于调用者自己的固件窗口内
+* @param stack      栈底地址，整段栈必须位于调用者自己的 RAM 窗口内
+* @param stack_size 栈字节数（最小 128）
+* @param priority   内核优先级（1~254，数值越小越高；255 是调度器哨兵，会被拒绝）
+* @param period_ms  0 = 事件驱动（默认）；非 0 = 周期任务
+* @return 任务号（>0），失败返回负值
+* @note 内核只接受"调用者自己的"入口与栈：不能借别人的 RAM 建栈，
+*       也不能把入口指到内核或别的 App 里去。
+*/
+int32  svcrt_thread_create(void (*entry)(void), void *stack, uint32 stack_size,
+                           uint32 priority, uint32 period_ms);
+
+/**
+* @brief 取当前线程的内核任务号
+* @return 任务号（>0）；在内核自带任务上返回 0
+*/
+int32  svcrt_thread_self(void);
+
+/**
+* @brief 结束当前线程，不再返回
+*/
+void   svcrt_thread_exit(void);
+/** @} */
+
 /** @} */
 
 #endif

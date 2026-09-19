@@ -153,6 +153,38 @@ static uint8 svcrt_kernel_cb_own_region_ok(const void *p)
 /* 设备读写缓冲区：长度必须为正，且整块落在用户可见 RAM 内。
  * 不校验时调用者能让内核向任意地址写入（dev_read）、
  * 或把任意地址的内容读出来送给外设（dev_write）。 */
+/* Stack window handed to a user thread. The whole [base, base+size) range has
+ * to sit inside the caller's own RAM window - the one the loader recorded for
+ * this task - otherwise a thread could be given a stack that overlaps the
+ * kernel stack or a neighbour App and quietly corrupt it.
+ * svcrt_kernel_ushell_active is honoured for the same reason it is honoured
+ * everywhere else: an App shell callback runs on the kernel shell stack. */
+static uint8 svcrt_kernel_cb_own_ram_ok(const void *p, uint32 len)
+{
+    svcrt_task_t *p_tsk = svcrt_task_get_current();
+    uint32 start = (uint32)p;
+    uint32 end   = start + len;
+
+    if((p == 0) || (len == 0u) || (end < start))
+    {
+        return 0u;
+    }
+    if(p_tsk == 0)
+    {
+        return 0u;
+    }
+    if(svcrt_kernel_ushell_active != 0u)
+    {
+        return 1u;
+    }
+    if(p_tsk->ram_size == 0u)
+    {
+        /* No user window was ever recorded for this task: nothing to donate. */
+        return 0u;
+    }
+    return svcrt_kernel_in_window(start, end, p_tsk->ram_start, p_tsk->ram_size);
+}
+
 static uint8 svcrt_kernel_dev_buf_ok(const void *p, int32 len)
 {
     if(len <= 0)
@@ -227,6 +259,40 @@ static uint8 svcrt_kernel_dev_drv_ok(const svcrt_dev_drv_t *drv)
     return 1u;
 }
 
+
+int32 svcrt_thread_create_internal(void (*entry)(void), uint32 *stack_bottom,
+                                   uint32 stack_size, uint8 priority, uint32 period_ms)
+{
+    /* The entry point must be the caller's own code, never the kernel's and
+     * never another App's image. */
+    if(svcrt_kernel_cb_own_region_ok((const void *)entry) == 0u)
+    {
+        return -1;
+    }
+    /* The stack must be RAM the caller owns. */
+    if(svcrt_kernel_cb_own_ram_ok((const void *)stack_bottom, stack_size) == 0u)
+    {
+        return -1;
+    }
+    /* 255 is the scheduler's "no candidate" sentinel, so a task carrying it
+     * would never be picked. Refuse instead of silently clamping. */
+    if(priority >= 255u)
+    {
+        return -1;
+    }
+    return svcrt_task_register(entry, stack_bottom, stack_size, priority, period_ms);
+}
+
+int32 svcrt_thread_self_internal(void)
+{
+    return (svcrt_current_task_id > 0) ? svcrt_current_task_id : 0;
+}
+
+void svcrt_thread_exit_internal(void)
+{
+    /* Self kill: the scheduler drops the task and switches away for good. */
+    svcrt_task_kill_internal();
+}
 
 volatile uint32 svcrt_interrupt_nest = 0;
 uint32 svcrt_kernel_tick = 0;
@@ -647,6 +713,38 @@ void SVC_Server(void *p_svc_ctx)
         default:
             SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
             break;
+        }
+        break;
+
+    case SVCRT_SVC_THREAD_CTRL:
+        p = (uint32 *)SVCRT_SVC_ARG(p_svc_ctx, 0);
+        /* Sub-command plus its arguments must sit in user visible RAM. The
+         * entry point and the stack window get a second, stricter check down
+         * in svcrt_thread_create_internal(): they have to belong to the
+         * caller, not merely to somebody's user window. */
+        if(svcrt_kernel_svc_args_ok(p, 24u) == 0u)
+        {
+            SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+            break;
+        }
+        switch(p[0])
+        {
+            case 1:
+                /* p[1]=entry p[2]=stack_bottom p[3]=stack_size
+                 * p[4]=priority p[5]=period_ms (0 = event driven) */
+                SVCRT_SVC_RET(p_svc_ctx, (uint32)svcrt_thread_create_internal(
+                                  (void (*)(void))p[1], (uint32 *)p[2],
+                                  p[3], (uint8)p[4], p[5]));
+                break;
+            case 2:
+                SVCRT_SVC_RET(p_svc_ctx, (uint32)svcrt_thread_self_internal());
+                break;
+            case 3:
+                svcrt_thread_exit_internal();
+                break;
+            default:
+                SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                break;
         }
         break;
 

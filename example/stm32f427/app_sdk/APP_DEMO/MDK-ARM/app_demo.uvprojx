@@ -198,7 +198,7 @@
               <MiscControls>-std=c99</MiscControls>
               <Define></Define>
               <Undefine></Undefine>
-              <IncludePath>..\Src;..\..\..\..\..\kernelsrc\sdk\app_sdk;..\..\..\..\..\kernelsrc\include</IncludePath>
+              <IncludePath>..\Src;..\..\..\..\..\kernelsrc\sdk\app_sdk;..\..\..\..\..\kernelsrc\include;..\..\..\..\..\kernelsrc\sdk\posix</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -266,6 +266,16 @@
               <FileName>svcrt_app_start.s</FileName>
               <FileType>2</FileType>
               <FilePath>..\..\..\..\..\kernelsrc\sdk\app_sdk\svcrt_app_start.s</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>POSIX</GroupName>
+          <Files>
+            <File>
+              <FileName>svcrt_posix.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\sdk\posix\svcrt_posix.c</FilePath>
             </File>
           </Files>
         </Group>
