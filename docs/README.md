@@ -9,6 +9,9 @@
 | 把为 Linux/Windows 写的 C 程序搬到 SVCrtOS 上跑 | [POSIX与Windows兼容层说明.md](POSIX与Windows兼容层说明.md)（能力表 + 不支持项及原因） |
 | 查调度策略、这一轮调度器改了什么、还剩什么 | [调度器说明.md](调度器说明.md)（O(1) 快速路径的等价性论证 + 未做项） |
 | 用串口控制台看状态、启停 App、改配置 | [内核Shell控制台使用说明.md](内核Shell控制台使用说明.md) |
+| 不想敲命令行，要图形界面 | `python tools/svcrt_host_gui.py`（连接 / 控制台 / 安装 / 布局配置四个页签） |
+| 让 AI 代理直接驱动这块板子 | [`../skills/svcrtos/SKILL.md`](../skills/svcrtos/SKILL.md) 与《SVCrtOS应用安装与调试指南.md》§11 |
+| 想在线把配置记录写进设备（不拆板、不用烧录器） | [配置区与安装策略.md](配置区与安装策略.md) §6.3（`tools/svcrt_cfg.py`）与 §6.5（真机验收结论） |
 | 搞懂分区/加载器/镜像格式为什么这么设计 | [Loader工程化落地说明.md](Loader工程化落地说明.md)（设计说明与变更记录） |
 | 查自旋锁、调度器锁、栈用量分析的用法 | [SVCrtOS变更说明_自旋锁与栈分析.md](SVCrtOS变更说明_自旋锁与栈分析.md) |
 | 查 API 签名与参数 | [api/SVCrtOS_API参考.md](api/SVCrtOS_API参考.md) |

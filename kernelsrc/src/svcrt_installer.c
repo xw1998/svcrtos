@@ -152,6 +152,20 @@ static int32 svcrt_installer_commit(int32 dev)
                    (unsigned)svcrt_installer_hdr.type,
                    (unsigned)svcrt_installer_hdr.image_size,
                    (unsigned)svcrt_installer_hdr.reloc_count);
+
+        /* Close the frame for the sender. The loader only NAKs once it has
+         * reached the relocation-table stage; failures decided earlier
+         * (compat id, size, reserve, flash) returned with no flow byte at
+         * all, so the host sat out its whole ACK timeout without knowing it
+         * had already lost. NAKing here covers every failure path - and when
+         * the loader did send one, the duplicate is harmless: the host stops
+         * at the first flow byte it sees. */
+        {
+            uint8 nak = 0x15u;          /* SVCRT_LOADER_NAK_BYTE */
+
+            (void)svcrt_dev_write_internal(dev, &nak, 1u);
+        }
+
         svcrt_fault_record(SVCRT_FAULT_INSTALLFAIL, svcrt_current_task_id);
     }
     else

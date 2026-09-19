@@ -589,6 +589,7 @@ static int cmd_fault(int argc, char *argv[])
 static int cmd_install(int argc, char *argv[])
 {
     int32 slot;
+    int32 dev;
 
     if(argc >= 2)
     {
@@ -623,8 +624,26 @@ static int cmd_install(int argc, char *argv[])
     sh_out("\r\ninstall: waiting for one .svcapp image on " SHELL_DEV_NAME "\r\n");
     sh_out("install: send the file now; console input is ignored while waiting\r\n");
 
-    slot = svcrt_installer_run_once(svcrt_shell_uart_open(),
-                                    (uint32)SHELL_INSTALL_TIMEOUT_MS);
+    dev = svcrt_shell_uart_open();
+
+    slot = svcrt_installer_run_once(dev, (uint32)SHELL_INSTALL_TIMEOUT_MS);
+
+    /* Drop whatever arrived after the frame was already decided. A host that
+     * sends header + relocation table as one burst still has bytes on the
+     * wire when the header alone is rejected (compat id, size...); anything
+     * the installer did not consume would be replayed to the shell as a
+     * command line - seen in practice as "Command not found: )8PX`hpdrv".
+     * The window is over here, so nothing legitimate is in flight. */
+    {
+        uint8 sink[32];
+        uint32 spins = 0u;
+
+        while((spins < 64u) &&
+              (svcrt_dev_read_internal(dev, sink, (int32)sizeof(sink)) > 0))
+        {
+            spins++;
+        }
+    }
 
     if(slot >= 0)
     {

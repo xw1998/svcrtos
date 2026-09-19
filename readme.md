@@ -18,7 +18,7 @@ SVCrtOS 是一个面向 ARM Cortex-M 系列微控制器的安全实时操作系�
 - **CPU 负载统计**：实时统计 CPU 空闲率
 - **FPU 支持**：Cortex-M4F/M7 浮点寄存器（S16-S31）按需自动保存/恢复
 - **统一镜像池 + 两种安装策略**：App 与驱动共用一个池，安装时按 1 KB 粒度贴合放置；整机可选「固定槽位」（落点与 RAM 窗口按配置走，适合交付客户二次开发）或「自动选址」（在池内找最大连续空位，卸载按力度回收）
-- **设备端持久配置区**：安装策略、槽位表与运行期参数写在独立的配置扇区，由上位机在线写入；改完 `cfg load` 即生效，不必重新编译
+- **设备端持久配置区**：安装策略、槽位表与运行期参数写在独立的配置扇区，由上位机在线写入（`tools/svcrt_cfg.py` 或图形界面），不必重新编译；策略类字段重启后生效——写入的命令是 `cfg load`，它负责**接收**记录，不是「重新读一遍」
 - **线程服务**：App / 驱动可以在自己的固件与 RAM 窗口内创建线程（SVC 0x1B），入口与栈都要落在调用者自己的窗口内，否则拒绝
 - **POSIX / Windows 兼容层**：`pthread` / `semaphore` / `mqueue` / `unistd` 与 `CreateThread` / `Sleep` / `strcpy_s` 等常用名直接可用，移植既有 C 程序改 include 列表即可
 - **双 SDK 架构**：独立的应用 SDK 和驱动 SDK，支持编译为独立分区固件
@@ -511,8 +511,10 @@ SVCrtOS 可移植到任何 ARM Cortex-M MCU，只需在 `board/` 目录下创建
 
 > **安装与布局现状**：App 与驱动共用一个 768 KB 镜像池（F427），池内按 1 KB 粒度贴合放置。
 > 安装策略（固定槽位 / 自动选址）与槽位表由**设备端配置区**决定，编译期只给回退默认。
-> 工具链：`tools/svcrt_layout.py` 生成配置记录、`tools/gen_scatter.py --target image --unit N`
-> 生成各固件的分散加载文件、`tools/pack_app.py` 打包 `.svcapp`。
+> 工具链：`tools/svcrt_layout.py` 生成配置记录、`tools/svcrt_cfg.py` 经串口在线写入配置区、
+> `tools/gen_scatter.py --target image --unit N` 生成各固件的分散加载文件、`tools/pack_app.py`
+> 打包 `.svcapp`。人操作走图形界面 `tools/svcrt_host_gui.py`（连接 / 控制台 / 安装 / 布局配置），
+> AI 代理走 `skills/svcrtos/SKILL.md`（见 docs 的《应用安装与调试指南》§11）。
 > 交给客户用 MDK 直接烧录调试的路径走**开发槽位表**（裸镜像，不参与回收）。
 > 完整语义见 [配置区与安装策略](docs/配置区与安装策略.md) 与
 > [应用安装与调试指南](docs/SVCrtOS应用安装与调试指南.md)。
@@ -590,14 +592,14 @@ Keil 界面，即可完成「编译 -> 烧录 -> 进入调试 -> 运行控制 ->
 | 裸镜像（开发槽位）路径 | 直接烧到池内的镜像被认领，RAM 窗口 `0x20014000` 绑定正确，开机自启跑完十段自测；`app stop` 退回 `RAW`、`app start` 可再起 |
 | 消息队列 | 变长语义与返回值修正后，`mq.send` / `mq.recv` / `mq.recv_timeout` 在真机全部通过 |
 | POSIX / Windows 兼容层 | APP_DEMO 第九节自测（堆、pthread 创建/join/返回值、mutex、sem 空判、`usleep`、`CreateThread`/`Wait`、`strcpy_s` 越界）全部 `OK` |
-| 设备端配置区 | `cfg show` / `cfg load` / `cfg clear` 三态与 CRC / 硬件签名 / 槽位校验在真机核对 |
+| 设备端配置区 | `tools/svcrt_cfg.py` 的 `write` / `show` / `clear` 三态全部真机跑通：4×128 分块下发、读回 `source: device config region`、坏 CRC 记录被设备拒绝并给出真实原因、`clear` 回退默认。`mode = fixed` 重启后 `pool` 按配置列出固定槽，共享分区表 `layout_mode` 直读与 `cfg show` 一致 |
 | F401 移植 | 双板同源编译通过（F401 `Code=46526`） |
 
 仍未上板验证或未闭环的项：
 
 - **MPU 隔离**（`SVCRT_USE_MPU` 默认关，`svcrt_mpu.c` 有 @warning）：分区与栈的地址已按槽派生，但保护尚未启用验证
 - **故障恢复的「连续重启 3 次禁用」**策略未做专项真机验证
-- **内核日志 / shell / App 三者在同一 console 上并发打印时字符级交错**（缺行级互斥，App 侧 `app_puts` 是逐字节写）
+- **固定槽位模式下一次真实 `install <slot>` 的落点复验**（槽表已生效并被 `pool` 列出，但「装进去正好落在配置地址」这一环还没跑）
 - **调度器 `touch_tick` 的 32 位溢出边界**（约 24.8 天）未实测
 
 已知未闭环项与每一轮的改动记录见 [死代码与未接线审计](docs/死代码与未接线审计.md)。

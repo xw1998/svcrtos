@@ -408,10 +408,13 @@ for (int32 i = 0; i < cnt; i++) {
 | 内核编译前报找不到 `gen_scatter.py` | Keil 的 Before Build 里 `python` 不在 PATH | 把 Python 加入 PATH，或预先手工生成 `.sct` |
 | 串口安装没反应 | 没先敲 `install`；串口被调试会话占用；文本模式发送 | 敲 `install`、释放串口、改二进制发送 |
 | 安装后立即回到 INVALID | 传输丢字节导致 CRC 不过 | 降低波特率或加流控，重新发送 |
-| `cfg show` 显示 `record : none` | 配置区没有有效记录（正常回退） | 需要时用 `tools/svcrt_layout.py` 写入 |
-| `cfg load` 报 `ERR_HW` | 配置记录的芯片签名与本机不符 | 用本机 `svcrt_partition.h` 重新生成记录 |
+| `cfg show` 显示 `record : none` | 配置区没有有效记录（正常回退） | 要固化布局就用 `tools/svcrt_cfg.py write` 或 `tools/svcrt_host_gui.py` 在线写入 |
+| `cfg load` 报 `bad magic`，但记录在主机侧校验没错 | 流被顶偏：命令行用了 CRLF，残留的 LF 占了记录的第 1 字节 | 用 `tools/svcrt_cfg.py`（CR 结尾），不要自己手写发送脚本；详见《配置区与安装策略.md》§6.3 |
+| `cfg load` 报 `bad crc` / `bad hw` / 其它原因 | 记录真的有问题（内容被改过、芯片签名不符） | 原因行由设备给出，照它改记录；坏记录不会影响已有配置 |
+| `cfg show` 报 `fixed`，但 `pool` 不列固定槽、装进去落点不对 | 共享分区表的布局字段被覆盖（历史缺陷 `7459e1d` 已修） | 先重启再复查；若复现，读共享分区表 `0x20000000+52` 的 `layout_mode` 与 `cfg show` 对比 |
+| 写配置后立刻安装，落点与预期不符 | 布局策略要**重启**才完全生效（池扫描与启动在启动早期已做完） | 按设备提示重启再安装 |
 | 改了 `CHIP_FLASH_SIZE` 后地址全变 | 这是设计行为（地址只定义一次） | 重新编译内核与各映像，无需改其他文件 |
-| 串口输出出现半行/错字 | 多个写者并发打印，console 暂无行级互斥 | 见 §10 待办第 1 条 |
+| 串口输出出现半行/错字 | 已修：console 有行级锁与整串一次 SVC（提交 `01b9728`） | 若仍出现，先看 `log` 命令的 `lock_giveup` / `tx_drop` 计数，别直接归因于并发 |
 
 ---
 
@@ -422,9 +425,13 @@ for (int32 i = 0; i < cnt; i++) {
 | 工具 | 用途 |
 |---|---|
 | `tools/gen_scatter.py` | 由配置头生成 `.sct`；`--dump` 看布局、`--check` 校验重叠越界 |
-| `tools/svcrt_layout.py` | 设备端配置记录：模板 / 校验 / 落盘 / 每槽 `.sct` |
+| `tools/svcrt_layout.py` | 设备端配置记录：模板 / 校验（`check`）/ 落盘 / 每槽 `.sct` |
+| `tools/svcrt_cfg.py` | 经串口在线读写下发配置记录：`show` / `write` / `clear` |
+| `tools/svcrt_host_gui.py` | 图形界面：连接 / 控制台 / 安装 / 布局配置（所有上位机功能的统一入口） |
 | `tools/pack_app.py` | 打包 `.svcapp`；`--info` 看镜像头、`--verify` 校验 |
+| `tools/send_image.py` | 串口安装镜像（等价于 GUI 的「安装」页签） |
 | `tools/gen_api_doc.py` | 生成 API 文档（见 `docs/README.md`） |
+| `skills/svcrtos/SKILL.md` | 给 AI 代理的调用入口（见 §11） |
 
 ```bash
 python tools/gen_scatter.py --dump
@@ -434,9 +441,9 @@ python tools/gen_scatter.py --target all --output build
 
 ### 尚未支持（按优先级）
 
-1. **console 行级互斥**——内核日志、shell、App 三者在同一 console 上并发打印时
-   会发生字符级交错（App 侧 `app_puts` 是逐字节 `dev_write`，内核 log 输出也没有
-   整行原子保证）。高频打印时会吃掉半行，属可读性问题，不影响功能。
+1. ~~console 行级互斥~~——**已完成**（提交 `01b9728`）：console 加行级锁，`app_puts`
+   改为整串一次 SVC，并新增 `lock_giveup` / `tx_drop` 计数（`log` 命令可见）。
+   真机长跑（数百 KB 输出）`tx_drop = 0`。
 2. **镜像签名校验**——`signature[64]` 是占位字段，还没有信任链。
 3. **崩溃计数持久化**——挡住"崩溃导致整机复位"的启动环（建议 RTC 备份寄存器）。
 4. **槽位元数据持久化**——版本号、升级/回滚目前无法跨掉电保留。
@@ -446,3 +453,73 @@ python tools/gen_scatter.py --target all --output build
    跨槽安装的镜像侧流程尚未打通。
 7. **SVC 边界零信任**——用户传入的指针已做"不得指向内核 RAM/Flash"的拒绝，
    但句柄仍是裸索引。
+
+---
+
+## 11. 交给 AI 代理调试
+
+这块板子上跑的是一套**可被 AI 直接驱动的工程**：源码、配置源头、上位机工具与调试
+通道都是确定性的，不需要人先做一遍再教给 AI。
+
+### 11.1 项目内的 skill
+
+`skills/svcrtos/SKILL.md` 是给 AI 代理用的调用说明，包含四件事：
+
+| 内容 | 作用 |
+|---|---|
+| 工程事实 | 地址只在 `config/svcrt_partition.h` 定义、`.sct` 是构建产物、编码与行尾约定 |
+| 命令行闭环 | 编译 / 烧录 / 安装 / 起停 / 查状态的准确命令与退出码含义 |
+| 串口闭环 | shell 命令表、安装协议、配置写入的三个握手约定 |
+| 调试通道 | 经 `mdk_agent_mcp`（[gitee](https://gitee.com/xw19981010/mdk_agent_mcp.git)）用 MCP 工具读写内存、变量、寄存器，替代手工下断点 |
+
+配套的图形界面 `tools/svcrt_host_gui.py` 适用于人工操作，AI 则用
+`tools/` 下的命令行脚本（同一套协议，输出可解析）。
+
+### 11.2 为什么 AI 能直接上手
+
+- **一个地址源头**：改了 `CHIP_FLASH_SIZE`，分区、池、`.sct`、每个槽位全部自动重算，
+  AI 不需要在多个文件之间同步数字；
+- **工具不猜原因**：设备拒绝配置记录时会在串口打印真实原因行，上位机原样转发
+  （见 §6.3 / §9），AI 拿到的是设备的话，不是工具的推测；
+- **状态可直读**：布局的权威副本在共享分区表，`layout_mode` 在 `0x20000000 + 52`
+  （F427，u32 小端），可用调试器直接取，不必依赖任何命令的输出格式；
+- **失败方式的约定**：编译 0 Error / 1 Warning（继承的 `svcrt_context.S A1581W`）、
+  `UV4 -r` 返回 1 只表示有 warning 但**会让 `&&` 串联的 `-f` 不执行**。
+
+### 11.3 交接清单
+
+改完任何与布局相关的东西，按这个顺序验完再交：
+
+1. 两块板内核各编译一次（`-r`，F427 + F401）；
+2. F427 烧录（`-f`，独立调用，不要和 `-r` 串在一条 `&&` 里）；
+3. `app list` 确认只有一个实例在跑（两个 APP_DEMO 同时自启会让输出逐字节交错，
+   并让后注册者报 `shell.register ... FAIL (-2)`）；
+4. 配置区改动走 `svcrt_cfg.py write` → `cfg show` 读回 → **重启** → 再 `cfg show`
+   （策略类字段重启前不生效）；
+5. 安装走 `send_image.py` 或 GUI，看设备侧 `INSTALL` 日志而非主机侧的"发送完成"。
+
+### 11.4 真机验证记录（F427，2026-09-19）
+
+用 `tools/svcrt_host_gui.py` 自身的代码路径（界面隐藏、`messagebox` 打桩）在板上逐项跑，
+结论按「仅编译通过 / 上板验证过 / 未验证」分档：
+
+| 验证项 | 结论 | 证据 |
+|---|---|---|
+| 固定槽模式配置写入并重启读回 | 上板验证过 | `cfg show` 读到 `layout : fixed`，`pool` 列出 3 个固定槽（`0x08040000` / `0x08080000` / `0x080A0000`，各 128K） |
+| 按固定槽位安装的落点 | 上板验证过 | `install 2` → 设备回 `install: fixed slot 2 -> 0x080A0000`；`app` 显示新实例 `base 0x080A0000`、`ram 0x20014000`、`size 131072` |
+| 不兼容镜像被拒时当场返回 | 上板验证过 | 设备回 `[E][INSTALL:150] rejected: err -3` 后 **0.7 s** 主机即结束（修复前要等满 5 s 的 ACK 超时） |
+| 安装失败后设备回到干净的命令提示 | 未达成（已知副作用） | 见下 |
+| 卸载与配置擦除后的还原流程 | 未验证 | 还原脚本把**配置槽序号**传给了 `app uninstall`，被 `slot_type` 校验挡下（见下） |
+
+三点使用上的约定：
+
+- **固定槽模式下同时存在两套编号，命令收的是分区表槽号。**
+  配置里的槽序号（`svcrt_layout.py` / GUI 布局页看到的 0、1、2）只是「第几个固定槽」；
+  真正落盘后，内核对每个镜像发一个**分区表槽号**，`install: ok, slot N`、`app` / `drv` 列表的
+  `id` 列、以及 `app uninstall <n>` / `app start <n>` 的参数，全部用的是后者。
+  上例中镜像装在配置槽 2，分区表槽号却是 1：`pool` 的 `fixed slots` 段显示配置槽 2 为
+  `RUNNING`，而 `app` 列表显示 `id 1`。**要确认落点看 `base`，不要拿两套序号互相对照。**
+- **帧在「头部」阶段就被拒时，控制台可能残留一行 `Command not found: ...`。**
+  设备为了能校验重定位表，要求头和表**背靠背**发送；而兼容性判定只看了 256 B 头就
+  NAK 早退，此时那张表已在途中，落进 shell 就被当成命令。这是半双工窗口的固有结果，
+  不是安装失败的新原因，也不影响后续操作。
