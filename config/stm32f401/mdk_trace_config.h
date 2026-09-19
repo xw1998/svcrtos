@@ -9,10 +9,21 @@
 *          无缝录制要的正是「一条都不丢、一直录下去」，两者需求相反。
 *          见 mdkdebug 的 trace_guide(topic="swd_seamless")。
 *
+*          时间粒度在**运行期由主机决定**，改粒度不用重新烧录：主机往控制块写
+*          TS_SHIFT / DT_UNIT / FLAGS.TS_OFF 三个字，再请求重开一段录制。可以
+*          从「1 个 CPU 周期」一路粗到「一个 500us 内核 tick」，或者干脆不记时间戳
+*          只留事件顺序；调粗之后绝大多数 dt 量化成 0，编码器自动改用 1 字节的
+*          HITN token，所以录得下的事件数能翻好几倍。
+*          见 mdkdebug 的 trace_guide(topic="time_granularity")。
+*
 *          其余旋钮走组件默认值（在 mdk_trace_config_default.h 里）：
 *            MDK_TRACE_SWD_BYTES        8192   环字节数 = 静态 RAM 开销
-*            MDK_TRACE_SWD_TS_SHIFT     0      时间戳 = DWT 周期，11.9ns/拍
+*            MDK_TRACE_SWD_TS_SHIFT     0      出厂默认粒度 = DWT 周期，11.9ns/拍
 *            MDK_TRACE_SWD_CLEAR_ON_INIT 1     上电清环（无缝流的唯一安全默认）
+*
+*          注意 MDK_TRACE_CPU_HZ 是**全组件共用**的主频，swd 后端会继承它
+*          （控制块里的 cpu_hz 就是它）；写成 0 的话主机给不出微秒、也没法按
+*          时间换算粒度——那不是一个「无害的缺省」。
 */
 
 #ifndef MDK_TRACE_CONFIG_H

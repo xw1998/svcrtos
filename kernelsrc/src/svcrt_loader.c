@@ -29,6 +29,7 @@
 #include "svcrt_loader.h"
 #include "svcrt_ptable.h"
 #include "svcrt_share.h"
+#include "svcrt_layout_def.h"   /* strategy constants (reclaim mode) */
 #include "svcrt_app_image.h"
 #include "svcrt_hal.h"
 #include "svcrt_config.h"
@@ -1871,10 +1872,14 @@ int32 svcrt_loader_reclaim(void)
     uint32 erased = 0u;
     uint32 sect;
 
-#if (SVCRT_RECLAIM_MODE == SVCRT_RECLAIM_GLOBAL)
-    /* 先全局压实：把活镜像尽量往下挤，剩下的死字节再按扇区收尾 */
-    (void)svcrt_loader_compact_pool();
-#endif
+    /* 回收力度是运行期决定的（宿主机在配置区里选），不再是编译期的 #if：
+     * 先全局压实：把活镜像尽量往下挤，剩下的死字节再按扇区收尾。
+     * 下面的逐扇区处理对两种力度都要跑：它们是两种策略，
+     * 不是「全局模式下才该做的事」。 */
+    if(pt->reclaim_mode == (uint32)SVCRT_CFG_RECLAIM_GLOBAL)
+    {
+        (void)svcrt_loader_compact_pool();
+    }
 
     /* 逐个物理扇区处理：擦除粒度就是扇区，一个扇区里只要还有活镜像就擦不了，
      * 所以先把该扇区的活镜像向下搬（填补更低的空洞），再整体擦掉。 */

@@ -57,6 +57,19 @@
 #define KERNEL_SIZE          (128 * 1024)    /* 内核固件区；可按编译结果调整(inspect the resulting layout with tools/gen_scatter.py --target all) */
 #endif
 #define IMAGE_POOL_SECTOR    (128 * 1024)    /* 芯片物理擦除单位（F427 的 sector 5~11） */
+/* 设备端布局配置区（安装策略的持久配置，SVCrtOS 的唯一「非编译期」布局来源）
+ * ------------------------------------------------------------------
+ * 位置：内核之后、镜像池之前，占一个物理擦除单位，可单独擦写。
+ * 内容：安装模式（固定槽位 / 自动选址）+ 固定槽位表 + 每槽 RAM 窗口，
+ *       由上位机工具（tools/svcrt_cfg.py）经串口在线写入，格式见
+ *       kernelsrc/include/svcrt_layout_def.h。
+ * 掉电：扇区内按 SVCRT_CFG_RECORD_SIZE 字节记录顺序追加，写满后整体擦除
+ *       一次再写；上电取「CRC 有效且序号最大」的那份。写入瞬间掉电不会
+ *       丢配置（旧份仍然有效）；擦除瞬间掉电则回退编译期默认布局。
+ * 0 = 不划分配置区（纯编译期布局，小容量档可选）。 */
+#ifndef CONFIG_SIZE
+#define CONFIG_SIZE          (IMAGE_POOL_SECTOR)
+#endif
 #define SVCRT_POOL_ALLOC_UNIT (1024)         /* 池分配粒度 / 落点对齐单位（字节） */
 #ifndef POOL_RESERVE_SECTORS
 #define POOL_RESERVE_SECTORS (1)             /* 压实余量：保留不分配的整扇区数（>=1） */
@@ -117,8 +130,9 @@
 /* ---- Flash 布局 ---- */
 #define BOOT_BASE            (CHIP_FLASH_BASE)
 #define KERNEL_BASE          (BOOT_BASE   + BOOT_SIZE)
-#define IMAGE_POOL_BASE      (KERNEL_BASE + KERNEL_SIZE)
-#define IMAGE_POOL_SIZE      (CHIP_FLASH_SIZE - BOOT_SIZE - KERNEL_SIZE)
+#define CONFIG_BASE          (KERNEL_BASE + KERNEL_SIZE)
+#define IMAGE_POOL_BASE      (CONFIG_BASE + CONFIG_SIZE)
+#define IMAGE_POOL_SIZE      (CHIP_FLASH_SIZE - BOOT_SIZE - KERNEL_SIZE - CONFIG_SIZE)
 #define IMAGE_POOL_END       (CHIP_FLASH_BASE + CHIP_FLASH_SIZE)
 #define IMAGE_POOL_UNITS     (IMAGE_POOL_SIZE / IMAGE_POOL_SECTOR)
 
@@ -157,7 +171,7 @@
  * 高 16 位：芯片型号标识；低 16 位：内核接口版本。
  * App 打包时应写入相同值，内核加载时校验，不匹配则拒绝加载。
  * v4：镜像自带重定位表 + 细粒度池分配 + 卸载压实（镜像格式与内核必须成对升级）。 */
-#define SVCRT_HW_COMPAT_ID   (0x42700004u)   /* 0x4270 = STM32F427; low 16 bits = image compat generation (4 = dynamic load + relocation). NOT the partition table ABI version - that one is SVCRT_PARTITION_VERSION in svcrt_share.h and may differ. */
+#define SVCRT_HW_COMPAT_ID   (0x42700005u)   /* 0x4270 = STM32F427; low 16 bits = image compat generation (4 = dynamic load + relocation). NOT the partition table ABI version - that one is SVCRT_PARTITION_VERSION in svcrt_share.h and may differ. */
 
 /* ============================================================
  * 七、镜像在池内的布局（安装路径 vs 开发调试路径）
@@ -203,6 +217,125 @@
 /* 开发裸镜像的 RAM 窗口：裸镜像走固定地址路径，没有伙伴分配器，
  * 因此按「每个开发槽位一个窗口」静态划分（窗口序号 = 槽位号）。
  * 与动态装载路径互不相干：只有 APP_ALLOW_RAW_IMAGE=1 时才生效。 */
+
+/* ============================================================
+ * 十一、安装策略与编译期默认布局（配置区无效时的回退默认）
+ * @details 布局的第一来源是设备端配置区（CONFIG_BASE 起一个扇区，
+ *          见 tools/svcrt_cfg.py 写入的记录格式）；配置区没有有效记录时，
+ *          回退到这里的编译期默认值：
+ *
+ *            SVCRT_LAYOUT_MODE_AUTO   自动选址：池内细粒度首适配分配，
+ *                                     镜像可搬移、卸载按 SVCRT_RECLAIM_MODE
+ *                                     压实与回收（v5 起的既有行为）。
+ *            SVCRT_LAYOUT_MODE_FIXED  固定槽位：按下方默认槽表/配置区槽表
+ *                                     钉死 Flash 落点与 RAM 窗口，卸载只擦
+ *                                     本槽，不搬移、空间不退回池。
+ *
+ *          默认槽表 8 条，条目字段含义（与 svcrt_layout_def.h 的
+ *          svcrt_cfg_slot_t 一一对应）：
+ *            BASE  槽的 Flash 基址（绝对地址，落在池内、按分配单元对齐）
+ *            SIZE  槽大小（字节，至少装得下镜像头 + 一个最小负载）
+ *            TYPE  1=App / 2=驱动 / 0=该条目不使用
+ *            RAM   槽的 RAM 窗口大小（字节，2 的幂；0 = 该槽不固定 RAM）
+ *            BOOT  1 = 复位后自动启动该槽
+ *          @note FIXED 模式下 RAM 窗口由槽表决定，不走伙伴分配器。
+ * ============================================================ */
+#ifndef SVCRT_LAYOUT_MODE_AUTO
+#define SVCRT_LAYOUT_MODE_AUTO   (0)
+#define SVCRT_LAYOUT_MODE_FIXED  (1)
+#endif
+
+#ifndef SVCRT_LAYOUT_DEFAULT_MODE
+#define SVCRT_LAYOUT_DEFAULT_MODE (SVCRT_LAYOUT_MODE_AUTO)
+#endif
+
+/* 槽表条目上限（配置区与默认槽表共用；<= SVCRT_SLOT_ARRAY_MAX） */
+#ifndef SVCRT_CFG_SLOT_MAX
+#define SVCRT_CFG_SLOT_MAX        (8)
+#endif
+
+/* 默认槽表：全部 0 = 不使用（默认模式是自动选址，用不到固定槽）。
+ * 需要「纯固定槽位」作为回退默认时，在此填写 BASE/SIZE/TYPE/RAM/BOOT，
+ * 并与 tools/svcrt_layout.py 导出的布局保持一致。 */
+#define SVCRT_CFG_SLOT0_BASE      (0)
+
+#define SVCRT_CFG_SLOT0_SIZE      (0)
+
+#define SVCRT_CFG_SLOT0_TYPE      (0)
+
+#define SVCRT_CFG_SLOT0_RAM_SIZE  (0)
+
+#define SVCRT_CFG_SLOT0_AUTOSTART (0)
+
+#define SVCRT_CFG_SLOT1_BASE      (0)
+
+#define SVCRT_CFG_SLOT1_SIZE      (0)
+
+#define SVCRT_CFG_SLOT1_TYPE      (0)
+
+#define SVCRT_CFG_SLOT1_RAM_SIZE  (0)
+
+#define SVCRT_CFG_SLOT1_AUTOSTART (0)
+
+#define SVCRT_CFG_SLOT2_BASE      (0)
+
+#define SVCRT_CFG_SLOT2_SIZE      (0)
+
+#define SVCRT_CFG_SLOT2_TYPE      (0)
+
+#define SVCRT_CFG_SLOT2_RAM_SIZE  (0)
+
+#define SVCRT_CFG_SLOT2_AUTOSTART (0)
+
+#define SVCRT_CFG_SLOT3_BASE      (0)
+
+#define SVCRT_CFG_SLOT3_SIZE      (0)
+
+#define SVCRT_CFG_SLOT3_TYPE      (0)
+
+#define SVCRT_CFG_SLOT3_RAM_SIZE  (0)
+
+#define SVCRT_CFG_SLOT3_AUTOSTART (0)
+
+#define SVCRT_CFG_SLOT4_BASE      (0)
+
+#define SVCRT_CFG_SLOT4_SIZE      (0)
+
+#define SVCRT_CFG_SLOT4_TYPE      (0)
+
+#define SVCRT_CFG_SLOT4_RAM_SIZE  (0)
+
+#define SVCRT_CFG_SLOT4_AUTOSTART (0)
+
+#define SVCRT_CFG_SLOT5_BASE      (0)
+
+#define SVCRT_CFG_SLOT5_SIZE      (0)
+
+#define SVCRT_CFG_SLOT5_TYPE      (0)
+
+#define SVCRT_CFG_SLOT5_RAM_SIZE  (0)
+
+#define SVCRT_CFG_SLOT5_AUTOSTART (0)
+
+#define SVCRT_CFG_SLOT6_BASE      (0)
+
+#define SVCRT_CFG_SLOT6_SIZE      (0)
+
+#define SVCRT_CFG_SLOT6_TYPE      (0)
+
+#define SVCRT_CFG_SLOT6_RAM_SIZE  (0)
+
+#define SVCRT_CFG_SLOT6_AUTOSTART (0)
+
+#define SVCRT_CFG_SLOT7_BASE      (0)
+
+#define SVCRT_CFG_SLOT7_SIZE      (0)
+
+#define SVCRT_CFG_SLOT7_TYPE      (0)
+
+#define SVCRT_CFG_SLOT7_RAM_SIZE  (0)
+
+#define SVCRT_CFG_SLOT7_AUTOSTART (0)
 
 /* ============================================================
  * 八、开发调试策略
@@ -402,6 +535,21 @@ typedef char svcrt_pool_unit_check[
 #define SHELL_INSTALL_TIMEOUT_MS 120000          /* install 窗口最长等待（ms），超时回命令提示符 */
 
 /* ---- 一致性自检（编译期，配置错误在编译阶段就暴露） ---- */
+/* ---- 配置区：要么不划分，要么是整数个物理扇区 ---- */
+typedef char svcrt_config_region_check[
+    (((CONFIG_SIZE % IMAGE_POOL_SECTOR) == 0) &&
+     ((CONFIG_SIZE == 0) || (CONFIG_BASE >= (KERNEL_BASE + KERNEL_SIZE))) &&
+     ((CONFIG_SIZE == 0) || (CONFIG_BASE == (KERNEL_BASE + KERNEL_SIZE)))) ? 1 : -1];
+
+/* ---- 固定模式的默认槽表必须落在池内、大小合法 ---- */
+typedef char svcrt_cfg_slot_check[
+    ((SVCRT_CFG_SLOT0_TYPE == 0) || ((SVCRT_CFG_SLOT0_BASE >= IMAGE_POOL_BASE) &&
+                                     ((SVCRT_CFG_SLOT0_BASE + SVCRT_CFG_SLOT0_SIZE) <= IMAGE_POOL_END) &&
+                                     (SVCRT_CFG_SLOT0_SIZE >= (APP_IMAGE_HEADER_SIZE + 256)))) &&
+    ((SVCRT_CFG_SLOT1_TYPE == 0) || ((SVCRT_CFG_SLOT1_BASE >= IMAGE_POOL_BASE) &&
+                                     ((SVCRT_CFG_SLOT1_BASE + SVCRT_CFG_SLOT1_SIZE) <= IMAGE_POOL_END) &&
+                                     (SVCRT_CFG_SLOT1_SIZE >= (APP_IMAGE_HEADER_SIZE + 256)))) ? 1 : -1];
+
 #if (KERNEL_RAM_SIZE <= 0)
 #error "RAM 配置过小：SHARE + SLOT_RAM_TOTAL 已超过 CHIP_RAM_SIZE"
 #endif

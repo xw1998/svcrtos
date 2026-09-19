@@ -19,6 +19,8 @@
 #include "svcrt_share.h"
 #include "svcrt_app_image.h"
 #include "svcrt_partition.h"    /* 内核专属：全工程唯一地址源头 */
+#include "svcrt_layout_def.h"   /* 策略模式/来源常量（记录格式与工具共享） */
+#include "svcrt_log_defs.h"      /* compile-time default log level */
 #include "svcrt_spin.h"
 
 /* Guards the (type, base, size, state, entry, task_id, ram) tuple of every slot.
@@ -220,6 +222,14 @@ void svcrt_ptable_init(void)
     pt->pool_units     = IMAGE_POOL_UNITS;
     pt->pool_reserve   = POOL_RESERVE_SECTORS;
     pt->slot_max       = SLOT_MAX;
+    pt->layout_mode    = (uint32)SVCRT_LAYOUT_DEFAULT_MODE;
+    pt->layout_source  = SVCRT_LAYOUT_SOURCE_DEFAULT;
+    pt->config_base    = (uint32)CONFIG_BASE;
+    pt->config_size    = (uint32)CONFIG_SIZE;
+    pt->cfg_slot_count = 0u;
+    pt->reclaim_mode   = (uint32)SVCRT_RECLAIM_MODE;
+    pt->cfg_log_level  = (uint32)SVCRT_LOG_LEVEL;
+    pt->cfg_restart_max = (uint32)APP_CRASH_RESTART_MAX;
 
     pt->share_ram_base = SHARE_RAM_BASE;
     pt->share_ram_size = SHARE_RAM_SIZE;

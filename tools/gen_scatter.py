@@ -9,7 +9,7 @@ SVCrtOS 分散加载文件（.sct）生成器
 保证「地址只定义一次，其余全部派生」，且生成结果一定不自相重叠。
 
 布局模型（v4 起）：
-    Flash:  BOOT → KERNEL → IMAGE_POOL（统一镜像池，App 与驱动共用）
+    Flash:  BOOT → KERNEL → CONFIG → IMAGE_POOL（统一镜像池，App 与驱动共用）
     RAM:    SHARE_RAM → KERNEL_RAM → SLOT_RAM（所有镜像按槽等分）
 
 镜像池按「分配单元」分配，一个单元 = 一个物理擦除扇区（IMAGE_POOL_SECTOR）。
@@ -179,6 +179,7 @@ class Layout(object):
         flash = [
             ("BOOT", "BOOT_BASE", "BOOT_SIZE"),
             ("KERNEL", "KERNEL_BASE", "KERNEL_SIZE"),
+            ("CONFIG", "CONFIG_BASE", "CONFIG_SIZE"),
             ("IMAGE_POOL", "IMAGE_POOL_BASE", "IMAGE_POOL_SIZE"),
         ]
         ram = [
@@ -220,6 +221,17 @@ class Layout(object):
         if self.v("KERNEL_SIZE") % sector != 0:
             problems.append("KERNEL_SIZE(%d) 不是单元大小(%d) 的整数倍：池基址会落在扇区中间"
                             % (self.v("KERNEL_SIZE"), sector))
+        # 配置区：一个物理扇区，紧跟内核之后，池基址由它决定
+        if self.v("CONFIG_SIZE") > 0:
+            if self.v("CONFIG_SIZE") % sector != 0:
+                problems.append("CONFIG_SIZE(%d) 不是单元大小(%d) 的整数倍"
+                                % (self.v("CONFIG_SIZE"), sector))
+            if self.v("CONFIG_BASE") != self.v("KERNEL_BASE") + self.v("KERNEL_SIZE"):
+                problems.append("CONFIG_BASE(0x%08X) 不紧跟内核之后：池基址会错位"
+                                % self.v("CONFIG_BASE"))
+            if self.v("CONFIG_BASE") % sector != 0:
+                problems.append("CONFIG_BASE(0x%08X) 未按扇区(%d) 对齐"
+                                % (self.v("CONFIG_BASE"), sector))
         if self.v("IMAGE_POOL_UNITS") > self.v("SLOT_MAX"):
             problems.append("池单元数 %d 超过槽位记录上限 SLOT_MAX=%d"
                             % (self.v("IMAGE_POOL_UNITS"), self.v("SLOT_MAX")))

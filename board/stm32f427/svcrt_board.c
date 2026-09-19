@@ -20,6 +20,7 @@
 #include "drvled.h"
 #include "drvuart.h"
 #include "svcrt_fault.h"
+#include "svcrt_trace.h"
 
 /* ============================================================
  * 板级初始化 - 实现 port 层板级接口
@@ -28,6 +29,14 @@ void svcrt_port_board_init(void)
 {
     SCB->CPACR |= (3UL << 20) | (3UL << 22);
     FPU->FPCCR = FPU_FPCCR_ASPEN_Msk;
+
+    /* Bring the instrumentation component up with the board, not
+     * from a shell command: the boot segment is exactly the part
+     * a reset-class problem cannot be reproduced without.
+     * The ring is static (see config/mdk_trace_config.h), init only
+     * clears cursors and enables the cycle counter - no allocation.
+     */
+    svcrt_trace_init();
 }
 
 /* ============================================================

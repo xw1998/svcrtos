@@ -337,10 +337,10 @@
             <v6WtE>0</v6WtE>
             <v6Rtti>0</v6Rtti>
             <VariousControls>
-              <MiscControls></MiscControls>
+              <MiscControls>-DMDK_TRACE_SWD_EXTERNAL_PLATFORM -DMDK_TRACE_USE_CONFIG_FILE</MiscControls>
               <Define>USE_HAL_DRIVER,STM32F427xx,SVCRT_USE_FPU=1,SVCRT_BOARD_CONFIG=\"svcrt_board_config.h\"</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../../../../../kernelsrc/include;../../../../../board/stm32f427;../../../../../config;../../../../../kernelsrc/shell;../../../../../kernelsrc/shell/ark_shell</IncludePath>
+              <IncludePath>../../../../../kernelsrc/components/mdk_trace;../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../../../../../kernelsrc/include;../../../../../board/stm32f427;../../../../../config;../../../../../kernelsrc/shell;../../../../../kernelsrc/shell/ark_shell</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -659,6 +659,21 @@
               <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_task.c</FilePath>
             </File>
             <File>
+              <FileName>svcrt_trace.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_trace.c</FilePath>
+            </File>
+            <File>
+              <FileName>mdk_trace.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\components\mdk_trace\mdk_trace.c</FilePath>
+            </File>
+            <File>
+              <FileName>mdk_trace_swd.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\components\mdk_trace\mdk_trace_swd.c</FilePath>
+            </File>
+            <File>
               <FileName>svcrt_dev.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_dev.c</FilePath>
@@ -712,6 +727,11 @@
               <FileName>svcrt_ptable.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_ptable.c</FilePath>
+            </File>
+            <File>
+              <FileName>svcrt_layout.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_layout.c</FilePath>
             </File>
             <File>
               <FileName>svcrt_loader.c</FileName>

@@ -29,8 +29,13 @@
  *            声明的 ram_size 现算，因此每条记录新增 ram_base / ram_size，
  *            且槽位数组长度从 8 扩到 16。布局字段与记录字段再次全变，
  *            版本必须升位。
+ *  v5 -> v6: 新增设备端布局配置区（安装模式 + 固定槽位表），分区表追加
+ *            layout_mode / layout_source / config_base / config_size /
+ *            cfg_slot_count 五个字段；Flash 布局变为
+ *            BOOT -> KERNEL -> CONFIG -> IMAGE_POOL，池基址随之后移
+ *            （旧镜像与旧工具必须同步升级），硬件兼容签名低 16 位升到 5。
  */
-#define SVCRT_PARTITION_VERSION   (5u)
+#define SVCRT_PARTITION_VERSION   (6u)
 
 /** @brief 槽位数组的固定长度（ABI 形状常量）。
  *  实际使用的槽位数由运行期字段 slot_max 决定，必须 <= 本值；
@@ -81,6 +86,15 @@ typedef struct {
     uint32 pool_units;          /* 池包含的物理扇区个数 = pool_size / pool_sector */
     uint32 pool_reserve;        /* 尾部保留的扇区数（压实余量） */
     uint32 slot_max;            /* 槽位记录条数（<= SVCRT_SLOT_ARRAY_MAX） */
+    /* ---- 安装策略与设备端布局配置（v6 新增） ---- */
+    uint32 layout_mode;         /* SVCRT_LAYOUT_MODE_x（当前生效：固定槽位 / 自动选址） */
+    uint32 layout_source;       /* SVCRT_LAYOUT_SOURCE_x（编译期默认 / 设备端配置区） */
+    uint32 config_base;         /* 布局配置区起始地址（0 = 未划分） */
+    uint32 config_size;         /* 布局配置区字节数（0 = 未划分） */
+    uint32 cfg_slot_count;      /* 生效的固定槽表条目数（自动选址模式为 0） */
+    uint32 reclaim_mode;        /* SVCRT_CFG_RECLAIM_x：卸载回收力度（AUTO 模式有效） */
+    uint32 cfg_log_level;       /* 运行期日志级别生效值 */
+    uint32 cfg_restart_max;     /* 连续故障重启上限生效值 */
 
     /* ---- RAM 分区 ---- */
     uint32 share_ram_base;

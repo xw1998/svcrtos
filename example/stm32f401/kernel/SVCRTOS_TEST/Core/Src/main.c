@@ -36,6 +36,7 @@
 #include "svcrt_fault.h"
 #include "svcrt_init.h"
 #include "svcrt_partition.h"
+#include "svcrt_layout.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -315,6 +316,13 @@ static void svcrt_kernel_init(void)
 
     /* ---- 分区与外部镜像 ---- */
     svcrt_ptable_init();
+
+    /* Device-side layout config (install mode + fixed slot table) must be
+     * resolved before the pool is scanned: both the scan and the installer
+     * ask svcrt_layout_*() where an image is allowed to live. An empty or
+     * invalid CONFIG region falls back to the compile-time default layout,
+     * so a bad configuration never stops the kernel from booting. */
+    svcrt_layout_init();
 
     /* Power-on recovery: erase what an interrupted install or an aborted
      * compaction left behind, and push any hole towards the top of the
