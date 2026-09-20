@@ -139,6 +139,7 @@ void svcrt_timer_tick_handler(void)
             p_tsk->wait_time = 0;
             p_tsk->wake_reason = 0;
             p_tsk->status = SVCRT_TASK_READY;
+            svcrt_ready_add(svcrt_timer_task_id - 1);
         }
     }
 }

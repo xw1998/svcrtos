@@ -40,6 +40,7 @@
 | `app` | `app [list \| start <slot> \| stop <slot> \| uninstall <slot>]` | App 槽位表：type / 状态 / auto / 任务号 / 崩溃计数 / 基址 / 大小 / RAM 窗口 / 入口；启停或卸载单个槽 |
 | `drv` | `drv [list \| start <slot> \| stop <slot> \| uninstall <slot>]` | 驱动槽位表，语义同 `app` |
 | `task` | `task` | 内核任务表：优先级 / 状态 / 周期 / 等待时间 / 栈峰值 / 入口 |
+| `sched` | `sched` | 调度器自检：就绪集（256 位两级位图 + 每优先级链）与任务表**逐条**比对。一致时回 `sched: consistent (bitmap/links == task table)` 与 `ready=<就绪数> top=<最高优先级任务>`；不一致时逐条打印 `#idx prio= status= on_ready= next= prev=`，便于直接定位哪个任务漏挂链 |
 | `fault` | `fault` | 故障环形记录：类型 + 任务号 + 时刻（含 `INSTALLFAIL`） |
 | `install` | `install` | 打开一次性安装窗口，等待一个 `.svcapp` 镜像（主控先敲命令，再发文件） |
 | `log` | `log [0..4]` | 不带参数读当前运行日志级别，带参数改（0=off…4=debug） |

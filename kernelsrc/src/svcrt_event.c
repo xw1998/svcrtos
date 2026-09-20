@@ -220,6 +220,7 @@ void svcrt_event_set_internal(int32 event_handle)
             p_w->wait_time   = 0;
             p_w->wake_reason = SVCRT_WAKE_NORMAL;
             p_w->status      = SVCRT_TASK_READY;
+            svcrt_ready_add(SVCRT_TASK_IDX(p_w));
             svcrt_events[idx].waiting_tasks[j] = 0;
         }
     }

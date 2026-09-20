@@ -104,6 +104,7 @@ static void svcrt_mq_wake_one(svcrt_task_t **waiters)
             waiters[j]->wait_time = 0;
             waiters[j]->wake_reason = 0;
             waiters[j]->status = SVCRT_TASK_READY;
+            svcrt_ready_add(SVCRT_TASK_IDX(waiters[j]));
             waiters[j] = 0;
             return;
         }
@@ -150,6 +151,7 @@ static void svcrt_mq_wake_all(svcrt_task_t **waiters, int32 reason)
             waiters[j]->wait_time   = 0;
             waiters[j]->wake_reason = reason;
             waiters[j]->status      = SVCRT_TASK_READY;
+            svcrt_ready_add(SVCRT_TASK_IDX(waiters[j]));
             waiters[j]              = 0;
         }
     }

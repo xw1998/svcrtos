@@ -10,7 +10,7 @@
 *
 *          命令集：
 *            help                  内置：列出所有命令
-*            info / app / drv / task / fault / install [slot] / cfg
+*            info / app / drv / task / sched / fault / install [slot] / cfg
 *            app / drv 支持 uninstall <slot>：卸载镜像并回收池内空间
 *            version / clear / echo / reboot  为 ark-shell 内置命令
 *
@@ -545,6 +545,59 @@ static int cmd_task(int argc, char *argv[])
                      (int)svcrt_task_count, (uint32)SVCRT_TASK_MAX_NUM);
     return 0;
 }
+
+/* ============================================================
+ * sched：调度器就绪队列自检
+ *
+ * 内核的就绪集现在是「256 位两级位图 + 每优先级双向循环链表」，
+ * 选任务 O(1)。复杂度换来的风险是结构性的：一旦链表/位图与任务表
+ * 真实状态不一致，调度器会静默选错任务——不报错、不崩溃。
+ * 所以这里保留一条全表扫描的慢路径专门用来对账：
+ *   sched         打印就绪队列概况 + 对账结果
+ * 一致返回 0，不一致返回不一致条目数（可直接用于脚本判据）。
+ * ============================================================ */
+static int cmd_sched(int argc, char *argv[])
+{
+    int32  bad;
+    int32  top;
+    uint32 n;
+
+    (void)argc;
+    (void)argv;
+
+    n   = svcrt_sched_ready_count();
+    top = svcrt_ready_top();
+    bad = svcrt_sched_check();
+
+    ark_shell_printf("\r\nready=%u top=%d\r\n", n, (int)top);
+    if(bad != 0)
+    {
+        /* 光报一个数字没法定位：逐条打印「哪个任务、差在哪」。
+         * 只看两种偏差——状态与就绪链不符（会漏调度或选到不该选的任务）。 */
+        int32 i;
+
+        for(i = 0; i < svcrt_task_count; i++)
+        {
+            const svcrt_task_t *p = &svcrt_task_table[i];
+            uint8 on = svcrt_ready_contains(i);
+            uint8 should = ((p->status == SVCRT_TASK_READY) ||
+                            (p->status == SVCRT_TASK_RUNNING)) ? 1u : 0u;
+
+            if(on != should)
+            {
+                ark_shell_printf("  #%d prio=%u status=%d on_ready=%u next=%d prev=%d\r\n",
+                                 (int)i, (uint32)p->priority, (int)p->status,
+                                 (uint32)on, (int)p->ready_next, (int)p->ready_prev);
+            }
+        }
+        ark_shell_printf("sched: INCONSISTENT, %d mismatch(es)\r\n", (int)bad);
+        return (int)bad;
+    }
+
+    sh_out("sched: consistent (bitmap/links == task table)\r\n");
+    return 0;
+}
+
 
 /* ============================================================
  * fault：故障记录
@@ -1286,7 +1339,7 @@ static int cmd_cfg(int argc, char *argv[])
 static int register_kernel_commands(void)
 {
     int idx = g_cmd_count;
-    int need = 10;
+    int need = 11;
 
     if((idx + need) > ARK_SHELL_MAX_COMMANDS)
     {
@@ -1301,6 +1354,8 @@ static int register_kernel_commands(void)
         "Driver slots: drv [list | start <slot> | stop <slot> | uninstall <slot>]", 4);
     g_cmd_table[idx++] = ARK_SHELL_CMD("task", cmd_task,
         "List kernel tasks", 3);
+    g_cmd_table[idx++] = ARK_SHELL_CMD("sched", cmd_sched,
+        "Scheduler readiness self-check (0 = consistent)", 1);
     g_cmd_table[idx++] = ARK_SHELL_CMD("fault", cmd_fault,
         "Show recorded faults", 1);
     g_cmd_table[idx++] = ARK_SHELL_CMD("install", cmd_install,

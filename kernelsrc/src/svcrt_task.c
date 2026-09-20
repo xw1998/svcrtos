@@ -309,18 +309,7 @@ uint16 svcrt_cpu_busy_ticks = 0;   /* busy ticks of the last 1024-tick window */
 
 static uint32 svcrt_idle_stack_ptr = 0;
 
-static void svcrt_tick_tasks(svcrt_task_t *p_task);
 static void svcrt_sched_tick_sweep(void);
-static void svcrt_sched_pri_cache_rebuild(void);
-
-/* 优先级缓存：所有非 INVALID 任务里最小 / 次小的基准优先级，以及取到
- * 最小值的任务个数。快速路径要用「除当前任务以外」的最小基准优先级，
- * 所以两个最小值都要留：当前任务正好是最小值的唯一持有者时，取次小值。
- * 定义必须早于 svcrt_sched_next()，它要用这几个量做 O(1) 判断。 */
-static uint8 svcrt_pri_min1     = 0xFFu;
-static uint8 svcrt_pri_min2     = 0xFFu;
-static uint8 svcrt_pri_min1_cnt = 0u;
-static uint8 svcrt_pri_cache_ok = 0u;
 static void svcrt_task_recover_mark(int32 task_id);
 static void svcrt_task_recover_pending(void);
 
@@ -355,13 +344,27 @@ void svcrt_kernel_tick_handler(void)
     svcrt_timer_tick_handler();
     #endif
 
-    /* 任务倒计时扫描：原先放在 svcrt_sched_next() 里，等于每做一次调度决策
-     * 就遍历一次全表并逐项调用 svcrt_tick_tasks()。倒计时只由节拍推进
-     * （escape_tick 是节拍增量），一个节拍扫一遍就够，因此搬到这里。
-     * 位置与原先等价：原先扫描发生在 svcrt_timer_tick_handler() 之后
-     * （sched_next 由 PendSV 触发），现在紧接其后、切换之前，
-     * 保证本拍超时唤醒的任务在当拍就能被选中。 */
+    /* 延时链到期处理：只处理链头已经到期的节点（通常是 0 个），
+     * 不再全表扫倒计时。位置与原先等价：原先扫描发生在
+     * svcrt_timer_tick_handler() 之后（sched_next 由 PendSV 触发），
+     * 现在紧接其后、切换之前，保证本拍超时唤醒的任务当拍就能被选中。 */
     svcrt_sched_tick_sweep();
+
+    #if (SVCRT_TIME_SLICE_TICKS > 0)
+    /* 时间片：当前任务连续运行满 SVCRT_TIME_SLICE_TICKS 拍后让出同优先级队首。
+     * 抢占不受片长影响：更高优先级任务就绪时位图直接给出它，本拍就切过去。 */
+    if(svcrt_current_task_id > 0)
+    {
+        svcrt_task_t *p_cur = &svcrt_task_table[svcrt_current_task_id - 1];
+
+        p_cur->slice_tick--;
+        if(p_cur->slice_tick <= 0)
+        {
+            p_cur->slice_tick = (int32)SVCRT_TIME_SLICE_TICKS;
+            svcrt_ready_rotate(svcrt_current_task_id - 1);
+        }
+    }
+    #endif
 
     #if (SVCRT_USE_SCHED_LOCK == 1)
     if(svcrt_sched_lock_nest == 0u)         /* 调度器锁定期间不触发任务切换 */
@@ -370,8 +373,8 @@ void svcrt_kernel_tick_handler(void)
         #if (SVCRT_USE_FAST_TICK_SWITCH == 1)
         /* 只有确实要换任务时才拉 PendSV。没人要切换时也走一整趟异常往返纯属
          * 浪费（F427@96MHz 实测 841 cycles/拍，2kHz 节拍下约 1.7% CPU）。
-         * svcrt_sched_is_switching() 与 PendSV 用的是同一份判定（含同优先级
-         * 轮转的 touch_tick 更新与调度锁检查），可重复调用、结果一致。 */
+         * svcrt_sched_is_switching() 与 PendSV 用的是同一份判定
+         * （都走 svcrt_sched_next() 的 O(1) 就绪队列 + 调度锁检查），可重复调用。 */
         if(svcrt_sched_is_switching() >= 0)
         {
             SVCRT_SWITCH_TASK();
@@ -988,6 +991,8 @@ uint32 svcrt_cpu_fault_handler(uint32 fault_type)
             svcrt_task_recover_mark(tid);
         }
         #else
+        svcrt_ready_del(tid - 1);
+        svcrt_delay_disarm(tid - 1);
         svcrt_task_table[tid - 1].status = SVCRT_TASK_INVALID;
         #endif
 
@@ -1033,16 +1038,9 @@ int32 svcrt_sched_is_switching(void)
 
     if(new_idx == svcrt_current_task_id)
     {
-        if(new_idx > 0)
-        {
-            svcrt_task_table[new_idx - 1].touch_tick = svcrt_kernel_tick;
-        }
-        return -1;
+        return -1;                          /* 还是它自己，不必拉 PendSV */
     }
-    else
-    {
-        return new_idx;
-    }
+    return new_idx;
 }
 
 int32 svcrt_sched_activate(int32 new_task, uint32 old_psp)
@@ -1077,6 +1075,8 @@ int32 svcrt_sched_activate(int32 new_task, uint32 old_psp)
              * 仅在 RUNNING 状态下检测，避免对 WAIT 任务误判（详见移植手册已知问题）。 */
             if(old_psp < (uint32)svcrt_task_table[tid].stack_bottom)
             {
+                svcrt_ready_del(tid);           /* 栈溢出：从就绪集中摘除 */
+                svcrt_delay_disarm(tid);
                 svcrt_task_table[tid].status = SVCRT_TASK_INVALID;
             }
             else
@@ -1113,181 +1113,553 @@ int32 svcrt_sched_activate(int32 new_task, uint32 old_psp)
     }
 }
 
-int32 svcrt_sched_next(void)
+/* ============================================================
+ * O(1) 就绪队列与延时链
+ *
+ * 旧实现每做一次调度决策就全表扫一遍（选最高优先级）：
+ *   选择 O(N)、同优先级轮转 O(N)、每拍倒计时 O(N)。
+ * 这里换成两个链表 + 一张两级位图，把「选任务」「轮转」「倒计时」
+ * 全部降到 O(1)。延时链的插入是 O(N)，但插入只发生在任务阻塞时，
+ * 不在调度决策路径上（RT-Thread 的 rt_timer_start 同样是 O(N) 插入）。
+ * ============================================================ */
+
+/* 就绪位图：bit p = 优先级 p 上有就绪任务。
+ * 优先级是 0..254 的 uint8（255 是保留哨兵，注册时已拒绝），
+ * 所以用 8 个 32 位字 + 一个 8 位组位图，两级定位固定两步。 */
+static uint32 svcrt_ready_map[8];
+static uint8  svcrt_ready_group = 0u;
+
+/* 每个优先级的就绪任务双向循环链表头（存任务下标；SVCRT_TASK_NIL=空桶） */
+static uint8 svcrt_ready_head[256];
+
+/* 延时链：按 delay_tick 升序的双向链表，表头单独保存 */
+static uint8 svcrt_delay_head = SVCRT_TASK_NIL;
+
+static uint32 svcrt_ready_total = 0u;       /* 就绪链上的任务数（自检/调试用） */
+static uint8  svcrt_recover_cnt  = 0u;      /* 待恢复任务数：为 0 时整段跳过扫描 */
+
+/*
+ * 取 32 位最低置位位号（0..31），入参必须非 0。
+ * 不用 CMSIS 的 __CLZ/__RBIT：内核源文件不依赖 CMSIS 头，
+ * 这里用固定 5 步二分，步数与输入无关，仍是 O(1)。
+ */
+static uint8 svcrt_lowbit32(uint32 v)
 {
-    uint8 tmp_pri = 255;
-    uint32 tmp_touch = 0xffffffff;
-    uint8 idx;
-    int32 r = -1;
+    uint8 n = 0u;
 
-    /* execute pending task recovery (rebuild stack frame) */
-    svcrt_task_recover_pending();
+    if((v & 0x0000FFFFu) == 0u) { n = (uint8)(n + 16u); v >>= 16; }
+    if((v & 0x000000FFu) == 0u) { n = (uint8)(n + 8u);  v >>= 8;  }
+    if((v & 0x0000000Fu) == 0u) { n = (uint8)(n + 4u);  v >>= 4;  }
+    if((v & 0x00000003u) == 0u) { n = (uint8)(n + 2u);  v >>= 2;  }
+    if((v & 0x00000001u) == 0u) { n = (uint8)(n + 1u); }
+    return n;
+}
 
-    /* O(1) 快速路径：当前任务仍在可选态，且它的有效优先级严格小于
-     * 「其余任务的基准优先级」。优先级继承只会让别的任务数值变小（更紧急），
-     * 不会让它们数值变大，所以「严格小于所有基准」就等价于
-     * 「没有任何任务能抢在它前面」——此时不必扫表。
-     * 基准优先级只在创建/下线时变化，缓存因此长期有效；
-     * 条件不成立时原样退回下面的全表扫描，结果与原来完全一致。
-     * 倒计时扫描不在这里：它已随节拍处理走，见 svcrt_sched_tick_sweep()。 */
-    if((svcrt_pri_cache_ok != 0u) && (svcrt_current_task_id > 0))
+/* ------------------------------------------------------------
+ * 就绪链表：入桶 / 出桶 / 取最优
+ * 约定：调用方必须处在关中断的临界区内（内核里所有调用点都满足）。
+ * ------------------------------------------------------------ */
+
+static void svcrt_ready_link(int32 idx, uint8 prio)
+{
+    uint8 h = svcrt_ready_head[prio];
+    uint8 i = (uint8)idx;
+
+    if(h == SVCRT_TASK_NIL)
     {
-        svcrt_task_t *p_cur = &svcrt_task_table[svcrt_current_task_id - 1];
-        uint8 other_min = svcrt_pri_min1;
+        svcrt_ready_head[prio] = i;
+        svcrt_task_table[idx].ready_next = i;
+        svcrt_task_table[idx].ready_prev = i;
+    }
+    else
+    {
+        uint8 tail = svcrt_task_table[h].ready_prev;    /* 桶尾：新就绪者排在最后 */
 
-        if((p_cur->base_priority == svcrt_pri_min1) && (svcrt_pri_min1_cnt == 1u))
+        svcrt_task_table[tail].ready_next = i;
+        svcrt_task_table[i].ready_prev = tail;
+        svcrt_task_table[i].ready_next = h;
+        svcrt_task_table[h].ready_prev = i;
+    }
+
+    svcrt_ready_map[prio >> 5] |= (1u << (prio & 31u));
+    svcrt_ready_group |= (uint8)(1u << (prio >> 5));
+    svcrt_ready_total++;
+}
+
+static void svcrt_ready_unlink(int32 idx, uint8 prio)
+{
+    uint8 i = (uint8)idx;
+    uint8 n = svcrt_task_table[idx].ready_next;
+    uint8 p = svcrt_task_table[idx].ready_prev;
+
+    if(n == SVCRT_TASK_NIL)
+    {
+        return;                                 /* 本来就不在链上 */
+    }
+
+    if(n == i)
+    {
+        svcrt_ready_head[prio] = SVCRT_TASK_NIL;
+        svcrt_ready_map[prio >> 5] &= ~(1u << (prio & 31u));
+        if(svcrt_ready_map[prio >> 5] == 0u)
         {
-            other_min = svcrt_pri_min2;
+            svcrt_ready_group &= (uint8)~(1u << (prio >> 5));
         }
-        if(((p_cur->status == SVCRT_TASK_READY) ||
-            (p_cur->status == SVCRT_TASK_RUNNING)) &&
-           (p_cur->priority < other_min))
+    }
+    else
+    {
+        svcrt_task_table[n].ready_prev = p;
+        svcrt_task_table[p].ready_next = n;
+        if(svcrt_ready_head[prio] == i)
         {
-            return svcrt_current_task_id - 1;
+            svcrt_ready_head[prio] = n;
         }
     }
 
+    svcrt_task_table[idx].ready_next = SVCRT_TASK_NIL;
+    svcrt_task_table[idx].ready_prev = SVCRT_TASK_NIL;
+    if(svcrt_ready_total > 0u)
+    {
+        svcrt_ready_total--;
+    }
+}
+
+int32 svcrt_ready_top(void)
+{
+    uint32 g = (uint32)svcrt_ready_group;
+    uint32 w;
+    uint32 b;
+
+    if(g == 0u)
+    {
+        return -1;
+    }
+
+    w = (uint32)svcrt_lowbit32(g);                       /* 组号 0..7 */
+    b = (uint32)svcrt_lowbit32(svcrt_ready_map[w]);      /* 组内位号 0..31 */
+    return (int32)svcrt_ready_head[(uint8)((w << 5) | b)];
+}
+
+void svcrt_ready_add(int32 idx)
+{
+    if((idx < 0) || (idx >= svcrt_task_count))
+    {
+        return;
+    }
+    if(svcrt_task_table[idx].ready_next != SVCRT_TASK_NIL)
+    {
+        return;                                 /* 已在就绪链上，幂等 */
+    }
+    svcrt_ready_link(idx, svcrt_task_table[idx].priority);
+    svcrt_delay_disarm(idx);                    /* 已可运行就不再需要到期唤醒 */
+}
+
+void svcrt_ready_del(int32 idx)
+{
+    if((idx < 0) || (idx >= svcrt_task_count))
+    {
+        return;
+    }
+    svcrt_ready_unlink(idx, svcrt_task_table[idx].priority);
+}
+
+void svcrt_ready_reprio(int32 idx, uint8 old_prio)
+{
+    if((idx < 0) || (idx >= svcrt_task_count))
+    {
+        return;
+    }
+    if(svcrt_task_table[idx].ready_next == SVCRT_TASK_NIL)
+    {
+        return;                                 /* 不在就绪集：改 priority 即可 */
+    }
+    svcrt_ready_unlink(idx, old_prio);
+    svcrt_ready_link(idx, svcrt_task_table[idx].priority);
+}
+
+void svcrt_ready_rotate(int32 idx)
+{
+    uint8 prio;
+
+    if((idx < 0) || (idx >= svcrt_task_count))
+    {
+        return;
+    }
+    if(svcrt_task_table[idx].ready_next == SVCRT_TASK_NIL)
+    {
+        return;
+    }
+
+    prio = svcrt_task_table[idx].priority;
+    if((svcrt_ready_head[prio] == (uint8)idx) &&
+       (svcrt_task_table[idx].ready_next == (uint8)idx))
+    {
+        return;                                 /* 桶里只有它自己，无需搬动 */
+    }
+    svcrt_ready_unlink(idx, prio);
+    svcrt_ready_link(idx, prio);                /* 追加到桶尾，下一拍让位 */
+}
+
+uint32 svcrt_sched_ready_count(void)
+{
+    return svcrt_ready_total;
+}
+
+/* 诊断用：该任务当前是否挂在就绪链上（与 sched_check 的判据一致） */
+uint8 svcrt_ready_contains(int32 task_idx)
+{
+    if((task_idx < 0) || (task_idx >= svcrt_task_count))
+    {
+        return 0u;
+    }
+    return (svcrt_task_table[task_idx].ready_next != SVCRT_TASK_NIL) ? 1u : 0u;
+}
+
+/* ------------------------------------------------------------
+ * 延时链：按绝对到期节拍升序
+ * ------------------------------------------------------------ */
+
+static void svcrt_delay_link(int32 idx)
+{
+    svcrt_task_t *p = &svcrt_task_table[idx];
+    uint8 i  = (uint8)idx;
+    uint8 cur = svcrt_delay_head;
+    uint8 prev = SVCRT_TASK_NIL;
+    uint32 t = p->delay_tick;
+
+    while((cur != SVCRT_TASK_NIL) && (svcrt_task_table[cur].delay_tick <= t))
+    {
+        prev = cur;
+        cur = svcrt_task_table[cur].delay_next;
+    }
+
+    if(prev == SVCRT_TASK_NIL)
+    {
+        p->delay_next = svcrt_delay_head;
+        p->delay_prev = SVCRT_TASK_NIL;
+        if(svcrt_delay_head != SVCRT_TASK_NIL)
+        {
+            svcrt_task_table[svcrt_delay_head].delay_prev = i;
+        }
+        svcrt_delay_head = i;
+    }
+    else
+    {
+        p->delay_prev = prev;
+        p->delay_next = cur;
+        svcrt_task_table[prev].delay_next = i;
+        if(cur != SVCRT_TASK_NIL)
+        {
+            svcrt_task_table[cur].delay_prev = i;
+        }
+    }
+
+    p->delay_queued = 1u;
+}
+
+static void svcrt_delay_unlink(int32 idx)
+{
+    svcrt_task_t *p;
+    uint8 n;
+    uint8 v;
+
+    if((idx < 0) || (idx >= svcrt_task_count))
+    {
+        return;
+    }
+
+    p = &svcrt_task_table[idx];
+    if(p->delay_queued == 0u)
+    {
+        return;
+    }
+
+    n = p->delay_next;
+    v = p->delay_prev;
+
+    if(v == SVCRT_TASK_NIL)
+    {
+        svcrt_delay_head = n;                   /* 它是表头 */
+    }
+    else
+    {
+        svcrt_task_table[v].delay_next = n;
+    }
+    if(n != SVCRT_TASK_NIL)
+    {
+        svcrt_task_table[n].delay_prev = v;
+    }
+
+    p->delay_next = SVCRT_TASK_NIL;
+    p->delay_prev = SVCRT_TASK_NIL;
+    p->delay_queued = 0u;
+}
+
+void svcrt_delay_arm(int32 idx, uint32 ticks)
+{
+    if((idx < 0) || (idx >= svcrt_task_count))
+    {
+        return;
+    }
+    svcrt_delay_unlink(idx);                    /* 幂等：先摘掉可能残留的旧节点 */
+    svcrt_task_table[idx].delay_tick = svcrt_kernel_tick + ticks;
+    svcrt_delay_link(idx);
+}
+
+void svcrt_delay_disarm(int32 idx)
+{
+    svcrt_delay_unlink(idx);
+}
+
+/* 每拍调用：只处理链头已经到期的节点，没到期就立刻返回。
+ * 提前被 post/unlock 唤醒的任务其节点可能还挂在链上（唤醒路径不必逐个摘链），
+ * 这类「僵尸节点」到期时发现状态已不是 WAIT 就直接丢弃，结果仍然正确。 */
+void svcrt_delay_tick(void)
+{
+    while(svcrt_delay_head != SVCRT_TASK_NIL)
+    {
+        int32 idx = (int32)svcrt_delay_head;
+        svcrt_task_t *p = &svcrt_task_table[idx];
+
+        if((int32)(svcrt_kernel_tick - p->delay_tick) < 0)
+        {
+            break;                              /* 有符号比较，抗节拍回绕 */
+        }
+
+        svcrt_delay_unlink(idx);
+
+        if(p->status != SVCRT_TASK_WAIT)
+        {
+            continue;                           /* 已被提前唤醒的僵尸节点 */
+        }
+
+        p->wake_reason = 1;                     /* 1 = 超时唤醒 */
+        if(p->wait_time > 0)
+        {
+            p->wait_time = 0;
+        }
+        else
+        {
+            /* 周期等待到期：按原语义补回一个周期 */
+            p->period_time += p->period;
+            if(p->period_time <= 0)
+            {
+                p->period_time = p->period;
+            }
+        }
+        p->status = SVCRT_TASK_READY;
+        svcrt_ready_add(idx);
+    }
+}
+
+void svcrt_ready_reset(void)
+{
+    int32 i;
+    int32 j;
+
+    for(i = 0; i < (int32)SVCRT_TASK_MAX_NUM; i++)
+    {
+        svcrt_task_table[i].ready_next   = SVCRT_TASK_NIL;
+        svcrt_task_table[i].ready_prev   = SVCRT_TASK_NIL;
+        svcrt_task_table[i].delay_next   = SVCRT_TASK_NIL;
+        svcrt_task_table[i].delay_prev   = SVCRT_TASK_NIL;
+        svcrt_task_table[i].delay_queued = 0u;
+        svcrt_task_table[i].delay_tick   = 0u;
+        svcrt_task_table[i].slice_tick   = (int32)SVCRT_TIME_SLICE_TICKS;
+    }
+    for(j = 0; j < 256; j++)
+    {
+        svcrt_ready_head[j] = SVCRT_TASK_NIL;
+    }
+    for(j = 0; j < 8; j++)
+    {
+        svcrt_ready_map[j] = 0u;
+    }
+    svcrt_ready_group = 0u;
+    svcrt_ready_total = 0u;
+    svcrt_recover_cnt = 0u;
+    svcrt_delay_head  = SVCRT_TASK_NIL;
+}
+
+/* 从任务表的 status 重新派生整个就绪集（位图 + 每优先级链表）。
+ *
+ * 为什么需要它：status 是唯一真相，位图/链表只是它的索引。索引一旦与真相
+ * 脱钩，调度器不会报错也不会崩，只会「静默地把某个 READY 任务永远排在门外」。
+ * 手工填 TCB 的旧式注册（只写 status、不挂链）就是这种脱钩。
+ * 首次调度前重建一次，把这类历史写法也纳入调度；O(N) 且只发生一次。
+ * 重建前先清空所有桶与 TCB 链字段，因此不会产生重复节点。 */
+void svcrt_ready_rebuild(void)
+{
+    int32 i;
+    int32 j;
+
+    for(j = 0; j < 256; j++)
+    {
+        svcrt_ready_head[j] = SVCRT_TASK_NIL;
+    }
+    for(j = 0; j < 8; j++)
+    {
+        svcrt_ready_map[j] = 0u;
+    }
+    svcrt_ready_group = 0u;
+    svcrt_ready_total = 0u;
+
+    for(i = 0; i < (int32)SVCRT_TASK_MAX_NUM; i++)
+    {
+        svcrt_task_table[i].ready_next = SVCRT_TASK_NIL;
+        svcrt_task_table[i].ready_prev = SVCRT_TASK_NIL;
+    }
+
+    for(i = 0; i < svcrt_task_count; i++)
+    {
+        if((svcrt_task_table[i].status == SVCRT_TASK_READY) ||
+           (svcrt_task_table[i].status == SVCRT_TASK_RUNNING))
+        {
+            svcrt_ready_link(i, svcrt_task_table[i].priority);
+        }
+    }
+}
+
+/* 一致性自检：把「位图/链表」与「任务表真实状态」对照一遍，
+ * 再和一次全表扫描选出的最优任务比对。返回不一致的条目数，0 = 一致。
+ * 供 shell 的 schedcheck 命令调用；正常运行时不需要它。 */
+int32 svcrt_sched_check(void)
+{
+    int32 bad = 0;
+    uint32 cnt = 0u;
+    int32 idx;
+    int32 scan;
+    uint8 bp;
+    uint32 bt;
+    int32 top;
+
     for(idx = 0; idx < svcrt_task_count; idx++)
     {
-        if((svcrt_task_table[idx].status == SVCRT_TASK_READY) ||
-            (svcrt_task_table[idx].status == SVCRT_TASK_RUNNING))
+        svcrt_task_t *p = &svcrt_task_table[idx];
+        uint8 on = (p->ready_next != SVCRT_TASK_NIL) ? 1u : 0u;
+        uint8 should = ((p->status == SVCRT_TASK_READY) ||
+                        (p->status == SVCRT_TASK_RUNNING)) ? 1u : 0u;
+
+        if(on != should)
         {
-            if(svcrt_task_table[idx].priority < tmp_pri)
+            bad++;
+        }
+        if(on)
+        {
+            cnt++;
+        }
+        if((p->delay_queued != 0u) && (p->delay_prev == SVCRT_TASK_NIL) &&
+           (svcrt_delay_head != (uint8)idx))
+        {
+            bad++;                              /* 声称在延时链上却找不到它 */
+        }
+    }
+
+    for(idx = 0; idx < 8; idx++)
+    {
+        uint32 m = svcrt_ready_map[idx];
+        uint32 k;
+
+        if((m != 0u) && ((svcrt_ready_group & (uint8)(1u << idx)) == 0u))
+        {
+            bad++;                              /* 字位图非空但组位图没标 */
+        }
+        if((m == 0u) && ((svcrt_ready_group & (uint8)(1u << idx)) != 0u))
+        {
+            bad++;                              /* 组位图说有，字位图却是空的 */
+        }
+
+        for(k = 0u; k < 32u; k++)
+        {
+            if((m & (1u << k)) != 0u)
             {
-                tmp_pri = svcrt_task_table[idx].priority;
-                tmp_touch = svcrt_task_table[idx].touch_tick;
-                r = idx;
-            }
-            else if(svcrt_task_table[idx].priority == tmp_pri)
-            {
-                if(svcrt_task_table[idx].touch_tick < tmp_touch)
+                uint8 pr = (uint8)((idx << 5) | (int32)k);
+
+                if(svcrt_ready_head[pr] == SVCRT_TASK_NIL)
                 {
-                    tmp_touch = svcrt_task_table[idx].touch_tick;
-                    r = idx;
+                    bad++;                      /* 位图说有，桶却是空的 */
+                }
+                else if(svcrt_task_table[svcrt_ready_head[pr]].priority != pr)
+                {
+                    bad++;                      /* 桶里的任务优先级对不上 */
                 }
             }
         }
     }
-    return r;
-}
 
-/* ============================================================
- * 调度路径上的两项瘦身
- * ============================================================ */
-
-void svcrt_sched_pri_cache_drop(void)
-{
-    svcrt_pri_cache_ok = 0u;
-}
-
-static void svcrt_sched_pri_cache_rebuild(void)
-{
-    uint8 m1 = 0xFFu;
-    uint8 m2 = 0xFFu;
-    uint8 c1 = 0u;
-    uint8 i;
-
-    for(i = 0u; i < svcrt_task_count; i++)
+    if(cnt != svcrt_ready_total)
     {
-        uint8 p = svcrt_task_table[i].base_priority;
+        bad++;
+    }
 
-        if(svcrt_task_table[i].status == SVCRT_TASK_INVALID)
+    scan = -1;
+    bp = 255u;
+    bt = 0xFFFFFFFFu;
+    for(idx = 0; idx < svcrt_task_count; idx++)
+    {
+        svcrt_task_t *p = &svcrt_task_table[idx];
+
+        if((p->status == SVCRT_TASK_READY) || (p->status == SVCRT_TASK_RUNNING))
         {
-            continue;
-        }
-        if(p < m1)
-        {
-            m2 = m1;
-            m1 = p;
-            c1 = 1u;
-        }
-        else if(p == m1)
-        {
-            c1++;
-        }
-        else if(p < m2)
-        {
-            m2 = p;
-        }
-    }
-
-    svcrt_pri_min1     = m1;
-    svcrt_pri_min2     = m2;
-    svcrt_pri_min1_cnt = c1;
-    svcrt_pri_cache_ok = 1u;
-}
-
-/* 每个节拍扫一遍全表做倒计时，并顺带重建优先级缓存。
- * 非 INVALID 任务才需要倒计时；INVALID 槽位在 svcrt_tick_tasks 里直接返回，
- * 这里不额外过滤，保持与原实现一致的调用序列。 */
-static void svcrt_sched_tick_sweep(void)
-{
-    uint8 idx;
-
-    for(idx = 0u; idx < svcrt_task_count; idx++)
-    {
-        svcrt_tick_tasks(&svcrt_task_table[idx]);
-    }
-    svcrt_sched_pri_cache_rebuild();
-}
-
-static void svcrt_tick_tasks(svcrt_task_t *p_task)
-{
-    uint32 used_tick = svcrt_kernel_tick;
-    int32 escape_tick = (int32)(used_tick - p_task->tim_tick);
-
-    if(p_task->status == SVCRT_TASK_INVALID)
-    {
-        return;
-    }
-
-    p_task->tim_tick = used_tick;
-
-    if(escape_tick <= 0)
-    {
-        return;
-    }
-
-    if(p_task->status == SVCRT_TASK_RUNNING)
-    {
-        return;
-    }
-
-    /* wait_time < 0：无限阻塞（信号量/互斥锁用），只能被 post/unlock 显式唤醒，
-     * tick 不递减、也不走 period_time 周期逻辑。 */
-    if(p_task->wait_time < 0)
-    {
-        return;
-    }
-
-    if(p_task->wait_time > 0)
-    {
-        p_task->wait_time -= escape_tick;
-        if(p_task->wait_time <= 0)
-        {
-            p_task->wait_time = 0;
-            p_task->wake_reason = 1;
-            if(p_task->status == SVCRT_TASK_WAIT)
+            if(p->priority < bp)
             {
-                p_task->status = SVCRT_TASK_READY;
+                bp = p->priority;
+                bt = p->touch_tick;
+                scan = idx;
+            }
+            else if(p->priority == bp)
+            {
+                if(p->touch_tick < bt)
+                {
+                    bt = p->touch_tick;
+                    scan = idx;
+                }
             }
         }
-        return;
     }
 
-    p_task->period_time -= escape_tick;
-    if(p_task->period_time <= 0)
+    top = svcrt_ready_top();
+    if(((scan < 0) && (top >= 0)) || ((scan >= 0) && (top < 0)))
     {
-        p_task->period_time += p_task->period;
-        if(p_task->period_time <= 0)
-        {
-            p_task->period_time = p_task->period;
-        }
-        if(p_task->status == SVCRT_TASK_WAIT)
-        {
-            p_task->status = SVCRT_TASK_READY;
-        }
+        bad++;
     }
+    else if((scan >= 0) && (svcrt_task_table[scan].priority != svcrt_task_table[top].priority))
+    {
+        bad++;                                  /* 选出的优先级不同：真不一致 */
+    }
+
+    return bad;
+}
+
+/* 首次调度前重建就绪集的一次性标记 */
+static uint8 svcrt_ready_built = 0u;
+
+int32 svcrt_sched_next(void)
+{
+    if(svcrt_ready_built == 0u)
+    {
+        /* 到这里为止所有任务都已注册完毕（首次调度必然发生在启动之后），
+         * 把就绪集按 status 重新派生一次，兜住「手工填 TCB 不挂链」这类写法。 */
+        svcrt_ready_rebuild();
+        svcrt_ready_built = 1u;
+    }
+
+    if(svcrt_recover_cnt != 0u)
+    {
+        /* 只有确实存在待恢复任务时才需要扫表收尾 */
+        svcrt_task_recover_pending();
+    }
+
+    /* O(1)：位图取最高优先级，再取该优先级就绪桶的队首 */
+    return svcrt_ready_top();
+}
+
+
+/* 每个节拍只处理延时链上已经到期的任务，不再全表扫倒计时；
+ * 选择本身由 svcrt_ready_top() 常数时间完成，也不再需要优先级缓存。 */
+static void svcrt_sched_tick_sweep(void)
+{
+    svcrt_delay_tick();
 }
 
 svcrt_task_t *svcrt_task_get_current(void)
@@ -1341,6 +1713,8 @@ void svcrt_task_wait_internal(uint32 ms)
     {
         p_tsk = &svcrt_task_table[svcrt_current_task_id - 1];
         p_tsk->wait_time = SVCRT_MS_TO_TICK(ms);
+        svcrt_ready_del(svcrt_current_task_id - 1);
+        svcrt_delay_arm(svcrt_current_task_id - 1, (uint32)p_tsk->wait_time);
         p_tsk->status = SVCRT_TASK_WAIT;
         svcrt_trace_wait((uint8)(svcrt_current_task_id - 1));
         SVCRT_SWITCH_TASK();
@@ -1363,6 +1737,12 @@ void svcrt_task_wait_period_internal(void)
     if(svcrt_current_task_id > 0)
     {
         p_tsk = &svcrt_task_table[svcrt_current_task_id - 1];
+        if(p_tsk->period_time <= 0)
+        {
+            p_tsk->period_time = p_tsk->period;
+        }
+        svcrt_ready_del(svcrt_current_task_id - 1);
+        svcrt_delay_arm(svcrt_current_task_id - 1, (uint32)p_tsk->period_time);
         p_tsk->status = SVCRT_TASK_WAIT;
         svcrt_trace_wait((uint8)(svcrt_current_task_id - 1));
         SVCRT_SWITCH_TASK();
@@ -1386,6 +1766,7 @@ void svcrt_task_block_internal(void)
     {
         p_tsk = &svcrt_task_table[svcrt_current_task_id - 1];
         p_tsk->wait_time = -1;          /* 无限阻塞，仅能被 post/unlock 唤醒 */
+        svcrt_ready_del(svcrt_current_task_id - 1);
         svcrt_trace_wait((uint8)(svcrt_current_task_id - 1));
         p_tsk->status = SVCRT_TASK_WAIT;
         SVCRT_SWITCH_TASK();
@@ -1422,6 +1803,11 @@ int32 svcrt_task_block_in_critical(uint32 timeout_ms)
      * 必须先转成有符号再判断，否则负值会被当成 0xFFFFFFFF 毫秒，
      * MS_TO_TICK 溢出成一个不可控的巨大节拍数。 */
     p_tsk->wait_time   = ((int32)timeout_ms > 0) ? (int32)SVCRT_MS_TO_TICK((uint32)timeout_ms) : -1;
+    svcrt_ready_del(svcrt_current_task_id - 1);
+    if(p_tsk->wait_time > 0)
+    {
+        svcrt_delay_arm(svcrt_current_task_id - 1, (uint32)p_tsk->wait_time);
+    }
     p_tsk->status      = SVCRT_TASK_WAIT;
     svcrt_trace_wait((uint8)(svcrt_current_task_id - 1));
 
@@ -1465,6 +1851,8 @@ void svcrt_task_kill_internal(void)
         svcrt_task_release_resources(svcrt_current_task_id);
 
         SVCRT_DISABLE_IRQ();
+        svcrt_ready_del(svcrt_current_task_id - 1);
+        svcrt_delay_disarm(svcrt_current_task_id - 1);
         svcrt_task_table[svcrt_current_task_id - 1].status = SVCRT_TASK_INVALID;
         SVCRT_ENABLE_IRQ();
     }
@@ -1507,7 +1895,16 @@ static void svcrt_task_recover_mark(int32 task_id)
     /* 自身优先级按基准复位：故障时它可能正被继承提升，
      * 而收尸已把它从所有等待关系里摘除，若不复位，恢复后它会带着
      * 提升来的高优先级一直运行。 */
+    /* 必须先按当前优先级把它从就绪集摘出：
+     * svcrt_ready_del 用的是「当前 priority」定位桶，若先改 priority
+     * 就会去错误的桶里摘，把链表拆坏。 */
+    svcrt_ready_del(task_id - 1);
+    svcrt_delay_disarm(task_id - 1);
     p_task->priority        = p_task->base_priority;
+    if(p_task->recover_pending == 0u)
+    {
+        svcrt_recover_cnt++;            /* 重复 mark 同一任务只计一次 */
+    }
     p_task->recover_pending = 1;
     p_task->status          = SVCRT_TASK_INVALID;
     SVCRT_ENABLE_IRQ();
@@ -1535,17 +1932,27 @@ static void svcrt_task_recover_pending(void)
     int32 idx;
     svcrt_task_t *p_task;
 
+    if(svcrt_recover_cnt == 0u)
+    {
+        return;                     /* 绝大多数调度决策走这里，不扫表 */
+    }
+
     for(idx = 0; idx < svcrt_task_count; idx++)
     {
         p_task = &svcrt_task_table[idx];
         if(p_task->status == SVCRT_TASK_INVALID && p_task->recover_pending == 1)
         {
             p_task->recover_pending = 0;
+            if(svcrt_recover_cnt > 0u)
+            {
+                svcrt_recover_cnt--;
+            }
             svcrt_task_stack_init(p_task, p_task->entry, p_task->stack_bottom, p_task->stack_size);
             p_task->wait_time   = 0;
             p_task->wake_reason = 0;
             p_task->period_time = p_task->period;
             p_task->status      = SVCRT_TASK_READY;
+            svcrt_ready_add(idx);
         }
     }
 }

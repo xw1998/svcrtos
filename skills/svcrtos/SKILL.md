@@ -82,10 +82,14 @@ py -3 tools/pack_app.py --verify build/APP_X.svcapp
 
 ### 3.1 shell 命令表
 
-`info` / `app` / `drv` / `task` / `fault` / `install [slot]` / `log` / `pool` / `trace` / `cfg`
+`info` / `app` / `drv` / `task` / `sched` / `fault` / `install [slot]` / `log` / `pool` / `trace` / `cfg`
 
 - `app [list|start <slot>|stop <slot>|uninstall <slot>]`，`drv` 同构；
 - `pool` 打印镜像池与**固定槽位**（固定槽模式下才有槽位行）；
+- `sched` 自检就绪集（256 位两级位图 + 每优先级链）与任务表的**逐条**一致性：
+  一致时打印 `sched: consistent (bitmap/links == task table)`，不一致时逐条打印
+  `#idx prio= status= on_ready= next= prev=`，并附 `ready=<就绪数> top=<最高优先级任务>`；
+  改过调度器或手工注册过任务后，**第一件事是敲 `sched`**；
 - `fault` / `log` 是排查安装与启动失败的第一站；
 - `cfg show` 打印当前生效的布局与策略；`cfg load` 是**进入接收状态等 512 字节**，
   不是"重新读一遍"（手工敲会等到超时回 `timed out waiting for the record`）；
@@ -170,8 +174,14 @@ MCP 调试工具，可不下载、不打断地读写目标：
 
 三条**会直接决定成败**的：
 
-1. **先在设备上 `trace start` 武装**。SVCrtOS 的 `svcrt_trace_init()` 只由这条 shell
-   命令调用；没武装时控制块整片 `0x00`，工具报 `swd-read-degenerate`——那是**正确判据**，
+1. **插桩上电即默认武装，不是「先敲 `trace start`」**。`board/stm32f427/svcrt_board.c`
+   在板级初始化时调用 `svcrt_trace_init()`（内部 `g_tr_on = 1`），所以复位后立刻就在录——
+   这是有意的（为了能复现「复位到启动」那一段）。两个后果要记住：
+   - **要看干净的调度开销，先敲 `trace stop`**：插桩使每趟 PendSV 多花约 1760 周期
+     （实测切换开销放大约 5 倍），不关掉会把被测的改动完全盖住；
+   - **没人搬运时会持续丢事件**（实测 3 秒窗口丢 138068 条），不要用 `dump` 里的事件数
+     当作真实发生数。
+   反过来，`g_tr_on == 0` 时控制块整片 `0x00`，工具报 `swd-read-degenerate`——那是**正确判据**，
    不是工具坏了。
 2. **多轮采集必然混段，渲染前必须切段**。每停一次再跑，目标就重开录制段（`seq` 递增），
    新旧段时间基不同。工具会在 `meta.notes` 里警告但**不替**你切；不切就直接渲染会得到

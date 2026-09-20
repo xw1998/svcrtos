@@ -57,7 +57,14 @@ typedef struct {
     uint32 tim_tick;
     uint32 touch_tick;
     uint32 stack_ptr;
+    uint8  ready_next;                              /* 就绪链表后继（任务下标；SVCRT_TASK_NIL=无） */
+    uint8  ready_prev;                              /* 就绪链表前驱（任务下标；SVCRT_TASK_NIL=无） */
+    uint8  delay_next;                              /* 延时链表后继（任务下标；SVCRT_TASK_NIL=无） */
+    uint8  delay_prev;                              /* 延时链表前驱（任务下标；SVCRT_TASK_NIL=无） */
+    uint32 delay_tick;                              /* 延时链上的绝对到期节拍 */
+    int32  slice_tick;                              /* 时间片剩余节拍，<=0 时让出同优先级队首 */
     uint8  recover_pending;                         /* 故障恢复待处理标记（两阶段恢复） */
+    uint8  delay_queued;                            /* 1=当前挂在延时链上（显式标记，避免单节点自环歧义） */
     void (*entry)(void);                            /* 任务入口（恢复重建用） */
     uint8  wake_reason;                             /* 0=被唤醒 1=超时唤醒 */
     #if (SVCRT_USE_STACK_USAGE == 1)
@@ -95,15 +102,36 @@ int32  svcrt_task_stack_info_internal(int32 task_id, uint32 *out3);
 
 int32  svcrt_sched_next(void);
 
-/**
- * @brief 作废调度器的优先级缓存（任务表发生变化时调用）
- * @details 缓存的内容是「所有非 INVALID 任务的最小 / 次小基准优先级」，
- *          供 svcrt_sched_next() 的 O(1) 快速路径判断当前任务能否被抢占。
- *          任务注册后必须作废：新任务可能带着更高的优先级出现，
- *          用旧缓存会让快速路径误判成「无人能抢占」。作废只是关掉快速路径
- *          （退回全表扫描），不会算错。每个节拍的扫描末尾会自动重建缓存。
- */
-void   svcrt_sched_pri_cache_drop(void);
+/* ============================================================
+ * 就绪队列与延时链（O(1) 调度核心）
+ *
+ * 就绪队列：按优先级分桶的双向循环链表 + 256 位优先级位图。
+ *   选任务 = 位图取最低置位得优先级，取该桶链表头 -> O(1)；
+ *   同优先级轮转 = 把队首移到队尾 -> O(1)。
+ * 就绪集 = status 为 READY 或 RUNNING 的任务（RUNNING 也是可运行）。
+ *
+ * 延时链：按绝对到期节拍升序的双向链表，只放“有到期时间的非就绪任务”。
+ *   每拍只处理链头到期的那几个 -> 均摊 O(1)，不再遍历全表。
+ * ============================================================ */
+#define SVCRT_TASK_NIL        (0xFFu)
+
+/* 任务控制块指针 -> 任务下标（0 起） */
+#define SVCRT_TASK_IDX(p)     ((int32)((p) - svcrt_task_table))
+
+int32  svcrt_ready_top(void);                      /* O(1) 取最高优先级就绪任务下标，-1=无 */
+void   svcrt_ready_add(int32 task_idx);            /* 加入就绪队列（幂等）并从延时链摘除 */
+void   svcrt_ready_del(int32 task_idx);            /* 移出就绪队列（幂等） */
+void   svcrt_ready_reprio(int32 task_idx, uint8 old_prio);  /* 优先级变了，换桶 */
+void   svcrt_ready_rotate(int32 task_idx);         /* 同优先级轮转：移到该桶队尾 */
+void   svcrt_delay_arm(int32 task_idx, uint32 ticks);   /* 挂入延时链（到期=当前节拍+ticks） */
+void   svcrt_delay_disarm(int32 task_idx);         /* 从延时链摘除（幂等） */
+void   svcrt_delay_tick(void);                     /* 每拍调用：只处理链头已到期的节点 */
+void   svcrt_ready_reset(void);                    /* 清空就绪队列与延时链（装载/重置时调用） */
+void   svcrt_ready_rebuild(void);                  /* 从任务表 status 重新派生就绪集（首次调度前兜底） */
+int32  svcrt_sched_check(void);                    /* 一致性自检：返回不一致条目数，0=一致 */
+uint32 svcrt_sched_ready_count(void);              /* 当前就绪队列上的任务数（仅自检/调试） */
+uint8  svcrt_ready_contains(int32 task_idx);       /* 1=该任务当前挂在就绪链上（仅自检/调试） */
+
 svcrt_task_t *svcrt_task_get_current(void);
 uint32 svcrt_kernel_get_time(void);
 uint32 svcrt_kernel_get_tick(void);

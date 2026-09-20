@@ -181,6 +181,8 @@ static void svcrt_loader_halt_task(uint32 task_id)
 
     SVCRT_DISABLE_IRQ();
     svcrt_task_table[task_id - 1u].recover_pending = 0u;
+    svcrt_ready_del((int32)task_id - 1);
+    svcrt_delay_disarm((int32)task_id - 1);
     svcrt_task_table[task_id - 1u].status          = SVCRT_TASK_INVALID;
     SVCRT_ENABLE_IRQ();
 }

@@ -143,7 +143,13 @@ static void svcrt_mtx_recalc_task_priority(svcrt_task_t *p_tsk)
         }
     }
 
-    p_tsk->priority = pri;
+    if(p_tsk->priority != pri)
+    {
+        uint8 old_pri = p_tsk->priority;
+
+        p_tsk->priority = pri;
+        svcrt_ready_reprio(SVCRT_TASK_IDX(p_tsk), old_pri);
+    }
 }
 
 /* 优先级继承的链式传播：
@@ -179,7 +185,10 @@ static void svcrt_mtx_propagate(void)
 
                 if(p_w != 0 && p_owner->priority > p_w->priority)
                 {
+                    uint8 old_pri = p_owner->priority;
+
                     p_owner->priority = p_w->priority;
+                    svcrt_ready_reprio(SVCRT_TASK_IDX(p_owner), old_pri);
                     changed = 1;
                 }
             }
@@ -228,6 +237,7 @@ static void svcrt_waiters_wake_all(svcrt_task_t **waiters, int32 reason)
             waiters[j]->wait_time   = 0;
             waiters[j]->wake_reason = reason;
             waiters[j]->status      = SVCRT_TASK_READY;
+            svcrt_ready_add(SVCRT_TASK_IDX(waiters[j]));
             waiters[j]              = 0;
         }
     }
@@ -290,6 +300,7 @@ void svcrt_sync_release_task(int32 task_id)
                 p_next->wait_time   = 0;
                 p_next->wake_reason = SVCRT_WAKE_NORMAL;
                 p_next->status      = SVCRT_TASK_READY;
+                svcrt_ready_add(SVCRT_TASK_IDX(p_next));
             }
             else
             {
@@ -417,6 +428,7 @@ int32 svcrt_sem_post_internal(int32 handle)
         p_wake->wait_time = 0;
         p_wake->wake_reason = 0;
         p_wake->status = SVCRT_TASK_READY;
+        svcrt_ready_add(SVCRT_TASK_IDX(p_wake));
     }
     else
     {
@@ -521,7 +533,10 @@ int32 svcrt_mtx_lock_internal(int32 handle, int32 timeout_ms)
     /* 优先级继承：若持有者优先级低于当前等待者，临时提升持有者优先级以避免优先级反转 */
     if(svcrt_mtxs[idx].owner->priority > p_tsk->priority)
     {
+        uint8 old_pri = svcrt_mtxs[idx].owner->priority;
+
         svcrt_mtxs[idx].owner->priority = p_tsk->priority;
+        svcrt_ready_reprio(SVCRT_TASK_IDX(svcrt_mtxs[idx].owner), old_pri);
     }
 
     if(svcrt_waiters_add(svcrt_mtxs[idx].waiters, p_tsk) < 0)
@@ -607,6 +622,7 @@ int32 svcrt_mtx_unlock_internal(int32 handle)
         p_next->wait_time = 0;
         p_next->wake_reason = 0;
         p_next->status = SVCRT_TASK_READY;
+        svcrt_ready_add(SVCRT_TASK_IDX(p_next));
     }
     else
     {

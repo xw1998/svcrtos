@@ -246,6 +246,7 @@ static void svcrt_register_tasks(void)
     p_task->rom_size    = 0;
     p_task->period      = SVCRT_MS_TO_TICK(1000);
     p_task->priority    = 10;
+    p_task->base_priority = 10;         /* 继承撤销的恢复依据：缺了会被提到优先级 0 */
     p_task->shm_attri   = 0;
     p_task->status      = SVCRT_TASK_READY;
     p_task->period_time = p_task->period;
@@ -268,6 +269,7 @@ static void svcrt_register_tasks(void)
                           led_task_stack, sizeof(led_task_stack));
 
     svcrt_task_count++;
+    svcrt_ready_add(svcrt_task_count - 1);   /* 手工登记 TCB 也必须挂就绪链 */
 
     led2_task_stack[0] = SVCRT_STACK_END_FLAG_VAL;
 
@@ -279,6 +281,7 @@ static void svcrt_register_tasks(void)
     p_task->rom_size    = 0;
     p_task->period      = SVCRT_MS_TO_TICK(1000);
     p_task->priority    = 10;
+    p_task->base_priority = 10;         /* 继承撤销的恢复依据：缺了会被提到优先级 0 */
     p_task->shm_attri   = 0;
     p_task->status      = SVCRT_TASK_READY;
     p_task->period_time = p_task->period;
@@ -301,7 +304,7 @@ static void svcrt_register_tasks(void)
                           led2_task_stack, sizeof(led2_task_stack));
 
     svcrt_task_count++;
-
+    svcrt_ready_add(svcrt_task_count - 1);   /* 手工登记 TCB 也必须挂就绪链 */
 }
 
 static void svcrt_kernel_init(void)

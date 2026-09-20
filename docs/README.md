@@ -7,7 +7,7 @@
 | 把 App/驱动调试起来、装到板子上、处理崩溃 | **[SVCrtOS应用安装与调试指南.md](SVCrtOS应用安装与调试指南.md)**（操作手册，先读这份） |
 | 搞懂安装策略、设备端配置区、槽位与 RAM 窗口 | [配置区与安装策略.md](配置区与安装策略.md)（配置记录格式 + 两种安装策略） |
 | 把为 Linux/Windows 写的 C 程序搬到 SVCrtOS 上跑 | [POSIX与Windows兼容层说明.md](POSIX与Windows兼容层说明.md)（能力表 + 不支持项及原因） |
-| 查调度策略、这一轮调度器改了什么、还剩什么 | [调度器说明.md](调度器说明.md)（O(1) 快速路径的等价性论证 + 未做项） |
+| 查调度策略、这一轮调度器改了什么、还剩什么 | [调度器说明.md](调度器说明.md)（位图+链的 O(1) 就绪集、三种调度触发点、实测代价账与未做项） |
 | 用串口控制台看状态、启停 App、改配置 | [内核Shell控制台使用说明.md](内核Shell控制台使用说明.md) |
 | 不想敲命令行，要图形界面 | `python tools/svcrt_host_gui.py`（连接 / 控制台 / 安装 / 布局配置四个页签） |
 | 让 AI 代理直接驱动这块板子 | [`../skills/svcrtos/SKILL.md`](../skills/svcrtos/SKILL.md) 与《SVCrtOS应用安装与调试指南.md》§11 |
@@ -23,8 +23,8 @@ docs/
 ├── SVCrtOS应用安装与调试指南.md             # 【操作手册】开发调试/串口安装/启动流程/故障处理/排错
 ├── 配置区与安装策略.md                      # 【设计说明】分区/池粒度/槽位与 RAM 窗口/配置记录格式/安装策略
 ├── POSIX与Windows兼容层说明.md              # 【设计说明】兼容层能力与边界、启动门闩、堆、真机自测
-├── 调度器说明.md                            # 【设计说明】调度模型、P4b 两项瘦身与等价性、剩余优化空间
-├── 内核Shell控制台使用说明.md               # 【操作手册】console 命令（info/app/drv/task/fault/install/log/pool/trace/cfg）
+├── 调度器说明.md                            # 【设计说明】调度模型、O(1) 就绪集/延时链/时间片、三种触发点、实测与未做项
+├── 内核Shell控制台使用说明.md               # 【操作手册】console 命令（info/app/drv/task/sched/fault/install/log/pool/trace/cfg）
 └── api/
     ├── SVCrtOS_API参考.md                 # 内置生成器输出的 Markdown API 参考（已生成）
     └── html/                            # Doxygen 输出的 HTML（需本机安装 Doxygen）

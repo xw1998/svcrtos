@@ -27,6 +27,9 @@ typedef char svcrt_task_table_ram_check[
 void svcrt_cfg_load(void)
 {
     svcrt_task_count = 0;
+    /* 就绪集与延时链归零：静态 TCB 数组默认是 0，而 0 是合法任务下标，
+     * 不能当“不在链上”用，所以必须显式置成 SVCRT_TASK_NIL。 */
+    svcrt_ready_reset();
 }
 
 /* 注册任务的通用辅助：填充 TCB 缺省字段、初始化栈帧并加入任务表。
@@ -95,6 +98,13 @@ int32 svcrt_task_register(void (*entry)(void), uint32 *stack_bottom, uint32 stac
     p_task->touch_tick  = 0;
     p_task->wake_reason = 0;
     p_task->recover_pending = 0;
+    p_task->ready_next  = SVCRT_TASK_NIL;
+    p_task->ready_prev  = SVCRT_TASK_NIL;
+    p_task->delay_next  = SVCRT_TASK_NIL;
+    p_task->delay_prev  = SVCRT_TASK_NIL;
+    p_task->delay_queued = 0u;
+    p_task->delay_tick  = 0u;
+    p_task->slice_tick  = (int32)SVCRT_TIME_SLICE_TICKS;
 
     /* Fill the MPU context (no-op when SVCRT_USE_MPU == 0).
      * The loader calls this again after rewriting rom_start / ram_size for
@@ -103,10 +113,9 @@ int32 svcrt_task_register(void (*entry)(void), uint32 *stack_bottom, uint32 stac
 
     svcrt_task_stack_init(p_task, entry, stack_bottom, stack_size);
 
-    /* 任务表多了一项：作废调度器的优先级缓存，下一拍扫描时重建。
-     * 不作废的话，新任务可能带着更高的优先级出现而快速路径看不见，
-     * 当前任务会被误判成「无人能抢占」。 */
-    svcrt_sched_pri_cache_drop();
+    /* 新任务直接加入就绪集：位图/链表在这一步同步完成，
+     * 不需要再作废任何缓存。 */
+    svcrt_ready_add(free_idx);
 
     return (free_idx + 1);
 }

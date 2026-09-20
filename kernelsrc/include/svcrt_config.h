@@ -217,6 +217,14 @@
 #define SVCRT_USE_FAST_TICK_SWITCH   1
 #endif
 
+/* 同优先级时间片长度（节拍数）。
+ * 同优先级任务连续运行满该节拍数后让出队首，由同优先级的下一个任务接手；
+ * 0 = 不轮转（同优先级内始终由最早就绪的那个运行）。
+ * 500us 节拍下 10 拍 = 5ms。抢占与片长无关：更高优先级任务就绪立即抢占。 */
+#ifndef SVCRT_TIME_SLICE_TICKS
+#define SVCRT_TIME_SLICE_TICKS       (10)
+#endif
+
 /* MPU 差异应用：切换时上下文没变就整个跳过，变了的区域才写寄存器。
  * 0 = 旧行为：每次都关 MPU、重写全部 8 个区域、再开 MPU + 两个屏障。 */
 #ifndef SVCRT_USE_MPU_APPLY_CACHE
