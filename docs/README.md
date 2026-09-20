@@ -8,6 +8,7 @@
 | 搞懂安装策略、设备端配置区、槽位与 RAM 窗口 | [配置区与安装策略.md](配置区与安装策略.md)（配置记录格式 + 两种安装策略） |
 | 把为 Linux/Windows 写的 C 程序搬到 SVCrtOS 上跑 | [POSIX与Windows兼容层说明.md](POSIX与Windows兼容层说明.md)（能力表 + 不支持项及原因） |
 | 查调度策略、这一轮调度器改了什么、还剩什么 | [调度器说明.md](调度器说明.md)（位图+链的 O(1) 就绪集、三种调度触发点、实测代价账与未做项） |
+| 看调度器在真机上长什么样（图） | 根目录 [`README.md`](../README.md) §调度表现（4.97 s trace 实测图，图存 `docs/img/`） |
 | 用串口控制台看状态、启停 App、改配置 | [内核Shell控制台使用说明.md](内核Shell控制台使用说明.md) |
 | 不想敲命令行，要图形界面 | `python tools/svcrt_host_gui.py`（连接 / 控制台 / 安装 / 布局配置四个页签） |
 | 让 AI 代理直接驱动这块板子 | [`../skills/svcrtos/SKILL.md`](../skills/svcrtos/SKILL.md) 与《SVCrtOS应用安装与调试指南.md》§11 |
@@ -25,6 +26,10 @@ docs/
 ├── POSIX与Windows兼容层说明.md              # 【设计说明】兼容层能力与边界、启动门闩、堆、真机自测
 ├── 调度器说明.md                            # 【设计说明】调度模型、O(1) 就绪集/延时链/时间片、三种触发点、实测与未做项
 ├── 内核Shell控制台使用说明.md               # 【操作手册】console 命令（info/app/drv/task/sched/fault/install/log/pool/trace/cfg）
+├── img/                                   # 【实测图】根 README §调度表现 引用（必须入库，勿被忽略规则吞掉）
+│   ├── sched-overview.png                 # 整体调度时间线 + 切换间隔（4.97 s 窗口）
+│   ├── sched-switch-detail.png            # 单次切换细节 + App 任务被调度进来跑 72.7 µs
+│   └── sched-stats.png                    # 间隔/PendSV 分布 + 优化 A/B（插桩关口径）
 └── api/
     ├── SVCrtOS_API参考.md                 # 内置生成器输出的 Markdown API 参考（已生成）
     └── html/                            # Doxygen 输出的 HTML（需本机安装 Doxygen）
