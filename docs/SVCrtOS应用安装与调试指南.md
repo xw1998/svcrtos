@@ -503,6 +503,11 @@ python tools/gen_scatter.py --target all --output build
 2. F427 烧录（`-f`，独立调用，不要和 `-r` 串在一条 `&&` 里）；
 3. `app list` 确认只有一个实例在跑（两个 APP_DEMO 同时自启会让输出逐字节交错，
    并让后注册者报 `shell.register ... FAIL (-2)`）；
+   **同一个实例停掉再启动也会撞这个名字**：2026-09-20 复测时槽位 0 已停成 `LOADED`
+   （`task` 列为 0）、板上只有槽位 2 在跑，重启它仍报同一个 `-2`。也就是说占位不只来自
+   另一个实例，也来自本实例上一轮运行留下的注册项——`app stop` 之后用户命令没有被回收。
+   这是**观察到的事实**，回收时机没有进一步定位；要拿到干净的自测结果就得让内核重建
+   命令表（复位）或把残留实例卸载掉。
 4. 配置区改动走 `svcrt_cfg.py write` → `cfg show` 读回 → **重启** → 再 `cfg show`
    （策略类字段重启前不生效）；
 5. 安装走 `send_image.py` 或 GUI，看设备侧 `INSTALL` 日志而非主机侧的"发送完成"。
@@ -518,6 +523,7 @@ python tools/gen_scatter.py --target all --output build
 | 按固定槽位安装的落点 | 上板验证过 | `install 2` → 设备回 `install: fixed slot 2 -> 0x080A0000`；`app` 显示新实例 `base 0x080A0000`、`ram 0x20014000`、`size 131072` |
 | 不兼容镜像被拒时当场返回 | 上板验证过 | 设备回 `[E][INSTALL:150] rejected: err -3` 后 **0.7 s** 主机即结束（修复前要等满 5 s 的 ACK 超时） |
 | 安装失败后设备回到干净的命令提示 | 未达成（已知副作用） | 见下 |
+| App 侧 FPU（非特权 VFP + 切换现场） | 上板验证过 | `APP_DEMO` 自测新增 8c 段七项全过：`fpu.usr_vfp_math` / `fpu.s16_hold` / `fpu.thread_create` / `fpu.s16_ctx_main` / `fpu.s16_ctx_worker` / `fpu.float_vs_double`。判据是"写进 S16-S19 的值跨一次任务切换后读回仍等于期望值"，两个执行流用不同 seed 交错 20 轮互不污染。同一轮里 `shell.register ... FAIL (-2)` 是上面 §11.3 的已知占位问题，与 FPU 无关 |
 | 卸载与配置擦除后的还原流程 | 未验证 | 还原脚本把**配置槽序号**传给了 `app uninstall`，被 `slot_type` 校验挡下（见下） |
 
 三点使用上的约定：

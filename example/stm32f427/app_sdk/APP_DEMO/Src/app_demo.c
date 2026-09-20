@@ -229,6 +229,123 @@ static svcrt_DWORD win_worker(svcrt_LPVOID arg)
     return (svcrt_DWORD)0x1234u;
 }
 
+/* ---- FPU self test helpers (section 8c) ------------------------------ */
+
+/* 直接占用 S16-S19 的两个探针。
+ *
+ * 为什么不用 C 变量来测：硬件在异常进入时只压 S0-S15+FPSCR，S16-S31
+ * 必须由端口层在 svcrt_context.S 里手工保存。而编译器愿不愿意把一组
+ * 局部变量留在 S16-S31 里是它自己的分配决定 —— 这版 AC5 把 20 个同时
+ * 活跃的 float 全溢出到了栈上（反汇编里只出现 s0/s2/s4），靠 C 代码去
+ * "逼"它，测出来的结果取决于编译器心情，不是内核行为。
+ *
+ * 所以这里用内嵌汇编直接写这几个寄存器：写进去、函数返回时故意不恢复
+ * （违反 AAPCS 的 callee-saved 约定，这正是目的），让值停在寄存器里跨过
+ * 随后的切换点。两个执行流各写自己的值、互相交错；只要端口层那段保存
+ * 缺失，读回来的就是对方的数。
+ *
+ * 期望和 = seed + (seed+0x100) + (seed+0x200) + (seed+0x300) = 4*seed + 0x600
+ */
+
+#if defined(__ARMCC_VERSION) && (__ARMCC_VERSION >= 6000000)
+
+/* Arm Compiler 6（armclang）：用 GCC 风格内联汇编。
+ * s16-s19 故意不写进 clobber 列表 —— 一来 AA 里也放不进 VFP 寄存器，
+ * 二来我们正是要它们"悄悄地"被改动，这才是被测行为。 */
+static void fpu_probe_set(uint32 seed)
+{
+    uint32 k1 = seed + 0x100u;
+    uint32 k2 = seed + 0x200u;
+    uint32 k3 = seed + 0x300u;
+
+    __asm volatile(
+        "vmov   s16, %0  \n\t"
+        "vmov   s17, %1  \n\t"
+        "vmov   s18, %2  \n\t"
+        "vmov   s19, %3  \n\t"
+        : : "r"(seed), "r"(k1), "r"(k2), "r"(k3));
+}
+
+static uint32 fpu_probe_sum(void)
+{
+    uint32 t0;
+    uint32 t1;
+    uint32 t2;
+    uint32 t3;
+
+    __asm volatile(
+        "vmov   %0, s16  \n\t"
+        "vmov   %1, s17  \n\t"
+        "vmov   %2, s18  \n\t"
+        "vmov   %3, s19  \n\t"
+        : "=r"(t0), "=r"(t1), "=r"(t2), "=r"(t3));
+
+    return (t0 + t1 + t2 + t3);
+}
+
+#else
+
+/* Arm Compiler 5：内嵌汇编函数（内核工程仍在用 AC5，保留这一支） */
+__asm void fpu_probe_set(uint32 seed)
+{
+    VMOV    S16, R0
+    ADD     R1, R0, #0x100
+    VMOV    S17, R1
+    ADD     R1, R0, #0x200
+    VMOV    S18, R1
+    ADD     R1, R0, #0x300
+    VMOV    S19, R1
+    BX      LR
+}
+
+__asm uint32 fpu_probe_sum(void)
+{
+    VMOV    R1, S16
+    VMOV    R2, S17
+    ADD     R1, R1, R2
+    VMOV    R2, S18
+    ADD     R1, R1, R2
+    VMOV    R2, S19
+    ADD     R1, R1, R2
+    MOV     R0, R1
+    BX      LR
+}
+
+#endif
+
+/* 写 -> 让出（切换点）-> 读回 */
+static uint32 fpu_probe_once(uint32 seed)
+{
+    fpu_probe_set(seed);
+    svcrt_task_wait(5u);
+    return fpu_probe_sum();
+}
+
+#define FPU_SEED_MAIN    0x11u
+#define FPU_SEED_WORKER  0x22u
+#define FPU_SEED_SUM(s)  ((s) * 4u + 0x600u)
+
+static volatile int32 g_fpu_probe_bad = -1;
+
+static void *fpu_probe_worker(void *arg)
+{
+    int32 i;
+
+    (void)arg;
+    g_fpu_probe_bad = 0;
+
+    for(i = 1; i <= 20; i++)
+    {
+        if(fpu_probe_once(FPU_SEED_WORKER) != FPU_SEED_SUM(FPU_SEED_WORKER))
+        {
+            g_fpu_probe_bad = i;
+            break;
+        }
+        svcrt_task_wait(2u);
+    }
+    return 0;
+}
+
 void AppMain(void)
 {
     uint32 t0;
@@ -415,6 +532,76 @@ void AppMain(void)
 
     r = svcrt_shell_cmd_register(&g_app_cmd);       /* keep it for the console */
     report("shell.re_register", (r == 0), r);
+
+    /* ---------------------------------------------------------------
+     * 8c) FPU: 用户态可用性 + 切换时的浮点现场
+     * --------------------------------------------------------------- */
+    app_puts("APP_TEST fpu.begin\r\n");
+
+    {
+        /* 非特权代码执行 VFP 运算：算得出来就是能跑。CPACR 的
+         * CP10/CP11 若不是 0b11，这一句会直接 UsageFault。 */
+        volatile float fa = 1.5f;
+        volatile float fb = 2.25f;
+        float fc = fa * fb + 0.5f;          /* 1.5*2.25+0.5 = 3.875，精确 */
+
+        report("fpu.usr_vfp_math", (fc == 3.875f), (int32)(fc * 1000.0f));
+    }
+
+    {
+        /* 单流探针：写 S16-S19 -> 让出 5ms（期间必然切换）-> 读回 */
+        uint32 got  = fpu_probe_once(FPU_SEED_MAIN);
+        uint32 want = FPU_SEED_SUM(FPU_SEED_MAIN);
+
+        report("fpu.s16_hold", (got == want), (int32)got);
+    }
+
+    {
+        /* 两个流往同一组寄存器里写不同的值，来回切换 20 轮 */
+        pthread_t th   = 0u;
+        uint32    want = FPU_SEED_SUM(FPU_SEED_MAIN);
+        int32     bad  = 0;
+        int32     i;
+        int32     cr;
+
+        cr = pthread_create(&th, 0, fpu_probe_worker, (void *)0u);
+        report("fpu.thread_create", (cr == 0), cr);
+
+        for(i = 1; i <= 20; i++)
+        {
+            if(fpu_probe_once(FPU_SEED_MAIN) != want)
+            {
+                bad = i;
+                break;
+            }
+        }
+
+        if(cr == 0)
+        {
+            (void)pthread_join(th, 0);
+        }
+
+        report("fpu.s16_ctx_main", (bad == 0), bad);
+        report("fpu.s16_ctx_worker", (g_fpu_probe_bad == 0), g_fpu_probe_bad);
+    }
+
+    {
+        /* double 在 M4F 上没有硬件、走软件库，正确性同样要成立。
+         * 1..1000 的和 = 500500，乘 0.5 = 250250，两种精度都精确。 */
+        float  sf = 0.0f;
+        double dd = 0.0;
+        int32  i;
+        int32  ok;
+
+        for(i = 1; i <= 1000; i++)
+        {
+            sf += (float)i * 0.5f;
+            dd += (double)i * 0.5;
+        }
+
+        ok = ((sf == 250250.0f) && (dd == 250250.0)) ? 1 : 0;
+        report("fpu.float_vs_double", ok, (int32)sf);
+    }
 
     /* ---------------------------------------------------------------
      * 9) POSIX / Windows compatibility layer
