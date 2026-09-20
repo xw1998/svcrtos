@@ -324,6 +324,21 @@ static uint8 svcrt_pri_cache_ok = 0u;
 static void svcrt_task_recover_mark(int32 task_id);
 static void svcrt_task_recover_pending(void);
 
+
+#if (SVCRT_USE_SCHED_STAT == 1)
+/* 统计符号定义在 svcrt_trace.c（可观测性模块），这里只做本地声明 */
+extern volatile uint32 svcrt_sched_stat_n;
+extern volatile uint32 svcrt_sched_stat_sum;
+extern volatile uint32 svcrt_sched_stat_min;
+extern volatile uint32 svcrt_sched_stat_max;
+extern void svcrt_sched_stat_close(uint32 t0);
+#define SVCRT_SCHED_STAT_BEGIN()   uint32 stat_t0__ = svcrt_trace_last_cycles()
+#define SVCRT_SCHED_STAT_END()     svcrt_sched_stat_close(stat_t0__)
+#else
+#define SVCRT_SCHED_STAT_BEGIN()   do { } while(0)
+#define SVCRT_SCHED_STAT_END()     do { } while(0)
+#endif
+
 void svcrt_kernel_tick_handler(void)
 {
     svcrt_kernel_tick++;
@@ -352,7 +367,18 @@ void svcrt_kernel_tick_handler(void)
     if(svcrt_sched_lock_nest == 0u)         /* 调度器锁定期间不触发任务切换 */
     #endif
     {
+        #if (SVCRT_USE_FAST_TICK_SWITCH == 1)
+        /* 只有确实要换任务时才拉 PendSV。没人要切换时也走一整趟异常往返纯属
+         * 浪费（F427@96MHz 实测 841 cycles/拍，2kHz 节拍下约 1.7% CPU）。
+         * svcrt_sched_is_switching() 与 PendSV 用的是同一份判定（含同优先级
+         * 轮转的 touch_tick 更新与调度锁检查），可重复调用、结果一致。 */
+        if(svcrt_sched_is_switching() >= 0)
+        {
+            SVCRT_SWITCH_TASK();
+        }
+        #else
         SVCRT_SWITCH_TASK();
+        #endif
     }
 
     #if (SVCRT_USE_CPU_LOAD == 1)
@@ -1023,6 +1049,8 @@ int32 svcrt_sched_activate(int32 new_task, uint32 old_psp)
 {
     int32 tid = svcrt_current_task_id - 1;
 
+    SVCRT_SCHED_STAT_BEGIN();
+
     if(svcrt_current_task_id == 0)
     {
         svcrt_idle_stack_ptr = old_psp;
@@ -1069,6 +1097,7 @@ int32 svcrt_sched_activate(int32 new_task, uint32 old_psp)
         svcrt_task_table[tid].touch_tick = svcrt_kernel_tick;
         svcrt_task_table[tid].status = SVCRT_TASK_RUNNING;
         svcrt_mpu_set_app(&svcrt_task_table[tid]);
+        SVCRT_SCHED_STAT_END();         /* sched_activate: task path */
         return svcrt_task_table[tid].stack_ptr;
     }
     else
@@ -1079,6 +1108,7 @@ int32 svcrt_sched_activate(int32 new_task, uint32 old_psp)
          * needs its own context restored here (captured at startup by the
          * board through svcrt_port_set_idle_mpu()). */
         svcrt_mpu_set_idle();
+        SVCRT_SCHED_STAT_END();         /* sched_activate: idle path */
         return svcrt_idle_stack_ptr;
     }
 }

@@ -73,6 +73,34 @@ uint32 svcrt_trace_switch_count(uint8 task_id)
     return (task_id < (uint8)SVCRT_TRACE_MAX_TASKS) ? g_tr_sw[task_id] : 0u;
 }
 
+
+/* ---------------- 调度开销统计（基准用） ----------------
+ * 符号全部是全局的，主机侧 read_variable 直接读，不需要 shell 命令：
+ *   svcrt_sched_stat_*   每次真正切换时 sched_activate() 的 DWT 周期数
+ *   svcrt_pendsv_stat_*  PendSV 整趟往返（在下面的 isr 钩子里量，与 trace 开关无关）
+ * 注意：CYCCNT 由 mdk_trace_init() 打开，统计才有意义。 */
+#if (SVCRT_USE_SCHED_STAT == 1)
+volatile uint32 svcrt_sched_stat_n   = 0u;
+volatile uint32 svcrt_sched_stat_sum = 0u;
+volatile uint32 svcrt_sched_stat_min = 0xFFFFFFFFu;
+volatile uint32 svcrt_sched_stat_max = 0u;
+volatile uint32 svcrt_pendsv_stat_n   = 0u;
+volatile uint32 svcrt_pendsv_stat_sum = 0u;
+volatile uint32 svcrt_pendsv_stat_min = 0xFFFFFFFFu;
+volatile uint32 svcrt_pendsv_stat_max = 0u;
+volatile uint32 svcrt_pendsv_span_t0  = 0u;
+
+void svcrt_sched_stat_close(uint32 t0)
+{
+    uint32 d = svcrt_trace_last_cycles() - t0;
+
+    svcrt_sched_stat_n++;
+    svcrt_sched_stat_sum += d;
+    if(d < svcrt_sched_stat_min) { svcrt_sched_stat_min = d; }
+    if(d > svcrt_sched_stat_max) { svcrt_sched_stat_max = d; }
+}
+#endif
+
 /* ---------------- recording ---------------- */
 void svcrt_trace_record(uint8 ev, uint8 arg)
 {
@@ -103,6 +131,28 @@ void svcrt_trace_wait(uint8 task_id)
 
 void svcrt_trace_isr(uint8 irq, uint8 kind)
 {
+#if (SVCRT_USE_SCHED_STAT == 1)
+    /* PendSV(14) 的进/出钩子正好夹住整个异常处理（不切换时也会成对进出），
+     * 用它们量整趟往返。放在 g_tr_on 早退之前，所以 trace 关掉时也能量。 */
+    if(irq == 14u)
+    {
+        uint32 now = svcrt_trace_last_cycles();
+
+        if(kind == 0u)
+        {
+            svcrt_pendsv_span_t0 = now;
+        }
+        else
+        {
+            uint32 d = now - svcrt_pendsv_span_t0;
+
+            svcrt_pendsv_stat_n++;
+            svcrt_pendsv_stat_sum += d;
+            if(d < svcrt_pendsv_stat_min) { svcrt_pendsv_stat_min = d; }
+            if(d > svcrt_pendsv_stat_max) { svcrt_pendsv_stat_max = d; }
+        }
+    }
+#endif
     if(g_tr_on == 0u)
     {
         return;

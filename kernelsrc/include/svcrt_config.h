@@ -210,6 +210,26 @@
 /* ============================================================
  * CPU 负载统计开关
  * ============================================================ */
+/* 调度快速路径：节拍里只有"确实要换任务"时才拉 PendSV。
+ * 0 = 旧行为：每拍无条件拉一次，即使没人要切换也要走一整趟异常往返
+ *     （F427@96MHz 实测 841 cycles/拍，2kHz 节拍下约 1.7% CPU）。 */
+#ifndef SVCRT_USE_FAST_TICK_SWITCH
+#define SVCRT_USE_FAST_TICK_SWITCH   1
+#endif
+
+/* MPU 差异应用：切换时上下文没变就整个跳过，变了的区域才写寄存器。
+ * 0 = 旧行为：每次都关 MPU、重写全部 8 个区域、再开 MPU + 两个屏障。 */
+#ifndef SVCRT_USE_MPU_APPLY_CACHE
+#define SVCRT_USE_MPU_APPLY_CACHE    1
+#endif
+
+/* 调度开销统计：用 DWT 周期计数记 PendSV 往返与 sched_activate 的
+ * min/sum/max/次数。符号可直接被主机侧 read_variable 读到，不需要 shell 命令。
+ * 依赖 mdk_trace_init() 打开 CYCCNT（板级 svcrt_trace_init() 会调用）。 */
+#ifndef SVCRT_USE_SCHED_STAT
+#define SVCRT_USE_SCHED_STAT         1
+#endif
+
 #ifndef SVCRT_USE_CPU_LOAD
 #define SVCRT_USE_CPU_LOAD        1
 #endif

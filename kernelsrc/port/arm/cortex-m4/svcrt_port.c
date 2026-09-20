@@ -323,6 +323,14 @@ __weak void svcrt_port_set_idle_mpu(uint32 task_func, uint32 stack_addr, uint32 
  * ============================================================ */
 #if (SVCRT_USE_MPU == 1)
 
+#if (SVCRT_USE_MPU_APPLY_CACHE == 1)
+/* 已生效的区域快照。切换时绝大多数情况区域集没变（同一 App 内的多个任务、
+ * 内核任务之间、以及重复切回同一个任务），重复写 24 次寄存器 + 关/开 MPU +
+ * 两个屏障纯属浪费。init()/reset() 会把硬件清空，那里必须作废快照。 */
+static svcrt_arch_mpu_t svcrt_mpu_applied;
+static uint8 svcrt_mpu_applied_ok = 0u;
+#endif
+
 /* Idle-task MPU context, captured by svcrt_port_mpu_set_region() at startup.
  * A task switch rewrites every region register, so the kernel re-applies this
  * context on each switch back to the idle task (svcrt_mpu_set_idle()). */
@@ -331,6 +339,10 @@ static svcrt_arch_mpu_t svcrt_mpu_idle_ctx;
 void svcrt_port_mpu_init(void)
 {
     int32 i;
+
+    #if (SVCRT_USE_MPU_APPLY_CACHE == 1)
+    svcrt_mpu_applied_ok = 0u;      /* 硬件已被清空，快照作废 */
+    #endif
 
     if(MPU->TYPE == 0)
     {
@@ -451,6 +463,8 @@ void svcrt_port_mpu_set_idle(void)
 
 void svcrt_port_mpu_set_app(const svcrt_arch_mpu_t *p_mpu)
 {
+    #if (SVCRT_USE_MPU_APPLY_CACHE == 0)
+    /* 旧行为：整个关掉 MPU、重写全部 8 个区域、再开 MPU + 两个屏障。 */
     int32 rnr = 0;
 
     SVCRT_DMB();
@@ -478,11 +492,86 @@ void svcrt_port_mpu_set_app(const svcrt_arch_mpu_t *p_mpu)
     MPU->CTRL = MPU_CTRL_ENABLE_Msk | MPU_CTRL_PRIVDEFENA_Msk;
     SVCRT_DSB();
     SVCRT_ISB();
+    #else
+    /* 新行为：只写真正变了的那几个区域，都写完才做一次屏障。
+     * 不再整个关掉 MPU：异常处理里跑的是特权态，PRIVDEFENA=1 下特权访问走
+     * 默认存储器映射，重配期间没有任何非特权代码在跑，所以就地更新是安全的；
+     * 改写一个已使能区域之前，按体系结构要求先写 RASR=0 把它关掉。
+     * 上下文与已生效的完全一致时（同一 App 内的多个任务、内核任务之间、
+     * 反复切回同一个任务），连一个寄存器都不用碰。 */
+    int32 rnr = 0;
+    uint8 dirty = 0u;
+
+    if(svcrt_mpu_applied_ok != 0u)
+    {
+        uint8 same = 1u;
+
+        for(rnr = 0; rnr < (int32)SVCRT_MPU_REGION_MAX; rnr++)
+        {
+            if((p_mpu->region_base[rnr] != svcrt_mpu_applied.region_base[rnr]) ||
+               (p_mpu->region_attr[rnr] != svcrt_mpu_applied.region_attr[rnr]))
+            {
+                same = 0u;
+                break;
+            }
+        }
+        if(same != 0u)
+        {
+            return;
+        }
+    }
+
+    for(rnr = 0; rnr < 8; rnr++)
+    {
+        uint32 base = 0u;
+        uint32 attr = 0u;
+
+        if(rnr < (int32)SVCRT_MPU_REGION_MAX)
+        {
+            base = p_mpu->region_base[rnr];
+            attr = p_mpu->region_attr[rnr];
+        }
+
+        if((svcrt_mpu_applied_ok != 0u) &&
+           (base == svcrt_mpu_applied.region_base[rnr]) &&
+           (attr == svcrt_mpu_applied.region_attr[rnr]))
+        {
+            continue;
+        }
+        if((svcrt_mpu_applied_ok != 0u) &&
+           ((svcrt_mpu_applied.region_attr[rnr] & 1u) != 0u))
+        {
+            MPU->RNR  = (uint32)rnr;
+            MPU->RASR = 0u;
+        }
+
+        MPU->RNR  = (uint32)rnr;
+        MPU->RBAR = base;
+        MPU->RASR = attr;
+
+        svcrt_mpu_applied.region_base[rnr] = base;
+        svcrt_mpu_applied.region_attr[rnr] = attr;
+        dirty = 1u;
+    }
+
+    svcrt_mpu_applied_ok = 1u;
+
+    if(dirty != 0u)
+    {
+        SVCRT_DSB();
+        SVCRT_ISB();
+    }
+    #endif
 }
+
 
 void svcrt_port_mpu_reset(void)
 {
     int32 rnr = 0;
+
+    #if (SVCRT_USE_MPU_APPLY_CACHE == 1)
+    svcrt_mpu_applied_ok = 0u;      /* 硬件已被清空，快照作废 */
+    #endif
 
     SVCRT_DMB();
     MPU->CTRL = 0;
