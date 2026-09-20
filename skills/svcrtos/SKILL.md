@@ -16,7 +16,6 @@ description: SVCrtOS（Cortex-M 上的 SVC 特权隔离 RTOS）工程操作手�
 | `docs/SVCrtOS应用安装与调试指南.md` | 从编译到安装的完整闭环与排错 |
 | `docs/配置区与安装策略.md` | 布局/策略的 ABI、CLI、验收结论 |
 | `docs/内核Shell控制台使用说明.md` | shell 命令表与语义 |
-| `docs/F427运行trace采集与可视化.md` | 运行期 trace 采集/切段/渲染 + 事件语义 + LED 对照 |
 
 ---
 
@@ -169,8 +168,7 @@ MCP 调试工具，可不下载、不打断地读写目标：
 
 ### 4.1 运行期 trace（只接 SWD 两线也能录）
 
-详细做法与实测数值见 [`../docs/F427运行trace采集与可视化.md`](../docs/F427运行trace采集与可视化.md)，
-这里只留三条**会直接决定成败**的：
+三条**会直接决定成败**的：
 
 1. **先在设备上 `trace start` 武装**。SVCrtOS 的 `svcrt_trace_init()` 只由这条 shell
    命令调用；没武装时控制块整片 `0x00`，工具报 `swd-read-degenerate`——那是**正确判据**，
@@ -218,5 +216,4 @@ MCP 调试工具，可不下载、不打断地读写目标：
 （连接 / 控制台 / 安装镜像 / 布局配置 / 帮助 五页，协议与命令行脚本完全一致）。
 
 想录一段运行过程给人看时：设备侧 `trace start` → 采集三件套 → 切段 →
-`view_render` 出单文件网页（做法见 §4.1，实测数值见
-[`../docs/F427运行trace采集与可视化.md`](../docs/F427运行trace采集与可视化.md)）。
+`view_render` 出单文件网页（做法见 §4.1）。

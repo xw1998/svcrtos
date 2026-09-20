@@ -1,6 +1,6 @@
 # 内核 Shell 控制台使用说明（ark-shell 移植）
 
-> 源码：[`kernelsrc/shell/`](../../kernelsrc/shell/)（上游 [ark-shell](https://gitee.com/xw19981010/ark-shell.git) 原样引入 + 一个 SVCrtOS 平台适配层）。
+> 源码：[`kernelsrc/shell/`](../kernelsrc/shell/)（上游 [ark-shell](https://gitee.com/xw19981010/ark-shell.git) 原样引入 + 一个 SVCrtOS 平台适配层）。
 > 配置：`config/svcrt_partition.h` 第四节「内核 Shell 控制台」。
 
 ## 1. 它解决什么问题

@@ -6,7 +6,7 @@
 > | 想知道 | 看哪里 |
 > |---|---|
 > | 今天怎么装 App / 驱动、怎么调试、崩溃了怎么办 | [docs/SVCrtOS应用安装与调试指南.md](docs/SVCrtOS应用安装与调试指南.md) |
-> | 分区 / 加载器 / 镜像格式为什么这样设计 | [docs/Loader工程化落地说明.md](docs/Loader工程化落地说明.md) |
+> | 分区 / 加载器 / 镜像格式为什么这样设计 | [docs/配置区与安装策略.md](docs/配置区与安装策略.md) |
 > | 全工程唯一地址源头 | [config/svcrt_partition.h](config/svcrt_partition.h) |
 > | 文档总索引 | [docs/README.md](docs/README.md) |
 >

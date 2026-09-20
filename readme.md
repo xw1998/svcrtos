@@ -555,7 +555,6 @@ SVCrtOS 采用统一的命名规范，参考 FreeRTOS / RT-Thread 风格：
 - `*.md` 文档统一 UTF-8
 - `tools/gen_api_doc.py` 会先在系统临时目录生成一份 UTF-8 副本再跑 Doxygen，
   不改动仓库内任何源文件
-- `patch/encoding_audit.py` 可扫描全仓编码，区分"整文件 GBK / 整文件 UTF-8 / 混合编码"
 
 ## AI 辅助调试（mdkdebug MCP）
 
@@ -602,5 +601,4 @@ Keil 界面，即可完成「编译 -> 烧录 -> 进入调试 -> 运行控制 ->
 - **固定槽位模式下一次真实 `install <slot>` 的落点复验**（槽表已生效并被 `pool` 列出，但「装进去正好落在配置地址」这一环还没跑）
 - **调度器 `touch_tick` 的 32 位溢出边界**（约 24.8 天）未实测
 
-已知未闭环项与每一轮的改动记录见 [死代码与未接线审计](docs/死代码与未接线审计.md)。
 文档索引见 [docs/README.md](docs/README.md)。

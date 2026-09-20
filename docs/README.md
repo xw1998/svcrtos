@@ -12,13 +12,8 @@
 | 不想敲命令行，要图形界面 | `python tools/svcrt_host_gui.py`（连接 / 控制台 / 安装 / 布局配置四个页签） |
 | 让 AI 代理直接驱动这块板子 | [`../skills/svcrtos/SKILL.md`](../skills/svcrtos/SKILL.md) 与《SVCrtOS应用安装与调试指南.md》§11 |
 | 想在线把配置记录写进设备（不拆板、不用烧录器） | [配置区与安装策略.md](配置区与安装策略.md) §6.3（`tools/svcrt_cfg.py`）与 §6.5（真机验收结论） |
-| 搞懂分区/加载器/镜像格式为什么这么设计 | [Loader工程化落地说明.md](Loader工程化落地说明.md)（设计说明与变更记录） |
-| 查自旋锁、调度器锁、栈用量分析的用法 | [SVCrtOS变更说明_自旋锁与栈分析.md](SVCrtOS变更说明_自旋锁与栈分析.md) |
+| 想把板子上跑的过程录成 trace 并画成网页 | [`../skills/svcrtos/SKILL.md`](../skills/svcrtos/SKILL.md) §4.1（武装 / 采集 / 切段 / 渲染） |
 | 查 API 签名与参数 | [api/SVCrtOS_API参考.md](api/SVCrtOS_API参考.md) |
-| 想知道哪些东西坏了、哪些没接线、验证到哪一层 | [死代码与未接线审计.md](死代码与未接线审计.md)（诚实记录，含每轮改动表） |
-| 装镜像时丢字节/校验失败，或准备打开 MPU 隔离 | [安装协议与上板标定清单.md](安装协议与上板标定清单.md)（ACK 流控协议 + 上板标定清单） |
-| 在 F401 上跑起来、或想查 SWD 两线到底能 trace 到什么 | [F401移植与trace验证记录.md](F401移植与trace验证记录.md)（移植步骤 + 20 个 trace 工具上板实测） |
-| 想把板子上跑的过程录成 trace 并画成网页、或三色灯谁在闪 | [F427运行trace采集与可视化.md](F427运行trace采集与可视化.md)（采集步骤 + 事件语义 + LED 对照） |
 
 ## 目录结构
 
@@ -30,12 +25,6 @@ docs/
 ├── POSIX与Windows兼容层说明.md              # 【设计说明】兼容层能力与边界、启动门闩、堆、真机自测
 ├── 调度器说明.md                            # 【设计说明】调度模型、P4b 两项瘦身与等价性、剩余优化空间
 ├── 内核Shell控制台使用说明.md               # 【操作手册】console 命令（info/app/drv/task/fault/install/log/pool/trace/cfg）
-├── Loader工程化落地说明.md                 # 【设计说明】分区配置、镜像格式、Loader、安装任务、安全分层
-├── SVCrtOS变更说明_自旋锁与栈分析.md        # 【变更说明】自旋锁/调度器锁/栈用量/文档生成
-├── 死代码与未接线审计.md                    # 【审计】已知缺陷/死代码/未接线清单 + 每轮改动与验证边界
-├── 安装协议与上板标定清单.md                # 【协议/清单】.svcapp 传输 ACK 流控 + 打开 MPU 前的上板标定项
-├── F401移植与trace验证记录.md               # 【验证记录】F401 移植 + trace 工具族上板结果与已知边界
-├── F427运行trace采集与可视化.md             # 【操作手册】trace 武装/采集/切段/渲染 + 事件语义 + LED 对照
 └── api/
     ├── SVCrtOS_API参考.md                 # 内置生成器输出的 Markdown API 参考（已生成）
     └── html/                            # Doxygen 输出的 HTML（需本机安装 Doxygen）
