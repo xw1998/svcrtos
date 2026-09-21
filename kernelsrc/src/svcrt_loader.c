@@ -28,6 +28,7 @@
 
 #include "svcrt_loader.h"
 #include "svcrt_ptable.h"
+#include "svcrt_crash.h"
 #include "svcrt_share.h"
 #include "svcrt_layout_def.h"   /* strategy constants (reclaim mode) */
 #include "svcrt_layout.h"       /* effective mode + fixed slot table */
@@ -1250,6 +1251,7 @@ int32 svcrt_loader_load_dev_hdr(int32 dev, const svcrt_app_header_t *p_hdr, uint
 
     /* 新镜像写入成功：清零故障计数（重新安装 = 重新开始） */
     svcrt_ptable_get()->slot_crash_cnt[slot] = 0u;
+    svcrt_crash_forget((uint32)slot);   /* the cross-reset copy goes too */
 
     svcrt_ptable_set_slot((uint32)slot, SVCRT_APP_SLOT_LOADED,
                           svcrt_loader_entry_addr(base, hdr.payload_offset, hdr.entry_offset),
@@ -1451,6 +1453,7 @@ int32 svcrt_loader_load_buffer(const uint8 *image, uint32 image_len)
     }
 
     pt->slot_crash_cnt[slot] = 0u;
+    svcrt_crash_forget((uint32)slot);   /* the cross-reset copy goes too */
 
     svcrt_ptable_set_slot((uint32)slot, SVCRT_APP_SLOT_LOADED,
                           svcrt_loader_entry_addr(base, hdr.payload_offset, hdr.entry_offset),
@@ -2268,6 +2271,15 @@ int32 svcrt_loader_start(uint32 slot)
         return SVCRT_LOADER_ERR_PARAM;
     }
 
+    /* A slot the kernel disabled for repeated faults does not come back on its
+     * own. The check sits here rather than in the callers because this is the
+     * only door into the scheduler: a policy that each caller has to remember
+     * is a policy that one caller will eventually forget. */
+    if(svcrt_crash_disabled(slot) != 0u)
+    {
+        return SVCRT_LOADER_ERR_STATE;
+    }
+
     /* state / entry / task_id 一次读完，避免与故障处理路径竞争 */
     if(svcrt_ptable_get_slot(slot, &state, &entry, 0) != 0)
     {
@@ -2340,6 +2352,46 @@ int32 svcrt_loader_start(uint32 slot)
     return task_id;
 }
 
+/* Console-facing start: the same door as svcrt_loader_start(), with one
+ * addition - a slot the kernel disabled for repeated faults is treated as a
+ * human retry. The disable is cleared and the count restarts, but only if the
+ * image still passes the same validation the boot scan uses; if it does not,
+ * the slot stays disabled and the caller is told "state", not "started". A
+ * retry that quietly re-enabled a corrupt image would be worse than the
+ * disable it is undoing. */
+int32 svcrt_loader_start_manual(uint32 slot)
+{
+    svcrt_partition_table_t *pt = svcrt_ptable_get();
+    uint32 total = 0u;
+    uint32 entry = 0u;
+    uint32 autostart = 0u;
+
+    if((slot >= pt->slot_max) || (slot >= SVCRT_SLOT_ARRAY_MAX))
+    {
+        return SVCRT_LOADER_ERR_PARAM;
+    }
+
+    if(svcrt_crash_disabled(slot) != 0u)
+    {
+        uint32 base = pt->slot_base[slot];
+
+        if((base == 0u) || (svcrt_loader_accept(base, &total, &entry, &autostart) != 0))
+        {
+            SVCRT_LOGE("CRASH", "slot %u stays disabled: the image no longer"
+                       " validates (reinstall it)", (unsigned)slot);
+            return SVCRT_LOADER_ERR_STATE;
+        }
+
+        /* Valid image, explicit request: this is the operator starting over. */
+        svcrt_crash_forget(slot);
+        (void)svcrt_ptable_set_slot(slot, SVCRT_APP_SLOT_LOADED, entry, 0u);
+        SVCRT_LOGI("CRASH", "slot %u re-armed by an explicit start (fault count cleared)",
+                   (unsigned)slot);
+    }
+
+    return svcrt_loader_start(slot);
+}
+
 int32 svcrt_loader_stop(uint32 slot)
 {
     svcrt_partition_table_t *pt = svcrt_ptable_get();
@@ -2406,6 +2458,21 @@ int32 svcrt_loader_start_driver_slot(uint32 slot)
     return svcrt_loader_start(slot);
 }
 
+/* Driver-side twin of svcrt_loader_start_manual(): the type check belongs
+ * to the driver door, the restart semantics belong to the manual one. */
+int32 svcrt_loader_start_driver_manual(uint32 slot)
+{
+    svcrt_partition_table_t *pt = svcrt_ptable_get();
+
+    if((slot >= pt->slot_max) || (slot >= SVCRT_SLOT_ARRAY_MAX) ||
+       (pt->slot_type[slot] != SVCRT_SLOT_DRIVER))
+    {
+        return SVCRT_LOADER_ERR_PARAM;
+    }
+
+    return svcrt_loader_start_manual(slot);
+}
+
 int32 svcrt_loader_start_driver(void)
 {
     return svcrt_loader_start_driver_slot(0u);
@@ -2454,10 +2521,16 @@ int32 svcrt_loader_on_fault(int32 task_id)
         return -1;              /* 内核任务：沿用默认故障处理 */
     }
 
-    pt->slot_crash_cnt[(uint32)slot]++;
+    /* Counting and the disable decision live in the crash journal, not here.
+     * The same rule has to hold for a fault that is followed by a reset (the
+     * guard charges the slot right before it starves the watchdog, and then
+     * only the journal is still around to carry the count), and two copies of
+     * "how many crashes is too many" would eventually disagree. The partition
+     * table keeps this power cycle's mirror of the count; the journal is the
+     * copy that survives. */
+    (void)svcrt_crash_fault((uint32)slot, SVCRT_CRASH_REASON_FAULT);
 
-    #if (APP_CRASH_RESTART_MAX > 0)
-    if(pt->slot_crash_cnt[(uint32)slot] >= (uint32)APP_CRASH_RESTART_MAX)
+    if(svcrt_crash_disabled((uint32)slot) != 0u)
     {
         uint32 entry = 0u;
 
@@ -2476,9 +2549,16 @@ int32 svcrt_loader_on_fault(int32 task_id)
 
         svcrt_fault_record(SVCRT_FAULT_APPDISABLED, task_id);
 
+        /* Name the slot and the count on the console as well: the fault ring
+         * records the event, but "which slot, why, how many times" is what the
+         * operator needs to decide whether to reinstall or to fix the image. */
+        SVCRT_LOGE("CRASH", "slot %d disabled: %s, %u consecutive faults",
+                   (int)slot,
+                   svcrt_crash_reason_name(svcrt_crash_disabled((uint32)slot)),
+                   (unsigned)pt->slot_crash_cnt[(uint32)slot]);
+
         return 1;
     }
-    #endif
 
     return 0;                   /* 未达上限：由调用方安排恢复（重启该镜像） */
 }

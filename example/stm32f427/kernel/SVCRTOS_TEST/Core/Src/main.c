@@ -41,6 +41,7 @@
 #include "svcrt_layout.h"
 #include "svcrt_audit.h"
 #include "svcrt_guard.h"
+#include "svcrt_crash.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -329,6 +330,11 @@ static void svcrt_kernel_init(void)
     /* ---- 分区表与外部映像 ---- */
     svcrt_ptable_init();
 
+    /* Cross-reset crash bookkeeping. init() only validates or starts the
+     * journal; it must run before anything can fault, and it does not
+     * need a scanned pool. */
+    svcrt_crash_init();
+
     /* Device-side layout config (install mode + fixed slot table) must be
      * resolved before the pool is scanned: both the scan and the installer
      * ask svcrt_layout_*() where an image is allowed to live. An empty or
@@ -376,6 +382,15 @@ static void svcrt_kernel_init(void)
      * reuse its result and cost nothing. */
     (void)svcrt_loader_scan_driver();
     (void)svcrt_loader_reclaim();
+
+    /* Adopt the crash counts that belong to the images this scan just
+     * found, and put any slot that already reached the fault limit back
+     * into the held state before the autostart pass below can run it
+     * again. Between the scan and the autostart is the only window in
+     * which "what is in the pool" is known and nothing has started.
+     * reclaim() runs first so the pool addresses the scan left behind
+     * are the final ones the journal is re-tagged against. */
+    svcrt_crash_scan_apply();
 
     /* Drivers are identified and started before Apps (drivers have the higher
      * priority, and App services depend on driver services being ready).

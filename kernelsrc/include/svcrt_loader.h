@@ -155,6 +155,13 @@ int32 svcrt_loader_uninstall(uint32 slot);
 int32 svcrt_loader_start_driver_slot(uint32 slot);
 
 /**
+* @brief 驱动槽位的人工重试启动（语义同 svcrt_loader_start_manual）
+* @param slot 槽位号
+* @return 成功返回任务号（>0），失败返回 SVCRT_LOADER_ERR_x
+*/
+int32 svcrt_loader_start_driver_manual(uint32 slot);
+
+/**
 * @brief 启动 0 号驱动槽（兼容包装）
 * @return 成功返回任务号（>0），失败返回 SVCRT_LOADER_ERR_x
 */
@@ -219,8 +226,10 @@ int32 svcrt_loader_load_driver_dev(int32 dev, const svcrt_app_header_t *p_hdr, u
 * @details 计数按槽位累计（从分区表反查 task_id 归属）：故障一次加一，
 *          达到 APP_CRASH_RESTART_MAX 后将该槽位置为 INVALID 并让任务脱离调度。
 *          重新安装镜像时计数清零。
-* @note 计数保存在共享 RAM，掉电即清零，因此当前可挡住“App 反复崩溃重启”，
-*       但挡不住“崩溃导致整机复位”的启动环——那需要把计数持久化（如备份寄存器）。
+* @note 计数由 svcrt_crash 记账：共享 RAM 里的 slot_crash_cnt 只反映本次上电，
+*       跨复位活下来的那份在共享 RAM 尾部的 UNINIT 区（CRASH_LOG_BASE）里，
+*       开机由 svcrt_crash_scan_apply() 采用，因此“崩溃导致整机复位”的启动环
+*       也能被挡住（上限一到即保持禁用、不再自启）。只有掉电才清零。
 */
 int32 svcrt_loader_on_fault(int32 task_id);
 
@@ -228,8 +237,21 @@ int32 svcrt_loader_on_fault(int32 task_id);
 * @brief 把已加载的槽位拉起为任务（按槽位类型自动分流 App / 驱动）
 * @param slot 槽位号
 * @return 成功返回任务号（>0），失败返回 SVCRT_LOADER_ERR_x
+* @note 这个门不接受被内核禁用的槽位：禁用的意思是“除非有人明确要求，
+*       否则别再自己跑起来”。控制台的人工重试用 svcrt_loader_start_manual()。
 */
 int32 svcrt_loader_start(uint32 slot);
+
+/**
+* @brief 控制台口径的启动：与 svcrt_loader_start() 是同一道门，多一个人工重试
+* @param slot 槽位号
+* @return 成功返回任务号（>0），失败返回 SVCRT_LOADER_ERR_x
+* @details 若该槽位是被崩溃终局策略禁用的，先用启动扫描的同一套校验
+*          （svcrt_loader_accept）复验镜像：镜像仍然可用才清掉禁用与计数
+*          （这是操作者说“重新开始”）；复验不过就保持禁用并返回 ERR_STATE。
+*          悄悄放行一个已经损坏的镜像，比它被禁用更糟。
+*/
+int32 svcrt_loader_start_manual(uint32 slot);
 
 /**
 * @brief 停止槽位对应的任务（镜像仍保留在 Flash）

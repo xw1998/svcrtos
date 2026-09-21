@@ -8,6 +8,7 @@
 #include "svcrt_task.h"
 #include "svcrt_ptable.h"
 #include "svcrt_audit.h"
+#include "svcrt_crash.h"
 #include "svcrt_fault.h"
 #include "svcrt_log.h"
 #include "svcrt_hal.h"
@@ -283,6 +284,58 @@ void svcrt_guard_tick(void)
          * full fault ring would otherwise bury the first occurrence. */
         if(g_status.starves == 0u)
         {
+            /* Charge this reset to the images that broke their contract,
+             * before the watchdog ends the run.
+             *
+             * Once per boot, not once per tick. The latch is g_status.starves,
+             * which this function never clears after the first starvation: the
+             * tick re-evaluates the same violation every period, so charging per
+             * evaluation would turn one broken image into hundreds of "faults"
+             * and hold a slot for the single condition it was already in. That
+             * rate limit also sets the convergence speed - a slot that keeps
+             * breaking its promise gains exactly one fault per boot, so it is
+             * held on the boot after its count reaches the limit. Deliberately
+             * not per episode: an image whose health flickers would otherwise
+             * be accused faster than a reset can happen.
+             *
+             * Without the charge at all, the count dies with the RAM it lives in,
+             * the image autostarts again and the board reboots forever instead
+             * of holding one slot. */
+            for(id = 1; id <= SVCRT_TASK_MAX_NUM; id++)
+            {
+                svcrt_guard_entry_t *p_v = &g_guard[id];
+                int32 slot;
+                uint32 n;
+
+                if((p_v->period_ms == 0u) || (p_v->task_id == 0u) ||
+                   (guard_is_violating(p_v, now) == 0u))
+                {
+                    continue;
+                }
+
+                slot = svcrt_ptable_find_task((uint32)id);
+
+                /* No slot to tag (not an image task), or already held: the
+                 * number would only grow without changing any decision. */
+                if((slot < 0) || (svcrt_crash_disabled((uint32)slot) != 0u))
+                {
+                    continue;
+                }
+
+                n = svcrt_crash_fault((uint32)slot, SVCRT_CRASH_REASON_HEARTBEAT);
+
+                if(svcrt_crash_disabled((uint32)slot) != 0u)
+                {
+                    SVCRT_LOGE("CRASH", "slot %d held: %s, %u consecutive faults"
+                               " (declared %u ms, silent for %u ticks)",
+                               (int)slot,
+                               svcrt_crash_reason_name(svcrt_crash_disabled((uint32)slot)),
+                               (unsigned)n,
+                               (unsigned)p_v->period_ms,
+                               (unsigned)(now - p_v->beat_tick));
+                }
+            }
+
             if((g_status.verdict & SVCRT_GUARD_BAD_AUDIT) != 0u)
             {
                 svcrt_fault_record(SVCRT_FAULT_AUDITFAIL, 0);

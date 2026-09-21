@@ -18,6 +18,7 @@
 #include "svcrt_app_image.h"
 #include "svcrt_layout_def.h"
 #include "svcrt_partition.h"
+#include "svcrt_crash.h"
 
 static svcrt_audit_result_t g_audit_last;
 
@@ -166,6 +167,27 @@ static void audit_partition(svcrt_audit_result_t *p)
                       t->image_ram_base, t->image_ram_total) != 0u) ||
        (audit_overlap(t->kernel_ram_base, t->kernel_ram_size,
                       t->image_ram_base, t->image_ram_total) != 0u))
+    {
+        audit_fail(p, SVCRT_AUDIT_PARTITION, SVCRT_AUDIT_INDEX_NONE);
+    }
+
+    /* Cross-reset crash journal: it sits in the tail of shared RAM, so it has
+     * to stay inside it and stay word-aligned. The runtime checks below go
+     * one step further than the geometry: CRASH_LOG_BASE / SIZE are macros
+     * the linker script was generated from, while area_base() / area_size()
+     * are what the code actually writes to. If those two ever disagree, the
+     * scatter file and the module describe different memory - a build that
+     * links happily and then corrupts whatever is under the journal. */
+    if((CRASH_LOG_BASE < t->share_ram_base) ||
+       ((CRASH_LOG_BASE + CRASH_LOG_SIZE) > (t->share_ram_base + t->share_ram_size)) ||
+       ((CRASH_LOG_BASE % 4u) != 0u))
+    {
+        audit_fail(p, SVCRT_AUDIT_PARTITION, SVCRT_AUDIT_INDEX_NONE);
+    }
+    p->checks++;
+    if((CRASH_LOG_BASE != svcrt_crash_area_base()) ||
+       (CRASH_LOG_SIZE != svcrt_crash_area_size()) ||
+       (CRASH_LOG_SIZE < (uint32)sizeof(svcrt_crash_journal_t)))
     {
         audit_fail(p, SVCRT_AUDIT_PARTITION, SVCRT_AUDIT_INDEX_NONE);
     }

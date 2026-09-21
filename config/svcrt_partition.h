@@ -159,6 +159,17 @@
 #define KERNEL_RAM_BASE      (SHARE_RAM_BASE  + SHARE_RAM_SIZE)
 #define SLOT_RAM_BASE        (KERNEL_RAM_BASE + KERNEL_RAM_SIZE)
 
+/* ---- 跨复位崩溃计数区 ----
+ * 放在共享内存的尾部，由 tools/gen_scatter.py 用一个 UNINIT 段占住。
+ * 「不初始化」正是它的用途：分区表里的崩溃计数每次上电都被内核重新种一遍，
+ * 而这份记录要活过复位（看门狗复位、软复位），只有掉电才丢。
+ * 有了它，「不停崩 → 复位 → 又自启 → 再崩」这条环才挡得住；
+ * 如实标注：拔电重来会从零计数，该镜像得重新崩够上限才会被禁用。
+ * 位置只在这里定义一次，生成器与内核都从这两个宏取。
+ * 必须装得下 svcrt_crash_journal_t（内核里有编译期尺寸校验）。 */
+#define CRASH_LOG_SIZE       (512)
+#define CRASH_LOG_BASE       (SHARE_RAM_BASE + SHARE_RAM_SIZE - CRASH_LOG_SIZE)
+
 /* 镜像 RAM 池（伙伴分配）：
  *   SLOT_RAM_BASE          池基址，按 SLOT_RAM_TOTAL 对齐（MPU region 硬约束）
  *   SLOT_RAM_TOTAL         池总大小

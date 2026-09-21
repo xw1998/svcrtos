@@ -44,6 +44,7 @@
 #include "svcrt_fs.h"
 #include "svcrt_audit.h"
 #include "svcrt_guard.h"
+#include "svcrt_crash.h"
 #include "svcrt_partition.h"
 
 #include <string.h>
@@ -323,13 +324,13 @@ static int cmd_app(int argc, char *argv[])
             return -1;
         }
 
-        if(svcrt_loader_start(slot) > 0)
+        if(svcrt_loader_start_manual(slot) > 0)
         {
             sh_out("app: started\r\n");
         }
         else
         {
-            sh_out("app: start failed (check state with 'app list', reason in 'fault')\r\n");
+            sh_out("app: start failed (see 'crash' for a held slot; state in 'app list')\r\n");
         }
         return 0;
     }
@@ -461,7 +462,7 @@ static int cmd_app(int argc, char *argv[])
 
     /* 落点是运行期分配出来的，所以列出来的是真实地址与真实占用字节数，
      * 而不是链接期的固定槽位。 */
-    ark_shell_printf("\r\nid  type  state     auto  task  crash  base        size    ram         entry\r\n");
+    ark_shell_printf("\r\nid  type  state     auto  task  crash  held       base        size    ram         entry\r\n");
     for(i = 0u; (i < pt->slot_max) && (i < SVCRT_SLOT_ARRAY_MAX); i++)
     {
         if(pt->slot_type[i] != SVCRT_SLOT_APP)
@@ -469,13 +470,14 @@ static int cmd_app(int argc, char *argv[])
             continue;
         }
 
-        ark_shell_printf(" %u   %-4s  %-8s  %-4s  %-4u  %-5u  0x%08X  %-6u  0x%08X  0x%08X\r\n",
+        ark_shell_printf(" %u   %-4s  %-8s  %-4s  %-4u  %-5u  %-9s  0x%08X  %-6u  0x%08X  0x%08X\r\n",
                          i,
                          slot_type_name(pt->slot_type[i]),
                          slot_state_name(pt->slot_state[i]),
                          (pt->slot_autostart[i] != 0u) ? "yes" : "no",
                          pt->slot_task_id[i],
                          pt->slot_crash_cnt[i],
+                         svcrt_crash_reason_name(svcrt_crash_disabled(i)),
                          pt->slot_base[i],
                          pt->slot_size[i],
                          pt->slot_ram_base[i],
@@ -502,13 +504,13 @@ static int cmd_drv(int argc, char *argv[])
             return -1;
         }
 
-        if(svcrt_loader_start_driver_slot(slot) > 0)
+        if(svcrt_loader_start_driver_manual(slot) > 0)
         {
             sh_out("drv: started\r\n");
         }
         else
         {
-            sh_out("drv: start failed (check state with 'drv list', reason in 'fault')\r\n");
+            sh_out("drv: start failed (see 'crash' for a held slot; state in 'drv list')\r\n");
         }
         return 0;
     }
@@ -569,7 +571,7 @@ static int cmd_drv(int argc, char *argv[])
         return -1;
     }
 
-    ark_shell_printf("\r\nid  type  state     auto  task  crash  base        size    ram         entry\r\n");
+    ark_shell_printf("\r\nid  type  state     auto  task  crash  held       base        size    ram         entry\r\n");
     for(i = 0u; (i < pt->slot_max) && (i < SVCRT_SLOT_ARRAY_MAX); i++)
     {
         if(pt->slot_type[i] != SVCRT_SLOT_DRIVER)
@@ -577,13 +579,14 @@ static int cmd_drv(int argc, char *argv[])
             continue;
         }
 
-        ark_shell_printf(" %u   %-4s  %-8s  %-4s  %-4u  %-5u  0x%08X  %-6u  0x%08X  0x%08X\r\n",
+        ark_shell_printf(" %u   %-4s  %-8s  %-4s  %-4u  %-5u  %-9s  0x%08X  %-6u  0x%08X  0x%08X\r\n",
                          i,
                          slot_type_name(pt->slot_type[i]),
                          slot_state_name(pt->slot_state[i]),
                          (pt->slot_autostart[i] != 0u) ? "yes" : "no",
                          pt->slot_task_id[i],
                          pt->slot_crash_cnt[i],
+                         svcrt_crash_reason_name(svcrt_crash_disabled(i)),
                          pt->slot_base[i],
                          pt->slot_size[i],
                          pt->slot_ram_base[i],
@@ -710,6 +713,62 @@ static int cmd_guard(int argc, char *argv[])
     {
         sh_out("\r\nnote: no image declared a heartbeat period, so the kernel has\r\n"
                "      no health verdict to give for any slot (see svcrt_heartbeat).\r\n");
+    }
+
+    return 0;
+}
+
+/* ============================================================
+ * crash：跨复位崩溃账本
+ * @details 这是唯一能在复位后活下来的那份计数：它放在共享 RAM 尾部的
+ *          UNINIT 区（CRASH_LOG_BASE），上电清零、复位不清零。
+ *          因此“镜像崩溃 -> 整机复位 -> 镜像又自启 -> 再崩”这条环
+ *          能被记满上限并落成禁用，板子活下来。
+ * @note 掉电即清零是设计取舍而不是遗漏：复位才是要数的那个事件，
+ *       断电是操作者说“重新开始”。详见 svcrt_crash.h。
+ * ============================================================ */
+static int cmd_crash(int argc, char *argv[])
+{
+    svcrt_partition_table_t *pt = svcrt_ptable_get();
+    uint32 i;
+    uint32 shown = 0u;
+
+    (void)argc;
+    (void)argv;
+
+    ark_shell_printf("journal: 0x%08X +%u bytes (uninitialized RAM: kept across reset, cleared by power-on)\r\n",
+                     svcrt_crash_area_base(), svcrt_crash_area_size());
+    ark_shell_printf("boots=%u seq=%u\r\n", svcrt_crash_boots(), svcrt_crash_seq());
+    ark_shell_printf("\r\nslot type  faults last        hold      held_at\r\n");
+
+    for(i = 0u; (i < pt->slot_max) && (i < SVCRT_SLOT_ARRAY_MAX); i++)
+    {
+        uint32 cnt = svcrt_crash_count(i);
+        uint32 hold = svcrt_crash_disabled(i);
+
+        if((cnt == 0u) && (hold == 0u))
+        {
+            continue;
+        }
+
+        shown++;
+        ark_shell_printf(" %u   %-4s  %-6u  %-10s  %-8s  %u\r\n",
+                         i,
+                         slot_type_name(pt->slot_type[i]),
+                         cnt,
+                         svcrt_crash_reason_name(svcrt_crash_last_reason(i)),
+                         svcrt_crash_reason_name(hold),
+                         svcrt_crash_disabled_tick(i));
+    }
+
+    if(shown == 0u)
+    {
+        sh_out("\r\nno slot has a fault on record since the last power-on.\r\n");
+    }
+    else
+    {
+        sh_out("\r\nhold = the kernel will not autostart this slot. 'app start' / 'drv start'\r\n"
+               "       is the explicit retry that clears it (the image must still validate).\r\n");
     }
 
     return 0;
@@ -2553,7 +2612,7 @@ static int cmd_fs(int argc, char *argv[])
 static int register_kernel_commands(void)
 {
     int idx = g_cmd_count;
-    int need = 15;
+    int need = 16;
 
     if((idx + need) > ARK_SHELL_MAX_COMMANDS)
     {
@@ -2594,6 +2653,9 @@ static int register_kernel_commands(void)
 
     g_cmd_table[idx++] = ARK_SHELL_CMD("guard", cmd_guard,
         "Watchdog state and per-slot heartbeat contracts", 1);
+
+    g_cmd_table[idx++] = ARK_SHELL_CMD("crash", cmd_crash,
+        "Cross-reset crash journal: boots, per-slot fault counts and held slots", 1);
 
     g_cmd_table[idx].name = NULL;
     g_cmd_table[idx].func = NULL;

@@ -215,6 +215,25 @@ class Layout(object):
                 if b < bottom or b + s > top:
                     problems.append("%s 分区越界: %s(0x%08X+0x%X) 超出芯片范围" % (kind, n, b, s))
 
+        # 跨复位崩溃计数区（UNINIT 段）必须落在共享内存里，而且不能盖住分区表。
+        # 分区表的尺寸只有编译期才知道，这里先保证区间本身合法与对齐；
+        # 内核侧的自检再用 sizeof 做一次精确的相邻性检查。
+        if self.v("CRASH_LOG_SIZE") > 0:
+            cl_base = self.v("CRASH_LOG_BASE")
+            cl_size = self.v("CRASH_LOG_SIZE")
+            share_base = self.v("SHARE_RAM_BASE")
+            share_size = self.v("SHARE_RAM_SIZE")
+            if (cl_base < share_base) or ((cl_base + cl_size) > (share_base + share_size)):
+                problems.append("CRASH_LOG(0x%08X+0x%X) 超出共享内存(0x%08X+0x%X)"
+                                % (cl_base, cl_size, share_base, share_size))
+            if ((cl_base % 4) != 0) or ((cl_size % 4) != 0):
+                problems.append("CRASH_LOG 未按字对齐：UNINIT 段里的 32 位字段会错位")
+            # 日志结构 = 5 个「每槽一个字」的数组 + 5 个头部字（magic/version/
+            # seq/boots/check）；这里给的是这个下限，精确校验在 C 侧做。
+            if cl_size < (self.v("SLOT_MAX") * 5 * 4 + 20):
+                problems.append("CRASH_LOG_SIZE(%d) 装不下崩溃日志结构（至少 %d）"
+                                % (cl_size, self.v("SLOT_MAX") * 5 * 4 + 20))
+
         # 池的分配约束：单元地址必须与芯片扇区对齐，否则擦除会破坏相邻镜像
         sector = self.v("IMAGE_POOL_SECTOR")
         if self.v("IMAGE_POOL_SIZE") % sector != 0:
@@ -310,6 +329,9 @@ class Layout(object):
             base, size = self.v(base_m), self.v(size_m)
             lines.append("  %-12s 0x%08X ~ 0x%08X  (%d KB)"
                          % (name, base, base + size - 1, size // 1024))
+        if self.v("CRASH_LOG_SIZE") > 0:
+            lines.append("跨复位崩溃计数区(UNINIT): 0x%08X + %d B"
+                         % (self.v("CRASH_LOG_BASE"), self.v("CRASH_LOG_SIZE")))
         lines.append("")
         lines.append("统一镜像池: %d 个单元 x %d KB @ 0x%08X（最多 %d 个镜像）"
                      % (self.units(), self.v("IMAGE_POOL_SECTOR") // 1024,
@@ -347,7 +369,8 @@ BANNER = """\
 ; *************************************************************
 """
 
-def emit(region_name, base, size, ram_base, ram_size, out, ccm=None, stack_size=0):
+def emit(region_name, base, size, ram_base, ram_size, out, ccm=None, stack_size=0,
+         noinit=None):
     """输出一个映像的分散加载描述
 
     栈的约定（必须与内核 svcrt_loader_start 严格一致）：
@@ -382,6 +405,15 @@ def emit(region_name, base, size, ram_base, ram_size, out, ccm=None, stack_size=
     if ccm and ccm[1] > 0:
         out.write("  RW_CCM 0x%08X 0x%08X  {   ; CCM/TCM 快速 RAM\n" % (ccm[0], ccm[1]))
         out.write("   .ANY (+RW +ZI)\n")
+        out.write("  }\n")
+    # 不初始化的区（跨复位保留）：UNINIT 让链接器既不做零初始化也不做搬移初始化，
+    # 于是复位（看门狗/软复位）不会碰它，只有掉电才会丢。
+    # 注意它与 RW_*.ANY(+RW +ZI) 的关系：.ANY 只收「没有被别的选择器显式匹配」
+    # 的段，下面的 *(.noinit) 是显式选择器，所以这个区不会被 .ANY 抢走。
+    if noinit and noinit[1] > 0:
+        out.write("  UNINIT_%s 0x%08X UNINIT 0x%08X  {   ; 不初始化：内容必须活过复位\n"
+                  % (region_name, noinit[0], noinit[1]))
+        out.write("   *(.noinit)\n")
         out.write("  }\n")
     out.write("}\n")
 
@@ -451,7 +483,8 @@ def gen_target(layout, target, out_path, raw=False, unit=0, units=1, img_type="a
     with open(out_path, "w", encoding="utf-8") as out:
         if target == "kernel":
             emit("KERNEL", v("KERNEL_BASE"), v("KERNEL_SIZE"),
-                 v("KERNEL_RAM_BASE"), v("KERNEL_RAM_SIZE"), out, ccm=ccm)
+                 v("KERNEL_RAM_BASE"), v("KERNEL_RAM_SIZE"), out, ccm=ccm,
+                 noinit=(v("CRASH_LOG_BASE"), v("CRASH_LOG_SIZE")))
         elif target == "image" and nominal:
             hdr = v("APP_IMAGE_HEADER_SIZE")
             load_base = v("SVCRT_APP_NOMINAL_ROM_LOAD") + rom_delta
