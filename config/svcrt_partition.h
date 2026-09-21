@@ -541,6 +541,11 @@ typedef char svcrt_pool_unit_check[
 #define SHELL_TASK_PRIORITY      14              /* 控制台优先级（最低：人机交互，不抢业务 CPU） */
 #define SHELL_TASK_STACK_SIZE    (1024 * 3)      /* 控制台任务栈（字节，取自内核 RAM） */
 #define SHELL_TASK_PERIOD_MS     2               /* 无按键时的轮询间隔（ms） */
+/* Max RX bytes consumed per console round.  The host pushes a whole
+ * command line far faster than one byte per task period, and a receive
+ * FIFO that fills up refuses the tail of the line (the CR included),
+ * leaving a command that can never be recognised. */
+#define SHELL_RX_DRAIN_MAX       64              /* RX bytes per round */
 #define SHELL_INSTALL_TIMEOUT_MS 120000          /* install 窗口最长等待（ms），超时回命令提示符 */
 
 /* ============================================================

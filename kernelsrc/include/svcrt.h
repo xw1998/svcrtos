@@ -456,4 +456,64 @@ void   svcrt_thread_exit(void);
 
 /** @} */
 
+
+/** @defgroup file 文件服务（SVC 0x1C）
+ *  @{ */
+
+/*
+* The file system lives in the kernel; an App only sees paths. Every call
+* is path based (open / move the bytes / close), so no kernel side handle
+* survives the call and nothing has to be cleaned up when an App is
+* stopped. Mounting and formatting stay with the shell and the kernel -
+* an App can use the volume that is already mounted, nothing else.
+*
+* Errors: 0 on success, a negative value on failure. Values at or below
+* -1000 are SVCrtOS codes (see svcrt_fs.h), anything above is a littlefs
+* error passed through as-is, so print the number instead of guessing a
+* cause.
+*/
+
+/**
+* @brief Write a whole file (create or truncate).
+* @param path absolute path inside the mounted volume, e.g. "/cfg/a.txt"
+* @param data bytes to write (may be NULL when len is 0)
+* @param len  byte count, 0 creates an empty file
+* @return 0 on success, negative error code on failure
+*/
+int32  svcrt_file_write(const char *path, const void *data, uint32 len);
+
+/**
+* @brief Read a whole file into a buffer of the caller's own RAM.
+* @param path absolute path inside the mounted volume
+* @param buf  destination buffer
+* @param max  capacity of that buffer in bytes
+* @return bytes read (>= 0), or a negative error code
+*/
+int32  svcrt_file_read(const char *path, void *buf, uint32 max);
+
+/**
+* @brief Remove a file.
+* @return 0 on success, negative error code on failure
+*/
+int32  svcrt_file_remove(const char *path);
+
+/**
+* @brief Size and type of one entry.
+* @param path   absolute path
+* @param size   receives the size in bytes (may be NULL)
+* @param is_dir receives 1 for a directory, 0 for a file (may be NULL)
+* @return 0 on success, negative error code on failure
+*/
+int32  svcrt_file_stat(const char *path, uint32 *size, uint32 *is_dir);
+
+/**
+* @brief Capacity and usage of the mounted volume.
+* @param total receives the total bytes
+* @param used  receives the used bytes
+* @return 0 on success, -1 when no volume is mounted
+*/
+int32  svcrt_file_info(uint32 *total, uint32 *used);
+
+/** @} */
+
 #endif

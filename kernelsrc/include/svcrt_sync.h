@@ -19,6 +19,7 @@ typedef struct {
     char   name[8];
     int32  count;                                       /* 计数值：>0 表示可用资源数，0 表示需排队等待 */
     uint8  used;                                        /* 该对象是否已被占用 */
+    int32  creator_id;                                  /* creator task id; 0 = kernel. Dropped together with its creator's image */
     svcrt_task_t *waiters[SVCRT_MAX_SYNC_WAITERS];      /* 等待者列表 */
 } svcrt_sem_obj_t;
 
@@ -27,6 +28,7 @@ typedef struct {
     svcrt_task_t *owner;                                /* 当前持有者，0 表示未上锁 */
     uint8  used;                                        /* 该对象是否已被占用 */
     uint8  orig_priority;                               /* 持有者原始优先级，用于优先级继承后恢复 */
+    int32  creator_id;                                  /* creator task id; 0 = kernel. Dropped together with its creator's image */
     svcrt_task_t *waiters[SVCRT_MAX_SYNC_WAITERS];      /* 等待者列表 */
 } svcrt_mtx_obj_t;
 

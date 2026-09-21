@@ -48,6 +48,7 @@ void svcrt_event_module_init(void)
             svcrt_events[i].name[j] = 0;
         svcrt_events[i].used = 0;
         svcrt_events[i].flag = 0;
+        svcrt_events[i].creator_id = 0;
         for(j = 0; j < SVCRT_MAX_EVENT_WAITERS; j++)
             svcrt_events[i].waiting_tasks[j] = 0;
     }
@@ -58,6 +59,7 @@ void svcrt_event_release_task(int32 task_id)
 {
     svcrt_task_t *p_tsk;
     int32 i;
+    int32 j;
 
     if(task_id <= 0 || task_id > svcrt_task_count)
     {
@@ -73,6 +75,28 @@ void svcrt_event_release_task(int32 task_id)
             continue;
         }
         (void)svcrt_event_waiter_remove(svcrt_events[i].waiting_tasks, p_tsk);
+    }
+
+    /* Events the dead task created go away with it: the table is small and
+     * an App that creates one per run would otherwise exhaust it after a
+     * few start / stop cycles. Kernel created objects carry id 0 and stay.
+     * Waiters are flushed with OBJ_DELETED - the object is disappearing, so
+     * Tasks are only detached from the waiter list, never re-queued here:
+     * this runs inside teardown, and the only tasks that could be waiting
+     * on an App event are that App's own. */
+    for(i = 0; i < SVCRT_EVENT_NUM; i++)
+    {
+        if((svcrt_events[i].used != 0) && (svcrt_events[i].creator_id == task_id))
+        {
+            for(j = 0; j < SVCRT_MAX_EVENT_WAITERS; j++)
+            {
+                svcrt_events[i].waiting_tasks[j] = 0;
+            }
+            svcrt_events[i].used       = 0;
+            svcrt_events[i].flag       = 0;
+            svcrt_events[i].name[0]    = 0;
+            svcrt_events[i].creator_id = 0;
+        }
     }
 }
 
@@ -108,6 +132,8 @@ int32 svcrt_event_create_internal(char *name)
             svcrt_events[i].name[15]  = 0;
             svcrt_events[i].used      = 1;
             svcrt_events[i].flag      = 0;
+            svcrt_events[i].creator_id = (svcrt_current_task_id > 0)
+                                         ? svcrt_current_task_id : 0;
             for(j = 0; j < SVCRT_MAX_EVENT_WAITERS; j++)
             {
                 svcrt_events[i].waiting_tasks[j] = 0;

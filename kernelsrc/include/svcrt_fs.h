@@ -75,6 +75,15 @@ int32 svcrt_fs_format(const char *dev, uint32 offset, uint32 size);
 int32 svcrt_fs_stat(uint32 *total, uint32 *used);
 
 /** @brief Create/truncate path and write len bytes */
+/**
+ * @brief Size and type of one entry (file or directory).
+ * @param path   absolute path inside the mounted volume
+ * @param size   receives the size in bytes, 0 for a directory (may be NULL)
+ * @param is_dir receives 1 for a directory, 0 for a file (may be NULL)
+ * @return 0 on success, -1 on failure (nothing mounted, bad path, not found)
+ */
+int32 svcrt_fs_stat_path(const char *path, uint32 *size, uint32 *is_dir);
+
 int32 svcrt_fs_write_file(const char *path, const uint8 *data, uint32 len);
 
 /** @brief Read at most max bytes; *out_len gets the real length */

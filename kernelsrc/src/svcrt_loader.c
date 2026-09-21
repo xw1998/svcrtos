@@ -187,6 +187,51 @@ static void svcrt_loader_halt_task(uint32 task_id)
     SVCRT_ENABLE_IRQ();
 }
 
+/* Hard stop every task that lives in the same RAM window, not just the one
+ * passed in: an App may have created threads of its own, and a stopped or
+ * uninstalled image must not leave them in the scheduler. Left behind, they
+ * keep occupying task slots and holding sync / mq objects that the next
+ * start has to create again, so the second start begins to fail.
+ * The RAM window is the identity here: the loader hands the main task the
+ * image's RAM block, and every thread an App creates passes a kernel check
+ * proving its stack lies inside that same block. Kernel tasks (shell, timer,
+ * idle ...) live in the kernel RAM region and can never match. */
+static void svcrt_loader_halt_image(uint32 task_id)
+{
+    uint32 ram_base;
+    uint32 ram_end;
+    int32  i;
+
+    if((task_id == 0u) || (task_id > (uint32)svcrt_task_count))
+    {
+        return;
+    }
+
+    ram_base = svcrt_task_table[task_id - 1u].ram_start;
+    ram_end  = ram_base + svcrt_task_table[task_id - 1u].ram_size;
+
+    for(i = 0; i < (int32)svcrt_task_count; i++)
+    {
+        uint32 t_base;
+        uint32 t_end;
+
+        if(svcrt_task_table[i].status == SVCRT_TASK_INVALID)
+        {
+            continue;
+        }
+
+        t_base = svcrt_task_table[i].ram_start;
+        t_end  = t_base + svcrt_task_table[i].ram_size;
+
+        if((t_base < ram_base) || (t_end > ram_end))
+        {
+            continue;
+        }
+
+        svcrt_loader_halt_task((uint32)(i + 1));
+    }
+}
+
 /* 校验镜像头：字段级约束 + 重定位表表体。返回 0 或 SVCRT_LOADER_ERR_x。
  * @param p_hdr 镜像头
  * @param p_rel 重定位表表体地址。传 0 表示「此刻表体还不在可寻址的地方」
@@ -2146,7 +2191,7 @@ int32 svcrt_loader_uninstall(uint32 slot)
     /* 正在运行的先停下：镜像字节仍在 Flash，之后还能再启动 */
     if((state == SVCRT_APP_SLOT_RUNNING) && (task_id != 0u))
     {
-        svcrt_loader_halt_task(task_id);
+        svcrt_loader_halt_image(task_id);
     }
 
     /* Remember the slot's own range before the record is dropped: in fixed-slot
@@ -2326,7 +2371,7 @@ int32 svcrt_loader_stop(uint32 slot)
         rest_state = SVCRT_APP_SLOT_RAW;
     }
 
-    svcrt_loader_halt_task(task_id);
+    svcrt_loader_halt_image(task_id);
 
     (void)svcrt_ptable_set_slot(slot, rest_state, entry, 0u);
 
@@ -2421,7 +2466,7 @@ int32 svcrt_loader_on_fault(int32 task_id)
          * 「空槽位」；重新安装即可清零计数、重新启用。 */
         (void)svcrt_ptable_get_slot((uint32)slot, 0, &entry, 0);
 
-        svcrt_loader_halt_task((uint32)task_id);
+        svcrt_loader_halt_image((uint32)task_id);
 
         (void)svcrt_ptable_set_slot((uint32)slot, SVCRT_APP_SLOT_INVALID, entry, 0u);
 

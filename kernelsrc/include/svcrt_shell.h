@@ -58,6 +58,15 @@ int32 svcrt_shell_ext_register(const svcrt_ushell_cmd_t *cmd);
 int32 svcrt_shell_ext_unregister(const char *name);
 
 /**
+* @brief Drop every user command registered by one task
+* @param task_id owner task id (0 = kernel, nothing to drop)
+* @return number of entries released
+* @details Hooked into task teardown so an App cannot leave its command name
+*          reserved after it is stopped or uninstalled.
+*/
+int32 svcrt_shell_release_task(uint32 task_id);
+
+/**
 * @brief 向控制台输出一段有界长度的文本（不追加换行）
 * @param msg 文本首地址
 * @param len 输出长度；由分发层先探测上限，避免在内核侧做无界 strlen

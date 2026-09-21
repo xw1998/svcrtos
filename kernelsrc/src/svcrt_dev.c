@@ -10,6 +10,7 @@
 
 static svcrt_dev_desc_t svcrt_dev_list[SVCRT_DEV_MAX_NUM];
 static svcrt_dev_hdr_t *svcrt_dev_handles[SVCRT_DEV_MAX_NUM];
+static uint8 svcrt_dev_refs[SVCRT_DEV_MAX_NUM];
 static int32 svcrt_dev_count = 0;
 
 void svcrt_dev_module_init(void)
@@ -21,6 +22,7 @@ void svcrt_dev_module_init(void)
         svcrt_dev_list[i].drv = 0;
         svcrt_dev_list[i].dev_num = 0;
         svcrt_dev_handles[i] = 0;
+        svcrt_dev_refs[i]    = 0;
     }
     svcrt_dev_count = 0;
 }
@@ -114,6 +116,7 @@ int32 svcrt_dev_unregister(const char *name)
             svcrt_dev_list[i].drv         = 0;
             svcrt_dev_list[i].dev_num     = 0;
             svcrt_dev_handles[i]          = 0;
+            svcrt_dev_refs[i]             = 0;
             if(svcrt_dev_count > 0)
             {
                 svcrt_dev_count--;
@@ -151,12 +154,28 @@ int32 svcrt_dev_open_internal(char *name, uint32 param)
             if(name[j] == 0)
                 break;
         }
+        /* Already open: hand back the same instance and only count the
+         * new opener. Calling drv_open a second time re-initialises the
+         * hardware and installs a fresh instance, which silently orphans
+         * the handle the first opener still holds - an App opening the
+         * console UART used to leave the kernel shell unable to receive
+         * input for good. */
+        if(match && (svcrt_dev_handles[i] != 0))
+        {
+            if(svcrt_dev_refs[i] < 255)
+            {
+                svcrt_dev_refs[i]++;
+            }
+            return (i | SVCRT_DEV_HANDLE_FLAG);
+        }
+
         if(match && svcrt_dev_list[i].drv != 0 && svcrt_dev_list[i].drv->drv_open != 0)
         {
             svcrt_dev_hdr_t *p = svcrt_dev_list[i].drv->drv_open(svcrt_dev_list[i].dev_num, param);
             if(p != 0)
             {
                 svcrt_dev_handles[i] = p;
+                svcrt_dev_refs[i]    = 1;
                 return (i | SVCRT_DEV_HANDLE_FLAG);
             }
         }
@@ -173,6 +192,16 @@ int32 svcrt_dev_close_internal(int32 handle)
     /* 句柄是槽位下标：合法范围是整个设备表，而不是当前在用数量 */
     if(idx < 0 || idx >= SVCRT_DEV_MAX_NUM)
         return -1;
+
+    /* One instance can have several openers: only the last close may
+     * touch the hardware. Otherwise an App closing the console it shares
+     * with the shell would take the shell's console away. */
+    if(svcrt_dev_refs[idx] > 1)
+    {
+        svcrt_dev_refs[idx]--;
+        return 0;
+    }
+    svcrt_dev_refs[idx] = 0;
 
     if(svcrt_dev_list[idx].drv != 0 && svcrt_dev_list[idx].drv->drv_close != 0)
     {

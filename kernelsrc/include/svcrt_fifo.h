@@ -31,4 +31,10 @@ int32 svcrt_fifo_read(svcrt_fifo_t *fifo, uint8 *pdata, int32 len);
 /* @return bytes refused because the FIFO was full (all FIFOs, both directions) */
 uint32 svcrt_fifo_write_refused(void);
 
+/* @return calls that found a FIFO header unusable (memory damage, not
+ *         flow control); non-zero means silent loss the full-count
+ *         cannot show. */
+uint32 svcrt_fifo_bad_magic(void);
+uint32 svcrt_fifo_bad_magic_bytes(void);
+
 #endif

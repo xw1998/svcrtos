@@ -26,6 +26,7 @@ void svcrt_mq_module_init(void)
     {
         svcrt_mqs[i].name[0] = 0;
         svcrt_mqs[i].used    = 0;
+        svcrt_mqs[i].creator_id = 0;
         for(j = 0; j < SVCRT_MQ_DEPTH; j++)
         {
             svcrt_mqs[i].msglen[j] = 0;
@@ -148,6 +149,13 @@ static void svcrt_mq_wake_all(svcrt_task_t **waiters, int32 reason)
     {
         if(waiters[j] != 0)
         {
+            /* Same reason as the sync flusher: never re-queue a task that is
+             * already being torn down. */
+            if(waiters[j]->status == SVCRT_TASK_INVALID)
+            {
+                waiters[j] = 0;
+                continue;
+            }
             waiters[j]->wait_time   = 0;
             waiters[j]->wake_reason = reason;
             waiters[j]->status      = SVCRT_TASK_READY;
@@ -190,6 +198,32 @@ void svcrt_mq_release_task(int32 task_id)
             }
         }
     }
+
+    /* Queues the dead task created go away with it, for the same reason as
+     * the mutexes and events: the table is small and start / stop cycles
+     * would otherwise drain it. Kernel created queues carry id 0 and stay.
+     * Waiters are only detached, never re-queued: this runs inside teardown. */
+    for(i = 0; i < SVCRT_MQ_NUM; i++)
+    {
+        if((svcrt_mqs[i].used != 0) && (svcrt_mqs[i].creator_id == task_id))
+        {
+            for(j = 0; j < SVCRT_MAX_SYNC_WAITERS; j++)
+            {
+                svcrt_mqs[i].send_waiters[j] = 0;
+                svcrt_mqs[i].recv_waiters[j] = 0;
+            }
+            svcrt_mqs[i].used       = 0;
+            svcrt_mqs[i].name[0]    = 0;
+            svcrt_mqs[i].head       = 0;
+            svcrt_mqs[i].tail       = 0;
+            svcrt_mqs[i].count      = 0;
+            svcrt_mqs[i].creator_id = 0;
+            for(j = 0; j < SVCRT_MQ_DEPTH; j++)
+            {
+                svcrt_mqs[i].msglen[j] = 0;
+            }
+        }
+    }
 }
 
 int32 svcrt_mq_create_internal(char *name)
@@ -205,6 +239,8 @@ int32 svcrt_mq_create_internal(char *name)
             svcrt_mqs[i].head  = 0;
             svcrt_mqs[i].tail  = 0;
             svcrt_mqs[i].count = 0;
+            svcrt_mqs[i].creator_id = (svcrt_current_task_id > 0)
+                                      ? svcrt_current_task_id : 0;
             SVCRT_ENABLE_IRQ();
             return (i | SVCRT_MQ_HANDLE_FLAG);
         }
@@ -502,11 +538,12 @@ int32 svcrt_mq_delete_internal(int32 handle)
     /* 先唤醒所有等待者（原因=对象已删除），否则队列清空后没有人再唤醒它们 */
     svcrt_mq_wake_all(svcrt_mqs[idx].send_waiters, SVCRT_WAKE_OBJ_DELETED);
     svcrt_mq_wake_all(svcrt_mqs[idx].recv_waiters, SVCRT_WAKE_OBJ_DELETED);
-    svcrt_mqs[idx].used    = 0;
-    svcrt_mqs[idx].name[0] = 0;
-    svcrt_mqs[idx].head    = 0;
-    svcrt_mqs[idx].tail    = 0;
-    svcrt_mqs[idx].count   = 0;
+    svcrt_mqs[idx].used       = 0;
+    svcrt_mqs[idx].name[0]    = 0;
+    svcrt_mqs[idx].head       = 0;
+    svcrt_mqs[idx].tail       = 0;
+    svcrt_mqs[idx].count      = 0;
+    svcrt_mqs[idx].creator_id = 0;
     for(i = 0; i < SVCRT_MQ_DEPTH; i++)
     {
         svcrt_mqs[idx].msglen[i] = 0;

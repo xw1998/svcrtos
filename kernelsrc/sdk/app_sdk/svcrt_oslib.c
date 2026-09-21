@@ -416,3 +416,69 @@ void svcrt_thread_exit(void)
     p[0] = 3; p[1] = 0; p[2] = 0; p[3] = 0; p[4] = 0; p[5] = 0;
     (void)svcrt_call_thread_ctrl(p);
 }
+
+/* ============================================================
+ * File service (SVC 0x1C)
+ *
+ * Path based: the kernel opens the file, moves the bytes and closes it
+ * inside one call, so an App never holds a kernel side handle that could
+ * outlive it or be guessed by somebody else. The kernel validates the path
+ * and the buffer against the caller's own memory; littlefs and the block
+ * device stay entirely on the kernel side.
+ * ============================================================ */
+SVCRT_SVC_DECL_1(int32, 0x1C, svcrt_call_file_svc, uint32 *);
+
+int32 svcrt_file_write(const char *path, const void *data, uint32 len)
+{
+    uint32 parameters[4];
+
+    parameters[0] = 1;
+    parameters[1] = (uint32)path;
+    parameters[2] = (uint32)data;
+    parameters[3] = len;
+    return svcrt_call_file_svc(parameters);
+}
+
+int32 svcrt_file_read(const char *path, void *buf, uint32 max)
+{
+    uint32 parameters[4];
+
+    parameters[0] = 2;
+    parameters[1] = (uint32)path;
+    parameters[2] = (uint32)buf;
+    parameters[3] = max;
+    return svcrt_call_file_svc(parameters);
+}
+
+int32 svcrt_file_remove(const char *path)
+{
+    uint32 parameters[4];
+
+    parameters[0] = 3;
+    parameters[1] = (uint32)path;
+    parameters[2] = 0;
+    parameters[3] = 0;
+    return svcrt_call_file_svc(parameters);
+}
+
+int32 svcrt_file_stat(const char *path, uint32 *size, uint32 *is_dir)
+{
+    uint32 parameters[4];
+
+    parameters[0] = 4;
+    parameters[1] = (uint32)path;
+    parameters[2] = (uint32)size;
+    parameters[3] = (uint32)is_dir;
+    return svcrt_call_file_svc(parameters);
+}
+
+int32 svcrt_file_info(uint32 *total, uint32 *used)
+{
+    uint32 parameters[4];
+
+    parameters[0] = 5;
+    parameters[1] = (uint32)total;
+    parameters[2] = (uint32)used;
+    parameters[3] = 0;
+    return svcrt_call_file_svc(parameters);
+}

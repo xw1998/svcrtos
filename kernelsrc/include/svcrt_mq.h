@@ -20,6 +20,7 @@
 typedef struct {
     char   name[8];
     uint8  used;                                        /* 槽位是否占用 */
+    int32  creator_id;                                  /* creator task id; 0 = kernel. Dropped together with its creator's image */
     uint32 head;                                        /* 读位置 */
     uint32 tail;                                        /* 写位置 */
     uint32 count;                                       /* 当前消息条数 */

@@ -468,6 +468,44 @@ int32 svcrt_fs_stat(uint32 *total, uint32 *used)
     return 0;
 }
 
+/**
+ * @brief Size and type of one entry (file or directory).
+ * @param path   absolute path inside the mounted volume
+ * @param size   receives the size in bytes, 0 for a directory (may be NULL)
+ * @param is_dir receives 1 for a directory, 0 for a file (may be NULL)
+ * @return 0 on success, -1 on failure (nothing mounted, bad path, not found)
+ */
+int32 svcrt_fs_stat_path(const char *path, uint32 *size, uint32 *is_dir)
+{
+    struct lfs_info info;
+    int             err;
+
+    if((g_fs.mounted == 0u) || (fs_check_path(path) != 0))
+    {
+        return -1;
+    }
+
+    err = lfs_stat(&g_fs.lfs, path, &info);
+
+    if(err != 0)
+    {
+        g_fs.last_error = err;
+        return -1;
+    }
+
+    if(size != 0)
+    {
+        *size = (uint32)info.size;
+    }
+
+    if(is_dir != 0)
+    {
+        *is_dir = (info.type == LFS_TYPE_DIR) ? 1u : 0u;
+    }
+
+    return 0;
+}
+
 int32 svcrt_fs_write_file(const char *path, const uint8 *data, uint32 len)
 {
     struct lfs_file_config fcfg;

@@ -381,13 +381,15 @@ void AppMain(void)
     if(g_led_b >= 0) { r |= led_on(g_led_b);  r |= led_off(g_led_b); }
     report("dev.write.leds", (r == 0), r);
 
-    /* Non-blocking read: 0 means "no byte waiting", which is a valid result.
-     * The console is owned by the kernel shell, so the App probes the read
-     * path without trying to consume the interactive byte stream. */
+    /* The console belongs to the kernel shell. Opening it again must hand
+     * back the same shared instance instead of re-initialising the UART:
+     * a second drv_open would orphan the shell's handle and the console
+     * would stop receiving input. The read path is deliberately NOT probed
+     * here - any read on this FIFO competes with the shell's reader and can
+     * swallow a command meant for it. */
     {
-        uint8 b = 0u;
-        r = svcrt_dev_read(g_con, &b, 1);
-        report("dev.read.com1", (r >= 0), r);
+        int32 shared = svcrt_dev_open("COM1", 115200);
+        report("dev.open.com1_shared", (shared == g_con), shared);
     }
 
     /* ---------------------------------------------------------------
@@ -713,7 +715,94 @@ void AppMain(void)
     }
 
     /* ---------------------------------------------------------------
-     * 10) cleanup of the objects this App created
+     * 10) file system (SVC 0x1C)
+     *     The App only knows paths. littlefs, the caches and the NOR all
+     *     live in the kernel, and one call is one round trip: the kernel
+     *     opens, moves the bytes and closes, so no handle survives and
+     *     nothing has to be cleaned up when this App is stopped.
+     * --------------------------------------------------------------- */
+    {
+        const char *fpath = "/app_fs.txt";
+        const char *keep  = "/app_keep.txt";
+        const char *text  = "app writes this to nor";
+        char        back[48];
+        uint32      fsize = 0u;
+        uint32      isdir = 1u;
+        uint32      total = 0u;
+        uint32      used  = 0u;
+        int32       n     = 0;
+        int32       i;
+        int32       diff  = 0;
+
+        for(i = 0; text[i] != '\0'; i++)
+        {
+            n++;
+        }
+
+        for(i = 0; i < (int32)sizeof(back); i++)
+        {
+            back[i] = 0;
+        }
+
+        r = svcrt_file_write(fpath, text, (uint32)n);
+        report("fs.write", (r == 0), r);
+
+        r = svcrt_file_stat(fpath, &fsize, &isdir);
+        report("fs.stat_size", ((r == 0) && (fsize == (uint32)n) && (isdir == 0u)),
+               (int32)fsize);
+
+        r = svcrt_file_read(fpath, back, (uint32)sizeof(back));
+        report("fs.read_len", (r == n), r);
+
+        for(i = 0; i < n; i++)
+        {
+            if(back[i] != text[i])
+            {
+                diff = i + 1;
+                break;
+            }
+        }
+        report("fs.read_match", (diff == 0), diff);
+
+        /* max is a capacity, not a request: a short buffer gets short bytes */
+        r = svcrt_file_read(fpath, back, 8u);
+        report("fs.read_cap", (r == 8), r);
+
+        r = svcrt_file_info(&total, &used);
+        report("fs.info", ((r == 0) && (total > 0u) &&
+                           (used >= (uint32)n) && (used <= total)),
+               (int32)total);
+
+        /* failure paths must report, not invent a result */
+        r = svcrt_file_stat("/no_such_file", &fsize, &isdir);
+        report("fs.stat_missing", (r < 0), r);
+
+        r = svcrt_file_write("relative.txt", text, (uint32)n);
+        report("fs.write_badpath", (r < 0), r);
+
+        /* an empty file is a legal file */
+        r = svcrt_file_write("/app_empty.txt", "", 0u);
+        report("fs.write_empty", (r == 0), r);
+
+        r = svcrt_file_stat("/app_empty.txt", &fsize, &isdir);
+        report("fs.empty_size", ((r == 0) && (fsize == 0u)), (int32)fsize);
+
+        (void)svcrt_file_remove("/app_empty.txt");
+
+        /* left for the shell: "fs ls" and "fs rd /app_keep.txt" must show
+         * the same 23 bytes, which proves both sides share one volume */
+        r = svcrt_file_write(keep, text, (uint32)n);
+        report("fs.write_keep", (r == 0), r);
+
+        r = svcrt_file_remove(fpath);
+        report("fs.remove", (r == 0), r);
+
+        r = svcrt_file_read(fpath, back, (uint32)sizeof(back));
+        report("fs.read_removed", (r < 0), r);
+    }
+
+    /* ---------------------------------------------------------------
+     * 11) cleanup of the objects this App created
      * --------------------------------------------------------------- */
     r  = svcrt_sem_delete(sem);
     r |= svcrt_mutex_delete(mtx);
@@ -730,7 +819,7 @@ void AppMain(void)
     app_puts("\r\n");
 
     /* ---------------------------------------------------------------
-     * 11) heartbeat: visible activity + periodic status line
+     * 12) heartbeat: visible activity + periodic status line
      * --------------------------------------------------------------- */
     app_puts("APP_TEST heartbeat: LED3 toggles 4x/s, line every 5s\r\n");
 

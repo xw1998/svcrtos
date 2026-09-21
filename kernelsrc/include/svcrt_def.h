@@ -32,6 +32,13 @@
  * a new execution context. */
 #define SVCRT_SVC_THREAD_CTRL       (0x1B)   /* App 镜像管理与分区查询 */
 
+/* File service: path based read / write / remove / stat on the mounted
+ * file system. Backs the svcrt_file_*() facade in the App SDK; the kernel
+ * owns littlefs, the caches and the block device, so an unprivileged App
+ * asks across the SVC boundary and every pointer it passes is validated
+ * against the caller's own memory first. */
+#define SVCRT_SVC_FILE_SYS          (0x1C)
+
 /* 同步原语（信号量/互斥锁）返回码：0=成功，负值=失败。
  * 超时必须返回负值——调用方据此判断“本次没有拿到资源”；
  * 若与 0（成功）混为一谈，会出现“以为拿到了信号量、计数却没减”的错乱。 */

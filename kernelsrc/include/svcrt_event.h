@@ -15,6 +15,7 @@ typedef struct {
     char   name[16];
     uint8  used;                                        /* 该事件对象是否已被占用 */
     uint8  flag;                                        /* 自动复位式置位标记：1=已置位 */
+    int32  creator_id;                                  /* creator task id; 0 = kernel. Dropped together with its creator's image */
     svcrt_task_t *waiting_tasks[SVCRT_MAX_EVENT_WAITERS];
 } svcrt_event_obj_t;
 

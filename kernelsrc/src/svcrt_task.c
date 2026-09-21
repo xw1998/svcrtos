@@ -25,6 +25,7 @@
 #include "svcrt_ptable.h"
 #include "svcrt_mpu.h"
 #include "svcrt_loader.h"
+#include "svcrt_fs.h"    /* SVC 0x1C user file service */
 #include "svcrt_partition.h"    /* 用户可见内存窗口（共享区/App RAM/驱动 RAM/固件区） */
 
 /* ------------------------------------------------------------------
@@ -919,6 +920,127 @@ void SVC_Server(void *p_svc_ctx)
         }
         break;
 
+    case SVCRT_SVC_FILE_SYS:
+        /* User file service (SVC 0x1C). Path based on purpose: the kernel
+         * opens, moves the bytes and closes inside the call, so no handle
+         * survives it and an App cannot reach into another one.
+         *   p[0] = 1 write  (p[1] = path, p[2] = data, p[3] = len)
+         *   p[0] = 2 read   (p[1] = path, p[2] = buf,  p[3] = max)
+         *   p[0] = 3 remove (p[1] = path)
+         *   p[0] = 4 stat   (p[1] = path, p[2] = size out, p[3] = is_dir out)
+         *   p[0] = 5 info   (p[1] = total out, p[2] = used out)
+         * One global mount with one set of static caches means two callers
+         * must never be inside littlefs at the same time; the scheduler lock
+         * keeps other tasks out without disabling interrupts (a NOR erase
+         * takes milliseconds, an interrupt lock would be the wrong tool).
+         * Mount / format stay with the shell and the kernel. */
+        {
+            int32 fs_ret;
+
+            p = (uint32 *)SVCRT_SVC_ARG(p_svc_ctx, 0);
+
+            if(svcrt_kernel_svc_args_ok(p, 16u) == 0u)
+            {
+                SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                break;
+            }
+
+            switch(p[0])
+            {
+            case 1:                 /* create / truncate and write */
+                if(svcrt_kernel_user_name_ok((const void *)p[1], SVCRT_FS_PATH_MAX) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
+                if((p[3] != 0u) &&
+                   (svcrt_kernel_user_ro_ok((const void *)p[2], p[3]) == 0u))
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
+                svcrt_sched_lock_internal();
+                fs_ret = svcrt_fs_write_file((const char *)p[1],
+                                             (const uint8 *)p[2], p[3]);
+                svcrt_sched_unlock_internal();
+                SVCRT_SVC_RET(p_svc_ctx, (uint32)fs_ret);
+                break;
+
+            case 2:                 /* read into a caller buffer */
+                if(svcrt_kernel_user_name_ok((const void *)p[1], SVCRT_FS_PATH_MAX) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
+                if(svcrt_kernel_dev_buf_ok((const void *)p[2], (int32)p[3]) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
+                {
+                    uint32 got = 0u;
+
+                    svcrt_sched_lock_internal();
+                    fs_ret = svcrt_fs_read_file((const char *)p[1],
+                                                (uint8 *)p[2], p[3], &got);
+                    svcrt_sched_unlock_internal();
+                    SVCRT_SVC_RET(p_svc_ctx,
+                                  (uint32)((fs_ret == 0) ? (int32)got : fs_ret));
+                }
+                break;
+
+            case 3:                 /* remove */
+                if(svcrt_kernel_user_name_ok((const void *)p[1], SVCRT_FS_PATH_MAX) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
+                svcrt_sched_lock_internal();
+                fs_ret = svcrt_fs_remove((const char *)p[1]);
+                svcrt_sched_unlock_internal();
+                SVCRT_SVC_RET(p_svc_ctx, (uint32)fs_ret);
+                break;
+
+            case 4:                 /* stat */
+                if(svcrt_kernel_user_name_ok((const void *)p[1], SVCRT_FS_PATH_MAX) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
+                if(((p[2] != 0u) &&
+                    (svcrt_kernel_dev_buf_ok((const void *)p[2], 4) == 0u)) ||
+                   ((p[3] != 0u) &&
+                    (svcrt_kernel_dev_buf_ok((const void *)p[3], 4) == 0u)))
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
+                svcrt_sched_lock_internal();
+                fs_ret = svcrt_fs_stat_path((const char *)p[1],
+                                             (uint32 *)p[2], (uint32 *)p[3]);
+                svcrt_sched_unlock_internal();
+                SVCRT_SVC_RET(p_svc_ctx, (uint32)fs_ret);
+                break;
+
+            case 5:                 /* volume capacity */
+                if((svcrt_kernel_dev_buf_ok((const void *)p[1], 4) == 0u) ||
+                   (svcrt_kernel_dev_buf_ok((const void *)p[2], 4) == 0u))
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
+                svcrt_sched_lock_internal();
+                fs_ret = svcrt_fs_stat((uint32 *)p[1], (uint32 *)p[2]);
+                svcrt_sched_unlock_internal();
+                SVCRT_SVC_RET(p_svc_ctx, (uint32)fs_ret);
+                break;
+
+            default:
+                SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                break;
+            }
+        }
+        break;
 
     case SVCRT_SVC_APP_MGR:
         p = (uint32 *)SVCRT_SVC_ARG(p_svc_ctx, 0);
@@ -1839,6 +1961,12 @@ void svcrt_task_release_resources(int32 task_id)
     svcrt_sync_release_task(task_id);
     svcrt_mq_release_task(task_id);
     svcrt_event_release_task(task_id);
+    /* A dead task no longer owns its shell commands. Registering a name keeps
+     * it reserved until somebody gives it back, and the dispatch guard only
+     * proves the target address is inside *some* loaded image - not that it is
+     * still that command. Hand the names back here, before the next image can
+     * be placed over the same range. */
+    (void)svcrt_shell_release_task((uint32)task_id);
     SVCRT_EXIT_CRITICAL(state);
 }
 

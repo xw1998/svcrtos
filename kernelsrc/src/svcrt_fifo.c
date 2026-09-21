@@ -7,6 +7,40 @@
 
 #include "svcrt_fifo.h"
 
+/* A FIFO whose header magic no longer matches is not flow control but
+ * memory damage: every byte handed to it is dropped, and because read()
+ * returns a short count either way, the caller cannot tell "the peer
+ * said nothing" from "my buffer is gone".  That is how a console with
+ * a clobbered receive FIFO looked dead for good while the task kept
+ * running and kept transmitting.  Read it, do not infer it. */
+static volatile uint32 g_fifo_bad_magic = 0u;
+static volatile uint32 g_fifo_bad_magic_bytes = 0u;
+
+/* Calls that found the FIFO header unusable (all FIFOs). */
+uint32 svcrt_fifo_bad_magic(void)
+{
+    return g_fifo_bad_magic;
+}
+
+/* Bytes lost through such a FIFO.  Non-zero means silent data loss of a
+ * kind no flow-control counter can show: the buffer itself is broken. */
+uint32 svcrt_fifo_bad_magic_bytes(void)
+{
+    return g_fifo_bad_magic_bytes;
+}
+
+
+/* Count one call that could not use its FIFO, and the bytes it lost. */
+static void svcrt_fifo_note_bad(svcrt_fifo_t *fifo, int32 len)
+{
+    (void)fifo;
+    g_fifo_bad_magic++;
+    if(len > 0)
+    {
+        g_fifo_bad_magic_bytes += (uint32)len;
+    }
+}
+
 svcrt_fifo_t *svcrt_fifo_create(uint8 *buff, int32 size)
 {
     svcrt_fifo_t *fifo = (svcrt_fifo_t *)buff;
@@ -43,8 +77,9 @@ int32 svcrt_fifo_write(svcrt_fifo_t *fifo, uint8 *pdata, int32 len)
 {
     int32 cnt;
     uint16 next;
-    if(fifo->magic != SVCRT_FIFO_MAGIC)
+    if((fifo == 0) || (fifo->magic != SVCRT_FIFO_MAGIC))
     {
+        svcrt_fifo_note_bad(fifo, len);
         return 0;
     }
     for(cnt = 0; cnt < len; cnt++)
@@ -69,8 +104,9 @@ int32 svcrt_fifo_write(svcrt_fifo_t *fifo, uint8 *pdata, int32 len)
 int32 svcrt_fifo_read(svcrt_fifo_t *fifo, uint8 *pdata, int32 len)
 {
     int32 cnt;
-    if(fifo->magic != SVCRT_FIFO_MAGIC)
+    if((fifo == 0) || (fifo->magic != SVCRT_FIFO_MAGIC))
     {
+        svcrt_fifo_note_bad(fifo, 0);
         return 0;
     }
     for(cnt = 0; cnt < len; cnt++)

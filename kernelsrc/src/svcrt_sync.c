@@ -27,6 +27,7 @@ void svcrt_sync_module_init(void)
         svcrt_sems[i].name[0] = 0;
         svcrt_sems[i].count   = 0;
         svcrt_sems[i].used    = 0;
+        svcrt_sems[i].creator_id = 0;
         for(j = 0; j < SVCRT_MAX_SYNC_WAITERS; j++)
             svcrt_sems[i].waiters[j] = 0;
     }
@@ -36,6 +37,7 @@ void svcrt_sync_module_init(void)
         svcrt_mtxs[i].owner         = 0;
         svcrt_mtxs[i].used          = 0;
         svcrt_mtxs[i].orig_priority = 0;
+        svcrt_mtxs[i].creator_id    = 0;
         for(j = 0; j < SVCRT_MAX_SYNC_WAITERS; j++)
             svcrt_mtxs[i].waiters[j] = 0;
     }
@@ -234,6 +236,14 @@ static void svcrt_waiters_wake_all(svcrt_task_t **waiters, int32 reason)
     {
         if(waiters[j] != 0)
         {
+            /* A task already in teardown must not go back on the ready list: the
+             * teardown path has just removed it from every queue, so adding it
+             * again would corrupt the ready ring. */
+            if(waiters[j]->status == SVCRT_TASK_INVALID)
+            {
+                waiters[j] = 0;
+                continue;
+            }
             waiters[j]->wait_time   = 0;
             waiters[j]->wake_reason = reason;
             waiters[j]->status      = SVCRT_TASK_READY;
@@ -312,6 +322,50 @@ void svcrt_sync_release_task(int32 task_id)
             svcrt_mtx_recalc_priority(i);
         }
     }
+
+    /* Objects the dead task created go away with it. Without this an App
+     * that creates a mutex (or semaphore) per run leaves it used forever,
+     * and a handful of start / stop cycles exhausts the table so the next
+     * start cannot create anything. Objects created by the kernel carry
+     * id 0 and are left alone. Waiters are only detached, never re-queued:
+     * this runs while tasks are being torn down, and putting a task back
+     * on the ready ring from here would fight the teardown itself. The
+     * tasks that could wait on an App object are that App's own. */
+    for(i = 0; i < SVCRT_SEM_NUM; i++)
+    {
+        if((svcrt_sems[i].used != 0) && (svcrt_sems[i].creator_id == task_id))
+        {
+            for(j = 0; j < SVCRT_MAX_SYNC_WAITERS; j++)
+            {
+                svcrt_sems[i].waiters[j] = 0;
+            }
+            svcrt_sems[i].used       = 0;
+            svcrt_sems[i].name[0]    = 0;
+            svcrt_sems[i].count      = 0;
+            svcrt_sems[i].creator_id = 0;
+        }
+    }
+
+    for(i = 0; i < SVCRT_MTX_NUM; i++)
+    {
+        if((svcrt_mtxs[i].used != 0) && (svcrt_mtxs[i].creator_id == task_id))
+        {
+            /* The object is going away, so the lock is simply dropped.
+             * The priority-inheritance rollback is deliberately NOT run:
+             * the owner is usually the very task being torn down, and it has
+             * already been taken off the ready list - touching the ring for
+             * it again corrupts the scheduler. */
+            svcrt_mtxs[i].owner         = 0;
+            svcrt_mtxs[i].orig_priority = 0;
+            for(j = 0; j < SVCRT_MAX_SYNC_WAITERS; j++)
+            {
+                svcrt_mtxs[i].waiters[j] = 0;
+            }
+            svcrt_mtxs[i].used       = 0;
+            svcrt_mtxs[i].name[0]    = 0;
+            svcrt_mtxs[i].creator_id = 0;
+        }
+    }
 }
 
 /* ============================================================
@@ -328,6 +382,8 @@ int32 svcrt_sem_create_internal(char *name, int32 init_count)
             svcrt_sync_copy_name(svcrt_sems[i].name, name);
             svcrt_sems[i].count = init_count;
             svcrt_sems[i].used  = 1;
+            svcrt_sems[i].creator_id = (svcrt_current_task_id > 0)
+                                       ? svcrt_current_task_id : 0;
             SVCRT_ENABLE_IRQ();
             return (i | SVCRT_SEM_HANDLE_FLAG);
         }
@@ -458,9 +514,10 @@ int32 svcrt_sem_delete_internal(int32 handle)
     /* 先唤醒全部等待者（原因=对象已删除），否则它们会永远阻塞：
      * 对象删除后等待队列被清空，再也没有 post 来唤醒它们。 */
     svcrt_waiters_wake_all(svcrt_sems[idx].waiters, SVCRT_WAKE_OBJ_DELETED);
-    svcrt_sems[idx].used    = 0;
-    svcrt_sems[idx].name[0] = 0;
-    svcrt_sems[idx].count   = 0;
+    svcrt_sems[idx].used       = 0;
+    svcrt_sems[idx].name[0]    = 0;
+    svcrt_sems[idx].count      = 0;
+    svcrt_sems[idx].creator_id = 0;
     SVCRT_ENABLE_IRQ();
     SVCRT_SWITCH_TASK();
     return 0;
@@ -480,6 +537,8 @@ int32 svcrt_mtx_create_internal(char *name)
             svcrt_sync_copy_name(svcrt_mtxs[i].name, name);
             svcrt_mtxs[i].owner = 0;
             svcrt_mtxs[i].used  = 1;
+            svcrt_mtxs[i].creator_id = (svcrt_current_task_id > 0)
+                                       ? svcrt_current_task_id : 0;
             SVCRT_ENABLE_IRQ();
             return (i | SVCRT_MTX_HANDLE_FLAG);
         }
@@ -658,8 +717,9 @@ int32 svcrt_mtx_delete_internal(int32 handle)
         svcrt_mtx_recalc_task_priority(p_owner);
     }
     svcrt_waiters_wake_all(svcrt_mtxs[idx].waiters, SVCRT_WAKE_OBJ_DELETED);
-    svcrt_mtxs[idx].used    = 0;
-    svcrt_mtxs[idx].name[0] = 0;
+    svcrt_mtxs[idx].used       = 0;
+    svcrt_mtxs[idx].name[0]    = 0;
+    svcrt_mtxs[idx].creator_id = 0;
     SVCRT_ENABLE_IRQ();
     SVCRT_SWITCH_TASK();
     return 0;

@@ -27,7 +27,12 @@
 ;   <o> Stack Size (in Bytes) <0x0-0xFFFFFFFF:8>
 ; </h>
 
-Stack_Size		EQU     0x400
+; Measured on this board: the SVC file service runs littlefs in handler
+; mode, i.e. on the main stack, and reached 1024 bytes - the whole 1 KB
+; allocation - so the stack ran into the .bss below it and silently
+; corrupted variables (the console receive FIFO was the first casualty).
+; 4 KB keeps several times the measured peak as headroom.
+Stack_Size		EQU     0x1000
 
                 AREA    STACK, NOINIT, READWRITE, ALIGN=3
 Stack_Mem       SPACE   Stack_Size

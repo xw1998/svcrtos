@@ -737,6 +737,7 @@ typedef struct
     int    (*func)(int argc, char **argv);
     uint32   max_args;
     uint32   in_use;
+    uint32   owner_task;    /* task that registered it; 0 = kernel, kept */
 } svcrt_ushell_entry_t;
 
 static svcrt_ushell_entry_t g_ushell[SVCRT_USHELL_MAX_CMDS];
@@ -793,6 +794,43 @@ static void ushell_copy(char *dst, uint32 cap, const char *src)
     }
 
     dst[i] = '\0';
+}
+
+/* Defined below, next to the dispatch itself: the drop helper needs the
+ * trampoline address to find its row in the command table. */
+static int svcrt_shell_ext_trampoline(int argc, char **argv);
+
+/* Remove one entry: the trampoline row is deleted by shifting the later rows
+ * down (their order is the help display order, so no hole is left), then the
+ * slot itself is cleared. Register / unregister / task-exit all go through
+ * here, so the bookkeeping cannot drift between the three.
+ * Runs with interrupts off (called from a critical section); it only touches
+ * this file's tables and performs no blocking call. */
+static void ushell_drop(uint32 i)
+{
+    uint32 k;
+
+    for(k = 0u; (k < (uint32)g_cmd_count) && (k < (uint32)ARK_SHELL_MAX_COMMANDS); k++)
+    {
+        if((g_cmd_table[k].func == svcrt_shell_ext_trampoline) &&
+           (g_cmd_table[k].name == g_ushell[i].name))
+        {
+            uint32 j;
+
+            for(j = k; (j + 1u) < (uint32)g_cmd_count; j++)
+            {
+                g_cmd_table[j] = g_cmd_table[j + 1u];
+            }
+            g_cmd_count--;
+            break;
+        }
+    }
+
+    g_ushell[i].in_use = 0u;
+    g_ushell[i].func = 0;
+    g_ushell[i].owner_task = 0u;
+    g_ushell[i].name[0] = '\0';
+    g_ushell[i].help[0] = '\0';
 }
 
 /* 处理器是否还活着：必须仍落在某个已装载镜像的 Flash 区间内 */
@@ -917,6 +955,10 @@ int32 svcrt_shell_ext_register(const svcrt_ushell_cmd_t *cmd)
     g_ushell[i].func = cmd->func;
     g_ushell[i].max_args = cmd->max_args;
     g_ushell[i].in_use = 1u;
+    /* Remember who owns it. A kernel side registration (task id 0) is not tied
+     * to any task lifetime and must survive every App stopping. */
+    g_ushell[i].owner_task = (svcrt_current_task_id > 0)
+                             ? (uint32)svcrt_current_task_id : 0u;
 
     g_cmd_table[g_cmd_count].name = g_ushell[i].name;
     g_cmd_table[g_cmd_count].func = svcrt_shell_ext_trampoline;
@@ -930,7 +972,6 @@ int32 svcrt_shell_ext_register(const svcrt_ushell_cmd_t *cmd)
 int32 svcrt_shell_ext_unregister(const char *name)
 {
     uint32 i;
-    uint32 k;
 
     if(name == 0)
     {
@@ -946,26 +987,8 @@ int32 svcrt_shell_ext_unregister(const char *name)
 
         /* 摘掉命令表里的跳板条目：表内顺序即 help 的显示顺序，
          * 所以用后项前移而不是留空洞 */
-        for(k = 0u; (k < (uint32)g_cmd_count) && (k < (uint32)ARK_SHELL_MAX_COMMANDS); k++)
-        {
-            if((g_cmd_table[k].func == svcrt_shell_ext_trampoline) &&
-               (g_cmd_table[k].name == g_ushell[i].name))
-            {
-                uint32 j;
+        ushell_drop(i);
 
-                for(j = k; (j + 1u) < (uint32)g_cmd_count; j++)
-                {
-                    g_cmd_table[j] = g_cmd_table[j + 1u];
-                }
-                g_cmd_count--;
-                break;
-            }
-        }
-
-        g_ushell[i].in_use = 0u;
-        g_ushell[i].func = 0;
-        g_ushell[i].name[0] = '\0';
-        g_ushell[i].help[0] = '\0';
         return SVCRT_USHELL_OK;
     }
 
@@ -1035,6 +1058,11 @@ static int cmd_log(int argc, char *argv[])
                      svcrt_fifo_write_refused());
                      /* tx_drop is the number that matters: bytes that never
                       * left the MCU.  fifo_full_retries is attempts, not loss. */
+
+    ark_shell_printf("fifo      : bad_header=%u bytes_lost=%u\r\n",
+                     svcrt_fifo_bad_magic(), svcrt_fifo_bad_magic_bytes());
+    /* Non-zero means a FIFO header was overwritten: input or output
+     * through it is being dropped for good, not merely throttled. */
 
     return 0;
 }
@@ -2270,8 +2298,37 @@ static void svcrt_shell_task(void)
 
     for(;;)
     {
-        /* 非阻塞：一次最多处理一个字节，没数据立刻返回 */
-        ark_shell_run(&g_shell);
+        uint32 budget = (uint32)SHELL_RX_DRAIN_MAX;
+        int    ch;
+
+        /* Drain a bounded burst per round instead of a single byte.  One
+         * byte per 2 ms caps the console at 500 B/s while the host pushes
+         * a whole line in well under a millisecond: the receive FIFO fills
+         * up, svcrt_fifo_write() refuses the tail - the CR included - the
+         * command never terminates and the console looks dead even though
+         * the task is still scheduled and still transmitting.  Bounded, so
+         * a human typing can never keep the task off the CPU. */
+        while(budget-- > 0u)
+        {
+            ch = platform_uart_recv();
+            if(ch < 0)
+            {
+                break;
+            }
+            ark_shell_process_byte(&g_shell, (unsigned char)ch);
+        }
+
+        /* A full line buffer means the byte stream was cut somewhere (RX
+         * bytes dropped, or a host that never sent CR): such a line can
+         * never be recognised, and every later byte only piles onto the
+         * wreckage.  Drop the fragment and say so, instead of swallowing
+         * every command from then on. */
+        if(g_shell.editor.len >= (ARK_SHELL_LINE_SIZE - 1))
+        {
+            line_editor_clear(&g_shell.editor);
+            g_shell.state = STATE_NORMAL;
+            sh_out("\r\nconsole: line too long, discarded\r\n");
+        }
 
         /* 让出 CPU：控制台优先级最低，不能让交互拖住业务任务 */
         svcrt_task_wait_internal((uint32)SHELL_TASK_PERIOD_MS);
@@ -2287,6 +2344,39 @@ int32 svcrt_shell_init(void)
                                (uint32)SHELL_TASK_PERIOD_MS);
 }
 
+/**
+* @brief Drop every user command registered by one task.
+* @param task_id owner task id; 0 means "kernel", which owns nothing to drop
+* @return number of entries released
+* @details Called when a task is torn down (App stop / uninstall / overwrite,
+*          fault kill, thread exit). Without this the name stays reserved
+*          forever and a later image placed over the same address range would
+*          pass the liveness check while pointing at a different function.
+*/
+int32 svcrt_shell_release_task(uint32 task_id)
+{
+    uint32 i;
+    int32  dropped = 0;
+
+    if(task_id == 0u)
+    {
+        return 0;
+    }
+
+    for(i = 0u; i < SVCRT_USHELL_MAX_CMDS; i++)
+    {
+        if((g_ushell[i].in_use == 0u) || (g_ushell[i].owner_task != task_id))
+        {
+            continue;
+        }
+
+        ushell_drop(i);
+        dropped++;
+    }
+
+    return dropped;
+}
+
 #else   /* SHELL_ENABLE == 0 */
 
 int32 svcrt_shell_ext_register(const svcrt_ushell_cmd_t *cmd)
@@ -2300,6 +2390,13 @@ int32 svcrt_shell_ext_unregister(const char *name)
     (void)name;
     return SVCRT_USHELL_ERR_OFF;
 }
+
+int32 svcrt_shell_release_task(uint32 task_id)
+{
+    (void)task_id;
+    return 0;       /* nothing was ever registered: the shell is compiled out */
+}
+
 
 int32 svcrt_shell_print_n(const char *msg, uint32 len)
 {
