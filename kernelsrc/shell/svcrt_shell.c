@@ -10,7 +10,7 @@
 *
 *          命令集：
 *            help                  内置：列出所有命令
-*            info / app / drv / task / sched / fault / install [slot] / cfg
+*            info / app / drv / task / sched / fault / install [slot] / cfg / blk / fs
 *            app / drv 支持 uninstall <slot>：卸载镜像并回收池内空间
 *            version / clear / echo / reboot  为 ark-shell 内置命令
 *
@@ -40,6 +40,8 @@
 #include "svcrt_share.h"
 #include "svcrt_task.h"
 #include "svcrt_trace.h"
+#include "svcrt_blk.h"
+#include "svcrt_fs.h"
 #include "svcrt_partition.h"
 
 #include <string.h>
@@ -1336,10 +1338,878 @@ static int cmd_cfg(int argc, char *argv[])
     return -1;
 }
 
+/* ============================================================
+ * blk: raw access to the non-volatile backends
+ *
+ * This is the bring-up self-check for a storage backend. It is the only
+ * place in the kernel that lets an operator poke raw offsets, and it is kept
+ * deliberately small. `blk test` is the interesting one: it never reports
+ * "ok" from the write call alone - it re-reads what the chip actually holds
+ * after an erase and after a program, so a backend that answers successfully
+ * while changing nothing cannot pass.
+ * ============================================================ */
+#define BLK_TEST_LEN_MAX   (256u)   /* scratch size, see g_blk_scratch   */
+#define BLK_WR_BYTES_MAX   (32u)    /* hex bytes accepted by `blk wr`    */
+#define BLK_DUMP_LEN_MAX   (4096u)  /* cap so one command cannot flood    */
+#define BLK_DUMP_COLS      (16u)
+
+static uint8 g_blk_scratch[BLK_TEST_LEN_MAX];
+
+static int blk_nibble(char c, uint32 *out)
+{
+    if((c >= '0') && (c <= '9')) { *out = (uint32)(c - '0');      return 0; }
+    if((c >= 'a') && (c <= 'f')) { *out = (uint32)(c - 'a' + 10); return 0; }
+    if((c >= 'A') && (c <= 'F')) { *out = (uint32)(c - 'A' + 10); return 0; }
+    return -1;
+}
+
+/* "A5 01 ff" / "A501FF" -> bytes. Returns -1 on odd length or a non-hex char. */
+static int blk_hex_to_bytes(const char *s, uint8 *out, uint32 max, uint32 *out_len)
+{
+    uint32 n = 0u;
+
+    if((s == 0) || (*s == '\0'))
+    {
+        return -1;
+    }
+
+    while(*s != '\0')
+    {
+        uint32 hi;
+        uint32 lo;
+
+        if(n >= max)
+        {
+            return -1;
+        }
+
+        if(blk_nibble(s[0], &hi) != 0)
+        {
+            return -1;
+        }
+
+        if(s[1] == '\0')
+        {
+            return -1;
+        }
+
+        if(blk_nibble(s[1], &lo) != 0)
+        {
+            return -1;
+        }
+
+        out[n] = (uint8)((hi << 4) | lo);
+        n++;
+        s += 2;
+    }
+
+    *out_len = n;
+    return 0;
+}
+
+static int blk_usage(void)
+{
+    sh_out("\r\nusage:\r\n");
+    sh_out("  blk                          list devices (brings each one up)\r\n");
+    sh_out("  blk probe <name>             report capacity and erase unit\r\n");
+    sh_out("  blk rd <name> <off> [len]    hex dump, default 64 bytes\r\n");
+    sh_out("  blk wr <name> <off> <hex>    write bytes; target must be erased\r\n");
+    sh_out("  blk erase <name> <off> <len> off and len must be erase-unit aligned\r\n");
+    sh_out("  blk test <name> <off> [len]  erase + program + read back, len <= unit\r\n");
+    return -1;
+}
+
+static int blk_list(void)
+{
+    uint32 n = svcrt_blk_count();
+    uint32 i;
+
+    if(n == 0u)
+    {
+        sh_out("\r\nno block device registered on this board\r\n");
+        return -1;
+    }
+
+    sh_out("\r\n name  erase unit  capacity   state\r\n");
+
+    for(i = 0u; i < n; i++)
+    {
+        const svcrt_blk_dev_t *dev = svcrt_blk_at(i);
+
+        /* Listing doubles as a presence check: bring-up here is cheap and
+         * reports the truth, whereas a stale "probably fine" flag would not. */
+        if(svcrt_blk_init(dev) == 0)
+        {
+            ark_shell_printf(" %-5s %-11u %-10u ready\r\n",
+                             dev->name, (unsigned)dev->erase_unit,
+                             (unsigned)svcrt_blk_size(dev));
+        }
+        else
+        {
+            ark_shell_printf(" %-5s %-11u %-10s down\r\n",
+                             dev->name, (unsigned)dev->erase_unit, "-");
+        }
+    }
+
+    return 0;
+}
+
+static int blk_dump(const svcrt_blk_dev_t *dev, uint32 off, uint32 len)
+{
+    uint32 done = 0u;
+
+    while(done < len)
+    {
+        uint32 chunk = len - done;
+        uint32 j;
+
+        if(chunk > BLK_DUMP_COLS)
+        {
+            chunk = BLK_DUMP_COLS;
+        }
+
+        if(svcrt_blk_read(dev, off + done, g_blk_scratch, chunk) != 0)
+        {
+            ark_shell_printf("\r\nread failed at offset 0x%X\r\n",
+                             (unsigned)(off + done));
+            return -1;
+        }
+
+        ark_shell_printf(" %06X:", (unsigned)(off + done));
+
+        for(j = 0u; j < chunk; j++)
+        {
+            ark_shell_printf(" %02X", (unsigned)g_blk_scratch[j]);
+        }
+
+        for(j = chunk; j < BLK_DUMP_COLS; j++)
+        {
+            sh_out("   ");
+        }
+
+        sh_out("  ");
+
+        for(j = 0u; j < chunk; j++)
+        {
+            uint32 c = (uint32)g_blk_scratch[j];
+
+            /* printable range only; everything else shows as '.' so a dump
+             * of erased (0xFF) or blank (0x00) flash stays readable */
+            ark_shell_printf("%c", ((c >= 0x20u) && (c < 0x7Fu)) ? (char)c : '.');
+        }
+
+        sh_out("\r\n");
+        done += chunk;
+    }
+
+    return 0;
+}
+
+/* Erase the unit containing off, check it reads back as 0xFF, program a
+ * deterministic pattern over len bytes, then read it back and compare. */
+static int blk_test(const svcrt_blk_dev_t *dev, uint32 off, uint32 len)
+{
+    uint32 unit = dev->erase_unit;
+    uint32 base = off & ~(unit - 1u);
+    uint8  got[BLK_DUMP_COLS];
+    uint32 i;
+
+    if(len == 0u)
+    {
+        sh_out("\r\nlen must be >= 1\r\n");
+        return -1;
+    }
+
+    if(len > unit)
+    {
+        ark_shell_printf("\r\nlen must be <= erase unit (%u)\r\n", (unsigned)unit);
+        return -1;
+    }
+
+    if(len > BLK_TEST_LEN_MAX)
+    {
+        return -1;
+    }
+
+    ark_shell_printf("\r\ntest %s at 0x%X, %u bytes (unit base 0x%X, unit %u)\r\n",
+                     dev->name, (unsigned)off, (unsigned)len,
+                     (unsigned)base, (unsigned)unit);
+
+    if(svcrt_blk_erase(dev, base, unit) != 0)
+    {
+        sh_out(" erase   : FAILED (device refused or timed out)\r\n");
+        return -1;
+    }
+
+    if(svcrt_blk_read(dev, base, g_blk_scratch, len) != 0)
+    {
+        sh_out(" erase   : FAILED (read back failed)\r\n");
+        return -1;
+    }
+
+    for(i = 0u; i < len; i++)
+    {
+        if(g_blk_scratch[i] != 0xFFu)
+        {
+            ark_shell_printf(" erase   : FAILED at +%u, got 0x%02X, want 0xFF\r\n",
+                             (unsigned)i, (unsigned)g_blk_scratch[i]);
+            return -1;
+        }
+    }
+
+    sh_out(" erase   : ok, all 0xFF\r\n");
+
+    for(i = 0u; i < len; i++)
+    {
+        g_blk_scratch[i] = (uint8)((((base + i) * 31u) + 7u) & 0xFFu);
+    }
+
+    if(svcrt_blk_write(dev, base, g_blk_scratch, len) != 0)
+    {
+        sh_out(" program : FAILED (device refused or timed out)\r\n");
+        return -1;
+    }
+
+    /* Compare in small chunks: a full-size shadow buffer would double the
+     * static cost of this command for no extra evidence. */
+    for(i = 0u; i < len; i += BLK_DUMP_COLS)
+    {
+        uint32 chunk = len - i;
+        uint32 j;
+
+        if(chunk > BLK_DUMP_COLS)
+        {
+            chunk = BLK_DUMP_COLS;
+        }
+
+        if(svcrt_blk_read(dev, base + i, got, chunk) != 0)
+        {
+            sh_out(" verify  : FAILED (read back failed)\r\n");
+            return -1;
+        }
+
+        for(j = 0u; j < chunk; j++)
+        {
+            if(got[j] != g_blk_scratch[i + j])
+            {
+                ark_shell_printf(" verify  : FAILED at +%u, got 0x%02X, want 0x%02X\r\n",
+                                 (unsigned)(i + j), (unsigned)got[j],
+                                 (unsigned)g_blk_scratch[i + j]);
+                return -1;
+            }
+        }
+    }
+
+    ark_shell_printf(" program : ok, %u bytes verified\r\n", (unsigned)len);
+
+    return 0;
+}
+
+static int cmd_blk(int argc, char *argv[])
+{
+    const svcrt_blk_dev_t *dev;
+    uint32 off = 0u;
+    uint32 len = 0u;
+    const char *sub = (argc >= 2) ? argv[1] : "list";
+
+    if(strcmp(sub, "list") == 0)
+    {
+        return blk_list();
+    }
+
+    if(argc < 3)
+    {
+        return blk_usage();
+    }
+
+    dev = svcrt_blk_find(argv[2]);
+
+    if(dev == 0)
+    {
+        ark_shell_printf("\r\nunknown block device: %s\r\n", argv[2]);
+        (void)blk_list();
+        return -1;
+    }
+
+    if(svcrt_blk_init(dev) != 0)
+    {
+        ark_shell_printf("\r\n%s: not available\r\n", argv[2]);
+        return -1;
+    }
+
+    if(strcmp(sub, "probe") == 0)
+    {
+        ark_shell_printf("\r\n%s: %u bytes, erase unit %u\r\n",
+                         dev->name, (unsigned)svcrt_blk_size(dev),
+                         (unsigned)dev->erase_unit);
+        return 0;
+    }
+
+    if(strcmp(sub, "rd") == 0)
+    {
+        if((argc < 4) || (parse_u32(argv[3], &off) != 0))
+        {
+            return blk_usage();
+        }
+
+        len = 64u;
+
+        if((argc >= 5) && (parse_u32(argv[4], &len) != 0))
+        {
+            return blk_usage();
+        }
+
+        if((len == 0u) || (len > BLK_DUMP_LEN_MAX))
+        {
+            ark_shell_printf("\r\nlen must be 1..%u\r\n", (unsigned)BLK_DUMP_LEN_MAX);
+            return -1;
+        }
+
+        return blk_dump(dev, off, len);
+    }
+
+    if(strcmp(sub, "wr") == 0)
+    {
+        uint32 n = 0u;
+
+        if((argc < 5) || (parse_u32(argv[3], &off) != 0))
+        {
+            return blk_usage();
+        }
+
+        if(blk_hex_to_bytes(argv[4], g_blk_scratch, BLK_WR_BYTES_MAX, &n) != 0)
+        {
+            ark_shell_printf("\r\nbad hex string (even number of digits, max %u bytes)\r\n",
+                             (unsigned)BLK_WR_BYTES_MAX);
+            return -1;
+        }
+
+        if(svcrt_blk_write(dev, off, g_blk_scratch, n) != 0)
+        {
+            sh_out("\r\nwrite refused or failed (is the range erased?)\r\n");
+            return -1;
+        }
+
+        ark_shell_printf("\r\nwrote %u bytes at 0x%X\r\n", (unsigned)n, (unsigned)off);
+
+        return blk_dump(dev, off, n);
+    }
+
+    if(strcmp(sub, "erase") == 0)
+    {
+        if((argc < 5) || (parse_u32(argv[3], &off) != 0) ||
+           (parse_u32(argv[4], &len) != 0))
+        {
+            return blk_usage();
+        }
+
+        if(svcrt_blk_erase(dev, off, len) != 0)
+        {
+            ark_shell_printf("\r\nerase refused or failed (off and len must be multiples of %u)\r\n",
+                             (unsigned)dev->erase_unit);
+            return -1;
+        }
+
+        ark_shell_printf("\r\nerased %u bytes at 0x%X\r\n",
+                         (unsigned)len, (unsigned)off);
+        return 0;
+    }
+
+    if(strcmp(sub, "test") == 0)
+    {
+        if((argc < 4) || (parse_u32(argv[3], &off) != 0))
+        {
+            return blk_usage();
+        }
+
+        len = 128u;
+
+        if((argc >= 5) && (parse_u32(argv[4], &len) != 0))
+        {
+            return blk_usage();
+        }
+
+        return blk_test(dev, off, len);
+    }
+
+    return blk_usage();
+}
+
+/* ============================================================
+ * fs: the littlefs volume, on top of a block device from `blk list`
+ *
+ * The file system goes through the same block layer the raw `blk` commands
+ * use, so "where the storage is" is written down exactly once. The volume is
+ * named, never an address: `fs mount nor0 0 4194304` means offset 0 of that
+ * device, and nothing here knows what CPU address that ends up at.
+ *
+ * `fs test` is the one that matters. It writes a file, reads it back, drops
+ * the mount, mounts again, reads it back a second time and only then removes
+ * it. A write that answers "ok" without reaching the chip cannot pass, and
+ * neither can a cache that never flushes - the remount throws both away.
+ * ============================================================ */
+#define FS_SCRATCH_LEN   (512u)   /* one file's worth for wr / rd / test */
+#define FS_RD_DEFAULT    (64u)    /* bytes `fs rd` reads when not told    */
+#define FS_DUMP_COLS     (16u)
+#define FS_TEST_PATH     "/fstest.bin"
+
+static uint8 g_fs_scratch[FS_SCRATCH_LEN];
+
+static int fs_usage(void)
+{
+    sh_out("\r\nusage:\r\n");
+    sh_out("  fs mount [dev off size]   mount a volume (default: the SVCRT_FS_* layout)\r\n");
+    sh_out("  fs unmount                drop the mount\r\n");
+    sh_out("  fs format [dev off size]  erase and create an empty volume (destructive)\r\n");
+    sh_out("  fs info                   volume size and used bytes\r\n");
+    sh_out("  fs ls [dir]               list a directory, default /\r\n");
+    sh_out("  fs wr <path> <text...>    write text to a file (creates or truncates)\r\n");
+    sh_out("  fs rd <path> [len]        read a file back and hex dump it\r\n");
+    sh_out("  fs rm <path>              remove a file\r\n");
+    sh_out("  fs test                   write / read / remount / read / remove\r\n");
+    sh_out("  fs err                    littlefs error of the last failed call\r\n");
+    return -1;
+}
+
+/* Every fs call that fails keeps what littlefs actually returned; print that
+ * number instead of guessing a cause from the outside. */
+static int fs_fail(const char *what)
+{
+    int32 e = svcrt_fs_last_error();
+
+    ark_shell_printf("\r\n%s: FAILED (littlefs error %d: %s)\r\n",
+                     what, (int)e, svcrt_fs_error_name(e));
+    return -1;
+}
+
+static void fs_dump(const uint8 *p, uint32 len)
+{
+    uint32 off = 0u;
+
+    while(off < len)
+    {
+        uint32 chunk = len - off;
+        uint32 j;
+
+        if(chunk > FS_DUMP_COLS)
+        {
+            chunk = FS_DUMP_COLS;
+        }
+
+        ark_shell_printf(" %04X:", (unsigned)off);
+
+        for(j = 0u; j < chunk; j++)
+        {
+            ark_shell_printf(" %02X", (unsigned)p[off + j]);
+        }
+
+        for(j = chunk; j < FS_DUMP_COLS; j++)
+        {
+            sh_out("   ");
+        }
+
+        sh_out("  ");
+
+        for(j = 0u; j < chunk; j++)
+        {
+            uint32 c = (uint32)p[off + j];
+
+            ark_shell_printf("%c", ((c >= 0x20u) && (c < 0x7Fu)) ? (char)c : '.');
+        }
+
+        sh_out("\r\n");
+        off += chunk;
+    }
+}
+
+/* argv[from..argc-1] joined with single spaces -> g_fs_scratch */
+static int fs_collect_text(int argc, char *argv[], int from, uint32 *out_len)
+{
+    uint32 n = 0u;
+    int i;
+
+    for(i = from; i < argc; i++)
+    {
+        const char *p = argv[i];
+
+        if(i > from)
+        {
+            if(n >= FS_SCRATCH_LEN)
+            {
+                return -1;
+            }
+
+            g_fs_scratch[n++] = (uint8)' ';
+        }
+
+        while(*p != '\0')
+        {
+            if(n >= FS_SCRATCH_LEN)
+            {
+                return -1;
+            }
+
+            g_fs_scratch[n++] = (uint8)(*p);
+            p++;
+        }
+    }
+
+    *out_len = n;
+    return 0;
+}
+
+/* `fs <sub>` / `fs <sub> dev off size` -> volume description. Anything else
+ * is a usage error: half a volume description is never filled in with a
+ * default, because that would mount at an offset the operator did not name. */
+static int fs_take_volume(int argc, char *argv[], const char **dev,
+                          uint32 *off, uint32 *size)
+{
+    *dev  = SVCRT_FS_DEV_NAME;
+    *off  = SVCRT_FS_BASE;
+    *size = SVCRT_FS_SIZE;
+
+    if(argc == 2)
+    {
+        return 0;
+    }
+
+    if(argc == 5)
+    {
+        *dev = argv[2];
+
+        if((parse_u32(argv[3], off) != 0) || (parse_u32(argv[4], size) != 0))
+        {
+            return -1;
+        }
+
+        return 0;
+    }
+
+    return -1;
+}
+
+static int fs_list_cb(const char *name, uint32 size, uint8 is_dir, void *arg)
+{
+    uint32 *count = (uint32 *)arg;
+
+    ark_shell_printf("  %-20s %8u%s\r\n", name, (unsigned)size,
+                     (is_dir != 0u) ? "  <dir>" : "");
+    (*count)++;
+    return 0;
+}
+
+static int fs_do_ls(const char *dir)
+{
+    uint32 count = 0u;
+
+    if(svcrt_fs_list(dir, fs_list_cb, &count) != 0)
+    {
+        return fs_fail("ls");
+    }
+
+    ark_shell_printf("  %u entr%s\r\n", (unsigned)count,
+                     (count == 1u) ? "y" : "ies");
+    return 0;
+}
+
+static int fs_do_info(void)
+{
+    uint32 total = 0u;
+    uint32 used  = 0u;
+
+    if(!svcrt_fs_mounted())
+    {
+        sh_out("\r\nnot mounted\r\n");
+        return -1;
+    }
+
+    if(svcrt_fs_stat(&total, &used) != 0)
+    {
+        return fs_fail("stat");
+    }
+
+    ark_shell_printf("\r\nmounted  : yes (%s, offset 0x%X, size %u)\r\n",
+                     SVCRT_FS_DEV_NAME, (unsigned)SVCRT_FS_BASE,
+                     (unsigned)SVCRT_FS_SIZE);
+    ark_shell_printf("total    : %u bytes (%u KiB)\r\n",
+                     (unsigned)total, (unsigned)(total / 1024u));
+    ark_shell_printf("used     : %u bytes (%u KiB, %u%%)\r\n",
+                     (unsigned)used, (unsigned)(used / 1024u),
+                     (unsigned)((total != 0u) ? ((used * 100u) / total) : 0u));
+    ark_shell_printf("free     : %u bytes\r\n",
+                     (unsigned)((total >= used) ? (total - used) : 0u));
+    return 0;
+}
+
+/* Read FS_SCRATCH_LEN bytes from path and compare with the written pattern.
+ * The comparison target is recomputed, not taken from the buffer that the
+ * read just overwrote. */
+static int fs_read_verify(const char *path)
+{
+    uint32 got = 0u;
+    uint32 i;
+
+    if(svcrt_fs_read_file(path, g_fs_scratch, FS_SCRATCH_LEN, &got) != 0)
+    {
+        return fs_fail("read");
+    }
+
+    if(got != FS_SCRATCH_LEN)
+    {
+        ark_shell_printf("\r\nread: short file, got %u of %u bytes\r\n",
+                         (unsigned)got, (unsigned)FS_SCRATCH_LEN);
+        return -1;
+    }
+
+    for(i = 0u; i < got; i++)
+    {
+        uint8 want = (uint8)((i * 17u + 3u) & 0xFFu);
+
+        if(g_fs_scratch[i] != want)
+        {
+            ark_shell_printf("\r\nread: MISMATCH at %u: got 0x%02X want 0x%02X\r\n",
+                             (unsigned)i, (unsigned)g_fs_scratch[i], (unsigned)want);
+            return -1;
+        }
+    }
+
+    ark_shell_printf("read   : ok, %u bytes verified\r\n", (unsigned)got);
+    return 0;
+}
+
+static int fs_do_test(void)
+{
+    uint32 i;
+
+    if(!svcrt_fs_mounted())
+    {
+        sh_out("\r\nnot mounted: fs mount first\r\n");
+        return -1;
+    }
+
+    for(i = 0u; i < FS_SCRATCH_LEN; i++)
+    {
+        g_fs_scratch[i] = (uint8)((i * 17u + 3u) & 0xFFu);
+    }
+
+    if(svcrt_fs_write_file(FS_TEST_PATH, g_fs_scratch, FS_SCRATCH_LEN) != 0)
+    {
+        return fs_fail("write");
+    }
+
+    ark_shell_printf("\r\nwrite  : ok, %u bytes -> %s\r\n",
+                     (unsigned)FS_SCRATCH_LEN, FS_TEST_PATH);
+
+    if(fs_read_verify(FS_TEST_PATH) != 0)
+    {
+        return -1;
+    }
+
+    /* The remount is the point: it discards every cache in the volume and
+     * rebuilds the file system state from the chip alone. */
+    if(svcrt_fs_unmount() != 0)
+    {
+        return fs_fail("unmount");
+    }
+
+    if(svcrt_fs_mount_default() != 0)
+    {
+        return fs_fail("remount");
+    }
+
+    sh_out("remount: ok\r\n");
+
+    if(fs_read_verify(FS_TEST_PATH) != 0)
+    {
+        return -1;
+    }
+
+    if(svcrt_fs_remove(FS_TEST_PATH) != 0)
+    {
+        return fs_fail("remove");
+    }
+
+    sh_out("remove : ok\r\n");
+    sh_out("fs test: PASS\r\n");
+    return 0;
+}
+
+static int cmd_fs(int argc, char *argv[])
+{
+    const char *sub = (argc >= 2) ? argv[1] : "";
+
+    if(strcmp(sub, "mount") == 0)
+    {
+        const char *dev = 0;
+        uint32 off = 0u;
+        uint32 size = 0u;
+
+        if(fs_take_volume(argc, argv, &dev, &off, &size) != 0)
+        {
+            return fs_usage();
+        }
+
+        if(svcrt_fs_mount(dev, off, size) != 0)
+        {
+            return fs_fail("mount");
+        }
+
+        ark_shell_printf("\r\nmounted %s at 0x%X, %u bytes\r\n",
+                         dev, (unsigned)off, (unsigned)size);
+        return 0;
+    }
+
+    if(strcmp(sub, "unmount") == 0)
+    {
+        if(svcrt_fs_unmount() != 0)
+        {
+            return fs_fail("unmount");
+        }
+
+        sh_out("\r\nunmounted\r\n");
+        return 0;
+    }
+
+    if(strcmp(sub, "format") == 0)
+    {
+        const char *dev = 0;
+        uint32 off = 0u;
+        uint32 size = 0u;
+
+        if(fs_take_volume(argc, argv, &dev, &off, &size) != 0)
+        {
+            return fs_usage();
+        }
+
+        ark_shell_printf("\r\nformatting %s at 0x%X, %u bytes - every file on it is lost\r\n",
+                         dev, (unsigned)off, (unsigned)size);
+
+        if(svcrt_fs_format(dev, off, size) != 0)
+        {
+            return fs_fail("format");
+        }
+
+        sh_out("format : ok, volume is empty and mounted\r\n");
+        return 0;
+    }
+
+    if(strcmp(sub, "info") == 0)
+    {
+        return fs_do_info();
+    }
+
+    if(strcmp(sub, "ls") == 0)
+    {
+        return fs_do_ls((argc >= 3) ? argv[2] : "/");
+    }
+
+    if(strcmp(sub, "wr") == 0)
+    {
+        uint32 len = 0u;
+        uint32 i;
+
+        if((argc < 4) || (fs_collect_text(argc, argv, 3, &len) != 0))
+        {
+            return fs_usage();
+        }
+
+        if(!svcrt_fs_mounted())
+        {
+            sh_out("\r\nnot mounted\r\n");
+            return -1;
+        }
+
+        if(svcrt_fs_write_file(argv[2], g_fs_scratch, len) != 0)
+        {
+            return fs_fail("write");
+        }
+
+        ark_shell_printf("\r\nwrote %u bytes to %s:", (unsigned)len, argv[2]);
+
+        for(i = 0u; i < len; i++)
+        {
+            ark_shell_printf(" %02X", (unsigned)g_fs_scratch[i]);
+        }
+
+        sh_out("\r\n");
+        return 0;
+    }
+
+    if(strcmp(sub, "rd") == 0)
+    {
+        uint32 len = FS_RD_DEFAULT;
+        uint32 got = 0u;
+
+        if(argc < 3)
+        {
+            return fs_usage();
+        }
+
+        if((argc >= 4) && (parse_u32(argv[3], &len) != 0))
+        {
+            return fs_usage();
+        }
+
+        if((len == 0u) || (len > FS_SCRATCH_LEN))
+        {
+            ark_shell_printf("\r\nlen must be 1..%u\r\n", (unsigned)FS_SCRATCH_LEN);
+            return -1;
+        }
+
+        if(!svcrt_fs_mounted())
+        {
+            sh_out("\r\nnot mounted\r\n");
+            return -1;
+        }
+
+        if(svcrt_fs_read_file(argv[2], g_fs_scratch, len, &got) != 0)
+        {
+            return fs_fail("read");
+        }
+
+        ark_shell_printf("\r\n%s: %u bytes\r\n", argv[2], (unsigned)got);
+        fs_dump(g_fs_scratch, got);
+        return 0;
+    }
+
+    if(strcmp(sub, "rm") == 0)
+    {
+        if((argc != 3) || !svcrt_fs_mounted())
+        {
+            return fs_usage();
+        }
+
+        if(svcrt_fs_remove(argv[2]) != 0)
+        {
+            return fs_fail("remove");
+        }
+
+        ark_shell_printf("\r\nremoved %s\r\n", argv[2]);
+        return 0;
+    }
+
+    if(strcmp(sub, "test") == 0)
+    {
+        return fs_do_test();
+    }
+
+    if(strcmp(sub, "err") == 0)
+    {
+        int32 e = svcrt_fs_last_error();
+
+        ark_shell_printf("\r\nlast littlefs error: %d (%s)\r\n",
+                         (int)e, svcrt_fs_error_name(e));
+        return 0;
+    }
+
+    return fs_usage();
+}
+
+
 static int register_kernel_commands(void)
 {
     int idx = g_cmd_count;
-    int need = 11;
+    int need = 13;
 
     if((idx + need) > ARK_SHELL_MAX_COMMANDS)
     {
@@ -1369,6 +2239,11 @@ static int register_kernel_commands(void)
         "Kernel event trace: trace [start | stop | reset | dump | mark <n>]", 3);
     g_cmd_table[idx++] = ARK_SHELL_CMD("cfg", cmd_cfg,
         "Device layout config: cfg [show | load | clear]", 2);
+    g_cmd_table[idx++] = ARK_SHELL_CMD("blk", cmd_blk,
+        "Block devices: blk [list | probe | rd | wr | erase | test]", 5);
+
+    g_cmd_table[idx++] = ARK_SHELL_CMD("fs", cmd_fs,
+        "File system: fs [mount | unmount | format | info | ls | wr | rd | rm | test | err]", 8);
 
     g_cmd_table[idx].name = NULL;
     g_cmd_table[idx].func = NULL;

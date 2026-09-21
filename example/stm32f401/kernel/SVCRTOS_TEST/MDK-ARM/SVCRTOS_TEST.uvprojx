@@ -337,10 +337,10 @@
             <v6WtE>0</v6WtE>
             <v6Rtti>0</v6Rtti>
             <VariousControls>
-              <MiscControls>-DMDK_TRACE_SWD_EXTERNAL_PLATFORM -DMDK_TRACE_USE_CONFIG_FILE</MiscControls>
+              <MiscControls>-DMDK_TRACE_SWD_EXTERNAL_PLATFORM -DMDK_TRACE_USE_CONFIG_FILE -DLFS_NO_MALLOC -DLFS_NO_ASSERT -DLFS_NO_DEBUG -DLFS_NO_WARN -DLFS_NO_ERROR</MiscControls>
               <Define>USE_HAL_DRIVER,STM32F401xx,SVCRT_USE_FPU=1,SVCRT_BOARD_CONFIG=\"svcrt_board_config.h\"</Define>
               <Undefine></Undefine>
-              <IncludePath>../../../../../kernelsrc/components/mdk_trace;../Core/Inc;../../../../stm32f427/kernel/SVCRTOS_TEST/Drivers/STM32F4xx_HAL_Driver/Inc;../../../../stm32f427/kernel/SVCRTOS_TEST/Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../../../../stm32f427/kernel/SVCRTOS_TEST/Drivers/CMSIS/Device/ST/STM32F4xx/Include;../../../../stm32f427/kernel/SVCRTOS_TEST/Drivers/CMSIS/Include;../../../../../kernelsrc/include;../../../../../board/stm32f401;../../../../../config/stm32f401;../../../../../kernelsrc/shell;../../../../../kernelsrc/shell/ark_shell</IncludePath>
+              <IncludePath>../../../../../kernelsrc/components/mdk_trace;../Core/Inc;../../../../stm32f427/kernel/SVCRTOS_TEST/Drivers/STM32F4xx_HAL_Driver/Inc;../../../../stm32f427/kernel/SVCRTOS_TEST/Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../../../../stm32f427/kernel/SVCRTOS_TEST/Drivers/CMSIS/Device/ST/STM32F4xx/Include;../../../../stm32f427/kernel/SVCRTOS_TEST/Drivers/CMSIS/Include;../../../../../kernelsrc/include;../../../../../kernelsrc/fs;../../../../../kernelsrc/fs/littlefs;../../../../../board/stm32f401;../../../../../config/stm32f401;../../../../../kernelsrc/shell;../../../../../kernelsrc/shell/ark_shell</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -423,6 +423,26 @@
               <FileName>svcrt_task.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_task.c</FilePath>
+            </File>
+            <File>
+              <FileName>svcrt_blk.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_blk.c</FilePath>
+            </File>
+            <File>
+              <FileName>svcrt_fs.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_fs.c</FilePath>
+            </File>
+            <File>
+              <FileName>lfs.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\fs\littlefs\lfs.c</FilePath>
+            </File>
+            <File>
+              <FileName>lfs_util.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\fs\littlefs\lfs_util.c</FilePath>
             </File>
             <File>
               <FileName>svcrt_trace.c</FileName>

@@ -19,6 +19,8 @@
 #include "svcrt_config.h"
 #include "drvled.h"
 #include "drvuart.h"
+#include "drvblk.h"
+#include "svcrt_log.h"
 #include "svcrt_fault.h"
 #include "svcrt_trace.h"
 
@@ -88,6 +90,16 @@ void svcrt_dev_board_init(void)
     svcrt_dev_register("LED2", &led_drv, LED_ID_GREEN);
     svcrt_dev_register("LED3", &led_drv, LED_ID_BLUE);
     svcrt_dev_register("COM1", &usart_drv, 0);
+
+    /* Block devices are registered here, but not brought up: the descriptors
+     * are static and svcrt_blk_init() runs on first use. main() has HAL and
+     * the clocks up by the time svcrt_kernel_module_init() reaches this, so
+     * an eager SPI bring-up would also work - deferring just keeps a board
+     * without a fitted NOR from paying for one. */
+    if(svcrt_board_blk_init() != 0)
+    {
+        SVCRT_LOGE("BOARD", "block device registration failed");
+    }
 }
 
 /* ============================================================

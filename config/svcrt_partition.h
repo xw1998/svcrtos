@@ -543,6 +543,34 @@ typedef char svcrt_pool_unit_check[
 #define SHELL_TASK_PERIOD_MS     2               /* 无按键时的轮询间隔（ms） */
 #define SHELL_INSTALL_TIMEOUT_MS 120000          /* install 窗口最长等待（ms），超时回命令提示符 */
 
+/* ============================================================
+ * 十二、外部 SPI NOR 与文件系统卷（板载器件，不是片内 Flash）
+ * @details 这一节描述挂在 SPI 上的那颗 NOR（F427 板 = U4 W25Q128，16 MB），
+ *          不参与上面「一~十一」那套 BOOT/KERNEL/CONFIG/POOL 推导。
+ *          这里只回答「哪段地址范围归谁用」（地址只在此处定义一次）；
+ *          器件操作在 board/<芯片>/drvnor.c，经 svcrt_blk 注册成块设备。
+ *
+ *            - 文件系统卷：littlefs 用，从 0 起 (4 * 1024 * 1024)；
+ *            - 镜像区    ：预留给「把 App 装到外部 Flash」，尚未启用。
+ *
+ *          这里的容量只是「本板装配」声明，运行期一律以器件 JEDEC 读回的
+ *          实际容量为准（svcrt_nor_capacity）；换一颗小容量料时，下面这条
+ *          编译期自检先拦住，而不是让装载器写到芯片外面。
+ * ============================================================ */
+#define SVCRT_NOR_CHIP_SIZE      (16 * 1024 * 1024)  /* 板载 NOR 容量；无 NOR 的板卡填 0 */
+#define SVCRT_FS_DEV_NAME        "nor0"              /* 文件系统所在的块设备名 */
+#define SVCRT_FS_BASE            (0)                 /* 卷在设备内的偏移 */
+#define SVCRT_FS_SIZE            (4 * 1024 * 1024)  /* 卷大小；填 0 = 本板不使用文件系统 */
+#define SVCRT_NOR_IMAGE_BASE     (SVCRT_FS_BASE + SVCRT_FS_SIZE)
+#define SVCRT_NOR_IMAGE_SIZE     (SVCRT_NOR_CHIP_SIZE - SVCRT_NOR_IMAGE_BASE)
+
+typedef char svcrt_nor_layout_check[
+    ((SVCRT_FS_SIZE == 0) ||
+     ((SVCRT_NOR_CHIP_SIZE > 0) &&
+      ((SVCRT_FS_SIZE % 4096) == 0) &&
+      ((SVCRT_FS_BASE % 4096) == 0) &&
+      ((SVCRT_FS_BASE + SVCRT_FS_SIZE) <= SVCRT_NOR_CHIP_SIZE))) ? 1 : -1];
+
 /* ---- 一致性自检（编译期，配置错误在编译阶段就暴露） ---- */
 /* ---- 配置区：要么不划分，要么是整数个物理扇区 ---- */
 typedef char svcrt_config_region_check[
