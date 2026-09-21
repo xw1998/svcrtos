@@ -52,6 +52,8 @@ extern "C" {
 #define SVCRT_LOADER_ERR_RELOC    (-13)  /* 重定位表非法，或修补后校验不一致 */
 #define SVCRT_LOADER_ERR_NOSPACE  (-14)  /* 池内没有足够大的已擦除空间 */
 #define SVCRT_LOADER_ERR_BUSY     (-15)  /* 镜像正在运行，不允许搬移或卸载 */
+#define SVCRT_LOADER_ERR_VERSION  (-16)  /* 版本回灌：同 image_id 且版本号不高于已装版本 */
+#define SVCRT_LOADER_ERR_DUP      (-17)  /* 重复副本：同一 image_id 且版本与内容完全相同的镜像已在池内 */
 
 /**
 * @brief 从内存缓冲区加载完整 App 镜像
@@ -241,6 +243,21 @@ int32 svcrt_loader_on_fault(int32 task_id);
 *       否则别再自己跑起来”。控制台的人工重试用 svcrt_loader_start_manual()。
 */
 int32 svcrt_loader_start(uint32 slot);
+
+/**
+* @brief 安装前的版本把关：同一 image_id 的已装副本不允许被「不更高」的版本覆盖
+* @param p_hdr 待安装镜像的镜像头（调用方已完成魔数同步与基本校验）
+* @return 0=可以安装；负值为 SVCRT_LOADER_ERR_x
+* @details 三态判定，只按「同一 image_id」比对（image_id 是负载身份，
+*          同一应用两次打包只有版本号不同、image_id 相同）：
+*          - 版本号高于已装最高版本 -> 放行（升级）；
+*          - 版本号相同且 image_size / crc32 也相同 -> ERR_DUP（重复副本）；
+*          - 其余（降级回灌、同版本重建）-> ERR_VERSION。
+*          只统计 state 为 LOADED / RUNNING 的副本：被崩溃终局策略禁用
+*          （INVALID）的副本不算「已装」——重装同一版本正是恢复手段。
+* @note 安装路径在写入任何字节之前调用本函数；上电扫描与搬移不调用。
+*/
+int32 svcrt_loader_check_install(const svcrt_app_header_t *p_hdr);
 
 /**
 * @brief 控制台口径的启动：与 svcrt_loader_start() 是同一道门，多一个人工重试

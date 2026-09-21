@@ -179,7 +179,13 @@ typedef struct {
                                    「落点 + payload_offset - 本字段」算 ROM 增量 */
     uint32 crc32;               /* 镜像校验值（计算时本字段按 0） */
 
-    uint8  signature[64];       /* 预留：数字签名 */
+    uint8  signature[64];       /* 预留：数字签名——**当前全 0，没有任何验签**。
+                                 * 内核不读这 64 字节（安装路径只校验 hw_compat、
+                                 * 长度、重定位表与 CRC32），主机侧 tools/pack_app.py
+                                 * 也是写死 64 个 0。它在这里的作用只是把偏移钉住，
+                                 * 免得以后加验签时改动整个头的布局。
+                                 * 因此：本字段不提供任何防篡改能力，别把它当成
+                                 * 「已签名」的证据。 */
     uint32 flags;               /* SVCRT_APP_FLAG_x；0 表示不自启（旧镜像即为此值） */
     uint32 state;               /* SVCRT_APP_STATE_x（计算 CRC 时按 0） */
     uint32 image_id;            /* 负载身份 = 负载的 crc32；用于重复副本判定 */

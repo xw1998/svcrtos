@@ -68,6 +68,7 @@ SVCrtOS 镜像打包工具（App / 驱动，动态装载路径）
 from __future__ import print_function
 
 import argparse
+import io
 import json
 import os
 import struct
@@ -87,6 +88,7 @@ TYPE_APP = 1
 TYPE_DRIVER = 2
 TYPE_NAME = {TYPE_APP: "app", TYPE_DRIVER: "driver"}
 
+VERSION_FILE = "app_version.txt"    # 版本号唯一来源（与工程同级）
 SIG_OFFSET = 32                 # signature[64]
 FLAGS_OFFSET = 96
 STATE_OFFSET = 100
@@ -316,6 +318,47 @@ def load_layout(header_path):
     layout = gen_scatter.Layout(gen_scatter.MacroEval(gen_scatter.parse_defines(header_path)))
     layout.header = header_path
     return layout
+
+
+def version_from_project(project):
+    """从 App 工程自带的版本文件读版本号。
+
+    约定：``<app_root>/app_version.txt``（app_root 是 MDK-ARM 的上一级）。
+    文件里第一个非空、非 ``#`` 开头的行就是版本号。这样「这个 App 是哪个
+    版本」只有一处定义，改版本不需要改命令行，也不会出现"忘了带 --version
+    于是打出一个 0.0.0.0 的包"。
+    """
+    if not project:
+        return ""
+    uvprojx = os.path.abspath(project)
+    app_root = os.path.dirname(os.path.dirname(uvprojx))
+    path = os.path.join(app_root, VERSION_FILE)
+    if not os.path.isfile(path):
+        return ""
+    with io.open(path, "r", encoding="utf-8-sig") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                return line
+    return ""
+
+
+def resolve_version(args):
+    """版本号的唯一入口：--version > 工程内 app_version.txt > 报错。
+
+    不再回落到 0：安装路径按 image_id 做版本单调把关，一个静默的 v0 会让
+    「装第二遍」和「降级回灌」都变成合法安装。
+    """
+    if args.version:
+        return args.version
+    v = version_from_project(args.project)
+    if v:
+        print("[pack] 版本取自工程: %s -> %s" % (VERSION_FILE, v))
+        return v
+    raise PackError(
+        "没有版本号：给 --version，或在工程根目录放一份 %s（内容为版本号，"
+        "如 1.0.0）。镜像头里的版本号是安装路径版本单调把关的判据，"
+        "不能留空。" % VERSION_FILE)
 
 
 def parse_version(text):
@@ -832,12 +875,13 @@ def do_pack(args):
               % (rw_size, stack_size, need, ram_size))
 
     # ---- 组装 ----
-    manifest = {"name": args.name, "ver": version_str(parse_version(args.version)),
+    version = parse_version(resolve_version(args))
+    manifest = {"name": args.name, "ver": version_str(version),
                 "type": TYPE_NAME[img_type], "entry": args.entry_symbol}
     manifest = {k: x for k, x in manifest.items() if x}
     flags = FLAG_AUTOSTART if args.autostart else 0
     image, crc, image_id = assemble(img_type, args.hw_compat or v("SVCRT_HW_COMPAT_ID"),
-                                    parse_version(args.version), img_a, entry_offset,
+                                    version, img_a, entry_offset,
                                     payload_link_base, nominal_ram_base, ram_size,
                                     entries, flags, manifest)
 
@@ -886,7 +930,7 @@ def do_pack(args):
     print("[pack] 入口偏移    : 0x%08X" % entry_offset)
     print("[pack] 重定位表    : %d 项（ROM %d / RAM %d）" % (reloc_count, n_rom, n_ram))
     print("[pack] RAM 声明    : %d 字节" % ram_size)
-    print("[pack] 版本        : %s" % version_str(parse_version(args.version)))
+    print("[pack] 版本        : %s" % version_str(version))
     print("[pack] 硬件兼容 ID : 0x%08X" % (args.hw_compat or v("SVCRT_HW_COMPAT_ID")))
     print("[pack] flags       : 0x%08X（%s）" % (flags, "自启" if flags & FLAG_AUTOSTART else "不自启"))
     print("[pack] CRC32       : 0x%08X，image_id 0x%08X" % (crc, image_id))
@@ -1057,7 +1101,8 @@ def main():
     out.add_argument("--out", help="输出 .svcapp 路径")
     out.add_argument("--type", choices=["app", "driver"], default="app", help="镜像类型")
     out.add_argument("--name", help="镜像名（写进清单，并作为默认输出文件名）")
-    out.add_argument("--version", default="", help="版本号，如 1.0.0 或 0x010203")
+    out.add_argument("--version", default="",
+                     help="版本号，如 1.0.0 或 0x010203；缺省时读工程根目录的 %s" % VERSION_FILE)
     out.add_argument("--hw-compat", type=auto_int, help="覆盖 hw_compat_id（默认取配置头）")
     out.add_argument("--no-autostart", dest="autostart", action="store_false",
                      help="置成「不自启」：安装后需要显式启动")

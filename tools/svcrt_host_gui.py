@@ -43,6 +43,7 @@ import subprocess
 import sys
 import threading
 import time
+import zlib
 
 # ---------------------------------------------------------------- 常量
 
@@ -188,8 +189,47 @@ def parse_image_header(path):
     if h["state"] != 0:
         raise ValueError("镜像 state=%u（1=未提交）；未提交的镜像不该被安装"
                          % h["state"])
+    # CRC 复核（与内核 svcrt_loader_image_crc / pack_app.calc_crc 同一口径：
+    # 头里 crc32 与 state 两个字段按 0 参与，再叠上重定位表与负载）。
+    # 设备端是写完负载之后才校验，坏了要白传十几 KB 并且回一个 err -5；
+    # 发之前算一遍是几毫秒的事，而且能指出“它被改坏了”。
+    zeroed = (data[:IMG_OFF_CRC32] + b"\x00" * 4 +
+              data[IMG_OFF_CRC32 + 4:IMG_OFF_STATE] + b"\x00" * 4 +
+              data[IMG_OFF_STATE + 4:IMG_HEADER_SIZE])
+    crc = zlib.crc32(zeroed)
+    crc = zlib.crc32(data[IMG_HEADER_SIZE:h["payload_offset"]], crc)
+    crc = zlib.crc32(data[h["payload_offset"]:], crc)
+    if (crc & 0xFFFFFFFF) != h["crc32"]:
+        raise ValueError("CRC32 不符：算得 0x%08X，头里写着 0x%08X。"
+                         "镜像已被改坏，装上去也会被设备拒（err -5），"
+                         "先重新打包。"
+                         % (crc & 0xFFFFFFFF, h["crc32"]))
+
     h["autostart"] = bool(h["flags"] & IMG_FLAG_AUTOSTART)
     return h
+
+
+def precheck_installable(h):
+    """发送前预检：把设备端一定会拒的情况提前说出来。
+
+    设备端安装路径现在按 image_id 做版本单调把关（见
+    kernelsrc/src/svcrt_loader.c 的 svcrt_loader_check_install）：
+      - 同 id 且新版本号 <= 已装最高版本 -> 拒（ERR_VERSION -16）；
+      - 同 id、同版本、同内容 -> 拒（ERR_DUP -17）。
+
+    这里只能检查镜像自身能看出来的那一半：版本号是 0 的镜像在同 id
+    已经装过一次之后必然被拒。返回一句警告文案，没问题则返回
+    None。设备上实际装着什么版本要连上设备敲 app list 才知道，不在这里猜。
+    """
+    if h["version"] == 0:
+        return ("这个镜像的版本号是 0.0.0.0（打包时没给 --version，工程里也"
+                "没有 app_version.txt）。\n\n"
+                "首次安装可以过；但同一个应用（image_id 0x%08X）在设备上已经"
+                "装过之后，版本单调把关会把它当“版本没有提高”拒掉（err -16）。\n\n"
+                "建议先用 tools/pack_app.py 重新打包（在工程根目录放一份 "
+                "app_version.txt，或加 --version 1.0.1）。\n\n"
+                "仍要发送吗？" % h["image_id"])
+    return None
 
 
 # ---------------------------------------------------------------- 串口链路
@@ -938,6 +978,10 @@ class HostGui(object):
         except Exception as e:
             messagebox.showerror("镜像不可用", "%s" % e)
             return
+        warn = precheck_installable(h)
+        if warn and not messagebox.askyesno("发送前预检", warn, default="no"):
+            self.log(self.pane_install, "已按预检结果取消发送：%s" % path)
+            return
         data = open(path, "rb").read()
 
         fixed = bool(self.var_fixed.get())
@@ -1558,9 +1602,22 @@ def selftest():
     struct.pack_into("<I", hdr, IMG_OFF_IMAGE_SIZE, 32)
     struct.pack_into("<I", hdr, IMG_OFF_RELOC_COUNT, 0)
     struct.pack_into("<I", hdr, IMG_OFF_PAYLOAD_OFFSET, IMG_HEADER_SIZE)
+    struct.pack_into("<I", hdr, IMG_OFF_VERSION, 0x00010000)        # 1.0.0.0
+    payload = b"\xa5" * 32
+    # image_id 落在被 CRC 覆盖的头区间里，必须先定下来再算 CRC（打包工具同理）。
+    struct.pack_into("<I", hdr, IMG_OFF_IMAGE_ID, 0x5A5A5A5A)
+    # 正例必须是 CRC 自洽的：解析器现在会复核 CRC32（改坏的镜像要在发送前
+    # 就报出来，而不是白传一遍再被设备回 err -5）。
+    zeroed = (bytes(hdr[:IMG_OFF_CRC32]) + b"\x00" * 4 +
+              bytes(hdr[IMG_OFF_CRC32 + 4:IMG_OFF_STATE]) + b"\x00" * 4 +
+              bytes(hdr[IMG_OFF_STATE + 4:IMG_HEADER_SIZE]))
+    crc = zlib.crc32(zeroed)
+    crc = zlib.crc32(b"", crc)                                      # 无重定位表
+    crc = zlib.crc32(payload, crc) & 0xFFFFFFFF
+    struct.pack_into("<I", hdr, IMG_OFF_CRC32, crc)
     tmpd = tempfile.mkdtemp(prefix="svcrt_gui_selftest_")
     good = os.path.join(tmpd, "good.svcapp")
-    open(good, "wb").write(bytes(hdr) + b"\x00" * 32)
+    open(good, "wb").write(bytes(hdr) + payload)
     try:
         h = parse_image_header(good)
         if h["image_size"] != 32 or h["type"] != IMG_TYPE_APP:
@@ -1577,6 +1634,28 @@ def selftest():
         pass
     except Exception as e:
         problems.append("负例镜像抛了意外异常：%s" % e)
+
+    # 负载被改坏一个字节：结构仍然自洽，只有 CRC 能看出来。
+    badcrc = os.path.join(tmpd, "badcrc.svcapp")
+    broken = bytearray(bytes(hdr) + payload)
+    broken[-1] ^= 0x01
+    open(badcrc, "wb").write(bytes(broken))
+    try:
+        parse_image_header(badcrc)
+        problems.append("负载被改坏的镜像没有被 CRC 复核拒绝")
+    except ValueError as e:
+        if "CRC32" not in str(e):
+            problems.append("负载改坏的镜像报的不是 CRC 错：%s" % e)
+    except Exception as e:
+        problems.append("负载改坏的镜像抛了意外异常：%s" % e)
+
+    # 版本号 0 的镜像：预检必须给出警告（设备端会按版本单调把关拒掉它）
+    zero_v = dict(h)
+    zero_v["version"] = 0
+    if precheck_installable(zero_v) is None:
+        problems.append("版本号 0 的镜像没有触发发送前预检警告")
+    if precheck_installable(h) is not None:
+        problems.append("版本号正常的镜像被发送前预检误报")
 
     # 2) 布局工具链：模板 -> 生成记录
     rec_path = os.path.join(tmpd, "rec.bin")

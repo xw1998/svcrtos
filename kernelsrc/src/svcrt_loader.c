@@ -1548,6 +1548,105 @@ static int32 svcrt_loader_accept(uint32 base, uint32 *out_total, uint32 *out_ent
     return 0;
 }
 
+/* ============================================================
+ * 提交点的版本把关：版本单调 + 重复副本判定
+ * ============================================================ */
+
+/**
+* @brief 安装前的版本把关：同一 image_id 的已装副本不允许被「不更高」的版本覆盖
+* @param p_hdr 待安装镜像的镜像头（调用方已完成魔数同步与基本校验）
+* @return 0=可以安装；负值为 SVCRT_LOADER_ERR_x
+* @details 只按「同一 image_id」比对：image_id 是负载身份（标称形态的 crc32），
+*          同一个应用的两次打包只有版本号不同、image_id 相同。三态判定：
+*          - 新版本号 > 已装最高版本号 -> 放行（升级）；
+*          - 版本号相同、且 image_size 与 crc32 也相同 -> ERR_DUP
+*            （同一份镜像，装第二遍没有任何意义，还白占一份池空间）；
+*          - 其余（降级回灌、同版本重建）-> ERR_VERSION。
+*          只统计 state 为 LOADED / RUNNING 的副本：被崩溃终局策略禁用
+*          （INVALID）的副本不算「已装」，否则一次崩溃风暴会让同一个镜像
+*          再也装不回来——重装同一版本正是恢复手段。
+* @note 这里读的是 Flash 上的镜像头，只用到 version / image_id / image_size /
+*       crc32 四个「标称形态」字段，它们不参与重定位，落盘后仍然可信。
+*       不做 CRC 复核：那对不上（见 svcrt_loader_accept 的说明）。
+*/
+int32 svcrt_loader_check_install(const svcrt_app_header_t *p_hdr)
+{
+    svcrt_partition_table_t *pt;
+    uint32 best_ver = 0u;
+    uint32 have = 0u;
+    uint32 dup = 0u;
+    uint32 want_type;
+    uint32 i;
+
+    if(p_hdr == 0)
+    {
+        return SVCRT_LOADER_ERR_PARAM;
+    }
+    if(p_hdr->image_id == 0u)
+    {
+        /* 没有身份标签就没有可比对象。主机侧 pack_app 一定会填，缺了说明
+         * 这个头不完整——宁可拒绝，也不要放一个无法判重的镜像进池。 */
+        return SVCRT_LOADER_ERR_PARAM;
+    }
+
+    pt = svcrt_ptable_get();
+    want_type = (p_hdr->type == SVCRT_APP_TYPE_DRIVER)
+                ? SVCRT_SLOT_DRIVER : SVCRT_SLOT_APP;
+
+    for(i = 0u; i < SVCRT_SLOT_ARRAY_MAX; i++)
+    {
+        const svcrt_app_header_t *p_old;
+        uint32 base = pt->slot_base[i];
+
+        if((pt->slot_type[i] != want_type) || (base == 0u))
+        {
+            continue;
+        }
+        if((pt->slot_state[i] != SVCRT_APP_SLOT_LOADED) &&
+           (pt->slot_state[i] != SVCRT_APP_SLOT_RUNNING))
+        {
+            continue;               /* 被禁用 / 半途的记录不算「已装」 */
+        }
+        if(*(const volatile uint32 *)base != (uint32)SVCRT_APP_MAGIC)
+        {
+            continue;               /* 裸镜像没有头，无法比对 */
+        }
+
+        p_old = (const svcrt_app_header_t *)base;
+
+        if(p_old->image_id != p_hdr->image_id)
+        {
+            continue;
+        }
+
+        if((have == 0u) || (p_old->version > best_ver))
+        {
+            best_ver = p_old->version;
+            have = 1u;
+        }
+        if((p_old->version == p_hdr->version) &&
+           (p_old->image_size == p_hdr->image_size) &&
+           (p_old->crc32 == p_hdr->crc32))
+        {
+            dup = 1u;
+        }
+    }
+
+    if(have == 0u)
+    {
+        return 0;                   /* 没装过同 id 的镜像：首次安装 */
+    }
+    if(p_hdr->version > best_ver)
+    {
+        return 0;                   /* 升级 */
+    }
+    if(dup != 0u)
+    {
+        return SVCRT_LOADER_ERR_DUP;
+    }
+    return SVCRT_LOADER_ERR_VERSION;
+}
+
 /* 扫描整个统一镜像池，重建槽位表。
  * 池内任意分配单元都可能是一个镜像的起点，因此按分配粒度线性扫过去，
  * 发现镜像就跳过它占用的整段区间。扫描是槽位表在重启后唯一的事实来源。 */

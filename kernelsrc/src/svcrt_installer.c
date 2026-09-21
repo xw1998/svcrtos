@@ -117,17 +117,55 @@ static int32 svcrt_installer_load(int32 dev, uint32 image_len)
     svcrt_partition_table_t *pt = svcrt_ptable_get();
     int32 r;
 
-    /* App and driver share one install path; the landing slot is picked by the */
-    /* pool allocator at install time (highest-density append), it is not */
-    /* declared by the image header any more. A driver entry only additionally */
-    /* requires type = DRIVER, which keeps the by-type routing explicit. */
-    if(svcrt_installer_hdr.type == SVCRT_APP_TYPE_DRIVER)
+    /* 提交点之前的版本把关（版本单调 + 重复副本）。放在这里而不是放进
+     * svcrt_loader_load_dev_hdr()：那个函数在写入第一个字节之前就已经需要
+     * 决定要不要收这一帧，而它同时被「上电扫描 / 搬移」之外的路径复用；
+     * 安装语义（升级 / 回灌 / 重装）只属于安装路径。 */
+    r = svcrt_loader_check_install(&svcrt_installer_hdr);
+
+    if(r == SVCRT_LOADER_ERR_DUP)
     {
-        r = svcrt_loader_load_driver_dev(dev, &svcrt_installer_hdr, image_len);
+        SVCRT_LOGE("INSTALL",
+                   "refused: identical image already installed "
+                   "(id 0x%08X, v%u.%u.%u.%u, %u B) - nothing to do",
+                   (unsigned)svcrt_installer_hdr.image_id,
+                   (unsigned)((svcrt_installer_hdr.version >> 24) & 0xFFu),
+                   (unsigned)((svcrt_installer_hdr.version >> 16) & 0xFFu),
+                   (unsigned)((svcrt_installer_hdr.version >> 8) & 0xFFu),
+                   (unsigned)(svcrt_installer_hdr.version & 0xFFu),
+                   (unsigned)svcrt_installer_hdr.image_size);
+    }
+    else if(r == SVCRT_LOADER_ERR_VERSION)
+    {
+        SVCRT_LOGE("INSTALL",
+                   "refused: version not increasing "
+                   "(id 0x%08X, incoming v%u.%u.%u.%u <= installed) - bump the version",
+                   (unsigned)svcrt_installer_hdr.image_id,
+                   (unsigned)((svcrt_installer_hdr.version >> 24) & 0xFFu),
+                   (unsigned)((svcrt_installer_hdr.version >> 16) & 0xFFu),
+                   (unsigned)((svcrt_installer_hdr.version >> 8) & 0xFFu),
+                   (unsigned)(svcrt_installer_hdr.version & 0xFFu));
+    }
+    else if(r != 0)
+    {
+        SVCRT_LOGE("INSTALL", "refused: image identity missing (id 0x%08X, err %d)",
+                   (unsigned)svcrt_installer_hdr.image_id, (int)r);
     }
     else
     {
-        r = svcrt_loader_load_dev_hdr(dev, &svcrt_installer_hdr, image_len);
+        /* App and driver share one install path; the landing slot is picked by
+         * the pool allocator at install time (highest-density append), it is
+         * not declared by the image header any more. A driver entry only
+         * additionally requires type = DRIVER, which keeps the by-type
+         * routing explicit. */
+        if(svcrt_installer_hdr.type == SVCRT_APP_TYPE_DRIVER)
+        {
+            r = svcrt_loader_load_driver_dev(dev, &svcrt_installer_hdr, image_len);
+        }
+        else
+        {
+            r = svcrt_loader_load_dev_hdr(dev, &svcrt_installer_hdr, image_len);
+        }
     }
 
     svcrt_installer_got = 0u;

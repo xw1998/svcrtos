@@ -251,6 +251,39 @@ python tools/pack_app.py --verify build/APP_DEMO/APP_DEMO.svcapp    # 校验完�
 | `APPSTART` / `DRVSTART`（默认） | SDK 启动入口，先做 C 运行库初始化（`.data` 拷贝、`.bss` 清零）再进 `AppMain`/`DrvMain`。**镜像含初始化全局变量时必须用它** |
 | `AppMain` / `DrvMain` | 直接进业务函数，跳过运行时初始化 |
 
+### 3.2.1 版本号从哪来，以及安装时的版本把关
+
+**版本号只有一个来源**（`tools/pack_app.py` 按这个顺序找）：
+
+| 优先级 | 来源 | 说明 |
+|---|---|---|
+| 1 | 命令行 `--version 1.1.0` | 显式指定，最高优先 |
+| 2 | 工程根目录的 `app_version.txt` | `MDK-ARM` 的上一级；第一个非空、非 `#` 行即版本号 |
+| 3 | 都没有 | **报错**，不再静默打成 `0.0.0.0` |
+
+第 3 条是故意的：安装路径现在按 `image_id` 做版本单调把关，一个静默的 v0
+会让"装第二遍"和"降级回灌"都变成合法安装。
+
+**提交点之前的版本把关**（内核 `svcrt_loader_check_install()`，只按同一个
+`image_id` 比对；`image_id` 是负载身份＝标称形态的 crc32，同一应用两次打包
+只有版本号不同、`image_id` 相同）：
+
+| 情形 | 结果 |
+|---|---|
+| 版本号 > 已装最高版本 | 放行（升级） |
+| 版本号相同、且 `image_size` 与 `crc32` 也相同 | 拒，`err -17`：`identical image already installed (id 0x…, v1.0.0.0, 17768 B) - nothing to do` |
+| 其余（降级回灌、同版本重建） | 拒，`err -16`：`version not increasing (id 0x…, incoming v1.0.0.0 <= installed) - bump the version` |
+
+两条文案分开报，就是为了让操作者一眼看出下一步该做什么：前者「不用装」，
+后者「版本号要往上加」。
+
+只统计状态为 `LOADED` / `RUNNING` 的副本：被崩溃终局策略禁用（`INVALID`）
+的副本不算"已装"——重装同一版本正是从崩溃风暴里恢复的手段（见 7.3）。
+
+**镜像头里的 `signature[64]` 是预留字段，当前全 0，内核不读它，没有任何验签。**
+内核安装路径校验的是 `hw_compat`、长度、重定位表与 CRC32，这些防的是"传坏了 /
+装错了"，不防"被人改了"。别把它当成已签名的证据。
+
 ### 3.3 发送
 
 1. 内核烧好并复位，串口控制台出现 `ark>` 提示符
