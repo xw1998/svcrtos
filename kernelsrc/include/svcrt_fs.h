@@ -89,6 +89,48 @@ int32 svcrt_fs_write_file(const char *path, const uint8 *data, uint32 len);
 /** @brief Read at most max bytes; *out_len gets the real length */
 int32 svcrt_fs_read_file(const char *path, uint8 *buf, uint32 max, uint32 *out_len);
 
+/**
+ * @brief Open one file for chunked (streaming) reading.
+ * @details A 20 KiB image does not fit a fixed scratch buffer, so the file
+ *          stays open across calls and the caller drives it. While a stream
+ *          is open, the one-shot entry points that share the single file cache
+ *          (svcrt_fs_read_file / svcrt_fs_write_file) refuse to run instead of
+ *          silently corrupting whichever is in flight - that refusal is
+ *          SVCRT_FS_ERR_BUSY.
+ * @return 0 on success, -1 on failure (nothing mounted, bad path, not found,
+ *         a directory, or another stream already open)
+ */
+int32 svcrt_fs_open_read(const char *path);
+
+/**
+ * @brief Read the next chunk of the open read stream.
+ * @param buf destination, at least max bytes
+ * @param max largest chunk to ask for
+ * @return bytes read (1..max), 0 at end of file, -1 on failure
+ * @note 0 means "the file ended", never "nothing right now": the call is
+ *       synchronous, so a caller loop may stop on it.
+ */
+int32 svcrt_fs_read_next(uint8 *buf, uint32 max);
+
+/** @brief Close the read stream. Closing when none is open is not an error. */
+int32 svcrt_fs_close_read(void);
+
+/**
+ * @brief Open one file for chunked writing (creates or truncates).
+ * @return 0 on success, -1 on failure; the rules of svcrt_fs_open_read apply
+ */
+int32 svcrt_fs_open_write(const char *path);
+
+/** @brief Append one chunk to the open write stream. @return 0 on success */
+int32 svcrt_fs_write_next(const uint8 *buf, uint32 len);
+
+/**
+ * @brief Close the write stream, which is what commits the file.
+ * @return 0 on success, -1 on failure (littlefs reports the reason); closing
+ *         when none is open is not an error
+ */
+int32 svcrt_fs_close_write(void);
+
 /** @brief Remove a file. @return 0 on success, -1 (not found / is a dir) */
 int32 svcrt_fs_remove(const char *path);
 

@@ -512,6 +512,19 @@ int32  svcrt_file_stat(const char *path, uint32 *size, uint32 *is_dir);
 * @param used  receives the used bytes
 * @return 0 on success, -1 when no volume is mounted
 */
+/**
+ * @brief Report in, and optionally declare how often this image will do so.
+ * @param period_ms 0 = withdraw the contract; otherwise the longest gap the
+ *        image promises to keep, in milliseconds. Must be >= 100 ms: a shorter
+ *        promise cannot be checked by sampling, and the kernel refuses it
+ *        rather than watch the image against numbers it cannot verify.
+ * @return 0 accepted, -1 refused (bad period, or no slot to attribute it to).
+ * @note The kernel checks the window only while this task is runnable; a task
+ *       blocked in a kernel wait is exempt. A periodic task that never calls
+ *       this is reported by `guard` as "no contract" - not as healthy.
+ */
+int32  svcrt_heartbeat(uint32 period_ms);
+
 int32  svcrt_file_info(uint32 *total, uint32 *used);
 
 /** @} */

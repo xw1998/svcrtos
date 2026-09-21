@@ -847,6 +847,11 @@ void AppMain(void)
                 app_puts("\r\n");
             }
 
+            /* Heartbeat contract with the kernel guard: this slot promises
+             * to report at least once every 1000 ms. The call below both
+             * declares the period (first time) and reports liveness. */
+            (void)svcrt_heartbeat(1000u);
+
             beat++;
             svcrt_task_wait(250u);
         }

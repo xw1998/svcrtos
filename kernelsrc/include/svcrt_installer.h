@@ -47,6 +47,20 @@ int32 svcrt_installer_init(void);
 */
 int32 svcrt_installer_run_once(int32 dev, uint32 timeout_ms);
 
+/**
+* @brief Install an .svcapp that is already sitting in the mounted volume
+* @param path absolute path inside the mounted volume, e.g. "/APP_DEMO.svcapp"
+* @return slot id (>=0) on success, SVCRT_LOADER_ERR_x on failure
+* @details This is the "install it from the device's own storage" entrance:
+*          the image is read in chunks from littlefs and handed to the same
+*          streaming loader the serial window uses, so no image ever has to
+*          fit in RAM. A mounted volume is required; with none mounted it
+*          returns SVCRT_LOADER_ERR_PARAM rather than guessing.
+*          Whether the image starts is decided by the header flags, exactly as
+*          on the serial path and at boot - one rule, three entrances.
+*/
+int32 svcrt_installer_from_file(const char *path);
+
 #if (defined(__cplusplus))
 }
 #endif

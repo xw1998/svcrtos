@@ -37,6 +37,7 @@
  * owns littlefs, the caches and the block device, so an unprivileged App
  * asks across the SVC boundary and every pointer it passes is validated
  * against the caller's own memory first. */
+#define SVCRT_SVC_HEARTBEAT         (0x1D)
 #define SVCRT_SVC_FILE_SYS          (0x1C)
 
 /* 同步原语（信号量/互斥锁）返回码：0=成功，负值=失败。

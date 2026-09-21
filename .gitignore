@@ -56,3 +56,11 @@ build/
 # ---- 一次性开发辅助物（字节级补丁脚本、UV4 build/flash 日志等），属内部工具，不入库 ----
 patch/
 *_kernel.log
+
+# ---- 本机一次性开发辅助物 ----
+_nova/
+_nova_*.log
+_build_*.log
+_flash_*.log
+*.bak_*
+*.pre_*

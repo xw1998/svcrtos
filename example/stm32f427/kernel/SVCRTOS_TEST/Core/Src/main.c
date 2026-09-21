@@ -39,6 +39,8 @@
 #include "svcrt_init.h"
 #include "svcrt_partition.h"
 #include "svcrt_layout.h"
+#include "svcrt_audit.h"
+#include "svcrt_guard.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -407,6 +409,15 @@ static void svcrt_kernel_init(void)
     /* No console: the resident installer task receives images by itself. */
     svcrt_installer_init();
     #endif
+
+    /* Structure self-audit: the table is populated and the images are
+     * registered, so this is the first moment the invariants mean anything,
+     * and the last one before any image code runs. */
+    (void)svcrt_audit_boot();
+
+    /* Guard last: the watchdog is armed here (when the board asks for
+     * it) and from this point on the kernel decides whether it gets fed. */
+    svcrt_guard_init();
 
     /* One line that answers the two questions asked most often on the
      * console: how much room is left for images, and how many tasks the

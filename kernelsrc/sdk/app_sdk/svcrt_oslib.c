@@ -427,6 +427,7 @@ void svcrt_thread_exit(void)
  * device stay entirely on the kernel side.
  * ============================================================ */
 SVCRT_SVC_DECL_1(int32, 0x1C, svcrt_call_file_svc, uint32 *);
+SVCRT_SVC_DECL_1(int32, 0x1D, svcrt_call_heartbeat, uint32 *);
 
 int32 svcrt_file_write(const char *path, const void *data, uint32 len)
 {
@@ -470,6 +471,15 @@ int32 svcrt_file_stat(const char *path, uint32 *size, uint32 *is_dir)
     parameters[2] = (uint32)size;
     parameters[3] = (uint32)is_dir;
     return svcrt_call_file_svc(parameters);
+}
+
+int32 svcrt_heartbeat(uint32 period_ms)
+{
+    uint32 parameters[2];
+
+    parameters[0] = 1;
+    parameters[1] = period_ms;
+    return svcrt_call_heartbeat(parameters);
 }
 
 int32 svcrt_file_info(uint32 *total, uint32 *used)

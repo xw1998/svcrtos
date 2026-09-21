@@ -12,6 +12,7 @@
 #include "svcrt_log.h"
 #include "svcrt_shell.h"
 #include "svcrt_task.h"
+#include "svcrt_guard.h"
 #include "svcrt_event.h"
 #include "svcrt_hal.h"
 #include "svcrt_dev.h"
@@ -332,6 +333,12 @@ extern void svcrt_sched_stat_close(uint32 t0);
 void svcrt_kernel_tick_handler(void)
 {
     svcrt_kernel_tick++;
+
+    /* Guard first: it records which task was on the CPU when this tick
+     * fired, and every service period decides whether the watchdog gets
+     * fed. Placed before the scheduler work so the evidence describes the
+     * context that was preempted, not the one that is about to run. */
+    svcrt_guard_tick();
     #if (SVCRT_USE_CPU_LOAD == 1)
     /* sample the preempted context BEFORE switching tasks: count this tick */
     /* as busy only when a real task was on the CPU (idle = task id 0) */
@@ -400,6 +407,9 @@ void SVC_Server(void *p_svc_ctx)
 {
     svcrt_trace_isr(SVCRT_TR_IRQ_SVC, SVCRT_TR_ISR_ENTER);
     uint32 svc_num = SVCRT_SVC_NUM(p_svc_ctx);
+
+    /* Free liveness evidence: this task called into the kernel. */
+    svcrt_guard_svc(svcrt_current_task_id);
     uint32 *p;
 
     switch(svc_num)
@@ -917,6 +927,29 @@ void SVC_Server(void *p_svc_ctx)
                     SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
                     break;
             }
+        }
+        break;
+
+    case SVCRT_SVC_HEARTBEAT:
+        /* Heartbeat contract (SVC 0x1D).
+         *   p[0] = 1  report in, and declare/replace the period in p[1] (ms)
+         *             p[1] = 0 withdraws the contract
+         * A period outside what the kernel can check is refused outright
+         * (-1). It is not rounded to the nearest checkable value: the image
+         * would then be watched against a promise it never made. */
+        p = (uint32 *)SVCRT_SVC_ARG(p_svc_ctx, 0);
+        if(svcrt_kernel_svc_args_ok(p, 8u) == 0u)
+        {
+            SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+            break;
+        }
+        if(p[0] == 1u)
+        {
+            SVCRT_SVC_RET(p_svc_ctx, (uint32)svcrt_guard_beat(svcrt_current_task_id, p[1]));
+        }
+        else
+        {
+            SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
         }
         break;
 

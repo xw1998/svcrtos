@@ -31,6 +31,7 @@
 #include "svcrt_share.h"
 #include "svcrt_partition.h"
 #include "svcrt_log.h"
+#include "svcrt_fs.h"
 
 #if (INSTALLER_ENABLE == 1)
 
@@ -101,14 +102,16 @@ static int32 svcrt_installer_pump(int32 dev)
 
 /**
 * @brief 把已收全的镜像头对应的负载落盘，并按自启标志决定是否立即启动
-* @param dev 设备句柄（位置正好在镜像头之后）
+* @param dev       设备句柄（位置正好在镜像头之后）
+* @param image_len 这一帧可用的总字节数：0 = 未知，按镜像头声明的尺寸读
+*                  （串口路径传 0，文件路径传文件的真实长度）
 * @return 成功返回槽位号（>=0），失败返回 SVCRT_LOADER_ERR_x
 * @details 「开机是否自启」只由镜像头 flags 决定（tools/pack_app.py --autostart /
 *          --no-autostart 写入，裸镜像走 svcrt_loader_identify() 的全局默认）。
 *          安装路径与开机扫描路径用同一套判据，避免同一个镜像「烧录自启、
 *          安装不自启」这种不一致。
 */
-static int32 svcrt_installer_commit(int32 dev)
+static int32 svcrt_installer_load(int32 dev, uint32 image_len)
 {
     uint32 autostart = ((svcrt_installer_hdr.flags & SVCRT_APP_FLAG_AUTOSTART) != 0u) ? 1u : 0u;
     svcrt_partition_table_t *pt = svcrt_ptable_get();
@@ -120,11 +123,11 @@ static int32 svcrt_installer_commit(int32 dev)
     /* requires type = DRIVER, which keeps the by-type routing explicit. */
     if(svcrt_installer_hdr.type == SVCRT_APP_TYPE_DRIVER)
     {
-        r = svcrt_loader_load_driver_dev(dev, &svcrt_installer_hdr, 0u);
+        r = svcrt_loader_load_driver_dev(dev, &svcrt_installer_hdr, image_len);
     }
     else
     {
-        r = svcrt_loader_load_dev_hdr(dev, &svcrt_installer_hdr, 0u);
+        r = svcrt_loader_load_dev_hdr(dev, &svcrt_installer_hdr, image_len);
     }
 
     svcrt_installer_got = 0u;
@@ -178,6 +181,14 @@ static int32 svcrt_installer_commit(int32 dev)
     }
 
     return r;
+}
+
+/* Serial frame: the length is whatever the header declares. The sender
+ * has nothing else to tell us, so 0 means "unknown, trust the header"
+ * (see svcrt_loader_load_dev_hdr). */
+static int32 svcrt_installer_commit(int32 dev)
+{
+    return svcrt_installer_load(dev, 0u);
 }
 
 static void svcrt_installer_task(void)
@@ -251,6 +262,197 @@ int32 svcrt_installer_run_once(int32 dev, uint32 timeout_ms)
     return svcrt_installer_commit(dev);
 }
 
+/* ============================================================
+ * Installing straight out of the file system
+ *
+ * The streaming loader reads a frame from a *device*, so a file is presented
+ * as one: a private device whose reads pull from the file stream svcrt_fs
+ * opened. That keeps one install implementation - the same header checks, the
+ * same relocation carry handling, the same single commit point - for the
+ * serial path and the file path, instead of growing a second one that would
+ * drift away from the first.
+ * ============================================================ */
+#define SVCRT_INSTALLER_FILE_DEV   "fsimg"
+
+/* Non-NULL placeholder handle. The device core stores whatever drv_open
+ * returns and hands it back on every read, so the state that matters - which
+ * file, at which offset - stays where it belongs, in the file stream. */
+static svcrt_dev_hdr_t svcrt_installer_file_obj;
+static uint8 svcrt_installer_file_reg = 0u;
+
+static svcrt_dev_hdr_t *svcrt_installer_file_open(uint32 dev_id, uint32 param)
+{
+    (void)dev_id;
+    (void)param;
+    return &svcrt_installer_file_obj;
+}
+
+static int32 svcrt_installer_file_close(svcrt_dev_hdr_t *obj)
+{
+    (void)obj;
+    return 0;
+}
+
+static int32 svcrt_installer_file_read(svcrt_dev_hdr_t *obj, uint8 *pdata, int32 len)
+{
+    (void)obj;
+
+    if((pdata == 0) || (len <= 0))
+    {
+        return -1;
+    }
+
+    return svcrt_fs_read_next(pdata, (uint32)len);
+}
+
+static int32 svcrt_installer_file_write(svcrt_dev_hdr_t *obj, uint8 *pdata, int32 len)
+{
+    /* The loader ACKs every chunk it has landed so that a *sender* knows to
+     * send the next one. A file has no sender to pace and nothing to be told,
+     * so the flow byte is dropped and reported as accepted. */
+    (void)obj;
+    (void)pdata;
+    return len;
+}
+
+static svcrt_dev_drv_t svcrt_installer_file_drv =
+{
+    svcrt_installer_file_open,
+    svcrt_installer_file_close,
+    svcrt_installer_file_read,
+    svcrt_installer_file_write,
+    0
+};
+
+/* Register the shim once and hand back a handle. It serves whichever file
+ * svcrt_fs_open_read() has open - there is exactly one, by design. */
+static int32 svcrt_installer_file_dev(void)
+{
+    if(svcrt_installer_file_reg == 0u)
+    {
+        if(svcrt_dev_register(SVCRT_INSTALLER_FILE_DEV,
+                              &svcrt_installer_file_drv, 0u) != 0)
+        {
+            return -1;
+        }
+
+        svcrt_installer_file_reg = 1u;
+    }
+
+    return svcrt_dev_open_internal(SVCRT_INSTALLER_FILE_DEV, 0u);
+}
+
+/* Read the 256-byte image header through the file stream that is already
+ * open, so the header and the rest of the frame share one position. */
+static int32 svcrt_installer_file_hdr(void)
+{
+    uint32 got = 0u;
+
+    while(got < SVCRT_APP_HEADER_SIZE)
+    {
+        int32 n = svcrt_fs_read_next((uint8 *)&svcrt_installer_hdr + got,
+                                     (uint32)(SVCRT_APP_HEADER_SIZE - got));
+
+        if(n <= 0)
+        {
+            return -1;
+        }
+
+        got += (uint32)n;
+    }
+
+    return 0;
+}
+
+int32 svcrt_installer_from_file(const char *path)
+{
+    uint32 size = 0u;
+    uint32 is_dir = 0u;
+    int32 dev;
+    int32 r;
+
+    if((path == 0) || (svcrt_fs_mounted() == 0u))
+    {
+        return SVCRT_LOADER_ERR_PARAM;
+    }
+
+    /* Size first: a file that cannot possibly fit is refused before a single
+     * byte of it is read, and the report can name the real numbers. */
+    if(svcrt_fs_stat_path(path, &size, &is_dir) != 0)
+    {
+        SVCRT_LOGE("INSTALL", "cannot stat %s (fs err %d)",
+                   path, (int)svcrt_fs_last_error());
+        svcrt_fault_record(SVCRT_FAULT_INSTALLFAIL, svcrt_current_task_id);
+        return SVCRT_LOADER_ERR_PARAM;
+    }
+
+    if(is_dir != 0u)
+    {
+        SVCRT_LOGE("INSTALL", "%s is a directory", path);
+        svcrt_fault_record(SVCRT_FAULT_INSTALLFAIL, svcrt_current_task_id);
+        return SVCRT_LOADER_ERR_PARAM;
+    }
+
+    if((size < SVCRT_APP_HEADER_SIZE) || (size > IMAGE_POOL_USABLE_SIZE))
+    {
+        SVCRT_LOGE("INSTALL", "%s is %u B, not an image that fits (%u..%u)",
+                   path, (unsigned)size,
+                   (unsigned)SVCRT_APP_HEADER_SIZE,
+                   (unsigned)IMAGE_POOL_USABLE_SIZE);
+        svcrt_fault_record(SVCRT_FAULT_INSTALLFAIL, svcrt_current_task_id);
+        return SVCRT_LOADER_ERR_SIZE;
+    }
+
+    if(svcrt_fs_open_read(path) != 0)
+    {
+        SVCRT_LOGE("INSTALL", "cannot open %s (fs err %d)",
+                   path, (int)svcrt_fs_last_error());
+        svcrt_fault_record(SVCRT_FAULT_INSTALLFAIL, svcrt_current_task_id);
+        return SVCRT_LOADER_ERR_PARAM;
+    }
+
+    if(svcrt_installer_file_hdr() != 0)
+    {
+        SVCRT_LOGE("INSTALL", "short read on %s (needs %u B of header)",
+                   path, (unsigned)SVCRT_APP_HEADER_SIZE);
+        (void)svcrt_fs_close_read();
+        svcrt_fault_record(SVCRT_FAULT_INSTALLFAIL, svcrt_current_task_id);
+        return SVCRT_LOADER_ERR_SIZE;
+    }
+
+    if(svcrt_installer_hdr.magic != SVCRT_APP_MAGIC)
+    {
+        /* Say it here: an .svcapp does not identify itself by name, and a file
+         * that merely looks like one would otherwise be reported deeper as a
+         * corrupt header - a cause the operator cannot act on. */
+        SVCRT_LOGE("INSTALL", "%s: magic %08X, want %08X (not an .svcapp)",
+                   path, (unsigned)svcrt_installer_hdr.magic,
+                   (unsigned)SVCRT_APP_MAGIC);
+        (void)svcrt_fs_close_read();
+        svcrt_fault_record(SVCRT_FAULT_INSTALLFAIL, svcrt_current_task_id);
+        return SVCRT_LOADER_ERR_MAGIC;
+    }
+
+    dev = svcrt_installer_file_dev();
+
+    if(dev < 0)
+    {
+        SVCRT_LOGE("INSTALL", "file source device unavailable");
+        (void)svcrt_fs_close_read();
+        svcrt_fault_record(SVCRT_FAULT_INSTALLFAIL, svcrt_current_task_id);
+        return SVCRT_LOADER_ERR_PARAM;
+    }
+
+    /* image_len = the file size: the loader must refuse a frame claiming more
+     * than the file actually holds, and must stop at its end. */
+    r = svcrt_installer_load(dev, size);
+
+    (void)svcrt_dev_close_internal(dev);
+    (void)svcrt_fs_close_read();
+
+    return r;
+}
+
 #else   /* INSTALLER_ENABLE == 0 */
 
 int32 svcrt_installer_init(void)
@@ -262,6 +464,12 @@ int32 svcrt_installer_run_once(int32 dev, uint32 timeout_ms)
 {
     (void)dev;
     (void)timeout_ms;
+    return SVCRT_LOADER_ERR_PARAM;
+}
+
+int32 svcrt_installer_from_file(const char *path)
+{
+    (void)path;
     return SVCRT_LOADER_ERR_PARAM;
 }
 

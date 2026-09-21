@@ -232,6 +232,38 @@ void svcrt_port_start_timer(uint32 tick_period_us);
 void svcrt_port_delay_us(uint32 us);
 
 /* ============================================================
+ * Watchdog
+ * @brief Independent watchdog, implemented by the board layer
+ * ============================================================ */
+
+/**
+* @brief Start the independent watchdog with an approximate timeout.
+* @param timeout_ms Nominal timeout in milliseconds (0 = reject).
+* @return 0 on success, -1 when the port has no watchdog or cannot
+*         represent the requested timeout.
+* @details Called at most once, by whoever owns the decision to enable it
+*          (SVCRT_WDG_ENABLE). On STM32 the IWDG cannot be stopped once it
+*          runs, so a wrong timeout here is not recoverable in software.
+*          The timeout the hardware actually got is reported by
+*          svcrt_port_wdg_timeout_ms() - callers must read that rather than
+*          assume the number they asked for.
+*/
+int32 svcrt_port_wdg_init(uint32 timeout_ms);
+
+/**
+* @brief Reload the watchdog counter.
+* @details Deliberately does nothing else: the kernel guard decides *whether*
+*          to feed, this only performs the register write.
+*/
+void svcrt_port_wdg_feed(void);
+
+/**
+* @brief Timeout the watchdog is actually running with (0 = not started).
+*/
+uint32 svcrt_port_wdg_timeout_ms(void);
+
+
+/* ============================================================
  * 板级层
  * @brief 板卡初始化与设备注册，由board层实现
  * ============================================================ */

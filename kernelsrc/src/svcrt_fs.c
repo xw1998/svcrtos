@@ -50,6 +50,12 @@
 #define SVCRT_FS_ERR_NOT_MOUNTED (-1005)
 #define SVCRT_FS_ERR_BLOCK       (-1006)
 #define SVCRT_FS_ERR_SHORT       (-1007)
+#define SVCRT_FS_ERR_BUSY        (-1008)
+
+/* Values of g_fs.stream_mode */
+#define SVCRT_FS_STREAM_NONE     (0u)
+#define SVCRT_FS_STREAM_READ     (1u)
+#define SVCRT_FS_STREAM_WRITE    (2u)
 
 static struct
 {
@@ -72,7 +78,17 @@ static struct
 
     uint8                  mounted;
     int32                  last_error;
+
+    /* Streaming file (svcrt_fs_open_read / svcrt_fs_open_write): littlefs
+     * needs the object to stay alive between calls, and the facade allows
+     * one stream at a time. */
+    lfs_file_t             stream;
+    uint8                  stream_mode;
 } g_fs;
+
+/* Forward declaration: unmount drops a stream before it forgets the
+ * volume, and the streaming block is written further down this file. */
+static int32 fs_stream_close(void);
 
 int32 svcrt_fs_last_error(void)
 {
@@ -111,6 +127,7 @@ const char *svcrt_fs_error_name(int32 e)
         case SVCRT_FS_ERR_NOT_MOUNTED: return "SVCrtOS: nothing is mounted";
         case SVCRT_FS_ERR_BLOCK:       return "SVCrtOS: the block device refused it";
         case SVCRT_FS_ERR_SHORT:       return "SVCrtOS: short read/write";
+        case SVCRT_FS_ERR_BUSY:        return "SVCrtOS: a file stream is already open";
 
         default:                      return "unknown";
     }
@@ -362,6 +379,11 @@ int32 svcrt_fs_unmount(void)
         return 0;
     }
 
+    /* An open stream describes blocks this unmount is about to forget.
+     * Drop it first: refusing here would strand a caller that has no way
+     * left to close it. */
+    (void)fs_stream_close();
+
     err = lfs_unmount(&g_fs.lfs);
 
     if(err != 0)
@@ -517,6 +539,13 @@ int32 svcrt_fs_write_file(const char *path, const uint8 *data, uint32 len)
         return -1;
     }
 
+    /* One file cache, one user at a time: see svcrt_fs_open_read. */
+    if(g_fs.stream_mode != SVCRT_FS_STREAM_NONE)
+    {
+        g_fs.last_error = SVCRT_FS_ERR_BUSY;
+        return -1;
+    }
+
     fcfg.buffer = g_fs.file_cache;
     fcfg.attrs  = 0;
     fcfg.attr_count = 0;
@@ -560,6 +589,13 @@ int32 svcrt_fs_read_file(const char *path, uint8 *buf, uint32 max, uint32 *out_l
         return -1;
     }
 
+    /* A stream in flight owns the file cache: see svcrt_fs_open_read. */
+    if(g_fs.stream_mode != SVCRT_FS_STREAM_NONE)
+    {
+        g_fs.last_error = SVCRT_FS_ERR_BUSY;
+        return -1;
+    }
+
     fcfg.buffer = g_fs.file_cache;
     fcfg.attrs  = 0;
     fcfg.attr_count = 0;
@@ -595,6 +631,141 @@ int32 svcrt_fs_read_file(const char *path, uint8 *buf, uint32 max, uint32 *out_l
     }
 
     return 0;
+}
+
+/* ============================================================
+ * Streaming file access
+ *
+ * A .svcapp image is far larger than the shell's 512-byte scratch, and
+ * staging one in kernel RAM would cost more than the kernel has to spare. So
+ * one file stays open across calls and the caller drives it in chunks.
+ *
+ * One stream at a time, on purpose: littlefs is single threaded and the
+ * facade owns exactly one file cache. A second stream would either share that
+ * cache (corrupting the first) or grow the RAM budget, and no caller in the
+ * kernel needs two at once.
+ * ============================================================ */
+static int32 fs_stream_close(void)
+{
+    int err;
+
+    if(g_fs.stream_mode == SVCRT_FS_STREAM_NONE)
+    {
+        return 0;
+    }
+
+    err = lfs_file_close(&g_fs.lfs, &g_fs.stream);
+    g_fs.stream_mode = SVCRT_FS_STREAM_NONE;
+
+    if(err != 0)
+    {
+        g_fs.last_error = err;
+        return -1;
+    }
+
+    return 0;
+}
+
+/* Shared body of open_read / open_write: only the littlefs flags differ. */
+static int32 fs_stream_open(const char *path, uint32 mode, uint32 flags)
+{
+    struct lfs_file_config fcfg;
+    int err;
+
+    if((g_fs.mounted == 0u) || (fs_check_path(path) != 0))
+    {
+        return -1;
+    }
+
+    if(g_fs.stream_mode != SVCRT_FS_STREAM_NONE)
+    {
+        g_fs.last_error = SVCRT_FS_ERR_BUSY;   /* close the other one first */
+        return -1;
+    }
+
+    fcfg.buffer     = g_fs.file_cache;
+    fcfg.attrs      = 0;
+    fcfg.attr_count = 0;
+
+    err = lfs_file_opencfg(&g_fs.lfs, &g_fs.stream, path, (int)flags, &fcfg);
+
+    if(err != 0)
+    {
+        g_fs.last_error = err;
+        return -1;
+    }
+
+    g_fs.stream_mode = (uint8)mode;
+    return 0;
+}
+
+int32 svcrt_fs_open_read(const char *path)
+{
+    return fs_stream_open(path, SVCRT_FS_STREAM_READ, LFS_O_RDONLY);
+}
+
+int32 svcrt_fs_read_next(uint8 *buf, uint32 max)
+{
+    lfs_ssize_t n;
+
+    if((g_fs.stream_mode != SVCRT_FS_STREAM_READ) || (buf == 0) || (max == 0u))
+    {
+        g_fs.last_error = SVCRT_FS_ERR_ARGS;
+        return -1;
+    }
+
+    n = lfs_file_read(&g_fs.lfs, &g_fs.stream, buf, max);
+
+    if(n < 0)
+    {
+        g_fs.last_error = (int32)n;   /* pass littlefs's own code through */
+        return -1;
+    }
+
+    return (int32)n;
+}
+
+int32 svcrt_fs_close_read(void)
+{
+    if(g_fs.stream_mode != SVCRT_FS_STREAM_READ)
+    {
+        return 0;
+    }
+
+    return fs_stream_close();
+}
+
+int32 svcrt_fs_open_write(const char *path)
+{
+    return fs_stream_open(path, SVCRT_FS_STREAM_WRITE,
+                          LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC);
+}
+
+int32 svcrt_fs_write_next(const uint8 *buf, uint32 len)
+{
+    if((g_fs.stream_mode != SVCRT_FS_STREAM_WRITE) || (buf == 0))
+    {
+        g_fs.last_error = SVCRT_FS_ERR_ARGS;
+        return -1;
+    }
+
+    if(lfs_file_write(&g_fs.lfs, &g_fs.stream, buf, len) != (lfs_ssize_t)len)
+    {
+        g_fs.last_error = SVCRT_FS_ERR_SHORT;
+        return -1;
+    }
+
+    return 0;
+}
+
+int32 svcrt_fs_close_write(void)
+{
+    if(g_fs.stream_mode != SVCRT_FS_STREAM_WRITE)
+    {
+        return 0;
+    }
+
+    return fs_stream_close();
 }
 
 int32 svcrt_fs_remove(const char *path)

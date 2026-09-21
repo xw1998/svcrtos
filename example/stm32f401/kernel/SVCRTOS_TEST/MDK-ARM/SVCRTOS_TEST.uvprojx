@@ -435,6 +435,16 @@
               <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_fs.c</FilePath>
             </File>
             <File>
+              <FileName>svcrt_audit.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_audit.c</FilePath>
+            </File>
+            <File>
+              <FileName>svcrt_guard.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_guard.c</FilePath>
+            </File>
+            <File>
               <FileName>lfs.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\kernelsrc\fs\littlefs\lfs.c</FilePath>
@@ -598,6 +608,11 @@
               <FileName>drvflash.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\board\stm32f401\drvflash.c</FilePath>
+            </File>
+            <File>
+              <FileName>drvwdg.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\board\stm32f401\drvwdg.c</FilePath>
             </File>
             <File>
               <FileName>svcrt_context.S</FileName>

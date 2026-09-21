@@ -26,6 +26,21 @@
 #undef  SVCRT_USE_PRIV
 #define SVCRT_USE_PRIV            0
 
+/* Independent watchdog (IWDG). Hardware fact, so it lives with the board:
+ * 1 = the kernel guard owns the counter and stops feeding when an invariant
+ *     is violated (see svcrt_guard.c);
+ * 0 = no watchdog; nothing resets the board from inside the kernel.
+ * Bring-up order matters: the IWDG cannot be stopped once started, so this
+ * is enabled only after the feed path has been verified with a long timeout. */
+#undef  SVCRT_WDG_ENABLE
+#define SVCRT_WDG_ENABLE          1
+
+/* Timeout asked for when SVCRT_WDG_ENABLE is 1. The guard reports what the
+ * hardware actually got (svcrt_port_wdg_timeout_ms), not this number. */
+#undef  SVCRT_WDG_TIMEOUT_MS
+#define SVCRT_WDG_TIMEOUT_MS      4000
+
+
 /* Development bypass: let the kernel treat a raw image burned directly
  * at the slot base as runnable, so the fixed-address flash + MDK
  * breakpoint workflow keeps working. Release firmware must reset it to 0

@@ -42,6 +42,8 @@
 #include "svcrt_trace.h"
 #include "svcrt_blk.h"
 #include "svcrt_fs.h"
+#include "svcrt_audit.h"
+#include "svcrt_guard.h"
 #include "svcrt_partition.h"
 
 #include <string.h>
@@ -382,9 +384,78 @@ static int cmd_app(int argc, char *argv[])
         return 0;
     }
 
+    if((argc >= 2) && (strcmp(argv[1], "install") == 0))
+    {
+        if(argc < 3)
+        {
+            sh_out("usage: app install <path> [slot]   (path is a .svcapp in the mounted volume)\r\n");
+            return -1;
+        }
+
+        if(argc >= 4)
+        {
+            /* Same contract as the serial 'install [slot]': a slot only means
+             * something in fixed-slot mode, where the landing address comes
+             * from the device layout table instead of from the pool. */
+            uint32 want;
+            const svcrt_cfg_slot_t *cs;
+
+            if((svcrt_ptable_get()->layout_mode != (uint32)SVCRT_LAYOUT_MODE_FIXED) ||
+               (parse_u32(argv[3], &want) != 0) ||
+               (want >= svcrt_layout_slot_count()))
+            {
+                sh_out("usage: app install <path> [slot]   (a slot is only valid in fixed-slot mode)\r\n");
+                return -1;
+            }
+
+            cs = svcrt_layout_slot(want);
+
+            if(cs == 0)
+            {
+                sh_out("app install: no such slot\r\n");
+                return -1;
+            }
+
+            svcrt_loader_slot_hint_set((int32)want);
+            ark_shell_printf("app install: fixed slot %u -> 0x%08X\r\n",
+                             (unsigned)want, (unsigned)cs->base);
+        }
+        else
+        {
+            svcrt_loader_slot_hint_set(-1);
+        }
+
+        if(!svcrt_fs_mounted())
+        {
+            /* Name the missing prerequisite: "failed, see fault" would
+             * send the operator after a fault that was never recorded. */
+            sh_out("app install: no file system mounted (try 'fs mount')\r\n");
+            return -1;
+        }
+
+        /* No one-shot window here: the image is already on the device, so
+         * the console keeps working while it is being installed. */
+        ark_shell_printf("\r\napp install: %s\r\n", argv[2]);
+
+        {
+            int32 rc = svcrt_installer_from_file(argv[2]);
+
+            if(rc >= 0)
+            {
+                ark_shell_printf("app install: ok, slot %d\r\n", (int)rc);
+            }
+            else
+            {
+                sh_out("app install: failed (see 'fault'; check the path with 'fs ls')\r\n");
+            }
+        }
+
+        return 0;
+    }
+
     if((argc >= 2) && (strcmp(argv[1], "list") != 0))
     {
-        sh_out("usage: app [list | start <slot> | stop <slot> | uninstall <slot>]\r\n");
+        sh_out("usage: app [list | install <path> [slot] | start <slot> | stop <slot> | uninstall <slot>]\r\n");
         return -1;
     }
 
@@ -558,6 +629,134 @@ static int cmd_task(int argc, char *argv[])
  *   sched         打印就绪队列概况 + 对账结果
  * 一致返回 0，不一致返回不一致条目数（可直接用于脚本判据）。
  * ============================================================ */
+/* ============================================================
+ * audit: does the shared state still satisfy its own invariants?
+ * Read-only, so it is safe to run while the system keeps working.
+ * ============================================================ */
+/* ============================================================
+ * guard: watchdog state and the per-slot heartbeat contract
+ * ============================================================ */
+static const char *guard_state_name(uint32 state)
+{
+    switch(state)
+    {
+    case SVCRT_TASK_INVALID: return "invalid";
+    case SVCRT_TASK_READY:   return "ready";
+    case SVCRT_TASK_WAIT:    return "wait";
+    case SVCRT_TASK_RUNNING: return "run";
+    default:                 return "-";
+    }
+}
+
+static void guard_print_age(uint32 age_ms)
+{
+    if(age_ms == 0xFFFFFFFFu)
+    {
+        ark_shell_printf("-");
+        return;
+    }
+    ark_shell_printf("%u", age_ms);
+}
+
+static int cmd_guard(int argc, char *argv[])
+{
+    svcrt_guard_status_t st;
+    svcrt_guard_task_t t;
+    uint32 i;
+
+    (void)argc;
+    (void)argv;
+
+    svcrt_guard_status(&st);
+
+    if(st.enabled == 0u)
+    {
+        sh_out("watchdog: disabled by the board (SVCRT_WDG_ENABLE = 0)\r\n");
+    }
+    else if(st.timeout_ms == 0u)
+    {
+        sh_out("watchdog: requested but NOT running (the port refused it)\r\n");
+    }
+    else
+    {
+        ark_shell_printf("watchdog: armed, hardware timeout %u ms\r\n", st.timeout_ms);
+    }
+    ark_shell_printf("feeds=%u starves=%u verdict=0x%X audit_mask=0x%X audit_runs=%u\r\n",
+                     st.feeds, st.starves, st.verdict, st.audit_mask, st.audit_runs);
+    ark_shell_printf("contracts: %u declared, %u violating now\r\n",
+                     st.declared, st.violating);
+    ark_shell_printf("\r\ntask slot period beat_ms svc_ms cpu_ms misses state\r\n");
+
+    for(i = 0u; i < svcrt_guard_task_slots(); i++)
+    {
+        if(svcrt_guard_task_at(i, &t) != 0)
+        {
+            break;
+        }
+        if((t.task_id == 0) && (t.declared == 0u))
+        {
+            continue;
+        }
+        ark_shell_printf("%u %d %u ", (uint32)t.task_id, (int)t.slot, t.period_ms);
+        guard_print_age(t.beat_age_ms);
+        ark_shell_printf(" ");
+        guard_print_age(t.svc_age_ms);
+        ark_shell_printf(" ");
+        guard_print_age(t.cpu_age_ms);
+        ark_shell_printf(" %u %s\r\n", t.misses, guard_state_name(t.state));
+    }
+
+    if(st.declared == 0u)
+    {
+        sh_out("\r\nnote: no image declared a heartbeat period, so the kernel has\r\n"
+               "      no health verdict to give for any slot (see svcrt_heartbeat).\r\n");
+    }
+
+    return 0;
+}
+
+static int cmd_audit(int argc, char *argv[])
+{
+    svcrt_audit_result_t r;
+    uint32 bit;
+    uint32 bad = 0u;
+
+    (void)argc;
+    (void)argv;
+
+    svcrt_audit_run(&r);
+
+    for(bit = 1u; bit <= SVCRT_AUDIT_BIT_MAX; bit <<= 1)
+    {
+        const char *name = svcrt_audit_name(bit);
+
+        if(name == 0)
+        {
+            continue;
+        }
+        if((r.mask & bit) != 0u)
+        {
+            bad++;
+        }
+        ark_shell_printf("  %s: %s\r\n", name, ((r.mask & bit) != 0u) ? "BAD" : "ok");
+    }
+
+    ark_shell_printf("\r\nchecks=%u bad_groups=%u mask=0x%08X first_offender=%u\r\n",
+                     r.checks, bad, r.mask, r.index);
+
+    if(bad != 0u)
+    {
+        /* The groups above say which structure and which index. The cause is
+         * not guessed here: a wrong cause costs a round of checking the wrong
+         * thing, which is worse than an unanswered question. */
+        sh_out("audit: INCONSISTENT (see the group lines above)\r\n");
+        return (int)bad;
+    }
+
+    sh_out("audit: all structures self-consistent\r\n");
+    return 0;
+}
+
 static int cmd_sched(int argc, char *argv[])
 {
     int32  bad;
@@ -1781,6 +1980,14 @@ static int cmd_blk(int argc, char *argv[])
 #define FS_DUMP_COLS     (16u)
 #define FS_TEST_PATH     "/fstest.bin"
 
+/* fs put: binary upload window. One chunk per handshake, because the console
+ * FIFO is 128 bytes deep and a littlefs block program may have to erase a
+ * sector first - a sender that ran ahead would lose bytes silently. */
+#define FS_PUT_CHUNK      (256u)
+#define FS_PUT_TIMEOUT_MS (5000u)
+#define FS_PUT_ACK        (0x06u)
+#define FS_PUT_NAK        (0x15u)
+
 static uint8 g_fs_scratch[FS_SCRATCH_LEN];
 
 static int fs_usage(void)
@@ -1793,6 +2000,7 @@ static int fs_usage(void)
     sh_out("  fs ls [dir]               list a directory, default /\r\n");
     sh_out("  fs wr <path> <text...>    write text to a file (creates or truncates)\r\n");
     sh_out("  fs rd <path> [len]        read a file back and hex dump it\r\n");
+    sh_out("  fs put <path> <len>       receive <len> raw bytes and write them to <path>\r\n");
     sh_out("  fs rm <path>              remove a file\r\n");
     sh_out("  fs test                   write / read / remount / read / remove\r\n");
     sh_out("  fs err                    littlefs error of the last failed call\r\n");
@@ -2200,6 +2408,114 @@ static int cmd_fs(int argc, char *argv[])
         return 0;
     }
 
+    if(strcmp(sub, "put") == 0)
+    {
+        int32  dev;
+        uint32 total = 0u;
+        uint32 sent = 0u;
+        int32  rc = 0;
+
+        if((argc < 4) || (parse_u32(argv[3], &total) != 0) || (total == 0u))
+        {
+            return fs_usage();
+        }
+
+        if(!svcrt_fs_mounted())
+        {
+            sh_out("\r\nnot mounted\r\n");
+            return -1;
+        }
+
+        if(svcrt_fs_open_write(argv[2]) != 0)
+        {
+            return fs_fail("open for write");
+        }
+
+        dev = svcrt_shell_uart_open();
+
+        /* Same two precautions the cfg window takes, for the same reasons:
+         * drop what the console still holds *before* announcing readiness
+         * (the CRLF that ended this very command leaves an LF behind, and one
+         * stray byte shifts the whole stream), and own the reads for the
+         * duration - a 20 KiB image cannot travel as command-line text. */
+        {
+            uint8 sink[32];
+            uint32 spins = 0u;
+
+            while((spins < 64u) &&
+                  (svcrt_dev_read_internal(dev, sink, (int32)sizeof(sink)) > 0))
+            {
+                spins++;
+            }
+        }
+
+        ark_shell_printf("\r\nfs put: %s, %u bytes in %u-byte chunks\r\n",
+                         argv[2], (unsigned)total, (unsigned)FS_PUT_CHUNK);
+        sh_out("fs put: one flow byte per chunk (0x06 = next, 0x15 = stop)\r\n");
+
+        while(sent < total)
+        {
+            uint32 want = total - sent;
+            uint8  ack = FS_PUT_ACK;
+
+            if(want > FS_PUT_CHUNK)
+            {
+                want = FS_PUT_CHUNK;
+            }
+
+            /* cfg_recv_exact() is just "wait for exactly len bytes"; nothing
+             * about it is cfg specific. */
+            if(cfg_recv_exact(dev, g_fs_scratch, want, FS_PUT_TIMEOUT_MS) != 0)
+            {
+                ark_shell_printf("fs put: timed out at %u of %u bytes\r\n",
+                                 (unsigned)sent, (unsigned)total);
+                rc = -1;
+                break;
+            }
+
+            if(svcrt_fs_write_next(g_fs_scratch, want) != 0)
+            {
+                ark_shell_printf("fs put: write failed (littlefs error %d: %s)\r\n",
+                                 (int)svcrt_fs_last_error(),
+                                 svcrt_fs_error_name(svcrt_fs_last_error()));
+                rc = -1;
+                break;
+            }
+
+            sent += want;
+
+            /* ACK once the bytes are on the chip rather than once they were
+             * received: a block program can be an erase, and a sender that ran
+             * ahead would fill the 128-byte console FIFO and lose bytes it
+             * would never hear about. */
+            (void)svcrt_dev_write_internal(dev, &ack, 1);
+        }
+
+        if(svcrt_fs_close_write() != 0)
+        {
+            ark_shell_printf("fs put: close failed (littlefs error %d: %s)\r\n",
+                             (int)svcrt_fs_last_error(),
+                             svcrt_fs_error_name(svcrt_fs_last_error()));
+            rc = -1;
+        }
+
+        if(rc == 0)
+        {
+            ark_shell_printf("fs put: ok, %u bytes in %s\r\n",
+                             (unsigned)sent, argv[2]);
+            return 0;
+        }
+
+        {
+            uint8 nak = FS_PUT_NAK;
+
+            (void)svcrt_dev_write_internal(dev, &nak, 1);
+        }
+
+        sh_out("fs put: failed, the file may be incomplete - remove it before retrying\r\n");
+        return -1;
+    }
+
     if(strcmp(sub, "rm") == 0)
     {
         if((argc != 3) || !svcrt_fs_mounted())
@@ -2237,7 +2553,7 @@ static int cmd_fs(int argc, char *argv[])
 static int register_kernel_commands(void)
 {
     int idx = g_cmd_count;
-    int need = 13;
+    int need = 15;
 
     if((idx + need) > ARK_SHELL_MAX_COMMANDS)
     {
@@ -2247,7 +2563,7 @@ static int register_kernel_commands(void)
     g_cmd_table[idx++] = ARK_SHELL_CMD("info", cmd_info,
         "Kernel, partition and task capacity info", 1);
     g_cmd_table[idx++] = ARK_SHELL_CMD("app", cmd_app,
-        "App slots: app [list | start <slot> | stop <slot> | uninstall <slot>]", 4);
+        "App slots: app [list | install <path> [slot] | start <slot> | stop <slot> | uninstall <slot>]", 4);
     g_cmd_table[idx++] = ARK_SHELL_CMD("drv", cmd_drv,
         "Driver slots: drv [list | start <slot> | stop <slot> | uninstall <slot>]", 4);
     g_cmd_table[idx++] = ARK_SHELL_CMD("task", cmd_task,
@@ -2271,7 +2587,13 @@ static int register_kernel_commands(void)
         "Block devices: blk [list | probe | rd | wr | erase | test]", 5);
 
     g_cmd_table[idx++] = ARK_SHELL_CMD("fs", cmd_fs,
-        "File system: fs [mount | unmount | format | info | ls | wr | rd | rm | test | err]", 8);
+        "File system: fs [mount | unmount | format | info | ls | wr | rd | put | rm | test | err]", 9);
+
+    g_cmd_table[idx++] = ARK_SHELL_CMD("audit", cmd_audit,
+        "Structure self-audit: partition / slots / tasks vs their invariants", 1);
+
+    g_cmd_table[idx++] = ARK_SHELL_CMD("guard", cmd_guard,
+        "Watchdog state and per-slot heartbeat contracts", 1);
 
     g_cmd_table[idx].name = NULL;
     g_cmd_table[idx].func = NULL;

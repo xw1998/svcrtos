@@ -117,6 +117,13 @@ SVCRTOS/
 #undef  SVCRT_USE_MPU
 #define SVCRT_USE_MPU             0
 
+/* 独立看门狗：1 = 内核 guard 掌握计数（不变量被破坏即停止喂狗） */
+#undef  SVCRT_WDG_ENABLE
+#define SVCRT_WDG_ENABLE          0
+#undef  SVCRT_WDG_TIMEOUT_MS
+#define SVCRT_WDG_TIMEOUT_MS      4000
+
+
 #endif
 ```
 
@@ -274,6 +281,26 @@ void HardFault_Handler(void)
 | `svcrt_port_mpu_set_region()` | 设置MPU区域 |
 | `svcrt_port_mpu_set_app()` | 设置任务 MPU，入参为 `svcrt_arch_mpu_t`（架构无关区域上下文） |
 | `svcrt_port_mpu_reset()` | 重置MPU |
+
+---
+
+### 4.7 看门狗层
+
+| 函数 | 说明 |
+|------|------|
+| `svcrt_port_wdg_init(timeout_ms)` | 按近似超时启动独立看门狗；返回 0 成功、-1 表示没有看门狗或该超时无法表示 |
+| `svcrt_port_wdg_feed()` | 重装看门狗计数 |
+| `svcrt_port_wdg_timeout_ms()` | 硬件实际拿到的超时（0 = 未启动） |
+
+看门狗是**板级事实**：由板级实现，开关 `SVCRT_WDG_ENABLE` 与请求超时
+`SVCRT_WDG_TIMEOUT_MS` 都写在 `svcrt_board_config.h` 里，默认 0。两条移植注意：
+
+1. **启动后不可关闭**（STM32 的 IWDG 除非改选项字节）。因此第一次点亮必须用长超时，
+   确认喂狗路径无误后再收紧；否则喂狗逻辑一旦有 bug，设备会进入复位环，连烧录窗口都难插进去。
+2. **不要用请求值反推硬件超时**。LSI 精度约 ±50%，`svcrt_port_wdg_timeout_ms()`
+   报的是按分频与重装值算出来的值；内核 guard 把它当"大约这么久"，不做毫秒级推理。
+
+喂狗的决定权在内核（`svcrt_guard.c`）：只有当结构自检一致、且没有槽位违反心跳契约时才喂。
 
 ---
 

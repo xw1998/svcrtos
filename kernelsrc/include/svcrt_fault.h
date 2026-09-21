@@ -23,7 +23,9 @@ typedef enum {
     SVCRT_FAULT_MEMFAULT   = 8,      /* MemManage：MPU 违规，应用越权访问 */
     SVCRT_FAULT_BUSFAULT   = 9,      /* BusFault：非法总线访问 */
     SVCRT_FAULT_USGFAULT   = 10      /* UsageFault：未定义指令 / 非法状态 */,
-    SVCRT_FAULT_INSTALLFAIL = 11     /* 安装写入失败（镜像已收全但落盘失败） */
+    SVCRT_FAULT_INSTALLFAIL = 11,     /* 安装写入失败（镜像已收全但落盘失败） */
+    SVCRT_FAULT_AUDITFAIL = 12,      /* structure self-audit found an inconsistency */
+    SVCRT_FAULT_GUARDHB = 13         /* a declared heartbeat window lapsed */
 } svcrt_fault_type_t;
 
 /* 单条故障记录（3 个字，与 svcrt_fault_record_read 的 out3 对应） */
