@@ -196,7 +196,19 @@ typedef struct {
     uint32 payload_offset;      /* 负载相对镜像起始的偏移，必须 = 头长 + reloc_count*4 */
     uint32 nominal_ram_base;    /* RAM 重定位标称基址：镜像 RW/ZI 的链接基址。
                                    实际 RAM 块由内核按 ram_size 分配，两者之差即 RAM 增量 */
-    uint8  reserved[124];       /* 预留：填充至 256 字节 */
+    uint8  reserved[120];       /* 预留：填充至 252 字节。镜像清单（manifest）就写在这里，
+                                   从 reserved[0] 开始向后增长 —— 所以它必须在
+                                   runtime_ram_base 之前结束，两个区域不能重叠。 */
+    uint32 runtime_ram_base;    /* RAM 固化基址：**安装时**由内核写入它当时实际分配到的
+                                   RAM 块基址 —— 也就是镜像里 RAM 绝对地址被打补丁的
+                                   那个基准。打包产物本字段恒为 0。
+                                   上电扫描必须优先复用它，而不是重新分配：RAM 分配
+                                   结果不落盘，而「重复安装」与「池内认领顺序变化」
+                                   都会让重新分配给出另一个地址，镜像里已固化的绝对
+                                   地址就全部作废（表现为镜像一启动就 MemManage）。
+                                   0 = 未固化（退回重新分配；只对「打包后还没被安装
+                                   过」的镜像成立）。
+                                   放在头的最末尾：清单区从前面向后长，两者不能重叠。 */
 } svcrt_app_header_t;
 
 /** @brief crc32 字段在头内的偏移（Loader 计算 CRC 时要把它按 0 处理） */
@@ -204,6 +216,13 @@ typedef struct {
 
 /** @brief state 字段在头内的偏移（同上） */
 #define SVCRT_APP_OFF_STATE       (100u)
+
+/** @brief runtime_ram_base 字段在头内的偏移。它必须与 crc32 / state 一样按四个 0
+ *         字节代入镜像 CRC：这个值不是「传输来的内容」，而是安装方在落盘前
+ *         才决定并写进去的本地信息（安装时分配到的 RAM 块基址）。若把它算进
+ *         校验，落盘形态与打包工具算的 want 就永远对不上，每一次安装都会
+ *         误报 transfer crc 不符。 */
+#define SVCRT_APP_OFF_RUNTIME_RAM_BASE (252u)
 
 /** @brief type 字段在头内的偏移。卸载把镜像作废时清这一个字：
  *         0 -> 0 之外没有任何位要动，是合法的 1 -> 0 编程；
@@ -232,6 +251,8 @@ typedef char svcrt_app_off_state_check[
     (((uint32)&(((svcrt_app_header_t *)0)->state)) == SVCRT_APP_OFF_STATE) ? 1 : -1];
 typedef char svcrt_app_off_type_check[
     (((uint32)&(((svcrt_app_header_t *)0)->type)) == SVCRT_APP_OFF_TYPE) ? 1 : -1];
+typedef char svcrt_app_off_runtime_ram_base_check[
+    (((uint32)&(((svcrt_app_header_t *)0)->runtime_ram_base)) == SVCRT_APP_OFF_RUNTIME_RAM_BASE) ? 1 : -1];
 
 #if (defined(__cplusplus))
 extern "C" {

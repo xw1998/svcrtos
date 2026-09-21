@@ -282,7 +282,31 @@ int32 svcrt_thread_create_internal(void (*entry)(void), uint32 *stack_bottom,
     {
         return -1;
     }
-    return svcrt_task_register(entry, stack_bottom, stack_size, priority, period_ms);
+    {
+        int32 tid = svcrt_task_register(entry, stack_bottom, stack_size, priority, period_ms);
+
+        /* A thread belongs to the task that created it: same code window,
+         * same memory window, same privilege. Registration alone would leave
+         * it with the kernel-task defaults - kernel flash plus the whole chip
+         * RAM, privileged - which is the opposite of what an App thread may
+         * have. The two checks above already proved that the entry point and
+         * the stack live in the creator's own windows, so the inherited window
+         * always contains them. */
+        if((tid > 0) && (svcrt_current_task_id > 0))
+        {
+            svcrt_task_t *p_src = &svcrt_task_table[svcrt_current_task_id - 1];
+            svcrt_task_t *p_dst = &svcrt_task_table[tid - 1];
+
+            p_dst->rom_start = p_src->rom_start;
+            p_dst->rom_size  = p_src->rom_size;
+            p_dst->ram_start = p_src->ram_start;
+            p_dst->ram_size  = p_src->ram_size;
+            p_dst->is_priv   = p_src->is_priv;
+
+            svcrt_mpu_build_task(p_dst);
+        }
+        return tid;
+    }
 }
 
 int32 svcrt_thread_self_internal(void)
@@ -1252,6 +1276,14 @@ int32 svcrt_sched_activate(int32 new_task, uint32 old_psp)
         svcrt_task_table[tid].touch_tick = svcrt_kernel_tick;
         svcrt_task_table[tid].status = SVCRT_TASK_RUNNING;
         svcrt_mpu_set_app(&svcrt_task_table[tid]);
+        #if (SVCRT_USE_PRIV == 1)
+        /* CONTROL is a CPU register, not part of the task frame, so the
+         * incoming task's privilege has to be re-applied on every switch
+         * exactly like the MPU regions are. This runs in Handler mode
+         * (PendSV / fault path), which is what lets the kernel move in both
+         * directions while unprivileged code cannot raise its own level. */
+        svcrt_port_set_thread_priv((uint32)svcrt_task_table[tid].is_priv);
+        #endif
         SVCRT_SCHED_STAT_END();         /* sched_activate: task path */
         return svcrt_task_table[tid].stack_ptr;
     }
@@ -1263,6 +1295,9 @@ int32 svcrt_sched_activate(int32 new_task, uint32 old_psp)
          * needs its own context restored here (captured at startup by the
          * board through svcrt_port_set_idle_mpu()). */
         svcrt_mpu_set_idle();
+        #if (SVCRT_USE_PRIV == 1)
+        svcrt_port_set_thread_priv(1u);    /* the idle task is kernel code */
+        #endif
         SVCRT_SCHED_STAT_END();         /* sched_activate: idle path */
         return svcrt_idle_stack_ptr;
     }

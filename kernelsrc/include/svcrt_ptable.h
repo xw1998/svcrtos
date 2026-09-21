@@ -174,6 +174,18 @@ int32 svcrt_ptable_get_slot(uint32 slot, uint32 *p_state, uint32 *p_entry, uint3
 int32 svcrt_ptable_ram_alloc(uint32 bytes, uint32 *p_base, uint32 *p_size);
 
 /**
+* @brief 按指定基址预留一块 RAM（复现「已固化在镜像头里的那一个块」）
+* @param base 要预留的块基址（必须按 size 对齐）
+* @param size 块大小（必须是 2 的幂）
+* @return 0=成功，-1=越界 / 未对齐 / 与已占用的块重叠
+* @details 与 svcrt_ptable_ram_alloc() 的唯一区别是地址不是现算的、而是人给的。
+*          存在的理由：RAM 重定位在安装时已经按某个基址固化进了 Flash，
+*          上电重建必须原样占用同一个基址 —— 重新分配会给出另一个地址，
+*          镜像里已固化的绝对地址就全部作废（一启动就 MemManage）。
+*/
+int32 svcrt_ptable_ram_reserve(uint32 base, uint32 size);
+
+/**
 * @brief 把 RAM 块记到槽位记录上
 * @return 0=成功，-1=槽位非法
 */

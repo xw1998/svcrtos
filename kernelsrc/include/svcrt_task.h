@@ -70,6 +70,10 @@ typedef struct {
     #if (SVCRT_USE_STACK_USAGE == 1)
     uint32 stack_peak_low;                          /* 历史最低栈指针，用于峰值栈用量统计 */
     #endif
+    uint8  is_priv;                                 /* 1 = Thread mode privileged, 0 = unprivileged.
+                                                     * Honoured only when SVCRT_USE_PRIV == 1;
+                                                     * the switch path writes CONTROL.nPRIV from
+                                                     * it, so no task can change it for itself. */
 } svcrt_task_t;
 
 #if (SVCRT_USE_STACK_CHECK == 1)

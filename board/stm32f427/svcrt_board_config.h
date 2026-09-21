@@ -20,11 +20,21 @@
 #undef  SVCRT_USE_FPU
 #define SVCRT_USE_FPU             1
 
+/* Memory protection (Cortex-M4 MPU) plus the privilege separation that makes
+ * it bite: with SVCRT_USE_PRIV = 1 an App task runs unprivileged, so it can
+ * only reach kernel services through an SVC and can only touch the windows
+ * svcrt_mpu.c builds for it. Drivers stay privileged on purpose (they program
+ * peripheral registers directly), and PRIVDEFENA gives privileged code the
+ * default memory map, so enabling this costs the drivers nothing.
+ * Honest boundary: only unprivileged tasks are confined. The kernel and the
+ * drivers still run privileged - this is fault containment, not a defence
+ * against hostile code. The shared partition table window is still writable
+ * by an App (see the memory-protection guide under docs/). */
 #undef  SVCRT_USE_MPU
-#define SVCRT_USE_MPU             0
+#define SVCRT_USE_MPU             1
 
 #undef  SVCRT_USE_PRIV
-#define SVCRT_USE_PRIV            0
+#define SVCRT_USE_PRIV            1
 
 /* Independent watchdog (IWDG). Hardware fact, so it lives with the board:
  * 1 = the kernel guard owns the counter and stops feeding when an invariant

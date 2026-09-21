@@ -27,6 +27,7 @@
 #include "svcrt_dev.h"
 #include "svcrt_sync.h"
 #include "svcrt_task.h"
+#include "svcrt_mpu.h"
 #include "svcrt_config.h"
 #include "svcrt_ptable.h"
 #include "svcrt_loader.h"
@@ -257,16 +258,14 @@ static void svcrt_register_tasks(void)
     p_task->tim_tick    = 0;
     p_task->touch_tick  = 0;
 
-    #if (SVCRT_USE_MPU == 1)
-    {
-        int32 i;
-        for(i = 0; i < SVCRT_MPU_REGION_MAX; i++)
-        {
-            p_task->mpu.region_base[i] = 0;
-            p_task->mpu.region_attr[i] = 0;
-        }
-    }
-    #endif
+    /* A hand-built TCB skips svcrt_task_register(), so it also skips the two
+     * things that function finishes for us: the MPU windows (kernel task
+     * defaults - kernel flash plus the whole chip RAM) and "this task is
+     * kernel code, therefore privileged". Leaving both at their .bss values
+     * produces an unprivileged task with no MPU region at all, and with
+     * PRIVDEFENA that means its very first stack access faults. */
+    p_task->is_priv = 1u;
+    svcrt_mpu_build_task(p_task);
 
     svcrt_task_stack_init(p_task, led_blink_task,
                           led_task_stack, sizeof(led_task_stack));
@@ -292,16 +291,14 @@ static void svcrt_register_tasks(void)
     p_task->tim_tick    = 0;
     p_task->touch_tick  = 0;
 
-    #if (SVCRT_USE_MPU == 1)
-    {
-        int32 i;
-        for(i = 0; i < SVCRT_MPU_REGION_MAX; i++)
-        {
-            p_task->mpu.region_base[i] = 0;
-            p_task->mpu.region_attr[i] = 0;
-        }
-    }
-    #endif
+    /* A hand-built TCB skips svcrt_task_register(), so it also skips the two
+     * things that function finishes for us: the MPU windows (kernel task
+     * defaults - kernel flash plus the whole chip RAM) and "this task is
+     * kernel code, therefore privileged". Leaving both at their .bss values
+     * produces an unprivileged task with no MPU region at all, and with
+     * PRIVDEFENA that means its very first stack access faults. */
+    p_task->is_priv = 1u;
+    svcrt_mpu_build_task(p_task);
 
     svcrt_task_stack_init(p_task, led2_blink_task,
                           led2_task_stack, sizeof(led2_task_stack));
@@ -458,7 +455,10 @@ static void svcrt_start_idle(void)
                             sizeof(svcrt_idle_stack));
     #endif
 
-    svcrt_port_enter_idle(psp, SVCRT_USE_PRIV);
+    /* Start the idle context privileged: the switch path applies each
+     * task's own privilege (an App is unprivileged) on the first switch,
+     * and the idle task itself is kernel code. */
+    svcrt_port_enter_idle(psp, 1u);
 
     svcrt_port_start_timer(SVCRT_TICK_PERIOD_US);
 

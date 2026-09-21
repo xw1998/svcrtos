@@ -158,6 +158,15 @@ uint32 svcrt_port_get_control(void);
 */
 void svcrt_port_set_control(uint32 val);
 
+/* Set the Thread-mode privilege of the context that resumes when the
+ * current exception returns. Must be called from Handler mode (the switch
+ * path is the only caller): CONTROL.nPRIV is writable there and takes
+ * effect on the return to Thread mode. CONTROL.SPSEL is deliberately left
+ * alone - the hardware restores it from EXC_RETURN, not from CONTROL.
+ * @param is_priv 1 = privileged Thread mode, 0 = unprivileged
+ */
+void svcrt_port_set_thread_priv(uint32 is_priv);
+
 /**
 * @brief 初始化任务栈帧
 * @param stack_top  栈顶地址（高地址，已8字节对齐）

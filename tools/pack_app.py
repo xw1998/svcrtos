@@ -100,8 +100,13 @@ RELOC_KIND_OFF = 120
 PAYLOAD_OFFSET_OFF = 124
 NOMINAL_RAM_OFFSET = 128
 RESERVED_OFFSET = 132
-RESERVED_SIZE = 124
+# 预留区（清单写在这里）与头里最后一个字段 runtime_ram_base 的关系：
+# 清单从预留区头部向后增长，runtime_ram_base 钉在头的末尾 4 字节，两块不重叠。
+# 见 kernelsrc/include/svcrt_app_image.h 的 SVCRT_APP_OFF_RUNTIME_RAM_BASE。
+RESERVED_SIZE = 120
 MANIFEST_MAX = RESERVED_SIZE - 1
+RUNTIME_RAM_OFFSET = 252        # runtime_ram_base：安装时由内核写，打包产物恒为 0
+                                # （计算 CRC 时这四个字节按 0 参与，同代码里“喂 4 个零”）
 
 CRC32_OFFSET = 28               # 计算 CRC 时本字段按 0
 STATE_CRC_OFFSET = 100          # 计算 CRC 时本字段按 0
@@ -509,6 +514,9 @@ def build_header(img_type, hw_compat, version, image_size, entry_offset, nominal
                        payload_offset)
     head += struct.pack("<I", nominal_ram_base)
     head += bytes(reserved)
+    # runtime_ram_base：打包产物里恒为 0（它由内核在安装时写）。占位必须写出来，
+    # 否则头长度对不上，而且 CRC 是按「这四个字节参与」算的。
+    head += b"\x00" * 4
     if len(head) != HEADER_SIZE:
         raise PackError("镜像头长度算错：%d != %d" % (len(head), HEADER_SIZE))
     return head
@@ -956,7 +964,8 @@ def read_header(path):
     reloc_count = struct.unpack_from("<I", raw, RELOC_COUNT_OFF)[0]
     payload_offset = struct.unpack_from("<I", raw, PAYLOAD_OFFSET_OFF)[0]
     nominal_ram_base = struct.unpack_from("<I", raw, NOMINAL_RAM_OFFSET)[0]
-    reserved = raw[RESERVED_OFFSET:HEADER_SIZE]
+    runtime_ram_base = struct.unpack_from("<I", raw, RUNTIME_RAM_OFFSET)[0]
+    reserved = raw[RESERVED_OFFSET:RESERVED_OFFSET + RESERVED_SIZE]
     manifest = None
     if reserved[0]:
         try:
@@ -968,7 +977,8 @@ def read_header(path):
                 image_size=image_size, entry_offset=entry_offset, nominal_base=nominal_base,
                 crc32=crc32, flags=flags, state=state, image_id=image_id, ram_size=ram_size,
                 reloc_count=reloc_count, payload_offset=payload_offset,
-                nominal_ram_base=nominal_ram_base, manifest=manifest)
+                nominal_ram_base=nominal_ram_base, runtime_ram_base=runtime_ram_base,
+                manifest=manifest)
 
 
 def do_info(path):
@@ -1022,6 +1032,16 @@ def do_verify(path, header_path, delta_from_cfg=None):
 
     if h["state"] != 0:
         problems.append("state = %d：镜像是「未提交」状态（打包产物不应如此）" % h["state"])
+
+    # runtime_ram_base 是内核在安装那一刻填的（写到哪个 RAM 块就跑在哪里），
+    # 打包产物必须是 0。「非 0 却还在当打包产物分发」只有一种来源：把板上
+    # 拆下来的镜像又当输入喂了进来 —— 那样的镜像里所有地址都是别的设备的
+    # 布局，装上去只会一启动就 MemManage，所以在这里直接报错。
+    if h["runtime_ram_base"] != 0:
+        problems.append("runtime_ram_base = 0x%08X：这是已安装过的镜像，不是打包产物"
+                        % h["runtime_ram_base"])
+    else:
+        print("[verify] runtime_ram_base = 0（未固化，符合打包产物）")
 
     if h["payload_offset"] != HEADER_SIZE + h["reloc_count"] * RELOC_SIZE:
         problems.append("payload_offset 与 reloc_count 不自洽")

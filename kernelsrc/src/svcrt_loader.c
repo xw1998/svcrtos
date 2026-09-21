@@ -367,10 +367,12 @@ static int32 svcrt_loader_check_header(const svcrt_app_header_t *p_hdr,
  * 对 CRC 来说「追加 4 个 0」和「什么都不追加」是两个不同的值。 */
 static const uint8 svcrt_loader_zero4[4] = { 0u, 0u, 0u, 0u };
 
-/* 镜像 CRC：头（crc32 与 state 两个字段按 0 代入）+ 重定位表 + 负载。
+/* 镜像 CRC：头（crc32 / state / runtime_ram_base 三个字段按 0 代入）+ 重定位表 + 负载。
  * state 要按 0 代入，是因为它必须在写入之后被单独改写（提交动作），
  * 而 CRC 不能因此失效；crc32 字段自身同理——文件里它装着最终校验值，
- * 不能把它的字节也算进去，否则就成了「用结果算结果」。 */
+ * 不能把它的字节也算进去，否则就成了「用结果算结果」。runtime_ram_base
+ * 同理：它不是传输来的内容，而是安装方落盘前才填的本地信息（分配到的
+ * RAM 块基址），把它算进去就等于让「安装」这件事本身改变校验值。 */
 static uint32 svcrt_loader_image_crc(const uint8 *image, const svcrt_app_header_t *p_hdr)
 {
     uint32 total = SVCRT_APP_TOTAL_LEN(p_hdr);
@@ -382,7 +384,10 @@ static uint32 svcrt_loader_image_crc(const uint8 *image, const svcrt_app_header_
                       SVCRT_APP_OFF_STATE - (SVCRT_APP_OFF_CRC32 + 4u), crc);
     crc = svcrt_crc32(svcrt_loader_zero4, 4u, crc);
     crc = svcrt_crc32(image + (SVCRT_APP_OFF_STATE + 4u),
-                      SVCRT_APP_HEADER_SIZE - (SVCRT_APP_OFF_STATE + 4u), crc);
+                      SVCRT_APP_OFF_RUNTIME_RAM_BASE - (SVCRT_APP_OFF_STATE + 4u), crc);
+    crc = svcrt_crc32(svcrt_loader_zero4, 4u, crc);
+    crc = svcrt_crc32(image + (SVCRT_APP_OFF_RUNTIME_RAM_BASE + 4u),
+                      SVCRT_APP_HEADER_SIZE - (SVCRT_APP_OFF_RUNTIME_RAM_BASE + 4u), crc);
     crc = svcrt_crc32(image + SVCRT_APP_HEADER_SIZE,
                       total - SVCRT_APP_HEADER_SIZE, crc);
 
@@ -753,7 +758,8 @@ static int32 svcrt_loader_read_dev(int32 dev, uint8 *buf, uint32 len)
     return (int32)got;
 }
 
-/* 镜像头在镜像 CRC 里的参与方式：crc32 与 state 两个字段各按四个 0 字节代入。
+/* 镜像头在镜像 CRC 里的参与方式：crc32 / state / runtime_ram_base 三个字段
+ * 各按四个 0 字节代入。
  * 注意不能把这两段「跳过」：打包工具算校验时这两个字段确实是 0，但零字节
  * 是要参与 CRC 运算的，跳过与代入 0 得到的值不同（实测 APP_DEMO 差
  * 0x27DE38AB vs 0x474E26D7），跳过会让每一次安装都误报 CRC 错。 */
@@ -768,7 +774,10 @@ static uint32 svcrt_loader_crc_header(const svcrt_app_header_t *p_hdr)
                       SVCRT_APP_OFF_STATE - (SVCRT_APP_OFF_CRC32 + 4u), crc);
     crc = svcrt_crc32(svcrt_loader_zero4, 4u, crc);
     crc = svcrt_crc32(p + (SVCRT_APP_OFF_STATE + 4u),
-                      SVCRT_APP_HEADER_SIZE - (SVCRT_APP_OFF_STATE + 4u), crc);
+                      SVCRT_APP_OFF_RUNTIME_RAM_BASE - (SVCRT_APP_OFF_STATE + 4u), crc);
+    crc = svcrt_crc32(svcrt_loader_zero4, 4u, crc);
+    crc = svcrt_crc32(p + (SVCRT_APP_OFF_RUNTIME_RAM_BASE + 4u),
+                      SVCRT_APP_HEADER_SIZE - (SVCRT_APP_OFF_RUNTIME_RAM_BASE + 4u), crc);
 
     return crc;
 }
@@ -1203,6 +1212,12 @@ int32 svcrt_loader_load_dev_hdr(int32 dev, const svcrt_app_header_t *p_hdr, uint
     delta_rom = (base + hdr.payload_offset) - hdr.nominal_base;
     delta_ram = ram_base - hdr.nominal_ram_base;
 
+    /* 把本次分配到的 RAM 基址固化进镜像头：镜像里的 RAM 绝对地址就是按它
+     * 打的补丁，而 RAM 分配结果不落盘 —— 上电重建时重新分配会给出另一个
+     * 地址（重复安装、池内认领顺序变化都会），只有把基址写进头里才能把
+     * 同一个块要回来。见 svcrt_app_image.h 的 runtime_ram_base 字段说明。 */
+    hdr.runtime_ram_base = ram_base;
+
     /* 先写头：state 置 UNCOMMITTED，等 CRC 复核通过再单独改这一个字。
      * 这样中途掉电留下的残片会被上电扫描认定为无效副本而丢弃。 */
     hdr.state = SVCRT_APP_STATE_UNCOMMITTED;
@@ -1360,6 +1375,7 @@ int32 svcrt_loader_load_buffer(const uint8 *image, uint32 image_len)
     delta_ram = ram_base - p_src->nominal_ram_base;
 
     hdr = *p_src;
+    hdr.runtime_ram_base = ram_base;    /* 同 svcrt_loader_load_dev_hdr()：固化块基址 */
     hdr.state = SVCRT_APP_STATE_UNCOMMITTED;
 
     if(svcrt_port_flash_write(base, (const uint8 *)&hdr, SVCRT_APP_HEADER_SIZE) != 0)
@@ -1815,8 +1831,35 @@ static void svcrt_loader_scan_pool(void)
                     {
                         uint32 ram_base = 0u;
                         uint32 ram_size = 0u;
+                        uint32 fixed = p_hdr->runtime_ram_base;
 
-                        if(svcrt_ptable_ram_alloc(p_hdr->ram_size, &ram_base, &ram_size) == 0)
+                        if(fixed != 0u)
+                        {
+                            /* 镜像里已经固定了这个块：它才是镜像内 RAM 绝对地址
+                             * 的基准，必须原样要回来。要不到（越界 / 已被别人
+                             * 占用）就说明这台设备上的布局变了 —— 此时宁可让该
+                             * 镜像暂时没有 RAM 块（start 会明确报错、要求重装），
+                             * 也不能换一个地址把它跑起来，那必然一执行就
+                             * MemManage。（宁可报错，不给看似权威的错答案） */
+                            for(ram_size = SLOT_RAM_MIN_BLOCK;
+                                ram_size < p_hdr->ram_size;
+                                ram_size <<= 1u)
+                            {
+                                /* 取不小于 ram_size 的最小 2 的幂 */
+                            }
+
+                            if(svcrt_ptable_ram_reserve(fixed, ram_size) == 0)
+                            {
+                                (void)svcrt_ptable_ram_bind((uint32)slot, fixed, ram_size);
+                            }
+                            else
+                            {
+                                SVCRT_LOGE("LOADER", "slot %d: fixed RAM 0x%08X is not available"
+                                           " any more - reinstall the image",
+                                           (int)slot, (unsigned)fixed);
+                            }
+                        }
+                        else if(svcrt_ptable_ram_alloc(p_hdr->ram_size, &ram_base, &ram_size) == 0)
                         {
                             (void)svcrt_ptable_ram_bind((uint32)slot, ram_base, ram_size);
                         }
@@ -2441,6 +2484,14 @@ int32 svcrt_loader_start(uint32 slot)
     svcrt_task_table[task_id - 1].ram_size  = ram_size;
     svcrt_task_table[task_id - 1].rom_start = pt->slot_base[slot];
     svcrt_task_table[task_id - 1].rom_size  = pt->slot_size[slot];
+
+    /* Privilege separation (SVCRT_USE_PRIV): an App runs unprivileged, so the
+     * only way it reaches a kernel service is an SVC; a driver keeps privilege
+     * because it programs peripheral registers directly.
+     * svcrt_task_register() defaults every task to privileged, so this is the
+     * one place that gives privilege away - and only for SVCRT_SLOT_APP. */
+    svcrt_task_table[task_id - 1].is_priv =
+        (pt->slot_type[slot] == SVCRT_SLOT_DRIVER) ? 1u : 0u;
 
     svcrt_mpu_build_task(&svcrt_task_table[task_id - 1]);
 

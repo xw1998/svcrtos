@@ -808,6 +808,55 @@ int32 svcrt_ptable_ram_alloc(uint32 bytes, uint32 *p_base, uint32 *p_size)
     return ret;
 }
 
+/* 按指定基址预留一块 RAM：只校验「能不能占」，不把结果记到任何槽位上
+ * （登记由调用方在预留成功后调 svcrt_ptable_ram_bind() 做）。
+ * 用途见头文件：上电扫描要把镜像安装时固化在头里的那个基址原样要回来。 */
+int32 svcrt_ptable_ram_reserve(uint32 base, uint32 size)
+{
+    svcrt_partition_table_t *pt = svcrt_ptable_get();
+    svcrt_pt_range_t ranges[SVCRT_SLOT_ARRAY_MAX];
+    uint32 irq_state;
+    uint32 n;
+    uint32 i;
+    uint32 end;
+    int32 ret = 0;
+
+    /* 必须是 2 的幂：MPU 一个 region 的覆盖范围只能是 2 的幂，块大小不是
+     * 2 的幂时镜像的 .data/.bss 会露在 region 外面，一访问就 MemManage。 */
+    if((size == 0u) || ((size & (size - 1u)) != 0u))
+    {
+        return -1;
+    }
+
+    end = base + size;
+
+    if((base < SLOT_RAM_BASE) || (end < base) ||
+       (end > (SLOT_RAM_BASE + SLOT_RAM_TOTAL)) ||
+       ((base % size) != 0u))
+    {
+        return -1;              /* 越界（含回绕）或没按块大小对齐 */
+    }
+
+    svcrt_spin_lock_irqsave(&svcrt_ptable_lock, &irq_state);
+
+    n = svcrt_pt_collect(pt, ranges, SVCRT_SLOT_ARRAY_MAX, 1u);
+
+    for(i = 0u; i < n; i++)
+    {
+        if((base < ranges[i].end) && (ranges[i].base < end))
+        {
+            /* 已有人占着这块。这里绝不去找「另一个空闲块」替代：那等于默认
+             * 镜像里的绝对地址可以随便挪，而它们已经写死在 Flash 里了。 */
+            ret = -1;
+            break;
+        }
+    }
+
+    svcrt_spin_unlock_irqrestore(&svcrt_ptable_lock, irq_state);
+
+    return ret;
+}
+
 int32 svcrt_ptable_ram_bind(uint32 slot, uint32 base, uint32 size)
 {
     svcrt_partition_table_t *pt = svcrt_ptable_get();

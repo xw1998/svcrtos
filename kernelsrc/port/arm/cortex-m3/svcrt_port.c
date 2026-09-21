@@ -191,19 +191,42 @@ uint32 svcrt_port_stack_init(uint32 stack_top, void (*entry)(void))
     return (uint32)p_sp;
 }
 
+/* Move the CPU to the idle PSP context and pick the Thread-mode privilege.
+ * CONTROL = 0x2 | CONTROL keeps MSP/PSP selection on the process stack
+ * and clears nPRIV (privileged); 0x3 | CONTROL additionally sets nPRIV.
+ * The per-task privilege of every later switch comes from
+ * svcrt_port_set_thread_priv(), so this is only the privilege of the
+ * idle context itself - kernel code, therefore privileged. */
 void svcrt_port_enter_idle(uint32 stack_ptr, uint32 use_priv)
 {
     svcrt_port_set_psp(stack_ptr);
 
     if(use_priv)
     {
-        svcrt_port_set_control(0x3 | svcrt_port_get_control());
+        svcrt_port_set_control(0x2 | svcrt_port_get_control());
     }
     else
     {
-        svcrt_port_set_control(0x2 | svcrt_port_get_control());
+        svcrt_port_set_control(0x3 | svcrt_port_get_control());
     }
     svcrt_port_isb();
+}
+
+/* Per-task privilege, applied on every switch: an unprivileged task must
+ * become privileged again before the kernel task that follows it resumes.
+ * Running in Handler mode is what makes both directions possible - the
+ * write itself is always privileged there, so unprivileged code cannot
+ * raise its own level. Only bit0 is touched and only when it differs. */
+void svcrt_port_set_thread_priv(uint32 is_priv)
+{
+    uint32 ctrl = svcrt_port_get_control();
+    uint32 want = (is_priv != 0u) ? (ctrl & ~1u) : (ctrl | 1u);
+
+    if(want != ctrl)
+    {
+        svcrt_port_set_control(want);
+        svcrt_port_isb();
+    }
 }
 
 /* ============================================================
