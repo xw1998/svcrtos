@@ -84,7 +84,7 @@ ark_vfs_port_hooks(&hooks);
 
 ### 3. Filesystems: plug in, do not modify
 
-`ark_vfs_devfs.c` is the example: ~250 lines turn the kernel's device
+`ark_vfs_devfs.c` is the example: ~380 lines turn the kernel's device
 registry into `/dev/uart0`, `/dev/nor0`, and so on.
 
 ```c

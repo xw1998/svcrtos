@@ -6,7 +6,8 @@
 * questions and hands the rest down:
 *
 *   - which mount point owns this path?   (longest prefix wins)
-*   - is that path allowed to be written? (mount flags, then fs caps)
+*   - is that path allowed to be written? (the mount's ARK_MNT_RO flag;
+*     ark_vfs_fsdrv_t.caps is declarative metadata, not a gate)
 *   - which open file does this fd name?  (a fixed table, no allocation)
 *
 * Everything below the fsdrv line sees only a normalised path relative to a

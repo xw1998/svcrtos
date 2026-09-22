@@ -4,7 +4,7 @@
 *
 * It exists for two reasons: as a usable scratch filesystem (a shell's /tmp,
 * a config area, a place to stage an image before flashing), and as a worked
-* example of the fsdrv contract - about 300 lines, no allocator, no backend.
+* example of the fsdrv contract - about 750 lines, no allocator, no backend.
 *
 * One instance per build.  Everything lives in static arrays sized by the
 * ARK_RAMFS_* macros in ark_vfs_ramfs.c.
