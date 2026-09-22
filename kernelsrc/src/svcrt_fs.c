@@ -407,6 +407,20 @@ uint8 svcrt_fs_mounted(void)
     return g_fs.mounted;
 }
 
+int32 svcrt_fs_volume(const char **dev, uint32 *offset, uint32 *size)
+{
+    if(g_fs.mounted == 0u)
+    {
+        return -1;      /* nothing up: there is no geometry to report */
+    }
+    /* g_fs.dev is the device object, not its name: report the registry key
+     * a caller can compare against the name it asked for. */
+    if(dev != 0)    { *dev    = (g_fs.dev != 0) ? g_fs.dev->name : 0; }
+    if(offset != 0) { *offset = g_fs.offset; }
+    if(size != 0)   { *size   = g_fs.size; }
+    return 0;
+}
+
 int32 svcrt_fs_format(const char *dev, uint32 offset, uint32 size)
 {
     struct lfs_config fmt_cfg;
@@ -1072,6 +1086,14 @@ int32 svcrt_fs_unmount(void)
 uint8 svcrt_fs_mounted(void)
 {
     return 0u;
+}
+
+int32 svcrt_fs_volume(const char **dev, uint32 *offset, uint32 *size)
+{
+    (void)dev;
+    (void)offset;
+    (void)size;
+    return -1;
 }
 
 int32 svcrt_fs_format(const char *dev, uint32 offset, uint32 size)

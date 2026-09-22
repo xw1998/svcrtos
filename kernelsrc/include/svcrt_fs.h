@@ -162,6 +162,15 @@ int32 svcrt_fs_rename(const char *old_path, const char *new_path);
 int32 svcrt_fs_list_names(const char *dir, char *out, uint32 out_size,
                          uint32 *count);
 
+/**
+ * @brief Geometry of the volume that is mounted, so a caller can check a
+ *        request against it instead of silently reusing whatever is up.
+ * @param dev/offset/size receive the values the mount actually used; a
+ *        requested size of 0 is already resolved to "to the end of the device".
+ * @return 0 while a volume is mounted, -1 when there is nothing to report.
+ */
+int32 svcrt_fs_volume(const char **dev, uint32 *offset, uint32 *size);
+
 int32 svcrt_fs_last_error(void);
 
 /**

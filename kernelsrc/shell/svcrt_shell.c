@@ -2818,7 +2818,8 @@ static int vfs_usage(void)
 {
     sh_out("\r\nusage:\r\n");
     sh_out("  mount                     list mount points\r\n");
-    sh_out("  mount <dev> <off> <size> <target>   mount a volume at <target>\r\n");
+    sh_out("  mount <target>            mount the board's default volume\r\n");
+    sh_out("  mount <dev> <off> <size> <target>   mount a window of <dev>\r\n");
     sh_out("  umount <target>           drop a mount point\r\n");
     sh_out("  ls [path]                 list a directory, default /\r\n");
     sh_out("  cat <path>                print a file\r\n");
@@ -2863,6 +2864,25 @@ static int cmd_vfs_mount(int argc, char *argv[])
                              (mi.source != 0) ? mi.source : "-",
                              (mi.ro != 0u) ? "ro" : "rw");
         }
+        return 0;
+    }
+
+    if(argc == 2)
+    {
+        /* 只给挂载点时用板载默认卷（config/svcrt_partition.h 的
+         * SVCRT_FS_*）。给窗口就按窗口来，两个形式的语义各自唯一——
+         * 这里不替任何人猜一个「大概这么大」。 */
+        int32 rc = svcrt_vfs_mount_volume(SVCRT_FS_DEV_NAME,
+                                          (uint32)SVCRT_FS_BASE,
+                                          (uint32)SVCRT_FS_SIZE, argv[1]);
+
+        if(rc != 0)
+        {
+            return vfs_fail("mount", rc);
+        }
+
+        ark_shell_printf("\r\n%s mounted at %s\r\n", SVCRT_FS_DEV_NAME,
+                         argv[1]);
         return 0;
     }
 
@@ -3062,7 +3082,7 @@ static int register_kernel_commands(void)
 #endif /* SVCRT_USE_FS */
 #if SVCRT_USE_VFS
     g_cmd_table[idx++] = ARK_SHELL_CMD("mount", cmd_vfs_mount,
-        "List mount points, or: mount <dev> <off> <size> <target>", 5);
+        "List mount points, or: mount <target> | mount <dev> <off> <size> <target>", 5);
     g_cmd_table[idx++] = ARK_SHELL_CMD("umount", cmd_vfs_umount,
         "Drop a mount point: umount <target>", 2);
     g_cmd_table[idx++] = ARK_SHELL_CMD("ls", cmd_vfs_ls,

@@ -235,15 +235,40 @@ int32 svcrt_vfs_mount_volume(const char *dev, uint32 offset, uint32 size,
         return rc;
     }
 
+    /* svcrt_fs 只有一个卷，所以「已经挂着」和「按你给的窗口挂」是两回事：
+     * 直接复用会把 dev/offset/size 静默丢掉，同一句 mount 在「卷已挂/未挂」
+     * 两种状态下就会给出不同的几何——那正是最难查的一类错答案。
+     * size==0 已经由 vol.size 归一化成实际长度，比较一律用归一化后的值。 */
     if (svcrt_fs_mounted() == 0u)
     {
-        if (svcrt_fs_mount(dev, offset, size) != 0)
+        if (svcrt_fs_mount(dev, offset, vol.size) != 0)
         {
             int32 raw = svcrt_fs_last_error();
-            /* 挂载不格式化：卷没格式化就该报错，不该顺手擦掉别人的数据 */
-            SVCRT_LOGE("vfs", "svcrt_fs_mount(%s) failed: last_error=%d (%s)",
-                       dev, (int)raw, svcrt_fs_error_name(raw));
+            /* 挂载不格式化：卷没格式化就该报错，不该顺手擦掉别人的数据。
+             * 请求的窗口一并打出来：littlefs 只回一个错误码，而「窗口和盘上
+             * 的卷几何对不上」是最常见的原因，现场得能自己算。 */
+            SVCRT_LOGE("vfs", "svcrt_fs_mount(%s, off=%u, size=%u) failed: "
+                       "last_error=%d (%s)", dev, (unsigned)offset,
+                       (unsigned)vol.size, (int)raw, svcrt_fs_error_name(raw));
             return ARK_E_IO;
+        }
+    }
+    else
+    {
+        const char *cur_dev  = NULL;
+        uint32      cur_off  = 0u;
+        uint32      cur_size = 0u;
+
+        if ((svcrt_fs_volume(&cur_dev, &cur_off, &cur_size) != 0) ||
+            (cur_dev == NULL) || (p_eq(cur_dev, dev) == 0) ||
+            (cur_off != offset) || (cur_size != vol.size))
+        {
+            SVCRT_LOGE("vfs", "a different volume is already mounted: "
+                       "%s off=%u size=%u (asked for %s off=%u size=%u)",
+                       (cur_dev != NULL) ? cur_dev : "?", (unsigned)cur_off,
+                       (unsigned)cur_size, dev, (unsigned)offset,
+                       (unsigned)vol.size);
+            return ARK_E_EXIST;
         }
     }
 

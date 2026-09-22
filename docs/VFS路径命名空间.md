@@ -1,6 +1,7 @@
 # VFS：Linux 风格路径命名空间
 
-> 对应提交 `f77b1b7`。**验证分档写清楚**：编译通过 / 主机测试通过 / 未上板。
+> 对应提交 `f77b1b7`（上板验证与挂载窗口修复见文末「验证状态」）。
+> **验证分档写清楚**：编译通过 / 主机测试通过 / 上板验证过。
 
 ## 为什么要有这一层
 
@@ -85,7 +86,8 @@ const char *svcrt_vfs_error_name(rc);
 | 命令 | 说明 |
 |---|---|
 | `mount` | 列出挂载点 |
-| `mount <dev> <off> <size> <target>` | 挂一个卷（`size 0` = 到设备末尾） |
+| `mount <target>` | 把**板载默认卷**（`SVCRT_FS_DEV_NAME/BASE/SIZE`）挂到 `<target>` |
+| `mount <dev> <off> <size> <target>` | 挂 `<dev>` 上的一段窗口（`size 0` = 到设备末尾） |
 | `umount <target>` | 卸一个挂载点 |
 | `ls [path]` | 列目录，默认 `/` |
 | `cat <path>` | 打印文件（不可打印字节转义成 `\xNN`） |
@@ -94,6 +96,39 @@ const char *svcrt_vfs_error_name(rc);
 与既有 `fs` 命令的分工：`fs` 管**一个卷**（挂 / 格式化 / 卷内读写），
 上面这组走的是**命名空间**。名字照 Linux 来——`ls` / `cat` / `mount` 已经是
 人人都懂的意思。
+
+### `size 0` 不等于「板子的那个卷」
+
+`size 0` 的字面意思是**到设备末尾**。这是一块 16 MiB NOR，所以
+`mount nor0 0 0 /mnt/nor` 说的是「从 0 到 16 MiB」；而这块板上的默认卷是
+4 MiB（`SVCRT_FS_SIZE`）。两个窗口不是同一个，littlefs 会读盘上的超级块、
+发现 `block_count` 对不上，回 `LFS_ERR_INVAL(-22)`。
+
+想挂「板子上那个卷」就写 `mount /mnt/nor`，别用四个参数去凑一个窗口。
+四个参数的形态是给**别的窗口**用的（分区、第二个区段），那时窗口宽度由你
+自己负责写对；写不对不是静默降级，是当场报错，日志里会带上请求的窗口和
+littlefs 的原始错误码：
+
+```
+[E][vfs:250] svcrt_fs_mount(nor0, off=0, size=16777216) failed: last_error=-22 (LFS_ERR_INVAL)
+mount: FAILED (-11: backend error)
+```
+
+### 已挂着一个卷时，窗口要对得上
+
+`svcrt_fs` 只有一个卷。如果它已经挂着一个卷（例如 App 开机时通过 SVC
+把它拉起来过），而这次请求的 `dev/off/size` 和它**不是同一个窗口**，那就
+**拒绝**（`ARK_E_EXIST`）而不是静默复用它：
+
+```
+[E][vfs:266] a different volume is already mounted: nor0 off=0 size=4194304 (asked for nor0 off=0 size=16777216)
+mount: FAILED (-7: already exists)
+```
+
+窗口一致时复用（这是 App 与 shell 共享同一个卷的正常路径）。之所以要
+卡这一道：静默复用会把 `dev/off/size` 整个丢掉，于是同一句 `mount` 在
+「卷已挂」和「卷未挂」两种状态下给出**不同的几何**，而两种状态在命令行
+上看起来一模一样——那是最难查的一类错答案。
 
 ## 功能开关
 
@@ -121,7 +156,7 @@ const char *svcrt_vfs_error_name(rc);
 
 | 板 | 结果 | Code |
 |---|---|---|
-| F427 | 0 Error / 1 Warning（唯一告警是基线 `svcrt_context.S` A1581W） | 92206 → **102678** |
+| F427 | 0 Error / 1 Warning（唯一告警是基线 `svcrt_context.S` A1581W） | 92206 → **103070** |
 | F401 | 0 Error / 1 Warning（同上） | 86222 → — |
 
 裁剪组合也各自编过：`-DSVCRT_USE_VFS_LFS=0`、`-DSVCRT_USE_VFS=0 -DSVCRT_USE_VFS_LFS=0`。
@@ -129,8 +164,23 @@ const char *svcrt_vfs_error_name(rc);
 **主机测试通过**（在 ark_vfs 仓库里）：核心 161 checks + SVCrtOS 端口 70 checks，
 共 231，全绿，`-Wall -Wextra -Werror` 干净。
 
-**未上板**：命名空间、`/dev` 枚举、`mount/ls/cat` 这一组命令都还没在真机上跑过。
-端口的锁只验过嵌套配平，没验过真并发——那需要两块任务在板上抢。
+**上板验证过**（F427，USART1/COM3，固件 `Code=103070`）：
+
+| 验的东西 | 设备原样回显 |
+|---|---|
+| 命名空间 | `mount` → `/dev`(devfs) + `/`(ramfs) + `/mnt/nor`(lfs, rw) |
+| `/dev` 枚举 | `ls /dev` → LED / LED2 / LED3 / COM1 / BLED |
+| 持久卷挂载 | `mount /mnt/nor` → `[I][vfs:291] volume nor0 mounted at /mnt/nor` |
+| 卷内列目录 | `ls /mnt/nor` → 9 entries（含 `keep.txt` 15 B） |
+| 卷内读文件 | `cat /mnt/nor/keep.txt` → `persistent-data` / `15 bytes` |
+| 窗口过大被拒 | `mount nor0 0 0 /mnt/nor` → `-11: backend error`，日志带 `size=16777216` |
+| 已挂载时窗口不符 | `mount nor0 0 0 /mnt/nor` → `-7: already exists`，日志写明两边窗口 |
+| 错误路径 | `ls\|cat\|rm /mnt/nor/nosuch` → `-1: no such file or mount` |
+| 目录当文件读 | `cat /` → `-5: is a directory` |
+| 字符设备读 | `cat /dev/LED` → `-11: backend error`（驱动拒绝，不是 EOF） |
+| 卸载 | `umount /mnt/nor` → 成功，`mount` 回到两行 |
+
+**未上板**：端口的锁只验过嵌套配平，没验过真并发——那需要两块任务在板上抢。
 
 ## 已知限制（说清楚做不到，不是静默降级）
 
@@ -141,6 +191,8 @@ const char *svcrt_vfs_error_name(rc);
 3. `svcrt_vfs_open_read()` 只放只读打开。写清一色走 `svcrt_vfs_write_file()`；
    多一个半成品标志集只会让人以为那几种组合都试过了。
 4. 只读挂载（`ro`）字段已经在 `mount_info` 里，但门面还没有「只读挂载」入口。
+5. `mount <dev> <off> <size> <target>` 的窗口由调用者负责写对：窗口比盘上
+   的卷大（常见于 `size 0`）会被 littlefs 拒绝，而不是被缩到实际卷大小。
 
 ## 上游文档（ark_vfs 仓库）
 
@@ -158,6 +210,5 @@ const char *svcrt_vfs_error_name(rc);
 
 ## 未做
 
-- 上板验证（含 `/dev` 下的设备按路径读写）
 - App 侧：POSIX 风格 `open/read/write` 到 VFS 的映射（属 App 兼容面那一条）
 - 组件升级：`tools/sync_ark_vfs.py --apply` 后跑一次全量编译即可
