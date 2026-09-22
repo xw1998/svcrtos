@@ -38,6 +38,12 @@ int32  svcrt_dev_register(const char *name, svcrt_dev_drv_t *drv, uint32 dev_num
 int32  svcrt_dev_unregister(const char *name);
 int32  svcrt_dev_get_count(void);
 
+/* 按设备表槽位索引取设备名，供 devfs 枚举用。
+ * idx  为槽位索引(0 ~ SVCRT_DEV_MAX_NUM-1)，与 open/close 的 handle 同一套编号。
+ * 空槽位或参数非法返回 -1，且 out[0]=0（不填空值）。
+ * 成功写出返回 0。 */
+int32  svcrt_dev_name_at(uint32 idx, char *out, uint32 max);
+
 int32  svcrt_dev_open_internal(char *name, uint32 param);
 int32  svcrt_dev_close_internal(int32 handle);
 int32  svcrt_dev_read_internal(int32 handle, uint8 *pdata, int32 len);

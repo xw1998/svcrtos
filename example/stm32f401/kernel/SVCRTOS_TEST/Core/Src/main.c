@@ -32,6 +32,7 @@
 #include "svcrt_installer.h"
 #include "svcrt_shell.h"
 #include "svcrt_log.h"
+#include "svcrt_vfs.h"
 #include "svcrt_mq.h"
 #include "svcrt_timer.h"
 #include "svcrt_fault.h"
@@ -332,6 +333,30 @@ static void svcrt_kernel_init(void)
      * invalid CONFIG region falls back to the compile-time default layout,
      * so a bad configuration never stops the kernel from booting. */
     svcrt_layout_init();
+
+
+#if (SVCRT_USE_VFS == 1)
+    /* Linux-style path namespace: / is a volatile scratch area, /dev mirrors
+     * the device registry, and volumes live under /mnt/<name> where an upper
+     * layer mounts them explicitly - which device holds a filesystem is board
+     * knowledge, not kernel knowledge.
+     *
+     * Brought up before any image is started, because that is the whole point
+     * of a namespace: an App should be able to open "/dev/uart0" from its own
+     * first line, not from the moment someone remembers to initialise it.
+     * Failing here is not fatal (the console and the images are still fine),
+     * but it is reported rather than swallowed, and the error name says which
+     * layer refused. */
+    {
+        int32 vfs_rc = svcrt_vfs_init();
+
+        if(vfs_rc != 0)
+        {
+            SVCRT_LOGE("BOOT", "svcrt_vfs_init failed: %d (%s)", (int)vfs_rc,
+                       svcrt_vfs_error_name(vfs_rc));
+        }
+    }
+#endif /* SVCRT_USE_VFS */
 
     /* Power-on recovery: erase what an interrupted install or an aborted
      * compaction left behind, and push any hole towards the top of the

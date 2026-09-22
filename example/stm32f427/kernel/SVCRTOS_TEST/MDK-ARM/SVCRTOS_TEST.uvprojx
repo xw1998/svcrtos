@@ -340,7 +340,7 @@
               <MiscControls>-DMDK_TRACE_SWD_EXTERNAL_PLATFORM -DMDK_TRACE_USE_CONFIG_FILE -DLFS_NO_MALLOC -DLFS_NO_ASSERT -DLFS_NO_DEBUG -DLFS_NO_WARN -DLFS_NO_ERROR</MiscControls>
               <Define>USE_HAL_DRIVER,STM32F427xx,SVCRT_USE_FPU=1,SVCRT_BOARD_CONFIG=\"svcrt_board_config.h\"</Define>
               <Undefine></Undefine>
-              <IncludePath>../../../../../kernelsrc/components/mdk_trace;../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../../../../../kernelsrc/include;../../../../../kernelsrc/fs;../../../../../kernelsrc/fs/littlefs;../../../../../board/stm32f427;../../../../../config;../../../../../kernelsrc/shell;../../../../../kernelsrc/shell/ark_shell</IncludePath>
+              <IncludePath>../../../../../kernelsrc/components/mdk_trace;../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../../../../../kernelsrc/include;../../../../../kernelsrc/fs;../../../../../kernelsrc/fs/littlefs;../../../../../board/stm32f427;../../../../../config;../../../../../kernelsrc/shell;../../../../../kernelsrc/shell/ark_shell;../../../../../kernelsrc/components/ark_vfs/include;../../../../../kernelsrc/components/ark_vfs/src;../../../../../kernelsrc/components/ark_vfs/port</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -650,6 +650,41 @@
             </File>
           </Files>
         </Group>
+          <Group>
+            <GroupName>SVCRTOS/VFS</GroupName>
+            <Files>
+              <File>
+                <FileName>svcrt_vfs.c</FileName>
+                <FileType>1</FileType>
+                <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_vfs.c</FilePath>
+              </File>
+              <File>
+                <FileName>svcrt_vfs_lfs.c</FileName>
+                <FileType>1</FileType>
+                <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_vfs_lfs.c</FilePath>
+              </File>
+              <File>
+                <FileName>ark_vfs_core.c</FileName>
+                <FileType>1</FileType>
+                <FilePath>..\..\..\..\..\kernelsrc\components\ark_vfs\src\ark_vfs_core.c</FilePath>
+              </File>
+              <File>
+                <FileName>ark_vfs_ramfs.c</FileName>
+                <FileType>1</FileType>
+                <FilePath>..\..\..\..\..\kernelsrc\components\ark_vfs\src\ark_vfs_ramfs.c</FilePath>
+              </File>
+              <File>
+                <FileName>ark_vfs_port_svcrtos.c</FileName>
+                <FileType>1</FileType>
+                <FilePath>..\..\..\..\..\kernelsrc\components\ark_vfs\port\ark_vfs_port_svcrtos.c</FilePath>
+              </File>
+              <File>
+                <FileName>ark_vfs_devfs.c</FileName>
+                <FileType>1</FileType>
+                <FilePath>..\..\..\..\..\kernelsrc\components\ark_vfs\port\ark_vfs_devfs.c</FilePath>
+              </File>
+            </Files>
+          </Group>
         <Group>
           <GroupName>SVCRTOS/Kernel</GroupName>
           <Files>

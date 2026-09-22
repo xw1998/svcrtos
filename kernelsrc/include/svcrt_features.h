@@ -114,6 +114,22 @@
 #define SVCRT_USE_FS                  1
 #endif
 
+/* Linux 风格路径命名空间（svcrt_vfs.c + components/ark_vfs）：/ 用 ramfs、
+ * /dev 是设备注册表的镜像、/mnt/<名字> 是持久卷。shell 的 mount/ls/cat
+ * 与 App 的按路径访问共用这一层。关掉后门面本身还在（返回 NOSYS），
+ * 但内核里不再有任何资源能按路径找到——所以实际上就是没有 VFS。
+ * 依赖 SVCRT_USE_BLK：持久卷后端是把 svcrt_blk 的一段窗口包成 ark_vfs
+ * 的 backend，本构建不提供「无块设备的 VFS」这种变体。 */
+#ifndef SVCRT_USE_VFS
+#define SVCRT_USE_VFS                 1
+#endif
+
+/* VFS 的 littlefs 后端（svcrt_vfs_lfs.c）：把 /mnt/<名字> 接到 svcrt_fs。
+ * 关掉后 /mnt 下仍可挂调用者自己实现的 fsdrv，只是内核不再自带持久卷桥 */
+#ifndef SVCRT_USE_VFS_LFS
+#define SVCRT_USE_VFS_LFS             1
+#endif
+
 /* 内核 Shell 控制台（SVC 0x1A）的开关不在这里，而是沿用既有的
  * SHELL_ENABLE（config/svcrt_partition.h）；svcrt_shell.c 的整文件门控
  * 与关闭时的空实现早已就位。不要在此再定义第二个 shell 开关：两个名字
@@ -167,6 +183,18 @@
 
 #if SVCRT_USE_FS && !SVCRT_USE_BLK
 #error "SVCRT_USE_FS=1 requires SVCRT_USE_BLK=1 (file system sits on the block layer)"
+#endif
+
+#if SVCRT_USE_VFS && !SVCRT_USE_BLK
+#error "SVCRT_USE_VFS=1 requires SVCRT_USE_BLK=1 (the port wraps an svcrt_blk window as the ark_vfs backend)"
+#endif
+
+#if SVCRT_USE_VFS_LFS && !SVCRT_USE_VFS
+#error "SVCRT_USE_VFS_LFS=1 requires SVCRT_USE_VFS=1 (the bridge plugs into the VFS namespace)"
+#endif
+
+#if SVCRT_USE_VFS_LFS && !SVCRT_USE_FS
+#error "SVCRT_USE_VFS_LFS=1 requires SVCRT_USE_FS=1 (the bridge drives the svcrt_fs volume)"
 #endif
 
 #endif /* __SVCRT_FEATURES_H__ */

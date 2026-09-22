@@ -132,6 +132,34 @@ int32 svcrt_dev_get_count(void)
     return svcrt_dev_count;
 }
 
+int32 svcrt_dev_name_at(uint32 idx, char *out, uint32 max)
+{
+    uint32 i;
+    if(out == 0 || max == 0u)
+    {
+        return -1;
+    }
+    out[0] = 0;
+    if(idx >= (uint32)SVCRT_DEV_MAX_NUM)
+    {
+        return -1;
+    }
+    if(svcrt_dev_list[idx].dev_name[0] == 0)
+    {
+        return -1;
+    }
+    for(i = 0; i + 1u < max; i++)
+    {
+        out[i] = svcrt_dev_list[idx].dev_name[i];
+        if(out[i] == 0)
+        {
+            break;
+        }
+    }
+    out[max - 1u] = 0;
+    return 0;
+}
+
 int32 svcrt_dev_open_internal(char *name, uint32 param)
 {
     int32 i;

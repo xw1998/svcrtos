@@ -43,6 +43,7 @@
 #include "svcrt_trace.h"
 #include "svcrt_blk.h"
 #include "svcrt_fs.h"
+#include "svcrt_vfs.h"
 #include "svcrt_audit.h"
 #include "svcrt_guard.h"
 #include "svcrt_crash.h"
@@ -2795,11 +2796,226 @@ static int cmd_fs(int argc, char *argv[])
 }
 
 
+
+#if SVCRT_USE_VFS
+/* ------------------------------------------------------------
+ * Linux 风格的路径命令
+ *
+ * 与 fs 命令的分工：fs 管「一个卷」（挂 / 格式化 / 卷内读写），这一组走的是
+ * 命名空间——/ 是易失便签区、/dev 是设备注册表、/mnt/<名字> 是持久卷。
+ * 名字照 Linux 来：ls / cat / mount 已经是人人都懂的意思，再造一套只会让
+ * 人多翻一次帮助。
+ * ------------------------------------------------------------ */
+
+static int vfs_fail(const char *what, int32 rc)
+{
+    ark_shell_printf("\r\n%s: FAILED (%d: %s)\r\n", what, (int)rc,
+                     svcrt_vfs_error_name(rc));
+    return -1;
+}
+
+static int vfs_usage(void)
+{
+    sh_out("\r\nusage:\r\n");
+    sh_out("  mount                     list mount points\r\n");
+    sh_out("  mount <dev> <off> <size> <target>   mount a volume at <target>\r\n");
+    sh_out("  umount <target>           drop a mount point\r\n");
+    sh_out("  ls [path]                 list a directory, default /\r\n");
+    sh_out("  cat <path>                print a file\r\n");
+    sh_out("  rm <path>                 remove a file\r\n");
+    sh_out("  off/size are decimal; size 0 means to the end of the device\r\n");
+    return -1;
+}
+
+static int vfs_ls_cb(const char *name, uint32 is_dir, uint32 size, void *arg)
+{
+    uint32 *count = (uint32 *)arg;
+
+    ark_shell_printf("  %-20s %8u%s\r\n", name, (unsigned)size,
+                     (is_dir != 0u) ? "  <dir>" : "");
+    (*count)++;
+    return 0;
+}
+
+static int cmd_vfs_mount(int argc, char *argv[])
+{
+    if(argc == 1)
+    {
+        svcrt_vfs_mount_info_t mi;
+        int32 n = svcrt_vfs_mount_count();
+        int32 i;
+
+        if(n <= 0)
+        {
+            sh_out("\r\nno mount points\r\n");
+            return 0;
+        }
+
+        sh_out("\r\ntarget                   fs      source     mode\r\n");
+        for(i = 0; i < n; i++)
+        {
+            if(svcrt_vfs_mount_info((uint32)i, &mi) != 0)
+            {
+                continue;
+            }
+            ark_shell_printf("  %-20s   %-6s  %-9s  %s\r\n", mi.target,
+                             (mi.fs != 0) ? mi.fs : "?",
+                             (mi.source != 0) ? mi.source : "-",
+                             (mi.ro != 0u) ? "ro" : "rw");
+        }
+        return 0;
+    }
+
+    if(argc == 5)
+    {
+        uint32 off = 0u;
+        uint32 size = 0u;
+        int32 rc;
+
+        if((parse_u32(argv[2], &off) != 0) || (parse_u32(argv[3], &size) != 0))
+        {
+            return vfs_usage();
+        }
+
+        rc = svcrt_vfs_mount_volume(argv[1], off, size, argv[4]);
+        if(rc != 0)
+        {
+            return vfs_fail("mount", rc);
+        }
+
+        ark_shell_printf("\r\n%s mounted at %s\r\n", argv[1], argv[4]);
+        return 0;
+    }
+
+    return vfs_usage();
+}
+
+static int cmd_vfs_umount(int argc, char *argv[])
+{
+    int32 rc;
+
+    if(argc != 2)
+    {
+        return vfs_usage();
+    }
+
+    rc = svcrt_vfs_umount(argv[1]);
+    if(rc != 0)
+    {
+        return vfs_fail("umount", rc);
+    }
+
+    ark_shell_printf("\r\n%s unmounted\r\n", argv[1]);
+    return 0;
+}
+
+static int cmd_vfs_ls(int argc, char *argv[])
+{
+    uint32 count = 0u;
+    const char *dir = (argc >= 2) ? argv[1] : "/";
+    int32 rc;
+
+    if(argc > 2)
+    {
+        return vfs_usage();
+    }
+
+    rc = svcrt_vfs_list(dir, vfs_ls_cb, &count);
+    if(rc != 0)
+    {
+        return vfs_fail("ls", rc);
+    }
+
+    ark_shell_printf("  %u entr%s\r\n", (unsigned)count,
+                     (count == 1u) ? "y" : "ies");
+    return 0;
+}
+
+static int cmd_vfs_cat(int argc, char *argv[])
+{
+    static uint8 buf[256];      /* 静态：不再向 shell 任务的栈要一段 */
+    int32 fd;
+    int32 n;
+    int32 crc;
+    uint32 total = 0u;
+    uint32 i;
+
+    if(argc != 2)
+    {
+        return vfs_usage();
+    }
+
+    fd = svcrt_vfs_open_read(argv[1]);
+    if(fd < 0)
+    {
+        return vfs_fail("cat", fd);
+    }
+
+    sh_out("\r\n");
+    while((n = svcrt_vfs_read(fd, buf, (uint32)sizeof(buf))) > 0)
+    {
+        for(i = 0u; i < (uint32)n; i++)
+        {
+            uint32 c = (uint32)buf[i];
+
+            if(c == (uint32)'\n')
+            {
+                sh_out("\r\n");
+            }
+            else if((c >= 0x20u) && (c < 0x7Fu))
+            {
+                ark_shell_printf("%c", (char)c);
+            }
+            else
+            {
+                ark_shell_printf("\\x%02X", (unsigned)c);
+            }
+        }
+        total += (uint32)n;
+    }
+
+    crc = svcrt_vfs_close(fd);
+
+    if(n < 0)
+    {
+        return vfs_fail("cat", n);
+    }
+    if(crc != 0)
+    {
+        return vfs_fail("cat (close)", crc);
+    }
+
+    ark_shell_printf("\r\n%u bytes\r\n", (unsigned)total);
+    return 0;
+}
+
+static int cmd_vfs_rm(int argc, char *argv[])
+{
+    int32 rc;
+
+    if(argc != 2)
+    {
+        return vfs_usage();
+    }
+
+    rc = svcrt_vfs_remove(argv[1]);
+    if(rc != 0)
+    {
+        return vfs_fail("rm", rc);
+    }
+
+    ark_shell_printf("\r\n%s removed\r\n", argv[1]);
+    return 0;
+}
+#endif /* SVCRT_USE_VFS */
 #endif /* SVCRT_USE_FS */
 static int register_kernel_commands(void)
 {
     int idx = g_cmd_count;
     int need = 17;
+#if SVCRT_USE_VFS
+    need += 5;                  /* mount / umount / ls / cat / rm */
+#endif
 
     if((idx + need) > ARK_SHELL_MAX_COMMANDS)
     {
@@ -2844,6 +3060,18 @@ static int register_kernel_commands(void)
     g_cmd_table[idx++] = ARK_SHELL_CMD("fs", cmd_fs,
         "File system: fs [mount | unmount | format | info | ls | wr | rd | put | rm | test | err]", 9);
 #endif /* SVCRT_USE_FS */
+#if SVCRT_USE_VFS
+    g_cmd_table[idx++] = ARK_SHELL_CMD("mount", cmd_vfs_mount,
+        "List mount points, or: mount <dev> <off> <size> <target>", 5);
+    g_cmd_table[idx++] = ARK_SHELL_CMD("umount", cmd_vfs_umount,
+        "Drop a mount point: umount <target>", 2);
+    g_cmd_table[idx++] = ARK_SHELL_CMD("ls", cmd_vfs_ls,
+        "List a directory in the VFS namespace: ls [path]", 2);
+    g_cmd_table[idx++] = ARK_SHELL_CMD("cat", cmd_vfs_cat,
+        "Print a file from the VFS namespace: cat <path>", 2);
+    g_cmd_table[idx++] = ARK_SHELL_CMD("rm", cmd_vfs_rm,
+        "Remove a file from the VFS namespace: rm <path>", 2);
+#endif /* SVCRT_USE_VFS */
 
 #if SVCRT_USE_AUDIT
     g_cmd_table[idx++] = ARK_SHELL_CMD("audit", cmd_audit,
