@@ -18,6 +18,9 @@
 
 typedef int32 svcrt_mqd_t;
 
+/* The POSIX spelling of the descriptor type. */
+typedef svcrt_mqd_t mqd_t;
+
 svcrt_mqd_t svcrt_posix_mq_open(const char *name, int oflag);
 int  svcrt_posix_mq_close(svcrt_mqd_t mqdes);
 int  svcrt_posix_mq_unlink(const char *name);

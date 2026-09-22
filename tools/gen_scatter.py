@@ -370,7 +370,7 @@ BANNER = """\
 """
 
 def emit(region_name, base, size, ram_base, ram_size, out, ccm=None, stack_size=0,
-         noinit=None):
+         heap_size=0, noinit=None):
     """输出一个映像的分散加载描述
 
     栈的约定（必须与内核 svcrt_loader_start 严格一致）：
@@ -379,10 +379,18 @@ def emit(region_name, base, size, ram_base, ram_size, out, ccm=None, stack_size=
     RW/ZI 区被限制在 [ram_base, 栈底)，所以编译期就撞不到栈；
     ARM_LIB_STACK 指向的正是内核会设置的栈顶，__main 设置 SP 后
     与内核推导值完全一致（不会出现“双份栈”）。
+
+    堆的约定（heap_size > 0 时才有，见 --heap-size）：
+        堆 = [栈底 - heap_size, 栈底)，RW/ZI 再往下让 heap_size
+    只有需要 C 库 malloc 的工程才打开；默认 0 表示"没有堆"，此时
+    malloc 会以 L6915E 链接失败，而不是运行期返回一个坏指针。
     """
     if stack_size > ram_size:
         raise SystemExit("RAM 区过小：栈 %d 字节超出区域 %d 字节" % (stack_size, ram_size))
-    rw_size = ram_size - stack_size
+    if stack_size + heap_size > ram_size:
+        raise SystemExit("RAM 区过小：栈 %d + 堆 %d 字节超出区域 %d 字节"
+                         % (stack_size, heap_size, ram_size))
+    rw_size = ram_size - stack_size - heap_size
     out.write(BANNER)
     out.write("\n")
     out.write("LR_%s 0x%08X 0x%08X  {\n" % (region_name, base, size))
@@ -396,12 +404,17 @@ def emit(region_name, base, size, ram_base, ram_size, out, ccm=None, stack_size=
               % (region_name, ram_base, rw_size))
     out.write("   .ANY (+RW +ZI)\n")
     out.write("  }\n")
+    # 堆：可选的空区，夹在 RW 区与栈之间。位置必须显式给出，顺序不能变——
+    # 散列加载里 `+0` 接的是上一个区的**上界**，而 RW 区的上界就是栈底，
+    # 所以把堆写在栈之后必然与栈重叠。默认不生成：应用若不用 malloc 就不该
+    # 白占这块 RAM，用错了还能在链接期就报出来（L6915E）。
+    if heap_size:
+        out.write("  ARM_LIB_HEAP 0x%08X EMPTY 0x%X {   ; C 库堆 %d 字节（malloc 用）\n  }\n"
+                  % (ram_base + rw_size, heap_size, heap_size))
     # 栈：RAM 区最高地址，向下生长（与内核 svcrt_loader_start 推导的栈顶一致）
     if stack_size:
         out.write("  ARM_LIB_STACK 0x%08X EMPTY -0x%X {   ; 栈 %d 字节（与内核推导的栈顶一致）\n  }\n"
                   % (ram_base + ram_size, stack_size, stack_size))
-    # 不再生成 ARM_LIB_HEAP：堆会与受栈保护的 RW 区重叠。
-    # 应用不应依赖 malloc；确需堆时请改由内核内存服务提供。
     if ccm and ccm[1] > 0:
         out.write("  RW_CCM 0x%08X 0x%08X  {   ; CCM/TCM 快速 RAM\n" % (ccm[0], ccm[1]))
         out.write("   .ANY (+RW +ZI)\n")
@@ -442,7 +455,7 @@ def image_region(layout, unit, units, img_type):
     return base, size, ram_base, ram_size, stack_size
 
 def gen_target(layout, target, out_path, raw=False, unit=0, units=1, img_type="app",
-               nominal=False, ram_size=None, rom_delta=0, ram_delta=0):
+               nominal=False, ram_size=None, rom_delta=0, ram_delta=0, heap_size=0):
     """生成一个映像的分散加载文件
 
     target="kernel"：内核固件区。
@@ -508,12 +521,12 @@ def gen_target(layout, target, out_path, raw=False, unit=0, units=1, img_type="a
                 raise SystemExit("ram_size=%d 装不下 %d 字节栈（RW/ZI 还要占地方）"
                                  % (ram_size, stack_size))
             emit("IMG", load_base, load_size, ram_base, ram_size, out,
-                 stack_size=stack_size)
+                 stack_size=stack_size, heap_size=heap_size)
         elif target == "image":
             base, size, ram_base, ram_size, stack_size = image_region(layout, unit, units, img_type)
             load_base, load_size = image_layout(base, size)
             emit("IMG", load_base, load_size, ram_base, ram_size, out,
-                 stack_size=stack_size)
+                 stack_size=stack_size, heap_size=heap_size)
         elif target == "boot":
             if v("BOOT_SIZE") <= 0:
                 raise SystemExit("BOOT_SIZE 为 0，未划分 Bootloader 区（如需 Boot，请先在配置头中设置 BOOT_SIZE）")
@@ -538,6 +551,9 @@ def main():
                     help="按链接标称基址生成（动态装载路径；负载基址 = 池基址 + 头长）")
     ap.add_argument("--ram-size", type=auto_int, default=None,
                     help="标称路径下镜像 RW/ZI + 栈 的 RAM 字节数（2 的幂，且需在块范围内）")
+    ap.add_argument("--heap-size", type=auto_int, default=0,
+                    help="给 C 库留的堆字节数（夹在 RW 与栈之间；0 = 不留堆，"
+                         "此时 malloc 在链接期就报 L6915E）")
     ap.add_argument("--rom-delta", type=auto_int, default=0,
                     help="链接基址额外偏移量（差异链接用，动态装载才需要）")
     ap.add_argument("--ram-delta", type=auto_int, default=0,
@@ -603,14 +619,16 @@ def main():
             gen_target(layout, "image", os.path.join(args.output, name + "_nom.sct"),
                        nominal=True, img_type=img_type, ram_size=args.ram_size)
             gen_target(layout, "image", os.path.join(args.output, name + "_dev.sct"),
-                       raw=True, unit=unit, units=units, img_type=img_type)
+                       raw=True, unit=unit, units=units, img_type=img_type,
+                       heap_size=args.heap_size)
         if layout.v("BOOT_SIZE") > 0:
             gen_target(layout, "boot", os.path.join(args.output, "boot.sct"))
     else:
         gen_target(layout, args.target, args.output, raw=args.raw,
                    unit=args.unit, units=args.units, img_type=args.type,
                    nominal=args.nominal, ram_size=args.ram_size,
-                   rom_delta=args.rom_delta, ram_delta=args.ram_delta)
+                   rom_delta=args.rom_delta, ram_delta=args.ram_delta,
+                   heap_size=args.heap_size)
     return 0
 
 if __name__ == "__main__":

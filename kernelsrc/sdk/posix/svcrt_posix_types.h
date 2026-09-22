@@ -34,6 +34,19 @@ typedef int32  svcrt_useconds_t;
 #define SVCRT_CLOCK_REALTIME   0
 #define SVCRT_CLOCK_MONOTONIC  1
 
+/* POSIX spellings of the same types, so ordinary POSIX source compiles with
+ * them unchanged. Fixed width on purpose: SVCrtOS is 32-bit only. Define
+ * SVCRT_POSIX_NO_STD_TYPES if your toolchain headers already provide any of
+ * these - a collision is a compile error, never a silent misread. */
+#ifndef SVCRT_POSIX_NO_STD_TYPES
+typedef svcrt_ssize_t    ssize_t;
+typedef svcrt_off_t      off_t;
+typedef svcrt_pid_t      pid_t;
+typedef svcrt_mode_t     mode_t;
+typedef svcrt_time_t     time_t;
+typedef svcrt_useconds_t useconds_t;
+#endif
+
 #ifndef SVCRT_POSIX_NO_TIMESPEC
 struct timespec
 {

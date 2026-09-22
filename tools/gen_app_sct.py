@@ -28,6 +28,9 @@ Keil 工程在 BeforeMake 钩子里调用本脚本，由它决定当前该生成
 
     python tools/gen_app_sct.py --project <uvprojx> --type app \
         --dev-slot 1 --ram-size 8192
+
+    --heap-size 给 C 库留一块堆（夹在 RW 与栈之间），需要 malloc 的工程才加；
+    不加就没有堆，malloc 在链接期直接报 L6915E。
 """
 
 from __future__ import print_function
@@ -56,6 +59,8 @@ def main():
                     help="开发槽位表条目号（裸镜像的固定落点，与 config 一致）")
     ap.add_argument("--ram-size", type=auto_int, default=None,
                     help="标称模式下镜像 RW/ZI + 栈 的 RAM 字节数（2 的幂）")
+    ap.add_argument("--heap-size", type=auto_int, default=0,
+                    help="给 C 库留的堆字节数（0 = 不留，malloc 会在链接期报错）")
     ap.add_argument("--mode", choices=["dev", "nominal"], default=None,
                     help="覆盖环境变量 SVCRT_SCT_MODE")
     ap.add_argument("--output", help="输出路径（默认 build/<工程输出名>.sct）")
@@ -92,6 +97,8 @@ def main():
 
     cmd = [sys.executable, os.path.join(REPO_ROOT, "tools", "gen_scatter.py"),
            "--target", "image", "--type", args.type, "--output", out]
+    if args.heap_size:
+        cmd += ["--heap-size", str(args.heap_size)]
     if mode == "dev":
         cmd += ["--raw", "--dev-slot", str(args.dev_slot)]
     else:

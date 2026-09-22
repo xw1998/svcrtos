@@ -20,6 +20,9 @@ typedef struct
     int32 handle;
 } svcrt_sem_t;
 
+/* The POSIX spelling, so `sem_t s;` compiles as written. */
+typedef svcrt_sem_t sem_t;
+
 int svcrt_posix_sem_init(svcrt_sem_t *sem, int pshared, uint32 value);
 int svcrt_posix_sem_destroy(svcrt_sem_t *sem);
 int svcrt_posix_sem_wait(svcrt_sem_t *sem);

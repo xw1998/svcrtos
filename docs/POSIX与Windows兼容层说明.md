@@ -33,8 +33,13 @@ kernelsrc/sdk/posix/
 ├── pthread.h              pthread 线程与互斥量
 ├── semaphore.h            无名信号量
 ├── mqueue.h               消息队列
-└── svcrt_win_compat.h     Windows 风格名字（CreateThread / Sleep / strcpy_s ...）
+├── svcrt_win_compat.h     Windows 风格名字（CreateThread / Sleep / strcpy_s ...）
+└── svcrt_libc_glue.c      C 库底层胶水（禁半主机 + printf 出口 + AC5/AC6 系统调用钩子）
 ```
+
+`svcrt_libc_glue.c` 是给**工具链 C 库**用的，不是给兼容层用的：它把 `printf` 的输出接到控制台设备上，并把
+半主机（semihosting）关掉。App 工程只加 `svcrt_posix.c` 也能跑，但那样 `printf` 没有出口；要打印就再加这个文件
+（详见第 10 节）。
 
 三种引入方式，按需选：
 
@@ -226,6 +231,19 @@ void  svcrt_thread_exit(void);
 - 传入不在 arena 内的指针时**拒绝**，而不是就地写坏内存。
 - 刻意**不做成内核服务**：内核没有堆，MPU 已经把 App 关在自己的窗口里，分配器与调用者处在特权边界的同一侧，是少一个出错环节。
 
+**工具链 C 库自己的堆另算。** 上面这个 arena 是兼容层提供的 `svcrt_posix_malloc`；一份**未修改**的普通程序调的是
+工具链 C 库的 `malloc`，它落在**散列文件里的库堆区**上。App 的散列默认不划堆区，于是用了 `malloc` 的程序会在**链接期**
+报 `L6915E: Heap was used, but no heap region was defined`——这是有意的（宁可链接失败，也不给一个运行期才炸的坏指针）。
+要开堆就在生成散列时给尺寸，`tools/gen_app_sct.py` / `tools/gen_scatter.py` 都支持：
+
+```bash
+py -3 tools/gen_app_sct.py --project posix_demo.uvprojx --type app --dev-slot 3 \
+    --ram-size 8192 --heap-size 2048
+```
+
+生成的三段布局固定为 `RW → ARM_LIB_HEAP → ARM_LIB_STACK`，顺序不能换：散列的 `+0` 接的是上一个区的**上界**，
+RW 的上界就是栈底，堆写在栈后面必然与受栈保护的区域重叠。不给 `--heap-size` 时行为与以前完全一致（默认 0）。
+
 **`SVCRT_POSIX_WRAP_STDLIB` 默认关闭。** 打开后 `malloc/free/calloc/realloc` 会被宏替换到本 arena。关闭的理由：一份原本用工具链 libc 堆的程序，被静默换到 1 KB 的 arena 上，会在运行期以 `ENOMEM` 的形式"莫名其妙"地失败；让 `malloc` 保持原样，要换堆就让用户显式打开这个宏来表态。
 
 ---
@@ -275,3 +293,74 @@ win.strcpy_s / strcpy_s_bounds / sprintf_s                           OK
 | `docs/配置区与安装策略.md` | 槽位 RAM 窗口与安装策略 |
 | `docs/SVCrtOS应用安装与调试指南.md` | 打包、安装、上板全流程 |
 | `docs/api/SVCrtOS_API参考.md` | SDK 接口参考 |
+
+---
+
+## 10. 一份未修改的 POSIX 程序跑起来了（上板实证）
+
+前面各节讲的是"能力清单"，这一节讲"**改的是 include 列表，不是程序结构**"这句话到底验到了什么程度。
+
+试验件：`example/stm32f427/app_sdk/POSIX_DEMO/Src/posix_demo.c`。它是一份普通的控制台程序——
+`<stdio.h>` / `<string.h>` / `<stdlib.h>` / `<ctype.h>` 加 `<unistd.h>` / `<pthread.h>` / `<semaphore.h>`，
+里面没有 `svcrt.h`、没有设备名、没有地址、没有分区号。同一份源码在 Linux 上 `cc posix_demo.c -pthread` 就能编。
+
+### 10.1 为了让它能编过，兼容层补了什么
+
+| 缺口 | 补法 |
+|------|------|
+| `sem_t` / `mqd_t` 这类 POSIX 名字 | `semaphore.h` 补 `typedef svcrt_sem_t sem_t;`，`mqueue.h` 补 `typedef svcrt_mqd_t mqd_t;`（内核侧的类型名不变） |
+| `ssize_t` / `off_t` / `pid_t` / `mode_t` / `time_t` / `useconds_t` | `svcrt_posix_types.h` 统一给别名，可用 `SVCRT_POSIX_NO_STD_TYPES` 关掉（工具链已经提供时） |
+| App 侧误拉分区头 | `svcrt_posix.c` 原本 include `svcrt_config.h`（会牵出 `svcrt_partition.h`，App 禁止），改为自包含的 `svcrt_features.h` |
+
+### 10.2 printf 的出口：C 库底层胶水
+
+`svcrt_libc_glue.c` 做三件事：
+
+1. 声明 `__use_no_semihosting`（否则半主机把 `_sys_write` 接到调试器上，串口一个字节都没有）；
+2. `fputc` / `_ttywrch` 直接落到控制台设备（`svcrt_dev_write`），所以 `printf` 走的是普通设备路径；
+3. **AC5（ARMCC 5）专用**：定义全套 `_sys_open/_sys_close/_sys_write/_sys_read/_sys_istty/_sys_seek/_sys_ensure/_sys_flen`，
+   并同时定义 `__stdin_name` / `__stdout_name` / `__stderr_name`（值 `":tt"`）。
+
+第 3 条为什么要把名字也接管：AC5 的 `armlib/c_4f.l` 里，`sys_io.o`（源 `../clib/angel/sysapp.c`）**整套**定义了那 8 个
+`_sys_*`，而它被拉进映像的入口正是 `__std*_name` 这三个符号；不接管名字，`sys_io.o` 就与自定义的 `_sys_*` 全家族撞车
+（`L6200E: Symbol _sys_write multiply defined`）；接管了名字，`sys_io.o` 被挡在映像外，剩下的引用由自己的钩子满足。
+`_sys_open` 只认 `":tt"`（stdin/stdout/stderr 的固定名），其它一律返回 `-1`——**不能返回一个"看着成功"的句柄**，
+否则 `fopen()` 会拿着它读到空内容。
+
+### 10.3 App 工程怎么装配
+
+- **不要把 `svcrt_app_main.c` 加进工程**：它自带强 `int main(void)`，用户程序也有 `main`，AC5 会同时产出两个
+  `__ARM_use_no_argv` 定义，链接期 `L6200E`。入口用 `svcrt_app_start.s` → `__main` → 用户 `main()` 这条链即可。
+- 工程的 BeforeMake 钩子给散列生成传 `--heap-size`（第 6 节），否则用到 `malloc` 的程序链接不过。
+- **复制别的 App 工程当模板时，必须把 `.uvoptx` 里的 `<TargetName>` 一起改掉**。它是 Keil 的下载/调试入口索引：
+  名字写着旧目标时，`UV4 -f` 会以 `Internal DLL Error` + `Flash Download failed - Target DLL has been cancelled`
+  失败，而同一时刻别的工程烧录完全正常——现象很像硬件坏了，实际只是这一个字段没改。
+
+### 10.4 真机结果（F427 + DAPLink，COM3 / 115200）
+
+烧进开发槽 3（分区表 id 5，base `0x080A0000`，auto-start），复位后控制台出现：
+
+```
+POSIX demo: an unmodified POSIX C program as an SVCrtOS App
+string  : HELLO SVCRTOS (13 chars)
+strcmp  : as expected
+sorted  : app 5 / vfs 12 / loader 21 / kernel 30
+heap    : malloc works
+sleep   : 1 s
+gate    : releasing both threads
+[A] released, running / [B] released, running
+[A] round 1..3 / [B] round 1..3
+threads : joined
+done    : entering heartbeat
+heartbeat                       ← 每 5 秒一次，一直持续
+```
+
+`app list` 同时确认它是在跑的那个实例：
+
+```
+id  type  state    auto  task  crash  held  base        size     ram         entry
+ 5   app   RUNNING  yes    6     0     none  0x080A0000  131072   0x2001C000  0x080A0001
+```
+
+结论分档：**上板验证过**——`printf` 真的从控制台出来，`pthread_create/join`、`sem_wait`、`qsort`、`malloc/free`、
+`sleep` 在板上都按 POSIX 语义工作，程序源码里没有一处 SVCrtOS 专有名字。

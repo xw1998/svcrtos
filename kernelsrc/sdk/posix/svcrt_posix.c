@@ -20,7 +20,7 @@
 #include <stdarg.h>
 #include "svcrt_posix.h"
 #include "svcrt_win_compat.h"
-#include "svcrt_config.h"    /* feature gates: SVCRT_USE_POSIX */
+#include "svcrt_features.h"  /* feature gates: SVCRT_USE_POSIX */
 #if SVCRT_USE_POSIX
 
 /* ==========================================================================
