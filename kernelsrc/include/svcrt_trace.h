@@ -31,6 +31,7 @@
 #define SVCRT_TRACE_H
 
 #include "svcrt_types.h"
+#include "svcrt_config.h"    /* feature gates: SVCRT_USE_MDK_TRACE */
 #include "mdk_trace.h"
 
 /* ---------------- event ids ---------------- */
@@ -96,7 +97,11 @@ void   svcrt_trace_isr(uint8 irq, uint8 kind);
  * It is a macro, not a function: a call would push a frame and clobber LR
  * before the snapshot could read the real EXC_RETURN.
  */
+#if SVCRT_USE_MDK_TRACE
 #define SVCRT_TRACE_FAULT_CAPTURE()   MDK_TRACE_FAULT_CAPTURE()
+#else
+#define SVCRT_TRACE_FAULT_CAPTURE()   do { } while(0)
+#endif
 
 /* ---------------- console command ---------------- */
 int    svcrt_trace_shell_cmd(int argc, char *argv[]);

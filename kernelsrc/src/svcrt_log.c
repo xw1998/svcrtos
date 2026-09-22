@@ -21,6 +21,7 @@
 #include "svcrt_log.h"
 #include "svcrt_dev.h"
 #include "svcrt_hal.h"
+#if SVCRT_USE_LOG
 
 /* Per-byte budget while the transmit pipe is full. */
 /* The console device queues into a 128 byte pipe that the TXE interrupt */
@@ -335,3 +336,81 @@ int32 svcrt_log_svc(uint32 level, const char *tag, const char *msg)
     svcrt_log_emit(level, tag, 0u, msg);
     return 0;
 }
+
+#else   /* SVCRT_USE_LOG == 0 */
+/* Kernel log compiled out.  The entry points stay so that every caller -
+ * the tick, the SVC dispatcher, the device write path, the config module -
+ * keeps compiling, and each one answers "off" rather than pretending the
+ * line went somewhere.  svcrt_console_is_handle() returning 0 is what sends
+ * a user mode write down the plain device path instead of the console
+ * shortcut, which is the honest routing when there is no console. */
+
+void svcrt_log_init(void)
+{
+}
+
+void svcrt_log_set_level(uint32 level)
+{
+    (void)level;
+}
+
+uint32 svcrt_log_get_level(void)
+{
+    return 0u;
+}
+
+void svcrt_log_emit(uint32 level, const char *tag, uint32 line, const char *msg)
+{
+    (void)level;
+    (void)tag;
+    (void)line;
+    (void)msg;
+}
+
+int32 svcrt_log_svc(uint32 level, const char *tag, const char *msg)
+{
+    (void)level;
+    (void)tag;
+    (void)msg;
+    return -1;
+}
+
+int32 svcrt_console_handle(void)
+{
+    return -1;
+}
+
+int32 svcrt_console_is_handle(int32 handle)
+{
+    (void)handle;
+    return 0;
+}
+
+int32 svcrt_console_write(const uint8 *p_data, uint32 len)
+{
+    (void)p_data;
+    (void)len;
+    return -1;
+}
+
+uint32 svcrt_console_tx_drop_count(void)
+{
+    return 0u;
+}
+
+/* 0 = "the lock was not taken", so a caller that checks the return value
+ * does not go on to unlock something that was never held. */
+int32 svcrt_console_lock(void)
+{
+    return 0;
+}
+
+void svcrt_console_unlock(void)
+{
+}
+
+uint32 svcrt_console_busy_count(void)
+{
+    return 0u;
+}
+#endif /* SVCRT_USE_LOG */

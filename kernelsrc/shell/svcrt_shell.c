@@ -62,6 +62,24 @@ static uint32 g_shell_stack[SHELL_TASK_STACK_SIZE / 4u];
  * 小工具
  * ============================================================ */
 
+/* Feature-gate fallbacks -------------------------------------------------
+ * Three always-on commands read a value that belongs to an optional module:
+ * `app` asks whether a volume is mounted, `app` / `drv` ask why a slot was
+ * held back, and `cfg show` prints the log level.  Rather than scattering
+ * #if through the readers, the call is rewritten to a constant when the
+ * module is switched off.  Only the value changes; the command still runs
+ * and still reports something true ("not mounted", "disabled").
+ * ---------------------------------------------------------------------- */
+#if !SVCRT_USE_FS
+#define svcrt_fs_mounted()          0u
+#endif
+#if !SVCRT_USE_CRASH_LOG
+#define svcrt_crash_disabled(i)     0u
+#define svcrt_crash_reason_name(r)  "crash journal disabled"
+#endif
+#if !SVCRT_USE_LOG
+#define svcrt_log_get_level()       0u
+#endif
 static void sh_out(const char *s)
 {
     platform_uart_send_string(s);
@@ -646,17 +664,31 @@ static int cmd_task(int argc, char *argv[])
         return 0;
     }
 
+#if SVCRT_USE_STACK_USAGE
+    /* With stack accounting on, the column is a real measurement. */
+    #define SHELL_TASK_PEAK_FMT  "%-8u"
+    #define SHELL_TASK_PEAK_ARG  , svcrt_task_table[i].stack_peak_low
+#else
+    /* Accounting compiled out: print "n/a", never a 0.  A zero in this
+     * column reads as "this task used no stack", which is a claim the build
+     * cannot make. */
+    #define SHELL_TASK_PEAK_FMT  "%-8s"
+    #define SHELL_TASK_PEAK_ARG  , "n/a"
+#endif
     ark_shell_printf("\r\nid  prio  state     period  wait    peak/low  entry\r\n");
     for(i = 0; i < svcrt_task_count; i++)
     {
-        ark_shell_printf(" %-3d %-5u %-8s  %-6d  %-6d  %-8u  0x%08X\r\n",
+        ark_shell_printf(" %-3d %-5u %-8s  %-6d  %-6d  " SHELL_TASK_PEAK_FMT
+                         "  0x%08X\r\n",
                          (int)i,
                          (uint32)svcrt_task_table[i].priority,
                          task_state_name((uint32)svcrt_task_table[i].status),
                          svcrt_task_table[i].period,
-                         svcrt_task_table[i].wait_time,
-                         svcrt_task_table[i].stack_peak_low,
+                         svcrt_task_table[i].wait_time
+                         SHELL_TASK_PEAK_ARG,
                          svcrt_task_table[i].entry);
+#undef SHELL_TASK_PEAK_FMT
+#undef SHELL_TASK_PEAK_ARG
     }
     ark_shell_printf("tasks: %d used / %u max\r\n",
                      (int)svcrt_task_count, (uint32)SVCRT_TASK_MAX_NUM);
@@ -677,6 +709,7 @@ static int cmd_task(int argc, char *argv[])
  * audit: does the shared state still satisfy its own invariants?
  * Read-only, so it is safe to run while the system keeps working.
  * ============================================================ */
+#if SVCRT_USE_KERNEL_GUARD
 /* ============================================================
  * guard: watchdog state and the per-slot heartbeat contract
  * ============================================================ */
@@ -759,6 +792,8 @@ static int cmd_guard(int argc, char *argv[])
     return 0;
 }
 
+#endif /* SVCRT_USE_KERNEL_GUARD */
+#if SVCRT_USE_CRASH_LOG
 /* ============================================================
  * crash：跨复位崩溃账本
  * @details 这是唯一能在复位后活下来的那份计数：它放在共享 RAM 尾部的
@@ -815,6 +850,8 @@ static int cmd_crash(int argc, char *argv[])
     return 0;
 }
 
+#endif /* SVCRT_USE_CRASH_LOG */
+#if SVCRT_USE_AUDIT
 static int cmd_audit(int argc, char *argv[])
 {
     svcrt_audit_result_t r;
@@ -857,6 +894,7 @@ static int cmd_audit(int argc, char *argv[])
     return 0;
 }
 
+#endif /* SVCRT_USE_AUDIT */
 static int cmd_sched(int argc, char *argv[])
 {
     int32  bad;
@@ -1425,6 +1463,7 @@ static int cmd_syncinfo(int argc, char *argv[])
     return 0;
 }
 
+#if SVCRT_USE_LOG
 static int cmd_log(int argc, char *argv[])
 {
     const char *names[5] = { "off", "error", "warning", "info", "debug" };
@@ -1468,6 +1507,7 @@ static int cmd_log(int argc, char *argv[])
     return 0;
 }
 
+#endif /* SVCRT_USE_LOG */
 /* ============================================================
  * pool：池内还能装下多少（与 SVC 0x12 子命令 5 同一数据源）
  * ============================================================ */
@@ -1767,6 +1807,7 @@ static int cmd_cfg(int argc, char *argv[])
     return -1;
 }
 
+#if SVCRT_USE_BLK
 /* ============================================================
  * blk: raw access to the non-volatile backends
  *
@@ -2164,6 +2205,8 @@ static int cmd_blk(int argc, char *argv[])
     return blk_usage();
 }
 
+#endif /* SVCRT_USE_BLK */
+#if SVCRT_USE_FS
 /* ============================================================
  * fs: the littlefs volume, on top of a block device from `blk list`
  *
@@ -2752,6 +2795,7 @@ static int cmd_fs(int argc, char *argv[])
 }
 
 
+#endif /* SVCRT_USE_FS */
 static int register_kernel_commands(void)
 {
     int idx = g_cmd_count;
@@ -2777,30 +2821,44 @@ static int register_kernel_commands(void)
     g_cmd_table[idx++] = ARK_SHELL_CMD("install", cmd_install,
         "Open a one-shot install window on the console UART: install [slot]", 2);
 
+#if SVCRT_USE_LOG
     g_cmd_table[idx++] = ARK_SHELL_CMD("log", cmd_log,
         "Get or set runtime log level: log [0..4]", 2);
+#endif /* SVCRT_USE_LOG */
     g_cmd_table[idx++] = ARK_SHELL_CMD("syncinfo", cmd_syncinfo,
         "Dump semaphore / mutex / condition tables with their waiters", 1);
     g_cmd_table[idx++] = ARK_SHELL_CMD("pool", cmd_pool,
         "Free space left in the image pool", 1);
+#if SVCRT_USE_MDK_TRACE
     g_cmd_table[idx++] = ARK_SHELL_CMD("trace", svcrt_trace_shell_cmd,
         "Kernel event trace: trace [start | stop | reset | dump | mark <n>]", 3);
+#endif /* SVCRT_USE_MDK_TRACE */
     g_cmd_table[idx++] = ARK_SHELL_CMD("cfg", cmd_cfg,
         "Device layout config: cfg [show | load | clear]", 2);
+#if SVCRT_USE_BLK
     g_cmd_table[idx++] = ARK_SHELL_CMD("blk", cmd_blk,
         "Block devices: blk [list | probe | rd | wr | erase | test]", 5);
+#endif /* SVCRT_USE_BLK */
 
+#if SVCRT_USE_FS
     g_cmd_table[idx++] = ARK_SHELL_CMD("fs", cmd_fs,
         "File system: fs [mount | unmount | format | info | ls | wr | rd | put | rm | test | err]", 9);
+#endif /* SVCRT_USE_FS */
 
+#if SVCRT_USE_AUDIT
     g_cmd_table[idx++] = ARK_SHELL_CMD("audit", cmd_audit,
         "Structure self-audit: partition / slots / tasks vs their invariants", 1);
+#endif /* SVCRT_USE_AUDIT */
 
+#if SVCRT_USE_KERNEL_GUARD
     g_cmd_table[idx++] = ARK_SHELL_CMD("guard", cmd_guard,
         "Watchdog state and per-slot heartbeat contracts", 1);
+#endif /* SVCRT_USE_KERNEL_GUARD */
 
+#if SVCRT_USE_CRASH_LOG
     g_cmd_table[idx++] = ARK_SHELL_CMD("crash", cmd_crash,
         "Cross-reset crash journal: boots, per-slot fault counts and held slots", 1);
+#endif /* SVCRT_USE_CRASH_LOG */
 
     g_cmd_table[idx].name = NULL;
     g_cmd_table[idx].func = NULL;

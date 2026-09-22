@@ -114,6 +114,8 @@ static const char * const print_info[] = {
     #include "Languages/zh-CN/cmb_zh_CN_UTF8.h"
 #elif (CMB_PRINT_LANGUAGE == CMB_PRINT_LANGUAGE_CUSTOM)
     #include "cmb_language_custom.h"
+#include "svcrt_config.h"    /* feature gates: SVCRT_USE_CM_BACKTRACE */
+#if SVCRT_USE_CM_BACKTRACE
 #else
     #error "CMB_PRINT_LANGUAGE defined error in 'cmb_cfg.h'"
 #endif
@@ -715,3 +717,5 @@ void cm_backtrace_fault(uint32_t fault_handler_lr, uint32_t fault_handler_sp) {
 
     print_call_stack(stack_pointer);
 }
+
+#endif /* SVCRT_USE_CM_BACKTRACE */

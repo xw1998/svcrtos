@@ -24,6 +24,25 @@
 
 #include "lfs.h"
 #include "lfs_svcrt_config.h"   /* asserts the LFS_NO_* build switches */
+#include "svcrt_config.h"    /* feature gates: SVCRT_USE_FS */
+/* Error codes of our own. Anything at or below -1000 belongs to SVCrtOS, and
+ * anything above it is a value littlefs returned as-is - that split is what
+ * lets a reader tell "the file system said this" from "the facade said this"
+ * without looking anything up. Do NOT dress our own conditions in littlefs
+ * numbers: a "-1" claiming to be LFS_ERR_IO would be read as a device error,
+ * while the real LFS_ERR_IO is -5. */
+/* Kept outside the gate on purpose: the stubbed branch answers with the same
+ * code the real one would, so a caller cannot tell the two apart by number. */
+#define SVCRT_FS_ERR_ARGS        (-1001)
+#define SVCRT_FS_ERR_NO_DEV      (-1002)
+#define SVCRT_FS_ERR_NO_VOLUME   (-1003)
+#define SVCRT_FS_ERR_MOUNTED     (-1004)
+#define SVCRT_FS_ERR_NOT_MOUNTED (-1005)
+#define SVCRT_FS_ERR_BLOCK       (-1006)
+#define SVCRT_FS_ERR_SHORT       (-1007)
+#define SVCRT_FS_ERR_BUSY        (-1008)
+
+#if SVCRT_USE_FS
 
 /* ============================================================
  * Volume + static buffers
@@ -37,20 +56,6 @@
 #define SVCRT_FS_ATTR_MAX        (64u)
 #define SVCRT_FS_BLOCK_CYCLES    (500)   /* wear levelling period, in erases */
 
-/* Error codes of our own. Anything at or below -1000 belongs to SVCrtOS, and
- * anything above it is a value littlefs returned as-is - that split is what
- * lets a reader tell "the file system said this" from "the facade said this"
- * without looking anything up. Do NOT dress our own conditions in littlefs
- * numbers: a "-1" claiming to be LFS_ERR_IO would be read as a device error,
- * while the real LFS_ERR_IO is -5. */
-#define SVCRT_FS_ERR_ARGS        (-1001)
-#define SVCRT_FS_ERR_NO_DEV      (-1002)
-#define SVCRT_FS_ERR_NO_VOLUME   (-1003)
-#define SVCRT_FS_ERR_MOUNTED     (-1004)
-#define SVCRT_FS_ERR_NOT_MOUNTED (-1005)
-#define SVCRT_FS_ERR_BLOCK       (-1006)
-#define SVCRT_FS_ERR_SHORT       (-1007)
-#define SVCRT_FS_ERR_BUSY        (-1008)
 
 /* Values of g_fs.stream_mode */
 #define SVCRT_FS_STREAM_NONE     (0u)
@@ -1038,3 +1043,163 @@ int32 svcrt_fs_list(const char *dir, svcrt_fs_list_cb_t cb, void *arg)
 
     return 0;
 }
+
+#else   /* SVCRT_USE_FS == 0 */
+/* File system facade compiled out.  Every entry point answers "nothing is
+ * mounted" - a caller must not be able to tell this apart from a board that
+ * simply has no volume, because that is exactly what it is: there is no
+ * storage here.  That is why mounting, listing and reading all fail rather
+ * than returning empty success. */
+
+int32 svcrt_fs_mount(const char *dev, uint32 offset, uint32 size)
+{
+    (void)dev;
+    (void)offset;
+    (void)size;
+    return -1;
+}
+
+int32 svcrt_fs_mount_default(void)
+{
+    return -1;
+}
+
+int32 svcrt_fs_unmount(void)
+{
+    return 0;       /* nothing is mounted, so dropping it is a no-op */
+}
+
+uint8 svcrt_fs_mounted(void)
+{
+    return 0u;
+}
+
+int32 svcrt_fs_format(const char *dev, uint32 offset, uint32 size)
+{
+    (void)dev;
+    (void)offset;
+    (void)size;
+    return -1;
+}
+
+int32 svcrt_fs_stat(uint32 *total, uint32 *used)
+{
+    (void)total;
+    (void)used;
+    return -1;
+}
+
+int32 svcrt_fs_stat_path(const char *path, uint32 *size, uint32 *is_dir)
+{
+    (void)path;
+    (void)size;
+    (void)is_dir;
+    return -1;
+}
+
+int32 svcrt_fs_write_file(const char *path, const uint8 *data, uint32 len)
+{
+    (void)path;
+    (void)data;
+    (void)len;
+    return -1;
+}
+
+int32 svcrt_fs_read_file(const char *path, uint8 *buf, uint32 max, uint32 *out_len)
+{
+    (void)path;
+    (void)buf;
+    (void)max;
+    (void)out_len;
+    return -1;
+}
+
+int32 svcrt_fs_open_read(const char *path)
+{
+    (void)path;
+    return -1;
+}
+
+int32 svcrt_fs_read_next(uint8 *buf, uint32 max)
+{
+    (void)buf;
+    (void)max;
+    return -1;
+}
+
+int32 svcrt_fs_close_read(void)
+{
+    return 0;       /* no stream is open */
+}
+
+int32 svcrt_fs_open_write(const char *path)
+{
+    (void)path;
+    return -1;
+}
+
+int32 svcrt_fs_write_next(const uint8 *buf, uint32 len)
+{
+    (void)buf;
+    (void)len;
+    return -1;
+}
+
+int32 svcrt_fs_close_write(void)
+{
+    return 0;       /* no stream is open */
+}
+
+int32 svcrt_fs_remove(const char *path)
+{
+    (void)path;
+    return -1;
+}
+
+int32 svcrt_fs_list(const char *dir, svcrt_fs_list_cb_t cb, void *arg)
+{
+    (void)dir;
+    (void)cb;
+    (void)arg;
+    return -1;
+}
+
+int32 svcrt_fs_read_at(const char *path, uint8 *buf, uint32 len, uint32 off,
+                       uint32 *out_len)
+{
+    (void)path;
+    (void)buf;
+    (void)len;
+    (void)off;
+    (void)out_len;
+    return -1;
+}
+
+int32 svcrt_fs_rename(const char *old_path, const char *new_path)
+{
+    (void)old_path;
+    (void)new_path;
+    return -1;
+}
+
+int32 svcrt_fs_list_names(const char *dir, char *out, uint32 out_size,
+                          uint32 *count)
+{
+    (void)dir;
+    (void)out;
+    (void)out_size;
+    (void)count;
+    return -1;
+}
+
+int32 svcrt_fs_last_error(void)
+{
+    return SVCRT_FS_ERR_NOT_MOUNTED;
+}
+
+const char *svcrt_fs_error_name(int32 lfs_err)
+{
+    (void)lfs_err;
+    return "SVCrtOS: nothing is mounted";
+}
+#endif /* SVCRT_USE_FS */

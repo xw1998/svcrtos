@@ -245,4 +245,50 @@ int32 svcrt_timer_delete_internal(int32 handle)
     return 0;
 }
 
+#else   /* SVCRT_USE_TIMER == 0 */
+/* Software timers compiled out.  Nothing is armed and every request is
+ * refused, so a caller is told "no" instead of getting a timer id whose
+ * callback will never run. */
+
+void svcrt_timer_module_init(void)
+{
+}
+
+void svcrt_timer_task_install(void)
+{
+}
+
+void svcrt_timer_tick_handler(void)
+{
+}
+
+int32 svcrt_timer_create_internal(char *name)
+{
+    (void)name;
+    return -1;
+}
+
+int32 svcrt_timer_start_internal(int32 handle, uint32 period_ms, uint8 mode,
+                                 void (*cb)(void *), void *arg)
+{
+    (void)handle;
+    (void)period_ms;
+    (void)mode;
+    (void)cb;
+    (void)arg;
+    return -1;
+}
+
+int32 svcrt_timer_stop_internal(int32 handle)
+{
+    (void)handle;
+    return -1;
+}
+
+int32 svcrt_timer_delete_internal(int32 handle)
+{
+    (void)handle;
+    return -1;
+}
+
 #endif /* SVCRT_USE_TIMER */

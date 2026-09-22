@@ -17,6 +17,8 @@
 */
 
 #include "svcrt_blk.h"
+#include "svcrt_config.h"    /* feature gates: SVCRT_USE_BLK */
+#if SVCRT_USE_BLK
 
 static const svcrt_blk_dev_t *g_dev[SVCRT_BLK_MAX_DEVS];
 static uint8                  g_ready[SVCRT_BLK_MAX_DEVS];
@@ -293,3 +295,76 @@ int32 svcrt_blk_erase(const svcrt_blk_dev_t *dev, uint32 off, uint32 len)
 
     return dev->erase(off, len);
 }
+
+#else   /* SVCRT_USE_BLK == 0 */
+/* Block layer compiled out: no device is ever registered, so the table is
+ * empty and every transfer is refused.  A file system built on top must
+ * therefore be switched off too (svcrt_features.h enforces that). */
+
+int32 svcrt_blk_register(const svcrt_blk_dev_t *dev)
+{
+    (void)dev;
+    return -1;
+}
+
+uint32 svcrt_blk_count(void)
+{
+    return 0u;
+}
+
+const svcrt_blk_dev_t *svcrt_blk_at(uint32 idx)
+{
+    (void)idx;
+    return 0;
+}
+
+const svcrt_blk_dev_t *svcrt_blk_find(const char *name)
+{
+    (void)name;
+    return 0;
+}
+
+int32 svcrt_blk_init(const svcrt_blk_dev_t *dev)
+{
+    (void)dev;
+    return -1;
+}
+
+uint8 svcrt_blk_is_ready(const svcrt_blk_dev_t *dev)
+{
+    (void)dev;
+    return 0u;
+}
+
+uint32 svcrt_blk_size(const svcrt_blk_dev_t *dev)
+{
+    (void)dev;
+    return 0u;
+}
+
+int32 svcrt_blk_read(const svcrt_blk_dev_t *dev, uint32 off, uint8 *buf, uint32 len)
+{
+    (void)dev;
+    (void)off;
+    (void)buf;
+    (void)len;
+    return -1;
+}
+
+int32 svcrt_blk_write(const svcrt_blk_dev_t *dev, uint32 off, const uint8 *buf, uint32 len)
+{
+    (void)dev;
+    (void)off;
+    (void)buf;
+    (void)len;
+    return -1;
+}
+
+int32 svcrt_blk_erase(const svcrt_blk_dev_t *dev, uint32 off, uint32 len)
+{
+    (void)dev;
+    (void)off;
+    (void)len;
+    return -1;
+}
+#endif /* SVCRT_USE_BLK */

@@ -12,7 +12,8 @@
 #include "svcrt_fault.h"
 #include "svcrt_log.h"
 #include "svcrt_hal.h"
-#include "svcrt_board_config.h"
+#include "svcrt_config.h"    /* feature gates: SVCRT_USE_KERNEL_GUARD */
+#if SVCRT_USE_KERNEL_GUARD
 
 #ifndef SVCRT_WDG_ENABLE
 #define SVCRT_WDG_ENABLE           (0)
@@ -404,3 +405,52 @@ int32 svcrt_guard_task_at(uint32 idx, svcrt_guard_task_t *p_out)
 
     return 0;
 }
+
+#else   /* SVCRT_USE_KERNEL_GUARD == 0 */
+/* Heartbeat contract compiled out.  Recording is a no-op (there is no table
+ * to record into) and an explicit beat is refused, so an application that
+ * asks for supervision is told "no", not "yes" - a caller that trusts a
+ * silent success would ship a watchdog contract nobody is keeping. */
+
+#include <string.h>
+
+void svcrt_guard_init(void)
+{
+}
+
+void svcrt_guard_tick(void)
+{
+}
+
+void svcrt_guard_svc(int32 task_id)
+{
+    (void)task_id;
+}
+
+int32 svcrt_guard_beat(int32 task_id, uint32 period_ms)
+{
+    (void)task_id;
+    (void)period_ms;
+    return -1;
+}
+
+void svcrt_guard_status(svcrt_guard_status_t *p_out)
+{
+    if(p_out != 0)
+    {
+        memset(p_out, 0, sizeof(*p_out));
+    }
+}
+
+int32 svcrt_guard_task_at(uint32 idx, svcrt_guard_task_t *p_out)
+{
+    (void)idx;
+    (void)p_out;
+    return -1;
+}
+
+uint32 svcrt_guard_task_slots(void)
+{
+    return 0u;
+}
+#endif /* SVCRT_USE_KERNEL_GUARD */

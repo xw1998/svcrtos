@@ -23,6 +23,8 @@
 #include "mdk_trace_swd.h"
 
 #include "ark_shell.h"
+#include "svcrt_config.h"    /* feature gates: SVCRT_USE_MDK_TRACE */
+#if SVCRT_USE_MDK_TRACE
 
 /* ---------------- state ---------------- */
 static volatile uint8 g_tr_on;
@@ -248,3 +250,28 @@ int svcrt_trace_shell_cmd(int argc, char *argv[])
     ark_shell_printf("usage : trace [start | stop | reset | dump | mark <n>]\r\n");
     return 0;
 }
+
+#else  /* !SVCRT_USE_MDK_TRACE -------------------------------------------- */
+/* Instrumentation is compiled out.  The kernel still calls these from the
+ * switch path and the board calls the fault capture from every fault handler,
+ * so they stay here as no-ops instead of forcing every call site into #if.
+ * Behaviour when off: nothing is recorded, every counter reads zero, and the
+ * console command refuses. */
+#include "svcrt_trace.h"
+
+void   svcrt_trace_init(void) {}
+void   svcrt_trace_reset(void) {}
+void   svcrt_trace_enable(uint8 on) { (void)on; }
+uint8  svcrt_trace_enabled(void) { return 0u; }
+uint32 svcrt_trace_capacity(void) { return 0u; }
+uint32 svcrt_trace_total(void) { return 0u; }
+uint32 svcrt_trace_last_cycles(void) { return 0u; }
+uint32 svcrt_trace_switch_count(uint8 task_id) { (void)task_id; return 0u; }
+uint32 svcrt_trace_overrun(void) { return 0u; }
+void   svcrt_trace_record(uint8 ev, uint8 arg) { (void)ev; (void)arg; }
+void   svcrt_trace_switch(uint8 from, uint8 to) { (void)from; (void)to; }
+void   svcrt_trace_wait(uint8 task_id) { (void)task_id; }
+void   svcrt_trace_isr(uint8 irq, uint8 kind) { (void)irq; (void)kind; }
+int    svcrt_trace_shell_cmd(int argc, char *argv[]) { (void)argc; (void)argv; return -1; }
+
+#endif /* SVCRT_USE_MDK_TRACE */

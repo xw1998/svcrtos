@@ -20,6 +20,8 @@
 #include <stdarg.h>
 #include "svcrt_posix.h"
 #include "svcrt_win_compat.h"
+#include "svcrt_config.h"    /* feature gates: SVCRT_USE_POSIX */
+#if SVCRT_USE_POSIX
 
 /* ==========================================================================
  * 1. errno
@@ -1486,3 +1488,5 @@ int svcrt_win_snprintf_s(char *dst, uint32 dst_size, const char *fmt, ...)
     }
     return written;
 }
+
+#endif /* SVCRT_USE_POSIX */

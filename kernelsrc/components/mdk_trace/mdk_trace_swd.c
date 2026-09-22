@@ -47,6 +47,8 @@ extern void     mdk_trace_swd_test_crit_exit(uint32_t pm);
  * returns a value that SWD_CRIT_EXIT takes to restore the previous state, and
  * SWD_NOW() must be a plain load (it is called from an ISR). */
 #include "mdk_trace_swd_platform.h"
+#include "svcrt_config.h"    /* feature gates: SVCRT_USE_MDK_TRACE */
+#if SVCRT_USE_MDK_TRACE
 
 #else
 
@@ -471,3 +473,5 @@ void mdk_trace_swd_fault_capture(void)
 }
 
 #endif /* MDK_TRACE_SWD_HOSTTEST */
+
+#endif /* SVCRT_USE_MDK_TRACE */

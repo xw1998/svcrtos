@@ -611,4 +611,58 @@ int32 svcrt_mq_delete_internal(int32 handle)
     return 0;
 }
 
+#else   /* SVCRT_USE_MQ == 0 */
+/* Message queues compiled out.  Creating one fails and every transfer is
+ * refused, so an application that asks for a queue is told "no" here rather
+ * than being handed a handle that quietly drops messages. */
+
+void svcrt_mq_module_init(void)
+{
+}
+
+int32 svcrt_mq_create_internal(char *name)
+{
+    (void)name;
+    return -1;
+}
+
+int32 svcrt_mq_send_internal(int32 handle, uint32 *buf, int32 len_words,
+                             int32 timeout_ms)
+{
+    (void)handle;
+    (void)buf;
+    (void)len_words;
+    (void)timeout_ms;
+    return -1;
+}
+
+int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words,
+                             int32 timeout_ms)
+{
+    (void)handle;
+    (void)buf;
+    (void)len_words;
+    (void)timeout_ms;
+    return -1;
+}
+
+int32 svcrt_mq_delete_internal(int32 handle)
+{
+    (void)handle;
+    return -1;
+}
+
+int32 svcrt_mq_send_from_isr_internal(int32 handle, void *buf, int32 len_words)
+{
+    (void)handle;
+    (void)buf;
+    (void)len_words;
+    return -1;
+}
+
+void svcrt_mq_release_task(int32 task_id)
+{
+    (void)task_id;
+}
+
 #endif /* SVCRT_USE_MQ */

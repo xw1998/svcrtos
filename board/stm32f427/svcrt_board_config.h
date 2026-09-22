@@ -13,7 +13,6 @@
 #undef  SVCRT_CPU_ARCH
 #define SVCRT_CPU_ARCH            SVCRT_ARCH_CORTEX_M4
 
-#define SVCRT_SYSTEM_CLOCK_HZ     (168000000)
 
 #define SVCRT_SHARE_MEM_SIZE      (0x8000)
 

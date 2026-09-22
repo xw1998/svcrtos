@@ -176,6 +176,96 @@ static inline int32 svcrt_spin_is_locked(svcrt_spinlock_t *p_lock)
     return (p_lock->lock != 0u) ? 1 : 0;
 }
 
+#else   /* SVCRT_USE_SPINLOCK == 0 */
+/* Fallback: no atomic CAS, just an interrupt-disabled critical section.
+ *
+ * On a single core the only way two contexts can meet inside one of these
+ * sections is an interrupt landing on the task that already holds it, and
+ * masking interrupts is exactly what stops that.  The lock word and the
+ * nesting count stay for the same reason the CAS version has them: a nested
+ * take on the same CPU must not deadlock, it must count up.  Callers still
+ * see the same lock semantics, so nothing above this line has to change. */
+
+typedef struct {
+    volatile uint32 lock;
+    volatile uint32 owner;
+    volatile uint32 nest;
+} svcrt_spinlock_t;
+
+#define SVCRT_SPINLOCK_INIT          { 0u, 0xffffffffu, 0u }
+#define SVCRT_SPINLOCK_DEFINE(name)  svcrt_spinlock_t name = SVCRT_SPINLOCK_INIT
+
+static inline void svcrt_spin_init(svcrt_spinlock_t *p_lock)
+{
+    p_lock->lock  = 0u;
+    p_lock->owner = 0xffffffffu;
+    p_lock->nest  = 0u;
+}
+
+static inline int32 svcrt_spin_trylock(svcrt_spinlock_t *p_lock)
+{
+    uint32 cpu = svcrt_port_cpu_id();
+
+    if((p_lock->nest != 0u) && (p_lock->owner == cpu))
+    {
+        p_lock->nest++;
+        return 1;
+    }
+
+    if(p_lock->lock != 0u)
+    {
+        return 0;
+    }
+
+    p_lock->lock  = 1u;
+    p_lock->owner = cpu;
+    p_lock->nest  = 1u;
+    return 1;
+}
+
+static inline void svcrt_spin_lock(svcrt_spinlock_t *p_lock)
+{
+    while(svcrt_spin_trylock(p_lock) == 0)
+    {
+        svcrt_port_spin_hint();
+    }
+}
+
+static inline void svcrt_spin_unlock(svcrt_spinlock_t *p_lock)
+{
+    if(p_lock->owner != svcrt_port_cpu_id())
+    {
+        return;
+    }
+
+    if(p_lock->nest > 1u)
+    {
+        p_lock->nest--;
+        return;
+    }
+
+    p_lock->nest  = 0u;
+    p_lock->owner = 0xffffffffu;
+    p_lock->lock  = 0u;
+}
+
+static inline void svcrt_spin_lock_irqsave(svcrt_spinlock_t *p_lock, uint32 *p_state)
+{
+    *p_state = SVCRT_ENTER_CRITICAL();
+    svcrt_spin_lock(p_lock);
+}
+
+static inline void svcrt_spin_unlock_irqrestore(svcrt_spinlock_t *p_lock, uint32 state)
+{
+    svcrt_spin_unlock(p_lock);
+    SVCRT_EXIT_CRITICAL(state);
+}
+
+static inline int32 svcrt_spin_is_locked(svcrt_spinlock_t *p_lock)
+{
+    return (p_lock->lock != 0u) ? 1 : 0;
+}
+
 #endif /* SVCRT_USE_SPINLOCK */
 
 #endif /* __SVCRT_SPIN_H__ */

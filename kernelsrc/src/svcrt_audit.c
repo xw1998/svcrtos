@@ -19,6 +19,7 @@
 #include "svcrt_layout_def.h"
 #include "svcrt_partition.h"
 #include "svcrt_crash.h"
+#if SVCRT_USE_AUDIT
 
 static svcrt_audit_result_t g_audit_last;
 
@@ -498,3 +499,35 @@ const char *svcrt_audit_name(uint32 bit)
     default:                     return 0;
     }
 }
+
+#else   /* SVCRT_USE_AUDIT == 0 */
+/* Structured self check compiled out.  The report comes back empty and the
+ * mask is 0, so a reader sees "no finding", not a fabricated clean bill of
+ * health; the loader still does its own minimum validity checks. */
+
+#include <string.h>
+
+void svcrt_audit_run(svcrt_audit_result_t *p_out)
+{
+    if(p_out != 0)
+    {
+        memset(p_out, 0, sizeof(*p_out));
+    }
+}
+
+uint32 svcrt_audit_last_mask(void)
+{
+    return 0u;
+}
+
+uint32 svcrt_audit_boot(void)
+{
+    return 0u;
+}
+
+const char *svcrt_audit_name(uint32 bit)
+{
+    (void)bit;
+    return "audit disabled";
+}
+#endif /* SVCRT_USE_AUDIT */

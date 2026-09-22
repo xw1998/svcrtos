@@ -21,6 +21,8 @@
 #if MDK_TRACE_ENABLE
 
 #include <stdarg.h>
+#include "svcrt_config.h"    /* feature gates: SVCRT_USE_MDK_TRACE */
+#if SVCRT_USE_MDK_TRACE
 
 #if MDK_TRACE_BACKEND_RTT
 #  include "mdk_trace_rtt.h"
@@ -916,3 +918,5 @@ unsigned mdk_trace_rtt_pending(void)
 }
 
 #endif /* MDK_TRACE_ENABLE */
+
+#endif /* SVCRT_USE_MDK_TRACE */
