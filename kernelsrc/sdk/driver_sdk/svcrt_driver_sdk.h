@@ -63,7 +63,20 @@ void   svcrt_task_wait_period(void);
 void   svcrt_task_delay(uint32 us);
 uint32 svcrt_get_time_ms(void);
 int32  svcrt_event_create(char *name);
-void   svcrt_event_wait(int32 handle, int32 timeout);
+int32  svcrt_event_wait(int32 handle, int32 timeout);
+
+/* Wait results, same values as the kernel headers (svcrt_def.h).  The
+ * driver SDK does not include them, so they are repeated here behind
+ * the usual guards. */
+#ifndef SVCRT_SYNC_OK
+#define SVCRT_SYNC_OK             (0)
+#endif
+#ifndef SVCRT_SYNC_ERR_TIMEOUT
+#define SVCRT_SYNC_ERR_TIMEOUT    (-2)
+#endif
+#ifndef SVCRT_SYNC_ERR_WOULDBLOCK
+#define SVCRT_SYNC_ERR_WOULDBLOCK (-4)
+#endif
 void   svcrt_event_set(int32 handle);
 
 #else

@@ -146,6 +146,22 @@ int32 svcrt_fs_list(const char *dir, svcrt_fs_list_cb_t cb, void *arg);
  *          raised by this facade itself use codes <= -1000 (SVCRT_FS_ERR_*).
  *          Print the number, and svcrt_fs_error_name() adds the symbol.
  */
+/** @brief Read len bytes starting at byte offset off (random access read).
+ *  A partial read at end of file returns fewer bytes than len, with that
+ *  number in *out_len - never an error. */
+int32 svcrt_fs_read_at(const char *path, uint8 *buf, uint32 len, uint32 off,
+                      uint32 *out_len);
+
+/** @brief Move/rename one entry. Both paths are inside the volume. */
+int32 svcrt_fs_rename(const char *old_path, const char *new_path);
+
+/** @brief Copy the names of one directory into a caller buffer, one per line.
+ *  Only complete entries are copied: when the buffer runs out, the last
+ *  partial name is dropped and *count counts what actually fits, so the
+ *  caller can tell a full listing from a truncated one. */
+int32 svcrt_fs_list_names(const char *dir, char *out, uint32 out_size,
+                         uint32 *count);
+
 int32 svcrt_fs_last_error(void);
 
 /**

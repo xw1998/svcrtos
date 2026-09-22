@@ -103,7 +103,7 @@ static void svcrt_mq_wake_one(svcrt_task_t **waiters)
         if(waiters[j] != 0)
         {
             waiters[j]->wait_time = 0;
-            waiters[j]->wake_reason = 0;
+            waiters[j]->wake_reason = SVCRT_WAKE_HANDOFF;
             waiters[j]->status = SVCRT_TASK_READY;
             svcrt_ready_add(SVCRT_TASK_IDX(waiters[j]));
             waiters[j] = 0;
@@ -115,6 +115,17 @@ static void svcrt_mq_wake_one(svcrt_task_t **waiters)
 static int32 svcrt_mq_waiter_add(svcrt_task_t **waiters, svcrt_task_t *p_tsk)
 {
     int32 j;
+
+    /* Same rule as svcrt_waiters_add: one task, one slot.  A user-mode
+     * waiter re-enters on every poll, so a duplicate must be recognised
+     * instead of filling the queue. */
+    for(j = 0; j < SVCRT_MAX_SYNC_WAITERS; j++)
+    {
+        if(waiters[j] == p_tsk)
+        {
+            return -2;
+        }
+    }
     for(j = 0; j < SVCRT_MAX_SYNC_WAITERS; j++)
     {
         if(waiters[j] == 0)
@@ -273,7 +284,8 @@ int32 svcrt_mq_send_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
 {
     int32 idx = handle & SVCRT_HANDLE_RELMASK;
     svcrt_mq_obj_t *p_mq;
-    svcrt_task_t *p_tsk;
+    /* Fetched up front: the timeout==0 branch below already needs it. */
+    svcrt_task_t *p_tsk = svcrt_task_get_current();
     int32 ret = 0;
     int32 remain = 0;
     uint32 start_tick = 0u;
@@ -300,6 +312,13 @@ int32 svcrt_mq_send_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
     /* 队列满：不等待则立即失败 */
     if(timeout_ms == 0)
     {
+        /* Non-blocking try.  Drop a leftover registration of our own:
+         * the user-mode poll loop closes a timed-out wait with timeout 0,
+         * and a stale entry would keep a queue slot busy forever. */
+        if(p_tsk != 0)
+        {
+            svcrt_mq_waiter_remove(p_mq->send_waiters, p_tsk);
+        }
         SVCRT_ENABLE_IRQ();
         return -1;
     }
@@ -315,16 +334,27 @@ int32 svcrt_mq_send_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
     start_tick = svcrt_kernel_tick;
     deadline   = (timeout_ms > 0) ? SVCRT_MS_TO_TICK((uint32)timeout_ms) : 0u;
 
-    if(svcrt_mq_waiter_add(p_mq->send_waiters, p_tsk) < 0)
     {
-        SVCRT_ENABLE_IRQ();
-        return -1;
+        int32 added = svcrt_mq_waiter_add(p_mq->send_waiters, p_tsk);
+
+        if((added < 0) && (added != -2))
+        {
+            SVCRT_ENABLE_IRQ();
+            return -1;              /* waiter queue is full */
+        }
     }
     /* 注意：此处不放开中断——入队与下面的 block_in_critical 必须在同一临界区内，
      * 否则 ISR 的唤醒会投给一个还没睡下的任务（唤醒丢失）。 */
 
     /* 阻塞等待接收者腾出空间（wake_reason: 0=被唤醒 1=超时） */
-    ret = svcrt_task_block_in_critical((uint32)timeout_ms);   /* 关中断返回 */
+    ret = svcrt_task_block_in_critical((uint32)timeout_ms);
+    /* User-mode waiter: register only, yield in the user wrapper */
+    if(svcrt_sync_in_handler() != 0u)
+    {
+        SVCRT_ENABLE_IRQ();
+        return SVCRT_SYNC_ERR_WOULDBLOCK;
+    }
+   /* 关中断返回 */
 
     if(ret < 0)
     {
@@ -360,15 +390,19 @@ int32 svcrt_mq_send_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
             return -1;                      /* 超时：未发送成功 */
         }
 
-        if(svcrt_mq_waiter_add(p_mq->send_waiters, p_tsk) < 0)
         {
-            SVCRT_ENABLE_IRQ();
-            return -1;
+            int32 added = svcrt_mq_waiter_add(p_mq->send_waiters, p_tsk);
+
+            if((added < 0) && (added != -2))
+            {
+                SVCRT_ENABLE_IRQ();
+                return -1;          /* waiter queue is full */
+            }
         }
 
         ret = svcrt_task_block_in_critical((uint32)remain);     /* 关中断返回 */
 
-        if(ret != SVCRT_WAKE_NORMAL)
+        if((ret & SVCRT_WAKE_HANDOFF) == 0)
         {
             svcrt_mq_waiter_remove(p_mq->send_waiters, p_tsk);
             SVCRT_ENABLE_IRQ();
@@ -390,7 +424,8 @@ int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
 {
     int32 idx = handle & SVCRT_HANDLE_RELMASK;
     svcrt_mq_obj_t *p_mq;
-    svcrt_task_t *p_tsk;
+    /* Fetched up front: the timeout==0 branch below already needs it. */
+    svcrt_task_t *p_tsk = svcrt_task_get_current();
     int32 reason;
     int32 remain = 0;
     int32 got = 0;
@@ -417,6 +452,13 @@ int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
 
     if(timeout_ms == 0)
     {
+        /* Non-blocking try.  Drop a leftover registration of our own:
+         * the user-mode poll loop closes a timed-out wait with timeout 0,
+         * and a stale entry would keep a queue slot busy forever. */
+        if(p_tsk != 0)
+        {
+            svcrt_mq_waiter_remove(p_mq->recv_waiters, p_tsk);
+        }
         SVCRT_ENABLE_IRQ();
         return -1;
     }
@@ -432,12 +474,24 @@ int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
     start_tick = svcrt_kernel_tick;
     deadline   = (timeout_ms > 0) ? SVCRT_MS_TO_TICK((uint32)timeout_ms) : 0u;
 
-    if(svcrt_mq_waiter_add(p_mq->recv_waiters, p_tsk) < 0)
     {
-        SVCRT_ENABLE_IRQ();
-        return -1;
+        int32 added = svcrt_mq_waiter_add(p_mq->recv_waiters, p_tsk);
+
+        if((added < 0) && (added != -2))
+        {
+            SVCRT_ENABLE_IRQ();
+            return -1;              /* waiter queue is full */
+        }
     }
     /* 同 mq_send：不放开中断，入队与 block_in_critical 必须同处一个临界区 */
+
+    /* Same rule as mq_send: a user-mode waiter only registers here,
+     * the yielding happens in the user-mode wrapper. */
+    if(svcrt_sync_in_handler() != 0u)
+    {
+        SVCRT_ENABLE_IRQ();
+        return SVCRT_SYNC_ERR_WOULDBLOCK;
+    }
 
     reason = svcrt_task_block_in_critical((uint32)timeout_ms);   /* 关中断返回 */
 
@@ -472,15 +526,19 @@ int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
             return -1;                      /* 超时未收到消息 */
         }
 
-        if(svcrt_mq_waiter_add(p_mq->recv_waiters, p_tsk) < 0)
         {
-            SVCRT_ENABLE_IRQ();
-            return -1;
+            int32 added = svcrt_mq_waiter_add(p_mq->recv_waiters, p_tsk);
+
+            if((added < 0) && (added != -2))
+            {
+                SVCRT_ENABLE_IRQ();
+                return -1;          /* waiter queue is full */
+            }
         }
 
         reason = svcrt_task_block_in_critical((uint32)remain);  /* 关中断返回 */
 
-        if(reason != SVCRT_WAKE_NORMAL)
+        if((reason & SVCRT_WAKE_HANDOFF) == 0)
         {
             svcrt_mq_waiter_remove(p_mq->recv_waiters, p_tsk);
             SVCRT_ENABLE_IRQ();

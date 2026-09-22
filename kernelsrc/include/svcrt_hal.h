@@ -44,6 +44,11 @@ void svcrt_port_dmb(void);
 void svcrt_port_disable_irq(void);
 void svcrt_port_enable_irq(void);
 void svcrt_port_switch_task(void);
+/* Is the CPU currently executing inside an exception (IRQ or SVC)? 1 = yes.
+ * A user-mode waiter can never yield inside an SVC handler (PendSV cannot
+ * preempt SVC), so sync primitives take the "register only + WOULDBLOCK"
+ * path for them and let the user-mode wrapper do the yielding. */
+uint8 svcrt_sync_in_handler(void);
 
 /**
 * @brief 在异常处理程序内部直接恢复目标任务上下文并异常返回

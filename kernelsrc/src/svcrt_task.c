@@ -458,7 +458,7 @@ void SVC_Server(void *p_svc_ctx)
                 SVCRT_SVC_RET(p_svc_ctx, svcrt_event_create_internal((char *)p[1]));
                 break;
             case 2:
-                svcrt_event_wait_internal(p[1], p[2]);
+                SVCRT_SVC_RET(p_svc_ctx, (uint32)svcrt_event_wait_internal(p[1], (int32)p[2]));
                 break;
             case 3:
                 svcrt_event_set_internal(p[1]);
@@ -714,6 +714,35 @@ void SVC_Server(void *p_svc_ctx)
                 break;
             case 8:
                 SVCRT_SVC_RET(p_svc_ctx, svcrt_mtx_delete_internal((int32)p[1]));
+                break;
+            case 9:
+                if(svcrt_kernel_user_name_ok((const void *)p[1], 8u) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
+                SVCRT_SVC_RET(p_svc_ctx, svcrt_cond_create_internal((char *)p[1]));
+                break;
+            case 10:
+                SVCRT_SVC_RET(p_svc_ctx, svcrt_cond_wait_internal((int32)p[1], (int32)p[2], (int32)p[3]));
+                break;
+            case 11:
+                SVCRT_SVC_RET(p_svc_ctx, svcrt_cond_signal_internal((int32)p[1]));
+                break;
+            case 12:
+                SVCRT_SVC_RET(p_svc_ctx, svcrt_cond_broadcast_internal((int32)p[1]));
+                break;
+            case 13:
+                SVCRT_SVC_RET(p_svc_ctx, svcrt_cond_delete_internal((int32)p[1]));
+                break;
+            case 14:
+                SVCRT_SVC_RET(p_svc_ctx, svcrt_cond_enqueue_internal((int32)p[1]));
+                break;
+            case 15:
+                SVCRT_SVC_RET(p_svc_ctx, svcrt_cond_poll_internal((int32)p[1]));
+                break;
+            case 16:
+                SVCRT_SVC_RET(p_svc_ctx, svcrt_cond_abort_internal((int32)p[1]));
                 break;
             default:
                 SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
@@ -1075,6 +1104,99 @@ void SVC_Server(void *p_svc_ctx)
                 svcrt_sched_lock_internal();
                 fs_ret = svcrt_fs_stat_path((const char *)p[1],
                                              (uint32 *)p[2], (uint32 *)p[3]);
+                svcrt_sched_unlock_internal();
+                SVCRT_SVC_RET(p_svc_ctx, (uint32)fs_ret);
+                break;
+
+            case 6:                 /* make sure the default volume is up */
+                if(svcrt_kernel_svc_args_ok(p, 4u) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
+                svcrt_sched_lock_internal();
+                /* Idempotent on purpose: svcrt_fs_mount() refuses to stack
+                 * on a live mount (that would drop the old lfs_t and leak its
+                 * state), and an App asking for the volume only means "I need
+                 * it up".  The shell keeps the strict mount/unmount pair. */
+                fs_ret = (svcrt_fs_mounted() != 0u) ? 0 : svcrt_fs_mount_default();
+                svcrt_sched_unlock_internal();
+                SVCRT_SVC_RET(p_svc_ctx, (uint32)fs_ret);
+                break;
+
+            case 7:                 /* unmount */
+                svcrt_sched_lock_internal();
+                fs_ret = svcrt_fs_unmount();
+                svcrt_sched_unlock_internal();
+                SVCRT_SVC_RET(p_svc_ctx, (uint32)fs_ret);
+                break;
+
+            case 8:                 /* read a slice: path, buf, len, off */
+                if(svcrt_kernel_svc_args_ok(p, 20u) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
+                if(svcrt_kernel_user_name_ok((const void *)p[1], SVCRT_FS_PATH_MAX) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
+                if(svcrt_kernel_dev_buf_ok((const void *)p[2], (int32)p[3]) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
+                {
+                    uint32 got = 0u;
+
+                    svcrt_sched_lock_internal();
+                    fs_ret = svcrt_fs_read_at((const char *)p[1], (uint8 *)p[2],
+                                              p[3], p[4], &got);
+                    svcrt_sched_unlock_internal();
+                    SVCRT_SVC_RET(p_svc_ctx,
+                                  (uint32)((fs_ret == 0) ? (int32)got : fs_ret));
+                }
+                break;
+
+            case 9:                 /* rename: old, new */
+                if(svcrt_kernel_svc_args_ok(p, 12u) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
+                if((svcrt_kernel_user_name_ok((const void *)p[1], SVCRT_FS_PATH_MAX) == 0u) ||
+                   (svcrt_kernel_user_name_ok((const void *)p[2], SVCRT_FS_PATH_MAX) == 0u))
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
+                svcrt_sched_lock_internal();
+                fs_ret = svcrt_fs_rename((const char *)p[1], (const char *)p[2]);
+                svcrt_sched_unlock_internal();
+                SVCRT_SVC_RET(p_svc_ctx, (uint32)fs_ret);
+                break;
+
+            case 10:                /* list names: dir, buf, size, count out */
+                if(svcrt_kernel_svc_args_ok(p, 20u) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
+                if(svcrt_kernel_user_name_ok((const void *)p[1], SVCRT_FS_PATH_MAX) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
+                if((svcrt_kernel_dev_buf_ok((const void *)p[2], (int32)p[3]) == 0u) ||
+                   (svcrt_kernel_dev_buf_ok((const void *)p[4], 4) == 0u))
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                    break;
+                }
+                svcrt_sched_lock_internal();
+                fs_ret = svcrt_fs_list_names((const char *)p[1], (char *)p[2],
+                                             p[3], (uint32 *)p[4]);
                 svcrt_sched_unlock_internal();
                 SVCRT_SVC_RET(p_svc_ctx, (uint32)fs_ret);
                 break;
@@ -1969,6 +2091,9 @@ void svcrt_task_block_internal(void)
  * 不允许出现中断打开的瞬间，否则 ISR 里的 post/unlock/mq_put 会把唤醒投递给
  * 一个还没睡下的任务，唤醒随即被吞掉（任务会一直阻塞到超时）。
  * @return 0=被显式唤醒，1=超时，-1=未进入阻塞（内核上下文或调度器已锁定） */
+volatile uint8 svcrt_dbg_wake_last[SVCRT_TASK_MAX_NUM];
+volatile uint8 svcrt_dbg_wake_hits[SVCRT_TASK_MAX_NUM];
+
 int32 svcrt_task_block_in_critical(uint32 timeout_ms)
 {
     svcrt_task_t *p_tsk;
@@ -2006,6 +2131,23 @@ int32 svcrt_task_block_in_critical(uint32 timeout_ms)
     SVCRT_DISABLE_IRQ();                /* 回到本函数与调用方共同的临界区 */
 
     reason = p_tsk->wake_reason;
+    /* Read side of the token handoff.  The producer side (svcrt_sync.c)
+     * is already provable through the object ledger; this is the only
+     * way to prove the reason bit survived the window between "woken"
+     * and "the woken task runs again".  One row per task, no locking:
+     * a torn read can only under-report, never invent a bit. */
+    {
+        extern volatile uint8 svcrt_dbg_wake_last[SVCRT_TASK_MAX_NUM];
+        extern volatile uint8 svcrt_dbg_wake_hits[SVCRT_TASK_MAX_NUM];
+
+        if((svcrt_current_task_id > 0) &&
+           (svcrt_current_task_id <= SVCRT_TASK_MAX_NUM))
+        {
+            svcrt_dbg_wake_hits[(uint8)(svcrt_current_task_id - 1)]++;
+            svcrt_dbg_wake_last[(uint8)(svcrt_current_task_id - 1)] =
+                (uint8)(reason & 0x7Fu);
+        }
+    }
     return reason;
 }
 

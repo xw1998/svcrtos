@@ -14,6 +14,17 @@ static svcrt_event_obj_t svcrt_events[SVCRT_EVENT_NUM];
 static int32 svcrt_event_waiter_add(svcrt_task_t **waiters, svcrt_task_t *p_tsk)
 {
     int32 j;
+
+    /* Same rule as svcrt_waiters_add: one task, one slot.  A user-mode
+     * waiter re-enters on every poll, so a duplicate must be recognised
+     * instead of filling the queue.  -2 = already registered. */
+    for(j = 0; j < SVCRT_MAX_EVENT_WAITERS; j++)
+    {
+        if(waiters[j] == p_tsk)
+        {
+            return -2;
+        }
+    }
     for(j = 0; j < SVCRT_MAX_EVENT_WAITERS; j++)
     {
         if(waiters[j] == 0)
@@ -154,7 +165,8 @@ int32 svcrt_event_create_internal(char *name)
 int32 svcrt_event_wait_internal(int32 event_handle, int32 timeout_ms)
 {
     int32 idx = event_handle & SVCRT_HANDLE_RELMASK;
-    svcrt_task_t *p_tsk;
+    /* Fetched up front: the timeout==0 branch below already needs it. */
+    svcrt_task_t *p_tsk = svcrt_task_get_current();
     int32 reason;
 
     if(SVCRT_EVENT_HANDLE_FLAG != (event_handle & SVCRT_HANDLE_MASK))
@@ -176,6 +188,12 @@ int32 svcrt_event_wait_internal(int32 event_handle, int32 timeout_ms)
      * 不登记等待者、不阻塞。 */
     if(timeout_ms == 0)
     {
+        /* Try once, and drop a leftover registration: event_set would
+         * otherwise ready a waiter that is no longer waiting. */
+        if(p_tsk != 0)
+        {
+            (void)svcrt_event_waiter_remove(svcrt_events[idx].waiting_tasks, p_tsk);
+        }
         SVCRT_ENABLE_IRQ();
         return SVCRT_SYNC_ERR_TIMEOUT;
     }
@@ -189,10 +207,25 @@ int32 svcrt_event_wait_internal(int32 event_handle, int32 timeout_ms)
 
     /* 等待队列满时必须报错返回：原先只跳过登记仍然睡下去，
      * set 时遍历不到它，该任务会永久阻塞。 */
-    if(svcrt_event_waiter_add(svcrt_events[idx].waiting_tasks, p_tsk) < 0)
+    {
+        int32 added = svcrt_event_waiter_add(svcrt_events[idx].waiting_tasks, p_tsk);
+
+        /* -2 means this task already sits in the queue: the user-mode
+         * polling wrapper comes back on every tick, so a second
+         * registration is the normal case, not a failure. */
+        if((added < 0) && (added != -2))
+        {
+            SVCRT_ENABLE_IRQ();
+            return -1;                  /* waiter queue is full */
+        }
+    }
+
+    /* User-mode waiter: register only.  event_set pops the waiters and
+     * leaves the flag set, so the next poll finds the event - no token. */
+    if(svcrt_sync_in_handler() != 0u)
     {
         SVCRT_ENABLE_IRQ();
-        return -1;
+        return SVCRT_SYNC_ERR_WOULDBLOCK;
     }
 
     /* 登记与置 WAIT 同处一个临界区（关中断进入、关中断返回），消除丢唤醒窗口 */
@@ -212,6 +245,15 @@ int32 svcrt_event_wait_internal(int32 event_handle, int32 timeout_ms)
     }
 
     if(reason == 1)
+    {
+        (void)svcrt_event_waiter_remove(svcrt_events[idx].waiting_tasks, p_tsk);
+        SVCRT_ENABLE_IRQ();
+        return SVCRT_SYNC_ERR_TIMEOUT;
+    }
+
+    /* Only event_set() clears a waiter and hands it the handoff bit, so a
+     * wake without it was never an event being set. */
+    if((reason & SVCRT_WAKE_HANDOFF) == 0)
     {
         (void)svcrt_event_waiter_remove(svcrt_events[idx].waiting_tasks, p_tsk);
         SVCRT_ENABLE_IRQ();
@@ -244,7 +286,7 @@ void svcrt_event_set_internal(int32 event_handle)
         if(p_w != 0)
         {
             p_w->wait_time   = 0;
-            p_w->wake_reason = SVCRT_WAKE_NORMAL;
+            p_w->wake_reason = SVCRT_WAKE_HANDOFF;
             p_w->status      = SVCRT_TASK_READY;
             svcrt_ready_add(SVCRT_TASK_IDX(p_w));
             svcrt_events[idx].waiting_tasks[j] = 0;

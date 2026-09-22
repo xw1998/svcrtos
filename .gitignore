@@ -62,5 +62,9 @@ _nova/
 _nova_*.log
 _build_*.log
 _flash_*.log
+_b_*.log
 *.bak_*
 *.pre_*
+
+# ---- 第三方资料与其抽取产物（开发板原理图 PDF 的文本抽取），不入库 ----
+_sch_text.txt

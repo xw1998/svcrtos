@@ -37,6 +37,7 @@
 #include "svcrt_ptable.h"
 #include "svcrt_log.h"
 #include "svcrt_fifo.h"
+#include "svcrt_sync.h"
 #include "svcrt_share.h"
 #include "svcrt_task.h"
 #include "svcrt_trace.h"
@@ -602,8 +603,48 @@ static int cmd_task(int argc, char *argv[])
 {
     int32 i;
 
-    (void)argc;
-    (void)argv;
+    if(argc >= 2)
+    {
+        /* One suspended task, its saved context frame, and nothing else.
+         * A blocked task is read-only here: the frame holds the return
+         * address of the call that never came back, which is the only
+         * honest answer to "where is it stuck". */
+        uint32 id = 0u;
+        volatile uint32 *sp;
+        int32 n;
+
+        if((parse_u32(argv[1], &id) != 0) ||
+           ((int32)id >= svcrt_task_count) ||
+           (svcrt_task_table[id].stack_ptr == 0u))
+        {
+            ark_shell_printf("task: no such task\r\n");
+            return 1;
+        }
+        sp = (volatile uint32 *)svcrt_task_table[id].stack_ptr;
+        ark_shell_printf("task %u sp=0x%08X st=%s frame words:\r\n",
+                         id, (uint32)svcrt_task_table[id].stack_ptr,
+                         task_state_name((uint32)svcrt_task_table[id].status));
+        for(n = 0; n < 56; n++)
+        {
+            /* Raw, unfiltered: the frame layout depends on whether the task
+             * owns a floating point extended frame, and guessing which word
+             * is the PC is how a backtrace turns into a wrong answer. */
+            ark_shell_printf("  sp+%-3u  0x%08X\r\n", (uint32)(n * 4), sp[n]);
+        }
+        if(argc >= 3)
+        {
+            /* Wake reason this task actually read on its last blocking
+             * call, and how many times it blocked at all.  4 = HANDOFF
+             * observed, 0 = a wake that carried no token claim. */
+            extern volatile uint8 svcrt_dbg_wake_last[];
+            extern volatile uint8 svcrt_dbg_wake_hits[];
+
+            ark_shell_printf("  blocks=%u last_reason=%u\r\n",
+                             (unsigned int)svcrt_dbg_wake_hits[id],
+                             (unsigned int)svcrt_dbg_wake_last[id]);
+        }
+        return 0;
+    }
 
     ark_shell_printf("\r\nid  prio  state     period  wait    peak/low  entry\r\n");
     for(i = 0; i < svcrt_task_count; i++)
@@ -1288,6 +1329,102 @@ int32 svcrt_shell_print_n(const char *msg, uint32 len)
 /* ============================================================
  * log：查看 / 调整运行期日志级别（内核与所有 App、驱动同时生效）
  * ============================================================ */
+static void syncinfo_row(const char *tag, int32 idx, int32 total,
+                          const svcrt_sync_dbg_row_t *row)
+{
+    int32 i;
+
+    if(idx == 0)
+    {
+        ark_shell_printf("\r\n%s  used  count  owner  creator  waiters\r\n", tag);
+    }
+    if(row->used == 0)
+    {
+        return;
+    }
+    ark_shell_printf(" %-3d %-5u %-6d %-6d %-8d ", (int)idx, (uint32)row->used,
+                     (int)row->count, (int)row->owner_id, (int)row->creator_id);
+    if(row->nwait == 0)
+    {
+        ark_shell_printf("-\r\n");
+        return;
+    }
+    for(i = 0; i < row->nwait; i++)
+    {
+        ark_shell_printf("t%u%s", (unsigned int)row->waiter_id[i],
+                         ((i + 1) < row->nwait) ? "," : "\r\n");
+    }
+    (void)total;
+}
+
+static int cmd_syncinfo(int argc, char *argv[])
+{
+    svcrt_sync_dbg_row_t row;
+    int32 i;
+
+    (void)argc;
+    (void)argv;
+
+    for(i = 0; i < (int32)svcrt_sync_sem_num(); i++)
+    {
+        if(svcrt_sync_sem_debug(i, &row) != 0)
+        {
+            break;
+        }
+        syncinfo_row("sem", i, (int32)svcrt_sync_sem_num(), &row);
+    }
+    for(i = 0; i < (int32)svcrt_sync_mtx_num(); i++)
+    {
+        if(svcrt_sync_mtx_debug(i, &row) != 0)
+        {
+            break;
+        }
+        syncinfo_row("mtx", i, (int32)svcrt_sync_mtx_num(), &row);
+    }
+    for(i = 0; i < (int32)svcrt_sync_cond_num(); i++)
+    {
+        if(svcrt_sync_cond_debug(i, &row) != 0)
+        {
+            break;
+        }
+        syncinfo_row("cond", i, (int32)svcrt_sync_cond_num(), &row);
+    }
+    for(i = 0; i < (int32)svcrt_sync_sem_num(); i++)
+    {
+        uint32 posts = 0u, takes = 0u, queued = 0u, last = 0u;
+        uint32 woke = 0u, reason = 0u, also = 0u;
+        uint32 qbefore = 0u;
+
+        if(svcrt_sync_sem_debug(i, &row) != 0)
+        {
+            break;
+        }
+        if(row.used == 0)
+        {
+            continue;
+        }
+        svcrt_sync_sem_trace(i, &posts, &takes, &queued, &last);
+        svcrt_sync_sem_handoff(i, &woke, &reason, &also);
+        qbefore = svcrt_sync_sem_qbefore(i);
+        ark_shell_printf("  sem %d: posts=%u takes=%u queued=%u last_waiter=t%u "
+                         "qbefore=%u woke=t%u reason=%u\r\n",
+                         (int)i, (unsigned int)posts, (unsigned int)takes,
+                         (unsigned int)queued, (unsigned int)last,
+                         (unsigned int)qbefore,
+                         (unsigned int)woke, (unsigned int)reason);
+    }
+    ark_shell_printf("sync diagnostics: ghost=%u dup=%u\r\n",
+                     (unsigned int)svcrt_diag_sync_ghost,
+                     (unsigned int)svcrt_diag_sync_dup);
+    ark_shell_printf("sync ghost  : n=%u idx=%d tid=t%u\r\n",
+                     (unsigned int)dbg_sem_ghost_cnt,
+                     (int)(int32)dbg_sem_ghost_idx,
+                     (unsigned int)dbg_sem_ghost_tid);
+    ark_shell_printf("sync appwait: hit=%u\r\n",
+                     (unsigned int)dbg_sem_appq_hit);
+    return 0;
+}
+
 static int cmd_log(int argc, char *argv[])
 {
     const char *names[5] = { "off", "error", "warning", "info", "debug" };
@@ -1319,6 +1456,12 @@ static int cmd_log(int argc, char *argv[])
 
     ark_shell_printf("fifo      : bad_header=%u bytes_lost=%u\r\n",
                      svcrt_fifo_bad_magic(), svcrt_fifo_bad_magic_bytes());
+
+    /* Token conservation on the sync objects.  ghost counts wakes that carried
+     * no SVCRT_WAKE_HANDOFF bit, i.e. successes the kernel refused to claim;
+     * dup counts a task that tried to register twice in one waiter queue. */
+    ark_shell_printf("sync      : ghost=%u dup=%u\r\n",
+                     svcrt_diag_sync_ghost, svcrt_diag_sync_dup);
     /* Non-zero means a FIFO header was overwritten: input or output
      * through it is being dropped for good, not merely throttled. */
 
@@ -2612,7 +2755,7 @@ static int cmd_fs(int argc, char *argv[])
 static int register_kernel_commands(void)
 {
     int idx = g_cmd_count;
-    int need = 16;
+    int need = 17;
 
     if((idx + need) > ARK_SHELL_MAX_COMMANDS)
     {
@@ -2626,7 +2769,7 @@ static int register_kernel_commands(void)
     g_cmd_table[idx++] = ARK_SHELL_CMD("drv", cmd_drv,
         "Driver slots: drv [list | start <slot> | stop <slot> | uninstall <slot>]", 4);
     g_cmd_table[idx++] = ARK_SHELL_CMD("task", cmd_task,
-        "List kernel tasks", 3);
+        "List kernel tasks, or dump one task frame: task <id>", 3);
     g_cmd_table[idx++] = ARK_SHELL_CMD("sched", cmd_sched,
         "Scheduler readiness self-check (0 = consistent)", 1);
     g_cmd_table[idx++] = ARK_SHELL_CMD("fault", cmd_fault,
@@ -2636,6 +2779,8 @@ static int register_kernel_commands(void)
 
     g_cmd_table[idx++] = ARK_SHELL_CMD("log", cmd_log,
         "Get or set runtime log level: log [0..4]", 2);
+    g_cmd_table[idx++] = ARK_SHELL_CMD("syncinfo", cmd_syncinfo,
+        "Dump semaphore / mutex / condition tables with their waiters", 1);
     g_cmd_table[idx++] = ARK_SHELL_CMD("pool", cmd_pool,
         "Free space left in the image pool", 1);
     g_cmd_table[idx++] = ARK_SHELL_CMD("trace", svcrt_trace_shell_cmd,
@@ -2762,7 +2907,7 @@ int32 svcrt_shell_release_task(uint32 task_id)
 }
 
 #else   /* SHELL_ENABLE == 0 */
-
+
 int32 svcrt_shell_ext_register(const svcrt_ushell_cmd_t *cmd)
 {
     (void)cmd;

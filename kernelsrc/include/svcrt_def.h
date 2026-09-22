@@ -46,17 +46,25 @@
 #define SVCRT_SYNC_OK             (0)
 #define SVCRT_SYNC_ERR_PARAM      (-1)
 #define SVCRT_SYNC_ERR_TIMEOUT    (-2)
+#ifndef SVCRT_SYNC_ERR_WOULDBLOCK
+#define SVCRT_SYNC_ERR_WOULDBLOCK (-4)
+#endif
 #define SVCRT_SYNC_ERR_DELETED    (-3)   /* 等待的同步对象/消息队列已被删除 */
 
 /* 任务唤醒原因（task->wake_reason）：等待类接口据此判断“是否真的拿到了资源”。
  * 对象被删除时等待者必须收到 2，否则会一直睡下去（永久泄漏）。 */
 #define SVCRT_WAKE_NORMAL         (0)    /* 被显式唤醒：已获得资源/事件 */
 #define SVCRT_WAKE_TIMEOUT        (1)    /* 等待超时 */
-#define SVCRT_WAKE_OBJ_DELETED    (2)    /* 等待的对象已被删除 */
+#define SVCRT_WAKE_OBJ_DELETED    (2)    /* 等待的同步对象/消息队列已被删除 */
+/* Bit, not a value: a wake that carries no SVCRT_WAKE_HANDOFF was not produced
+ * by a poster/unlocker/signal claiming this task, so it must never be reported
+ * to the caller as "you got the token". */
+#define SVCRT_WAKE_HANDOFF        (4)     /* 唤醒来自确定的令牌交接 */
 
 #define SVCRT_SEM_HANDLE_FLAG       (0x01300000)
 #define SVCRT_MTX_HANDLE_FLAG       (0x01400000)
 #define SVCRT_MQ_HANDLE_FLAG        (0x01500000)
 #define SVCRT_TIMER_HANDLE_FLAG     (0x01600000)
+#define SVCRT_COND_HANDLE_FLAG      (0x01700000)
 
 #endif

@@ -174,6 +174,12 @@
 #ifndef SVCRT_MQ_NUM
 #define SVCRT_MQ_NUM              (8)
 #endif
+
+/* 条件变量：与互斥量配对使用（等待时原子释放锁，醒来重新获取）。数量与
+ * 其它同步对象同级，够一组典型的“生产者 / 消费者”任务用。 */
+#ifndef SVCRT_COND_NUM
+#define SVCRT_COND_NUM            (8)
+#endif
 #ifndef SVCRT_MQ_DEPTH
 #define SVCRT_MQ_DEPTH            (8)
 #endif

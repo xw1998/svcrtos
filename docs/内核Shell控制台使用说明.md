@@ -39,7 +39,7 @@
 | `info` | `info` | 内核版本时间、分区表（ABI/硬件签名/各段地址与大小）、任务占用、时基 |
 | `app` | `app [list \| start <slot> \| stop <slot> \| uninstall <slot>]` | App 槽位表：type / 状态 / auto / 任务号 / 崩溃计数 / 基址 / 大小 / RAM 窗口 / 入口；启停或卸载单个槽 |
 | `drv` | `drv [list \| start <slot> \| stop <slot> \| uninstall <slot>]` | 驱动槽位表，语义同 `app` |
-| `task` | `task` | 内核任务表：优先级 / 状态 / 周期 / 等待时间 / 栈峰值 / 入口 |
+| `task` | `task [<id> [x]]` | 不带参数：内核任务表（优先级 / 状态 / 周期 / 等待时间 / 栈峰值 / 入口）。带 id：只打印那一个挂起任务的现场——`sp` / 状态 / **原样 56 个帧字**；再加第三个参数多打 `blocks=` 与 `last_reason=`（4 = 观察到 HANDOFF）。帧字故意不过滤：带不带 FPU 扩展帧决定哪个字是 PC，猜哪个字是 PC 就会把回溯变成错答案 |
 | `sched` | `sched` | 调度器自检：就绪集（256 位两级位图 + 每优先级链）与任务表**逐条**比对。一致时回 `sched: consistent (bitmap/links == task table)` 与 `ready=<就绪数> top=<最高优先级任务>`；不一致时逐条打印 `#idx prio= status= on_ready= next= prev=`，便于直接定位哪个任务漏挂链 |
 | `fault` | `fault` | 故障环形记录：类型 + 任务号 + 时刻（含 `INSTALLFAIL`） |
 | `install` | `install` | 打开一次性安装窗口，等待一个 `.svcapp` 镜像（主控先敲命令，再发文件） |
@@ -47,6 +47,12 @@
 | `pool` | `pool` | 镜像池空闲：`free` / `largest`，以及池内固定槽位类型占用 |
 | `trace` | `trace [start \| stop \| reset \| dump \| mark <n>]` | 内核事件 trace 的开关、复位、导出与打标记 |
 | `cfg` | `cfg [show \| load \| clear]` | 设备端布局配置：查看当前生效值 / 从配置区重新加载 / 清空配置区并回到编译期默认 |
+| `syncinfo` | `syncinfo` | 同步对象体检：sem / mtx / cond 三张表（count / owner / creator / waiters）+ 每个 sem 的 `posts takes queued last_waiter qbefore woke reason`，末尾三行 `ghost` / `dup` / `appwait hit`。判定口径见 §8 |
+| `crash` | `crash` | 跨复位崩溃日记：UNINIT 区地址与大小、`boots` / `seq`、每槽故障数 / 最近原因 / 禁用原因 / 禁用时刻 |
+| `guard` | `guard` | 每任务心跳合同：是否声明、周期、报到间隔、裁决位 |
+| `audit` | `audit` | 内核结构自审 |
+| `blk` | `blk [list \| probe \| rd \| wr \| erase \| test]` | 块设备（NOR / 内部 Flash）：枚举、探测、读写、擦除、自测 |
+| `fs` | `fs [mount \| unmount \| format \| info \| ls \| wr \| rd \| put \| rm \| test \| err]` | littlefs 卷：挂载 / 卸载 / 格式化 / 容量 / 列目录 / 写 / 读 / 收文件 / 删 / 自测 / 错误名。挂载点形如 `mounted nor0 at 0x0, 4194304 bytes` |
 | 内置 | `version` / `clear` / `echo` / `reboot` | `reboot` 走平台钩子，直接写 `AIRCR.SYSRESETREQ` 复位整机 |
 
 ## 4. 典型操作
@@ -172,3 +178,91 @@ drv: uninstalled (image invalidated; space returns once its sector is free)     
 实测（`build/BLED_DRV` + `build/BLED_APP` 两个镜像，池内共 4 个镜像挤在 0 号单元）：停掉并卸载前三个时都只作废、`pool free` 不动；卸载最后一个时该单元再无活槽位，扇区被擦除，`pool free` 由 776244 B 回到 786432 B（该单元整片 0xFF）。
 
 `pool` 给出的 `free` 是「Flash 上为 0xFF 的字节数」，因此包含每个镜像槽位里没被写到的尾巴（1KB 对齐扣掉实际长度的那部分）。它是**物理空闲**，不等于「下一次安装能拿到多少」；判断能不能装下要同时看 `largest`。
+
+## 文件系统（`fs`）
+
+卷建在**板载 NOR**（W25Q128，16 MB）上：卷从偏移 0 开始，大小由 `SVCRT_FS_SIZE` 给
+（F427 当前 4 MB）。挂载成功会打印一行：
+
+```
+fs: mounted nor0 at 0x0, 4194304 bytes
+```
+
+**挂载不跨复位保留。** 复位后卷是未挂载状态，要重新 `fs mount`；
+App 侧不要自己调严格挂载，走 SVC 0x1C 的子命令 6（幂等"确保挂载"），
+原因见《同步原语与令牌守恒.md》§6。
+
+`fs` 的 11 个子命令与 SVC 0x1C 的对应关系：
+
+| shell | SVC 0x1C 子命令 | 语义 |
+|-------|-----------------|------|
+| `fs wr` / `fs rd` | 1 / 2 | 创建（截断）并写入 / 读到调用方缓冲 |
+| `fs rm` | 3 | 删除 |
+| `fs info` | 4 / 5 | 单文件状态 / 卷容量 |
+| `fs mount` | 6 | **幂等**"确保默认卷已挂载"：已挂载就直接答 0，不再往下调 `svcrt_fs_mount()` |
+| `fs unmount` | 7 | 卸载 |
+| （无对应 shell 动词） | 8 | 按偏移读一片：path, buf, len, off —— App / 上位机用，shell 不暴露 |
+| （无对应 shell 动词） | 9 | 改名：old, new —— 同样只对 App / 上位机开放 |
+| `fs ls` | 10 | 列目录名到调用方缓冲（dir, buf, size, count out） |
+
+`fs format` / `fs put` / `fs test` / `fs err` 不对应上面任何一个子命令：
+format 走 `svcrt_fs_format()`（卷级格式化，完成后自动挂载，**卷上所有文件都会丢**）；
+put 是从控制台收一个文件进来；test 是内置自测序列；err 打印错误码的中文名。
+
+`fs ls` 的缓冲格式是**`\n` 分隔、结尾一个 NUL**（不是 NUL 分隔的名字数组）。
+解析方按 `\n` 切；装不下的整项不计入返回的 count。
+
+典型闭环：把镜像传进卷，再让内核从卷里就地安装——
+
+```bash
+py -3 tools/fs_put.py build/APP_DEMO/APP_DEMO.svcapp --port COM3 --path /APP_DEMO.svcapp
+# 串口：
+app stop 4
+app uninstall 4        # LOADED 态会回 "raw images are not managed here"，先 stop
+app install /APP_DEMO.svcapp
+app start 4
+```
+
+## 崩溃日记（`crash`）
+
+跨复位的崩溃账本，落在共享 RAM 尾部的 UNINIT 区（掉电才清零，复位不丢）。
+字段含义、判定规则与"不做什么"见《崩溃恢复与镜像版本把关.md》；这里只记怎么读输出：
+
+```
+journal: 0x2000BE00 +512 bytes (uninitialized RAM: kept across reset, cleared by power-on)
+boots=35 seq=100
+
+slot type  faults last        hold      held_at
+ 1   app    3      fault       fault     12840
+```
+
+- `boots >= 2` 说明上一回的内容真的活过了一次复位；
+- `faults` 是**连续**故障数，重新安装镜像时清零；
+- `hold` 非空 = 该槽已被禁用，`app start <slot>` 走的是人工放行路径，不会自动再跑起来。
+
+配套命令：`guard` 看心跳合同、`audit` 看结构自审、`fault` 看本次上电的故障环形记录。
+
+## 同步对象体检（`syncinfo`）
+
+```
+sem  used  count  owner  creator  waiters
+ 0   1     3      -1     1         t4
+  sem 0: posts=12 takes=9 queued=1 last_waiter=t4 qbefore=2 woke=t4 reason=4
+sync diagnostics: ghost=0 dup=940
+sync ghost  : n=0 idx=-1 tid=t0
+sync appwait: hit=480
+```
+
+判定口径（详细推导见《同步原语与令牌守恒.md》）：
+
+| 看什么 | 健康 | 不健康 |
+|--------|------|--------|
+| `ghost` | `0` | 任何非 0：有唤醒没带 `SVCRT_WAKE_HANDOFF` 却被当成成功，属令牌守恒被破坏 |
+| `dup` | 轮询模型下是**正常量**（每次轮询都会撞一次"已登记"） | 只有配合 `ghost` 非 0 才有意义 |
+| `count` 与 `waiters` | 令牌要么在 `count`，要么在某个就绪任务手里 | 两者同时非空且对不上，就是漂移 |
+| `reason` | 4 = HANDOFF，派发方明确认领了本任务 | 把 `reason == 0` 当成功判据会漏报失败 |
+| `appwait hit` | 用户态登记次数，即"走了轮询路径"的次数 | 恒 0 说明 App 侧一次都没走到轮询，先查是不是没在等待 |
+
+同源的另两个计数器在 `log` 里：`tx_drop` 才是控制台真实丢失字节数，
+`fifo_full_retries` 是被拒**尝试**数，不等于丢失；
+`bad_header` / `bytes_lost` 非 0 说明 FIFO 缓冲头被写穿，那条路上输出是被静默丢掉的。

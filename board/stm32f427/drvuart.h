@@ -32,7 +32,12 @@ typedef struct {
     volatile uint8 tx_idle;
 } uart_dev_t;
 
-#define UART_PIPE_SIZE  (128)
+/* 1024, not 128: the loader moves 512 B blocks and fs_put 256 B
+ * blocks, and a pipe smaller than a block makes svcrt_fifo_write
+ * spin and drop bytes (measured fifo_full_retries=197639).  One
+ * byte on the wire takes ~87 us at 115200 8N1, so the task side has
+ * time to drain before the next block lands. */
+#define UART_PIPE_SIZE  (1024)
 
 extern svcrt_dev_drv_t usart_drv;
 

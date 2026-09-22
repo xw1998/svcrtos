@@ -92,14 +92,19 @@ arena 与线程栈都是**静态**的：不用也占着。App 槽位 RAM 更大�
 | `open(name, flags)` | `svcrt_dev_open` | `fd` 就是设备句柄。只有 `O_RDONLY/O_WRONLY/O_RDWR/O_APPEND`（其中 `O_NONBLOCK` 仅记录，内核设备读写无阻塞语义）。 |
 | `read(fd,buf,n)` / `write(fd,buf,n)` | `svcrt_dev_read` / `svcrt_dev_write` | 失败置 `EIO`，参数非法置 `EBADF`。 |
 | `close(fd)` | `svcrt_dev_close` | |
+| `lseek(...)` | **不提供** | `fd` 是**设备句柄**，不是文件句柄：设备侧没有 offset 状态，`unistd.h` 里也没有这个声明。要按偏移读文件，走 `svcrt_fs_read_at()` / `svcrt_fs_read_file()`（内核文件服务），不要绕 POSIX 这一层 |
 | `sleep(s)` | `svcrt_task_wait(s*1000)` | 调度的整秒等待。 |
 | `usleep(us)` | 调度等待 | 内核按毫秒等待，**向上取整**：usleep 不会提前返回。 |
 | `nanosleep(req,rem)` | 调度等待 | 绝对时间等待，`rem` 仅在超时未睡够时填。 |
 | `time(t)` / `clock_gettime()` | 启动以来的 ms 节拍 | **没有 RTC，没有日历**。`CLOCK_REALTIME` 被别名到单调时钟，而不是报一个错的真实时间。 |
 | `sched_yield()` | 0ms 等待 | 内核没有"让出 CPU 但仍就绪"的独立原语，这是一次普通等待。 |
 
-不提供：`fork` / `exec*` / `getpid`（除桩）/ `localtime` / `strftime` / `open` 的 `O_CREAT`。
-理由：没有进程模型、没有文件系统。**编译期就报错**远好过运行期打开一个意想不到的东西。
+不提供：`fork` / `exec*` / `getpid`（除桩）/ `localtime` / `strftime` / `lseek` / `open` 的 `O_CREAT`。
+理由：没有进程模型；`open` 这一层只面向**设备**（`fd` 即设备句柄）。
+内核**有**文件系统（littlefs on NOR，见《SVCrtOS应用安装与调试指南.md》），
+但它走 `svcrt_fs_*` 与 SVC 0x1C，**不挂在 POSIX `open` 下面**：
+文件有路径与偏移，设备没有，两者共用一套 fd 语义只会造出一个看着能用的错东西。
+**编译期就报错**远好过运行期打开一个意想不到的东西。
 
 ### 4.2 errno（`errno.h`）
 

@@ -352,6 +352,10 @@ static svcrt_pth_slot_t svcrt_pth_slots[SVCRT_POSIX_THREAD_MAX];
 static svcrt_thread_stack_t svcrt_pth_stacks[SVCRT_POSIX_THREAD_MAX];
 static uint32 svcrt_pth_ready = 0u;
 static uint32 svcrt_pth_next_id = 1u;
+/* 创建者在 svcrt_thread_create() 之前发布的槽位号。
+ * 内核分配 task_id 只能在 create 返回之后才落到槽位上，这个窗口里新线程
+ * 可能已经被调度到；没有这个握手，它就只能靠"扫不到自己"来退出。 */
+static volatile int32 svcrt_pth_boot_slot = -1;
 
 static void svcrt_pth_init(void)
 {
@@ -374,6 +378,36 @@ static void svcrt_pth_init(void)
 /* The trampoline is the kernel visible entry point. It has no argument, so it
  * recovers its slot from the kernel task id - the creator guarantees that
  * field is filled in before the gate is released. */
+/* Trampoline bookkeeping for the App side shell dump ("pthinfo").  A join
+ * that never returns has four possible stories, and three of them are
+ * countable: the slot was claimed normally, it was claimed through the boot
+ * handshake, the worker gave up and left without a slot, or the completion
+ * post happened.  Reporting an opinion instead of one of those was the old
+ * behaviour. */
+volatile int32 svcrt_posix_pth_dbg_claim = 0;   /* slot claimed by task id    */
+volatile int32 svcrt_posix_pth_dbg_boot  = 0;   /* claimed via boot_slot      */
+volatile int32 svcrt_posix_pth_dbg_lost  = 0;   /* gave up: no slot to be     */
+volatile int32 svcrt_posix_pth_dbg_post  = 0;   /* trampoline posted done     */
+volatile int32 svcrt_posix_pth_dbg_exit  = 0;   /* pthread_exit() posted done */
+
+int32 svcrt_posix_pth_dbg_slots(svcrt_pth_dbg_t *out)
+{
+    uint32 i;
+
+    if(out == 0)
+    {
+        return -1;
+    }
+    for(i = 0u; i < (uint32)SVCRT_POSIX_THREAD_MAX; i++)
+    {
+        out[i].in_use  = svcrt_pth_slots[i].in_use;
+        out[i].task_id = svcrt_pth_slots[i].task_id;
+        out[i].gate    = svcrt_pth_slots[i].gate;
+        out[i].done    = svcrt_pth_slots[i].done;
+    }
+    return 0;
+}
+
 static void svcrt_pth_trampoline(void)
 {
     int32 tid = svcrt_thread_self();
@@ -385,14 +419,46 @@ static void svcrt_pth_trampoline(void)
         if((svcrt_pth_slots[i].in_use != 0u) && (svcrt_pth_slots[i].task_id == tid))
         {
             idx = i;
+            svcrt_posix_pth_dbg_claim++;
             break;
         }
     }
     if(idx == (uint32)-1)
     {
-        /* Should be unreachable: with no slot there is nothing to run. Ending
-         * the thread is the only safe answer - running somebody else's start
-         * routine would be far worse. */
+        int32 pending = svcrt_pth_boot_slot;
+
+        /* 扫不到自己不等于"没有自己"：内核刚把本线程放上就绪表时，创建者
+         * 还没来得及把 task_id 写进槽位。这里用创建者预先发布的槽位号认领，
+         * 然后等它把 task_id 补齐（这正是那把 start gate 存在的理由）。
+         * 直接退出会让 pthread_join 永远等不到 done。 */
+        if((pending >= 0) && (pending < (int32)SVCRT_POSIX_THREAD_MAX) &&
+           (svcrt_pth_slots[pending].in_use != 0u))
+        {
+            uint32 spin;
+
+            idx = (uint32)pending;
+            svcrt_posix_pth_dbg_boot++;
+            for(spin = 0u; spin < 200u; spin++)
+            {
+                if(svcrt_pth_slots[idx].task_id == tid)
+                {
+                    break;
+                }
+                /* 有界等待：闸门会在创建者发布完槽位后被 post */
+                (void)svcrt_sem_wait(svcrt_pth_slots[idx].gate, 5);
+            }
+            if(svcrt_pth_slots[idx].task_id != tid)
+            {
+                idx = (uint32)-1;
+            }
+        }
+    }
+    if(idx == (uint32)-1)
+    {
+        svcrt_posix_pth_dbg_lost++;
+        /* Still nobody to be. Ending the thread is the only safe answer -
+         * running somebody else's start routine would be far worse. But it
+         * must not be silent: the slot bookkeeping stays wrong forever. */
         svcrt_thread_exit();
         return;
     }
@@ -404,6 +470,7 @@ static void svcrt_pth_trampoline(void)
         retval = slot->start(slot->arg);
 
         slot->retval = retval;
+        svcrt_posix_pth_dbg_post++;
         /* Order matters: publish the result, wake the joiner, and only then
          * drop the task id so a recycled id cannot be matched to this slot. */
         (void)svcrt_sem_post(slot->done);
@@ -510,6 +577,10 @@ int svcrt_posix_pthread_create(svcrt_pthread_t *thread,
     slot->task_id   = -1;
     slot->in_use    = 1u;
 
+    /* 先把槽位号放出去，再建线程：新线程可能立刻被调度到，它需要一个
+     * 与 task_id 无关的握手点来认领自己的槽位。 */
+    svcrt_pth_boot_slot = idx;
+
     task_id = svcrt_thread_create(svcrt_pth_trampoline, stack, stack_bytes,
                                   priority, ((attr != 0) ? attr->period_ms : 0u));
     if(task_id <= 0)
@@ -519,6 +590,7 @@ int svcrt_posix_pthread_create(svcrt_pthread_t *thread,
         slot->gate = -1;
         slot->done = -1;
         slot->in_use = 0u;
+        svcrt_pth_boot_slot = -1;
         /* The kernel refuses for one of a small set of reasons; the two a
          * caller can act on are "no task slot" and "bad arguments". */
         errno = (task_id == -1) ? EINVAL : EAGAIN;
@@ -531,6 +603,7 @@ int svcrt_posix_pthread_create(svcrt_pthread_t *thread,
     /* Release the start gate only now: every field the trampoline reads is in
      * place, so the new thread cannot observe a half built slot. */
     (void)svcrt_sem_post(slot->gate);
+    svcrt_pth_boot_slot = -1;
     return 0;
 }
 
@@ -583,6 +656,7 @@ void svcrt_posix_pthread_exit(void *retval)
         if((svcrt_pth_slots[i].in_use != 0u) && (svcrt_pth_slots[i].task_id == tid))
         {
             svcrt_pth_slots[i].retval = retval;
+            svcrt_posix_pth_dbg_exit++;
             (void)svcrt_sem_post(svcrt_pth_slots[i].done);
             svcrt_pth_slots[i].task_id = -1;
             break;
@@ -695,6 +769,176 @@ int svcrt_posix_mutex_unlock(svcrt_pthread_mutex_t *m)
         return -1;
     }
     if(svcrt_mutex_unlock(m->handle) != 0)
+    {
+        errno = EINVAL;
+        return -1;
+    }
+    return 0;
+}
+
+/* ==========================================================================
+ * 3c. condition variable
+ * ========================================================================== */
+
+/* Create on first use so PTHREAD_COND_INITIALIZER works, the same way the
+ * mutex does it. The kernel table is fixed, so a failure here is ENOMEM and
+ * is reported as such - never a silent success on an unbound handle. */
+static int svcrt_posix_cond_bind(svcrt_pthread_cond_t *c)
+{
+    if(c->handle >= 0)
+    {
+        return 0;
+    }
+    c->handle = svcrt_cond_create("pthcond");
+    if(c->handle < 0)
+    {
+        errno = ENOMEM;
+        return -1;
+    }
+    return 0;
+}
+
+int svcrt_posix_cond_init(svcrt_pthread_cond_t *c)
+{
+    if(c == 0)
+    {
+        errno = EINVAL;
+        return -1;
+    }
+    c->handle = -1;
+    return svcrt_posix_cond_bind(c);
+}
+
+int svcrt_posix_cond_destroy(svcrt_pthread_cond_t *c)
+{
+    if((c == 0) || (c->handle < 0))
+    {
+        errno = EINVAL;
+        return -1;
+    }
+    /* Wake anyone still waiting and tell them the object is gone; the kernel
+     * does that inside cond_delete. */
+    (void)svcrt_cond_delete(c->handle);
+    c->handle = -1;
+    return 0;
+}
+
+/* Shared by cond_wait and cond_timedwait. timeout_ms < 0 means wait forever.
+ * Returns 0, or -1 with errno set. */
+static int svcrt_posix_cond_wait_ms(svcrt_pthread_cond_t *c,
+                                    svcrt_pthread_mutex_t *m, int32 timeout_ms)
+{
+    int32 rc;
+
+    if((c == 0) || (m == 0))
+    {
+        errno = EINVAL;
+        return -1;
+    }
+    if(m->handle < 0)
+    {
+        /* The caller cannot be holding a mutex that was never created. */
+        errno = EINVAL;
+        return -1;
+    }
+    if(svcrt_posix_cond_bind(c) != 0)
+    {
+        return -1;
+    }
+
+    rc = svcrt_cond_wait(c->handle, m->handle, timeout_ms);
+    if(rc == 0)
+    {
+        return 0;
+    }
+    /* Every failure path inside the kernel re-acquires the mutex before it
+     * returns, so the caller is still inside its critical section here. */
+    if(rc == SVCRT_SYNC_ERR_TIMEOUT)
+    {
+        errno = ETIMEDOUT;
+    }
+    else
+    {
+        errno = EINVAL;
+    }
+    return -1;
+}
+
+int svcrt_posix_cond_wait(svcrt_pthread_cond_t *c, svcrt_pthread_mutex_t *m)
+{
+    return svcrt_posix_cond_wait_ms(c, m, -1);
+}
+
+int svcrt_posix_cond_timedwait(svcrt_pthread_cond_t *c, svcrt_pthread_mutex_t *m,
+                               const struct timespec *abstime)
+{
+    uint32 now_ms;
+    uint32 tar_ms;
+    int32  rel_ms;
+
+    if(abstime == 0)
+    {
+        errno = EINVAL;
+        return -1;
+    }
+    if(abstime->tv_nsec < 0)
+    {
+        errno = EINVAL;
+        return -1;
+    }
+
+    /* tv_sec is 32 bit here. Rather than let the multiply wrap into a
+     * deadline in the past, anything past the representable millisecond
+     * range is taken as "wait forever" - which is what the caller asking for
+     * year 2100 effectively wants on a board with no wall clock. */
+    if(abstime->tv_sec > ((0xFFFFFFFFu - 999u) / 1000u))
+    {
+        return svcrt_posix_cond_wait_ms(c, m, -1);
+    }
+
+    tar_ms = (abstime->tv_sec * 1000u) + (uint32)(abstime->tv_nsec / 1000000);
+    now_ms = svcrt_get_time_ms();
+
+    if(tar_ms <= now_ms)
+    {
+        /* Already expired: the POSIX answer is ETIMEDOUT, and the mutex must
+         * still be held on return - so check that before bailing out. */
+        if((c == 0) || (m == 0) || (m->handle < 0))
+        {
+            errno = EINVAL;
+            return -1;
+        }
+        errno = ETIMEDOUT;
+        return -1;
+    }
+
+    rel_ms = (int32)(tar_ms - now_ms);
+    return svcrt_posix_cond_wait_ms(c, m, rel_ms);
+}
+
+int svcrt_posix_cond_signal(svcrt_pthread_cond_t *c)
+{
+    if((c == 0) || (c->handle < 0))
+    {
+        errno = EINVAL;
+        return -1;
+    }
+    if(svcrt_cond_signal(c->handle) != 0)
+    {
+        errno = EINVAL;
+        return -1;
+    }
+    return 0;
+}
+
+int svcrt_posix_cond_broadcast(svcrt_pthread_cond_t *c)
+{
+    if((c == 0) || (c->handle < 0))
+    {
+        errno = EINVAL;
+        return -1;
+    }
+    if(svcrt_cond_broadcast(c->handle) != 0)
     {
         errno = EINVAL;
         return -1;

@@ -177,7 +177,8 @@ int32 svcrt_console_write(const uint8 *p_data, uint32 len)
     return (int32)len;
 }
 
-/* 逐字节写：板级发送 FIFO 只有 128 字节，整串一次写会写不进去 */
+/* 逐字节写：板级发送管道按字节计账，写满即短写，整串一次写会写不进去
+ * （管道已放大到 1024 B，但逐字节 + 自旋才是这里的契约） */
 /* Raw byte loop.  Callers must hold the console lock; svcrt_log_emit()
  * takes it once for the whole line. */
 static void svcrt_log_puts_raw(const char *s)

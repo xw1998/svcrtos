@@ -101,6 +101,27 @@ uint32 svcrt_get_cpu_usage(void)
 
     return (busy * 100u) / 1024u;
 }
+/* ------------------------------------------------------------------
+ * User-mode polling for blocking waits
+ *
+ * The kernel cannot yield while it is inside an SVC handler (PendSV never
+ * preempts SVC), so a wait that arrives from App code only registers and
+ * answers SVCRT_SYNC_ERR_WOULDBLOCK.  The real yield has to happen here, in
+ * Thread mode: give up a millisecond, ask again, until the token arrives,
+ * the deadline passes or the object reports an error.  timeout <= 0 means
+ * "wait forever".
+ * ------------------------------------------------------------------ */
+#define SVCRT_APP_POLL_MS   (1u)
+
+static int32 svcrt_sync_wait_expired(uint32 start_ms, int32 timeout)
+{
+    if(timeout <= 0)
+    {
+        return 0;                           /* unbounded wait */
+    }
+    return ((svcrt_get_time_ms() - start_ms) >= (uint32)timeout) ? 1 : 0;
+}
+
 
 int32 svcrt_event_create(char *name)
 {
@@ -110,13 +131,37 @@ int32 svcrt_event_create(char *name)
     return svcrt_call_event_ctrl(p);
 }
 
-void svcrt_event_wait(int32 handle, int32 timeout)
+static int32 svcrt_event_wait_raw(int32 handle, int32 timeout)
 {
     uint32 p[3];
     p[0] = 2;
     p[1] = handle;
     p[2] = timeout;
-    svcrt_call_event_ctrl(p);
+    return (int32)svcrt_call_event_ctrl(p);
+}
+
+int32 svcrt_event_wait(int32 handle, int32 timeout)
+{
+    uint32 start = svcrt_get_time_ms();
+
+    for(;;)
+    {
+        int32 r = svcrt_event_wait_raw(handle, timeout);
+
+        if(r != SVCRT_SYNC_ERR_WOULDBLOCK)
+        {
+            return r;
+        }
+        if(svcrt_sync_wait_expired(start, timeout) != 0)
+        {
+            /* The kernel no longer arms a timer for a user-mode waiter:
+             * close it out here.  timeout 0 makes the kernel drop the own
+             * registration and answer TIMEOUT. */
+            (void)svcrt_event_wait_raw(handle, 0);
+            return SVCRT_SYNC_ERR_TIMEOUT;
+        }
+        (void)svcrt_task_wait(SVCRT_APP_POLL_MS);
+    }
 }
 
 void svcrt_event_set(int32 handle)
@@ -136,13 +181,34 @@ int32 svcrt_sem_create(char *name, int32 init_count)
     return svcrt_call_sync_ctrl(p);
 }
 
-int32 svcrt_sem_wait(int32 handle, int32 timeout)
+static int32 svcrt_sem_wait_raw(int32 handle, int32 timeout)
 {
     uint32 p[3];
     p[0] = 2;
     p[1] = handle;
     p[2] = (uint32)timeout;
     return svcrt_call_sync_ctrl(p);
+}
+
+int32 svcrt_sem_wait(int32 handle, int32 timeout)
+{
+    uint32 start = svcrt_get_time_ms();
+
+    for(;;)
+    {
+        int32 r = svcrt_sem_wait_raw(handle, timeout);
+
+        if(r != SVCRT_SYNC_ERR_WOULDBLOCK)
+        {
+            return r;
+        }
+        if(svcrt_sync_wait_expired(start, timeout) != 0)
+        {
+            (void)svcrt_sem_wait_raw(handle, 0);
+            return SVCRT_SYNC_ERR_TIMEOUT;
+        }
+        (void)svcrt_task_wait(SVCRT_APP_POLL_MS);
+    }
 }
 
 int32 svcrt_sem_post(int32 handle)
@@ -169,13 +235,34 @@ int32 svcrt_mutex_create(char *name)
     return svcrt_call_sync_ctrl(p);
 }
 
-int32 svcrt_mutex_lock(int32 handle, int32 timeout)
+static int32 svcrt_mutex_lock_raw(int32 handle, int32 timeout)
 {
     uint32 p[3];
     p[0] = 6;
     p[1] = handle;
     p[2] = (uint32)timeout;
     return svcrt_call_sync_ctrl(p);
+}
+
+int32 svcrt_mutex_lock(int32 handle, int32 timeout)
+{
+    uint32 start = svcrt_get_time_ms();
+
+    for(;;)
+    {
+        int32 r = svcrt_mutex_lock_raw(handle, timeout);
+
+        if(r != SVCRT_SYNC_ERR_WOULDBLOCK)
+        {
+            return r;
+        }
+        if(svcrt_sync_wait_expired(start, timeout) != 0)
+        {
+            (void)svcrt_mutex_lock_raw(handle, 0);
+            return SVCRT_SYNC_ERR_TIMEOUT;
+        }
+        (void)svcrt_task_wait(SVCRT_APP_POLL_MS);
+    }
 }
 
 int32 svcrt_mutex_unlock(int32 handle)
@@ -195,6 +282,128 @@ int32 svcrt_mutex_delete(int32 handle)
 }
 
 /* ============================================================
+ * 条件变量（E 项：POSIX 补齐）
+ *
+ * 子命令 9..13 与内核 SYNC_CTRL 的 case 一一对应。cond_wait 要传四个参数
+ * （子命令 + cond + mutex + timeout），所以数组开到 p[4]
+ * —— 内核方会读 p[3]，开 p[3] 是越界。
+ * ============================================================ */
+int32 svcrt_cond_create(char *name)
+{
+    uint32 p[4];
+    p[0] = 9;
+    p[1] = (uint32)name;
+    return svcrt_call_sync_ctrl(p);
+}
+
+int32 svcrt_cond_enqueue(int32 cond_handle)
+{
+    uint32 p[4];
+    p[0] = 14;
+    p[1] = (uint32)cond_handle;
+    return svcrt_call_sync_ctrl(p);
+}
+
+int32 svcrt_cond_poll(int32 cond_handle)
+{
+    uint32 p[4];
+    p[0] = 15;
+    p[1] = (uint32)cond_handle;
+    return svcrt_call_sync_ctrl(p);
+}
+
+int32 svcrt_cond_abort(int32 cond_handle)
+{
+    uint32 p[4];
+    p[0] = 16;
+    p[1] = (uint32)cond_handle;
+    return svcrt_call_sync_ctrl(p);
+}
+
+/* POSIX semantics, three user-mode steps:
+ *   1. register on the cond (idempotent) and release the mutex,
+ *   2. poll until signal/broadcast pops us off the queue, or the deadline,
+ *   3. take the mutex back before returning, whichever way it ended.
+ * The kernel side never blocks here, so no token is floating around: a
+ * signalled waiter is simply no longer in the queue. */
+int32 svcrt_cond_wait(int32 cond_handle, int32 mutex_handle, int32 timeout)
+{
+    int32  r;
+    int32  woken = 0;
+    uint32 start = svcrt_get_time_ms();
+
+    r = svcrt_cond_enqueue(cond_handle);
+    if(r != SVCRT_SYNC_OK)
+    {
+        return r;
+    }
+
+    r = svcrt_mutex_unlock(mutex_handle);
+    if(r != SVCRT_SYNC_OK)
+    {
+        (void)svcrt_cond_abort(cond_handle);
+        return r;
+    }
+
+    for(;;)
+    {
+        r = svcrt_cond_poll(cond_handle);
+        if(r != 0)
+        {
+            woken = (r == 1) ? 1 : 0;        /* 1 = signalled, <0 = error */
+            break;
+        }
+        if(svcrt_sync_wait_expired(start, timeout) != 0)
+        {
+            (void)svcrt_cond_abort(cond_handle);
+            break;
+        }
+        (void)svcrt_task_wait(SVCRT_APP_POLL_MS);
+    }
+
+    /* Whatever happened, the mutex must be held again on return. */
+    for(;;)
+    {
+        r = svcrt_mutex_lock(mutex_handle, -1);
+        if(r != SVCRT_SYNC_ERR_WOULDBLOCK)
+        {
+            break;
+        }
+        (void)svcrt_task_wait(SVCRT_APP_POLL_MS);
+    }
+    if(r != SVCRT_SYNC_OK)
+    {
+        return r;
+    }
+
+    return (woken != 0) ? SVCRT_SYNC_OK : SVCRT_SYNC_ERR_TIMEOUT;
+}
+
+int32 svcrt_cond_signal(int32 handle)
+{
+    uint32 p[4];
+    p[0] = 11;
+    p[1] = (uint32)handle;
+    return svcrt_call_sync_ctrl(p);
+}
+
+int32 svcrt_cond_broadcast(int32 handle)
+{
+    uint32 p[4];
+    p[0] = 12;
+    p[1] = (uint32)handle;
+    return svcrt_call_sync_ctrl(p);
+}
+
+int32 svcrt_cond_delete(int32 handle)
+{
+    uint32 p[4];
+    p[0] = 13;
+    p[1] = (uint32)handle;
+    return svcrt_call_sync_ctrl(p);
+}
+
+/* ============================================================
  * 消息队列 / 软定时器 / 任务与故障查询（P0 扩展）
  * ============================================================ */
 SVCRT_SVC_DECL_1(int32, 0x16, svcrt_call_mq_ctrl, uint32 *);
@@ -209,20 +418,60 @@ int32 svcrt_mq_create(char *name)
     return svcrt_call_mq_ctrl(p);
 }
 
-int32 svcrt_mq_send(int32 handle, void *buf, int32 len_words, int32 timeout)
+static int32 svcrt_mq_send_raw(int32 handle, void *buf, int32 len_words, int32 timeout)
 {
     uint32 p[6];
-    p[0] = 2; p[1] = (uint32)handle; p[2] = (uint32)buf;
-    p[3] = (uint32)len_words; p[4] = (uint32)timeout; p[5] = 0;
+    p[0] = 2; p[1] = handle; p[2] = (uint32)buf;
+    p[3] = len_words; p[4] = timeout; p[5] = 0;
+    return svcrt_call_mq_ctrl(p);
+}
+
+int32 svcrt_mq_send(int32 handle, void *buf, int32 len_words, int32 timeout)
+{
+    uint32 start = svcrt_get_time_ms();
+
+    for(;;)
+    {
+        int32 r = svcrt_mq_send_raw(handle, buf, len_words, timeout);
+
+        if(r != SVCRT_SYNC_ERR_WOULDBLOCK)
+        {
+            return r;
+        }
+        if(svcrt_sync_wait_expired(start, timeout) != 0)
+        {
+            return SVCRT_SYNC_ERR_TIMEOUT;
+        }
+        (void)svcrt_task_wait(SVCRT_APP_POLL_MS);
+    }
+}
+
+static int32 svcrt_mq_recv_raw(int32 handle, void *buf, int32 len_words, int32 timeout)
+{
+    uint32 p[6];
+    p[0] = 3; p[1] = handle; p[2] = (uint32)buf;
+    p[3] = len_words; p[4] = timeout; p[5] = 0;
     return svcrt_call_mq_ctrl(p);
 }
 
 int32 svcrt_mq_recv(int32 handle, void *buf, int32 len_words, int32 timeout)
 {
-    uint32 p[6];
-    p[0] = 3; p[1] = (uint32)handle; p[2] = (uint32)buf;
-    p[3] = (uint32)len_words; p[4] = (uint32)timeout; p[5] = 0;
-    return svcrt_call_mq_ctrl(p);
+    uint32 start = svcrt_get_time_ms();
+
+    for(;;)
+    {
+        int32 r = svcrt_mq_recv_raw(handle, buf, len_words, timeout);
+
+        if(r != SVCRT_SYNC_ERR_WOULDBLOCK)
+        {
+            return r;
+        }
+        if(svcrt_sync_wait_expired(start, timeout) != 0)
+        {
+            return SVCRT_SYNC_ERR_TIMEOUT;
+        }
+        (void)svcrt_task_wait(SVCRT_APP_POLL_MS);
+    }
 }
 
 int32 svcrt_mq_delete(int32 handle)
@@ -490,5 +739,67 @@ int32 svcrt_file_info(uint32 *total, uint32 *used)
     parameters[1] = (uint32)total;
     parameters[2] = (uint32)used;
     parameters[3] = 0;
+    return svcrt_call_file_svc(parameters);
+}
+
+/* ---- mount / random access / rename / list (FILE_SYS sub 6..10) ----
+ * A mount does not survive a reset, so an App that needs the volume has to
+ * ask for it itself instead of assuming the shell did it earlier. */
+int32 svcrt_file_mount(void)
+{
+    uint32 parameters[4];
+
+    parameters[0] = 6;
+    parameters[1] = 0;
+    parameters[2] = 0;
+    parameters[3] = 0;
+    return svcrt_call_file_svc(parameters);
+}
+
+int32 svcrt_file_unmount(void)
+{
+    uint32 parameters[4];
+
+    parameters[0] = 7;
+    parameters[1] = 0;
+    parameters[2] = 0;
+    parameters[3] = 0;
+    return svcrt_call_file_svc(parameters);
+}
+
+/* Returns the number of bytes actually read (>= 0), or a negative error. */
+int32 svcrt_file_read_at(const char *path, void *buf, uint32 len, uint32 off)
+{
+    uint32 parameters[5];
+
+    parameters[0] = 8;
+    parameters[1] = (uint32)path;
+    parameters[2] = (uint32)buf;
+    parameters[3] = len;
+    parameters[4] = off;
+    return svcrt_call_file_svc(parameters);
+}
+
+int32 svcrt_file_rename(const char *old_path, const char *new_path)
+{
+    uint32 parameters[4];
+
+    parameters[0] = 9;
+    parameters[1] = (uint32)old_path;
+    parameters[2] = (uint32)new_path;
+    parameters[3] = 0;
+    return svcrt_call_file_svc(parameters);
+}
+
+/* Names separated by newlines; *count receives how many entries fit. */
+int32 svcrt_file_list_names(const char *dir, char *buf, uint32 size, uint32 *count)
+{
+    uint32 parameters[5];
+
+    parameters[0] = 10;
+    parameters[1] = (uint32)dir;
+    parameters[2] = (uint32)buf;
+    parameters[3] = size;
+    parameters[4] = (uint32)count;
     return svcrt_call_file_svc(parameters);
 }

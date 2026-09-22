@@ -71,4 +71,49 @@ int  svcrt_posix_mutex_unlock(svcrt_pthread_mutex_t *m);
 #define pthread_mutex_trylock(m)    svcrt_posix_mutex_trylock(m)
 #define pthread_mutex_unlock(m)     svcrt_posix_mutex_unlock(m)
 
+#define pthread_cond_init(c, a)         svcrt_posix_cond_init(c)
+#define pthread_cond_destroy(c)         svcrt_posix_cond_destroy(c)
+#define pthread_cond_wait(c, m)         svcrt_posix_cond_wait((c), (m))
+#define pthread_cond_timedwait(c, m, t) svcrt_posix_cond_timedwait((c), (m), (t))
+#define pthread_cond_signal(c)          svcrt_posix_cond_signal(c)
+#define pthread_cond_broadcast(c)       svcrt_posix_cond_broadcast(c)
+
+/* Condition variable: a kernel object bound on first use, so
+ * PTHREAD_COND_INITIALIZER works exactly like the mutex one. */
+typedef struct
+{
+    int32 handle;       /* kernel cond handle, -1 = not created yet */
+} svcrt_pthread_cond_t;
+
+typedef svcrt_pthread_cond_t pthread_cond_t;
+
+#define PTHREAD_COND_INITIALIZER  { -1 }
+
+int  svcrt_posix_cond_init(svcrt_pthread_cond_t *c);
+int  svcrt_posix_cond_destroy(svcrt_pthread_cond_t *c);
+int  svcrt_posix_cond_wait(svcrt_pthread_cond_t *c, svcrt_pthread_mutex_t *m);
+int  svcrt_posix_cond_timedwait(svcrt_pthread_cond_t *c, svcrt_pthread_mutex_t *m,
+                                const struct timespec *abstime);
+int  svcrt_posix_cond_signal(svcrt_pthread_cond_t *c);
+int  svcrt_posix_cond_broadcast(svcrt_pthread_cond_t *c);
+
+/* One row per POSIX thread slot, for the App side shell dump.  Plain data,
+ * no printing: the App decides how to show it. */
+typedef struct
+{
+    uint32 in_use;
+    int32  task_id;          /* kernel task id, -1 once the thread left */
+    int32  gate;             /* start gate handle                        */
+    int32  done;             /* completion handle                        */
+} svcrt_pth_dbg_t;
+
+/* Copies SVCRT_POSIX_THREAD_MAX rows into out.  Returns 0 on success. */
+int32 svcrt_posix_pth_dbg_slots(svcrt_pth_dbg_t *out);
+
+extern volatile int32 svcrt_posix_pth_dbg_claim;   /* slot claimed by task id */
+extern volatile int32 svcrt_posix_pth_dbg_boot;    /* claimed via boot_slot   */
+extern volatile int32 svcrt_posix_pth_dbg_lost;    /* gave up: no slot to be  */
+extern volatile int32 svcrt_posix_pth_dbg_post;    /* trampoline posted done  */
+extern volatile int32 svcrt_posix_pth_dbg_exit;    /* pthread_exit() posted   */
+
 #endif /* __SVCRT_PTHREAD_H__ */

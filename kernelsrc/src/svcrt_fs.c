@@ -788,6 +788,193 @@ int32 svcrt_fs_remove(const char *path)
     return 0;
 }
 
+/* ============================================================
+ * Random access, rename, name listing
+ *
+ * The facade above is deliberately whole-object (write_file / read_file) or
+ * single-stream (open_read / read_next).  Three things an installer needs
+ * cannot be expressed with those: reading a slice of an image, moving a file
+ * without staging it, and learning the names in a directory from an App -
+ * svcrt_fs_list hands out a callback, i.e. a way to run App code from the
+ * kernel, so list_names fills a caller buffer instead.
+ * ============================================================ */
+int32 svcrt_fs_read_at(const char *path, uint8 *buf, uint32 len, uint32 off,
+                      uint32 *out_len)
+{
+    struct lfs_file_config fcfg;
+    lfs_file_t              file;
+    lfs_soff_t              pos;
+    lfs_ssize_t             n;
+    int                     err;
+
+    if((g_fs.mounted == 0u) || (buf == 0) || (fs_check_path(path) != 0))
+    {
+        return -1;
+    }
+
+    /* Same rule as read_file: the one file cache belongs to a stream. */
+    if(g_fs.stream_mode != SVCRT_FS_STREAM_NONE)
+    {
+        g_fs.last_error = SVCRT_FS_ERR_BUSY;
+        return -1;
+    }
+
+    fcfg.buffer     = g_fs.file_cache;
+    fcfg.attrs      = 0;
+    fcfg.attr_count = 0;
+
+    err = lfs_file_opencfg(&g_fs.lfs, &file, path, LFS_O_RDONLY, &fcfg);
+
+    if(err != 0)
+    {
+        g_fs.last_error = err;
+        return -1;
+    }
+
+    pos = lfs_file_seek(&g_fs.lfs, &file, (lfs_soff_t)off, LFS_SEEK_SET);
+
+    if(pos < 0)
+    {
+        g_fs.last_error = (int32)pos;
+        (void)lfs_file_close(&g_fs.lfs, &file);
+        return -1;
+    }
+
+    n = lfs_file_read(&g_fs.lfs, &file, buf, (lfs_size_t)len);
+
+    if(n < 0)
+    {
+        g_fs.last_error = (int32)n;
+        (void)lfs_file_close(&g_fs.lfs, &file);
+        return -1;
+    }
+
+    if(out_len != 0)
+    {
+        *out_len = (uint32)n;
+    }
+
+    err = lfs_file_close(&g_fs.lfs, &file);
+
+    if(err != 0)
+    {
+        g_fs.last_error = err;
+        return -1;
+    }
+
+    return 0;
+}
+
+int32 svcrt_fs_rename(const char *old_path, const char *new_path)
+{
+    int err;
+
+    if((g_fs.mounted == 0u) || (fs_check_path(old_path) != 0) ||
+       (fs_check_path(new_path) != 0))
+    {
+        return -1;
+    }
+
+    err = lfs_rename(&g_fs.lfs, old_path, new_path);
+
+    if(err != 0)
+    {
+        g_fs.last_error = err;
+        return -1;
+    }
+
+    return 0;
+}
+
+int32 svcrt_fs_list_names(const char *dir, char *out, uint32 out_size,
+                         uint32 *count)
+{
+    lfs_dir_t     ditem;
+    struct lfs_info info;
+    int           err;
+    uint32        used = 0u;
+    uint32        n    = 0u;
+
+    if((g_fs.mounted == 0u) || (out == 0) || (out_size < 2u))
+    {
+        g_fs.last_error = SVCRT_FS_ERR_NOT_MOUNTED;
+        return -1;
+    }
+
+    if(dir == 0)
+    {
+        dir = "/";
+    }
+
+    if(fs_check_path(dir) != 0)
+    {
+        return -1;
+    }
+
+    err = lfs_dir_open(&g_fs.lfs, &ditem, dir);
+
+    if(err != 0)
+    {
+        g_fs.last_error = err;
+        return -1;
+    }
+
+    for(;;)
+    {
+        uint32 i;
+        uint32 start = used;
+
+        err = lfs_dir_read(&g_fs.lfs, &ditem, &info);
+
+        if(err < 0)
+        {
+            g_fs.last_error = err;
+            (void)lfs_dir_close(&g_fs.lfs, &ditem);
+            return -1;
+        }
+
+        if(err == 0)
+        {
+            break;      /* end of directory */
+        }
+
+        /* Copy the name, then the separator, always keeping room for the
+         * terminator.  An entry that does not fit whole is not counted, so
+         * count means "entries actually present in out". */
+        for(i = 0u; (info.name[i] != 0) && (used + 1u < out_size); i++)
+        {
+            out[used++] = info.name[i];
+        }
+
+        if((info.name[i] == 0) && (used + 1u < out_size))
+        {
+            out[used++] = '\n';
+            n++;
+        }
+        else
+        {
+            used = start;
+            break;
+        }
+    }
+
+    err = lfs_dir_close(&g_fs.lfs, &ditem);
+
+    if(err != 0)
+    {
+        g_fs.last_error = err;
+        return -1;
+    }
+
+    out[used] = 0;
+
+    if(count != 0)
+    {
+        *count = n;
+    }
+
+    return 0;
+}
 int32 svcrt_fs_list(const char *dir, svcrt_fs_list_cb_t cb, void *arg)
 {
     lfs_dir_t ditem;

@@ -137,7 +137,7 @@ void svcrt_timer_tick_handler(void)
         if(p_tsk->status == SVCRT_TASK_WAIT)
         {
             p_tsk->wait_time = 0;
-            p_tsk->wake_reason = 0;
+            p_tsk->wake_reason = SVCRT_WAKE_HANDOFF;
             p_tsk->status = SVCRT_TASK_READY;
             svcrt_ready_add(svcrt_timer_task_id - 1);
         }

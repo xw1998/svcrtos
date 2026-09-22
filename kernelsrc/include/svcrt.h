@@ -16,6 +16,30 @@
 #include "svcrt_types.h"
 #include "svcrt_ulog.h"
 
+/** @defgroup sync_ret 同步原语返回码
+ *  @{
+ *  与内核 svcrt_def.h 保持同一组数值。内核头文件对应用不可见，
+ *  而这些数值是接口契约的一部分（调用方要据此判断“本次没拿到资源”），
+ *  所以在这里再给一份，避免文档里提到的名字在应用侧拿不到。
+ *  内核编译单元会同时包含两个头文件，#ifndef 保证不会重定义。
+ */
+#ifndef SVCRT_SYNC_OK
+#define SVCRT_SYNC_OK             (0)
+#endif
+#ifndef SVCRT_SYNC_ERR_PARAM
+#define SVCRT_SYNC_ERR_PARAM      (-1)
+#endif
+#ifndef SVCRT_SYNC_ERR_TIMEOUT
+#define SVCRT_SYNC_ERR_TIMEOUT    (-2)
+#endif
+#ifndef SVCRT_SYNC_ERR_DELETED
+#define SVCRT_SYNC_ERR_DELETED    (-3)
+#ifndef SVCRT_SYNC_ERR_WOULDBLOCK
+#define SVCRT_SYNC_ERR_WOULDBLOCK (-4)
+#endif
+#endif
+/** @} */
+
 /** @defgroup task 任务管理
  *  @{ */
 
@@ -78,7 +102,7 @@ int32  svcrt_event_create(char *name);
 * @param handle  事件句柄
 * @param timeout 超时时间（ms），0 表示不等待，负值表示永久等待
 */
-void   svcrt_event_wait(int32 handle, int32 timeout);
+int32  svcrt_event_wait(int32 handle, int32 timeout);
 
 /**
 * @brief 触发事件，唤醒所有等待该事件的任务
@@ -152,6 +176,52 @@ int32  svcrt_mutex_unlock(int32 handle);
 * @return 0=成功，负值=失败
 */
 int32  svcrt_mutex_delete(int32 handle);
+/** @} */
+
+/** @defgroup cond 条件变量
+ *  @{ */
+
+/**
+* @brief 创建条件变量
+* @param name 条件变量名（最长 7 个字符）
+* @return 条件变量句柄，失败返回负值
+*/
+int32  svcrt_cond_create(char *name);
+
+/**
+* @brief 等待条件（原子地释放互斥锁并挂起，醒来后重新持有互斥锁）
+* @param cond_handle  条件变量句柄
+* @param mutex_handle 当前任务已持有的互斥锁句柄
+* @param timeout      超时时间（ms），负值表示永久等待；0 不支持
+*                     （条件变量必须“释放互斥量后等待”，给 0 只会得到一个参数错误）
+* @return 0=被 signal/broadcast 唤醒；SVCRT_SYNC_ERR_TIMEOUT(-2)=超时；
+*         SVCRT_SYNC_ERR_DELETED(-3)=等待期间对象被删除；其它负值=参数错误
+* @note 无论返回什么，返回时都已重新持有 mutex_handle（POSIX 契约）。
+* @note 调用前必须先持有 mutex_handle，否则返回参数错误；
+*       释放锁与入等待队列在内核内部一次做完，不会丢失 signal。
+*/
+int32  svcrt_cond_wait(int32 cond_handle, int32 mutex_handle, int32 timeout);
+
+/**
+* @brief 唤醒一个等待者（没有等待者时不算错误）
+* @param handle 条件变量句柄
+* @return 0=成功，负值=失败
+*/
+int32  svcrt_cond_signal(int32 handle);
+
+/**
+* @brief 唤醒全部等待者
+* @param handle 条件变量句柄
+* @return 0=成功，负值=失败
+*/
+int32  svcrt_cond_broadcast(int32 handle);
+
+/**
+* @brief 删除条件变量（唤醒全部等待者并告知对象已删除）
+* @param handle 条件变量句柄
+* @return 0=成功，负值=失败
+*/
+int32  svcrt_cond_delete(int32 handle);
 /** @} */
 
 /** @defgroup dev 设备 IO
@@ -526,6 +596,53 @@ int32  svcrt_file_stat(const char *path, uint32 *size, uint32 *is_dir);
 int32  svcrt_heartbeat(uint32 period_ms);
 
 int32  svcrt_file_info(uint32 *total, uint32 *used);
+
+/**
+* @brief Mount the default volume (the same call as `fs mount`).
+* @return 0 on success, negative error code on failure
+* @note A mount does not survive a reset, so an App that needs the
+*       volume asks for it instead of assuming it is still there.
+*/
+int32  svcrt_file_mount(void);
+
+/**
+* @brief Release the mounted volume.
+* @return 0 on success, negative error code on failure
+*/
+int32  svcrt_file_unmount(void);
+
+/**
+* @brief Read len bytes starting at off, past EOF just stops short.
+* @param path  absolute path inside the mounted volume
+* @param buf   destination buffer
+* @param len   bytes wanted
+* @param off   byte offset to start from
+* @return bytes read (>= 0), or a negative error code
+* @note Same units as svcrt_file_read(): the count comes back in the
+       return value, so a short read is visible without an extra out
+       parameter an App could leave NULL.
+*/
+int32  svcrt_file_read_at(const char *path, void *buf, uint32 len, uint32 off);
+
+/**
+* @brief Rename or move one entry.
+* @return 0 on success, negative error code on failure
+*/
+int32  svcrt_file_rename(const char *from, const char *to);
+
+/**
+* @brief List entry names of a directory into a caller buffer.
+* @param dir      absolute path, "/" for the volume root
+* @param out      destination buffer
+* @param out_size capacity of that buffer in bytes
+* @param count    receives how many names were stored (may be NULL)
+* @return 0 on success, negative error code on failure
+* @note Names are stored back to back, each NUL terminated, and a
+*       name that does not fit in full is left out rather than cut.
+*       The App gets a flat list of names, no types and no sizes.
+*/
+int32  svcrt_file_list_names(const char *dir, char *out, uint32 out_size,
+                             uint32 *count);
 
 /** @} */
 

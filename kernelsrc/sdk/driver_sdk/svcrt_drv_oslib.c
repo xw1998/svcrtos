@@ -42,13 +42,51 @@ int32 svcrt_event_create(char *name)
     return svcrt_call_event_ctrl(p);
 }
 
-void svcrt_event_wait(int32 handle, int32 timeout)
+/* A driver runs unprivileged too, so the kernel cannot yield while it is
+ * inside the SVC handler: the wait only registers and answers
+ * SVCRT_SYNC_ERR_WOULDBLOCK.  The yielding happens here, in Thread mode.
+ * timeout <= 0 means "wait forever". */
+#define SVCRT_DRV_POLL_MS   (1u)
+
+static int32 svcrt_drv_wait_expired(uint32 start_ms, int32 timeout)
+{
+    if(timeout <= 0)
+    {
+        return 0;                           /* unbounded wait */
+    }
+    return ((svcrt_get_time_ms() - start_ms) >= (uint32)timeout) ? 1 : 0;
+}
+
+static int32 svcrt_event_wait_raw(int32 handle, int32 timeout)
 {
     uint32 p[3];
     p[0] = 2;
     p[1] = handle;
     p[2] = timeout;
-    svcrt_call_event_ctrl(p);
+    return (int32)svcrt_call_event_ctrl(p);
+}
+
+int32 svcrt_event_wait(int32 handle, int32 timeout)
+{
+    uint32 start = svcrt_get_time_ms();
+
+    for(;;)
+    {
+        int32 r = svcrt_event_wait_raw(handle, timeout);
+
+        if(r != SVCRT_SYNC_ERR_WOULDBLOCK)
+        {
+            return r;
+        }
+        if(svcrt_drv_wait_expired(start, timeout) != 0)
+        {
+            /* Close it out with timeout 0: the kernel then drops our own
+             * registration and answers TIMEOUT. */
+            (void)svcrt_event_wait_raw(handle, 0);
+            return SVCRT_SYNC_ERR_TIMEOUT;
+        }
+        svcrt_task_wait(SVCRT_DRV_POLL_MS);
+    }
 }
 
 void svcrt_event_set(int32 handle)
