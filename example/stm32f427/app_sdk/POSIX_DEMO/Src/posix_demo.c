@@ -182,5 +182,4 @@ int main(void)
         printf("heartbeat\n");
         sleep(5);
     }
-    return 0;
 }

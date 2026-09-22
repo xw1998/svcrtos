@@ -31,7 +31,7 @@
 
 | 文件 | 角色 |
 |---|---|
-| `kernelsrc/components/ark_vfs/` | vendored 组件（上游：ark_vfs 仓库 `3fbfd95`） |
+| `kernelsrc/components/ark_vfs/` | vendored 组件（上游：ark_vfs 仓库，源 commit 见该目录的 `VENDOR.md`——只在那里记一次，避免每次同步后这里过期） |
 | `kernelsrc/src/svcrt_vfs.c` | 门面：挂 `/` 与 `/dev`、挂/卸卷、读写删列 |
 | `kernelsrc/src/svcrt_vfs_lfs.c` | littlefs 桥：把 `svcrt_fs` 接成 ark_vfs 的 fsdrv `"lfs"` |
 | `kernelsrc/src/svcrt_dev.c` | 新增 `svcrt_dev_name_at()`：devfs 靠它枚举设备表 |
