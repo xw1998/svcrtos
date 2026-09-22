@@ -128,6 +128,7 @@ arena 与线程栈都是**静态**的：不用也占着。App 槽位 RAM 更大�
 | `pthread_exit` | `svcrt_thread_exit` |
 | `pthread_self` | `svcrt_thread_self` |
 | `pthread_mutex_*` | 内核互斥量（`svcrt_mutex_*`） |
+| `pthread_cond_*` | 内核条件变量（`svcrt_cond_*`，三步式：见 [同步原语与令牌守恒.md](同步原语与令牌守恒.md) §5.3） |
 
 `pthread_attr_t` 是 SVCrtOS 自己的结构（`stackaddr` / `stacksize` / `priority` / `period_ms`），**全 0 即为默认**：
 
@@ -138,7 +139,6 @@ pthread_create(&th, 0, worker, arg);   /* 零属性，栈从 SDK 静态池取 */
 
 **明确不支持（故意的）**：
 
-- **没有条件变量**。它需要一个内核等待队列加上 signal/broadcast 原语，目前不存在。宁可不提供，也不做一个语义不完整的版本。
 - **没有 `pthread_attr_set*` 系列**。属性直接填结构体字段；POSIX 那套 setter 在 32 位小系统上只是额外的间接层。
 - 互斥量**没有优先级继承的对外接口**。内核互斥量确实做了优先级继承，但 POSIX 程序既观察不到也设置不了。
 - `thread == 0` 表示"无此线程"，与 `pthread_t`（`uint32`）同宽。
@@ -157,6 +157,14 @@ pthread_create(&th, 0, worker, arg);   /* 零属性，栈从 SDK 静态池取 */
 | `sem_getvalue` | **不支持**，返回 -1 并置 `ENOSYS` |
 
 `sem_getvalue` 不支持的原因：内核信号量服务没有"当前计数"查询，在本侧猜一个数会和其它任务竞争。**报错好过给一个可能是错的数字。**
+
+**容量预算（多 App 并发时必看）**：内核信号量表是**全局定容**的
+（`SVCRT_SEM_NUM`，定义在 `kernelsrc/include/svcrt_config.h`），
+**每个 POSIX 线程占 2 个槽、每个 `sem_t` 占 1 个槽**，且表满时
+`svcrt_sem_create_internal()` 只回 -1 → POSIX 层映射成 `ENOMEM` →
+表现为 `pthread_create` 失败（**看起来像内存不够，实际是表满**）。
+容量要按「所有并发使用者之和」定，不能按单个 App 峰值定。
+实测案例（开机自检 109/6 → 116/0）见 [同步原语与令牌守恒.md](同步原语与令牌守恒.md) §9.2。
 
 ### 4.5 消息队列（`mqueue.h`）
 

@@ -130,8 +130,16 @@
 #endif
 
 /* 信号量、互斥锁及其等待者数量 */
+/* Semaphore table capacity.  The table is kernel wide, so size it to the
+ *   sum of every concurrent user, not to one user's peak.
+ *   The POSIX layer alone takes 2 per live pthread (start gate + done)
+ *   plus 1 per sem_t, so two Apps each with 2 threads already need 10-12.
+ *   8 was the original number and it made pthread_create fail with
+ *   ENOMEM as soon as a second App ran: the table filled up long before
+ *   any code was wrong.  A driver that also takes a semaphore shares the
+ *   same table, hence the headroom. */
 #ifndef SVCRT_SEM_NUM
-#define SVCRT_SEM_NUM             (8)
+#define SVCRT_SEM_NUM             (24)
 #endif
 #ifndef SVCRT_MTX_NUM
 #define SVCRT_MTX_NUM             (8)
