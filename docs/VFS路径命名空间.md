@@ -30,7 +30,7 @@
 
 | 文件 | 角色 |
 |---|---|
-| `kernelsrc/components/ark_vfs/` | vendored 组件（上游：ark_vfs 仓库 `97b9119`） |
+| `kernelsrc/components/ark_vfs/` | vendored 组件（上游：ark_vfs 仓库 `3fbfd95`） |
 | `kernelsrc/src/svcrt_vfs.c` | 门面：挂 `/` 与 `/dev`、挂/卸卷、读写删列 |
 | `kernelsrc/src/svcrt_vfs_lfs.c` | littlefs 桥：把 `svcrt_fs` 接成 ark_vfs 的 fsdrv `"lfs"` |
 | `kernelsrc/src/svcrt_dev.c` | 新增 `svcrt_dev_name_at()`：devfs 靠它枚举设备表 |
@@ -141,6 +141,20 @@ const char *svcrt_vfs_error_name(rc);
 3. `svcrt_vfs_open_read()` 只放只读打开。写清一色走 `svcrt_vfs_write_file()`；
    多一个半成品标志集只会让人以为那几种组合都试过了。
 4. 只读挂载（`ro`）字段已经在 `mount_info` 里，但门面还没有「只读挂载」入口。
+
+## 上游文档（ark_vfs 仓库）
+
+组件本身的设计与用法不在本文件里，看上游三篇（仓库已开源：
+`https://gitee.com/xw19981010/ark_vfs`，本地 `D:/工作/git_project/ark_vfs`）：
+
+| 文档 | 内容 |
+|---|---|
+| `docs/architecture.md` | 分层与各层能拿到什么、静态表与实测占用、路径与挂载解析、fd 表、递归锁只在边缘加、错误模型、核心刻意不做的事 |
+| `docs/fsdrv.md` | fsdrv 逐项契约、能留 `NULL` 的部分、返回错误的六条规则、完整可编译的 `romfs` 示例、backend 契约、交活前检查清单 |
+| `docs/porting.md` | limits/backend/hooks 三步 + 挂载、四种工具链编译配方、实测体积（核心+ramfs 约 14.5 KiB flash / 5.4 KiB .bss）、移植完成的判据分档 |
+
+本文里的 `ARK_E_*`、`ark_vfs_fsdrv_t`、`ark_vfs_hooks_t` 等名字都指上游的公开面，
+内核侧只经 `svcrt_vfs.h` 用它。
 
 ## 未做
 
