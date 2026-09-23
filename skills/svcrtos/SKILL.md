@@ -115,6 +115,13 @@ py -3 tools/pack_app.py --verify build/APP_X.svcapp
   两套编号会不一致（实测：装在配置槽 2，分区表槽号是 1）。
   把配置槽序号直接拿去 `app uninstall`，会被 `slot_type` 校验挡下并回 `usage:`。
   **要确认落点就看 `base`**，不要拿两套序号互相对照。
+- **fixed 模式必须点名槽位**：裸 `install` 只有 auto 模式接受。fixed 模式下内核在看到
+  镜像头之前不知道目标槽，会直接回 `usage: install <slot>   (fixed-slot mode needs an
+  explicit slot)`，而不是"先开着窗口等"。
+- **`install <slot>` 会先擦该槽（整扇区）再打印就绪行**：主机要等这一行出现才发。擦除
+  期间 CPU 停住、串口收不进字节，早发一个字节都会丢，表现为中途 `err -4` 且无 `LOADER` 行。
+- 已知边界：`SHELL_ENABLE=0` 时没有"先擦再喊"这一步，fixed 覆盖安装仍可能失败——先
+  `app uninstall` 或换空闲槽位。
 - 覆盖安装一个正在运行的镜像会被拒（`-15 BUSY`）：先 `app stop <slot>`。
 - **镜像头的 `hw_compat_id` 必须等于内核的 `SVCRT_HW_COMPAT_ID`**（F427 当前为 `0x42700005`），
   否则安装会在写负载之前被拒（`err -3`）。仓库里 `build/` 下的旧镜像可能是旧兼容号，

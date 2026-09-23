@@ -291,7 +291,10 @@ python tools/pack_app.py --verify build/APP_DEMO/APP_DEMO.svcapp    # 校验完�
 ### 3.3 发送
 
 1. 内核烧好并复位，串口控制台出现 `ark>` 提示符
-2. 敲 `install` 打开接收窗口
+2. 敲 `install`（auto 模式）或 `install <槽位号>`（fixed 模式）打开接收窗口。
+   **fixed 模式必须点名槽位**：内核在收到镜像头之前不知道该擦哪个槽，所以裸
+   `install` 在 fixed 模式下会直接回
+   `usage: install <slot>   (fixed-slot mode needs an explicit slot)`
 3. 把 `.svcapp` 以**二进制方式**发给串口（不要用文本模式，会被改行尾）
    - `copy /b build\APP_DEMO\APP_DEMO.svcapp COM3`
 4. 发送完成后按 `INSTALLER_AUTO_START` 决定是否立即启动
@@ -414,6 +417,14 @@ for (int32 i = 0; i < cnt; i++) {
 重新安装镜像即可（路径 B 重发，或路径 A/C 重新写入）——安装成功会清零计数。
 
 槽位复用规则：空槽 / 被禁用（INVALID）/ 已停止（LOADED）都可直接覆盖安装；
+- **`install <槽位号>` 会先擦那个槽（整扇区）再打印就绪行**，主机此时才应该开始发。
+  覆盖安装能成立就靠这一步；固定槽的 base/size 都是 128 KB 的整数倍，擦除只动它自己。
+  顺序不能反过来：擦一片 128 KB 扇区期间 CPU 停住、中断进不来，串口接收 FIFO 也搬不动
+  字节（硬件 DR 只有 1 字节），等主机已经开始发头/表再擦，那十几个字节会丢在硬件里，
+  表现为安装收到一半报 `err -4`，而且**没有任何 `LOADER` 行**——只有读回 Flash 才看得出来。
+- **已知边界**：`SHELL_ENABLE=0` 时没有这条命令行提示、也就没有"先擦再喊"的时机，
+  常驻安装任务在收到帧的中途才走到擦除，fixed 模式的覆盖安装因此仍可能失败。
+  这种配置下请先 `app uninstall`，或改用空闲槽位。
 只有「运行中（RUNNING）」不行——先 `app stop 0`，否则安装被拒（`ERR_BUSY`）。
 单槽闭环更新 App 的完整序列：`stop 0` → 安装 → `start 0`。
 

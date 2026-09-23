@@ -95,9 +95,31 @@ bind / listen / getsockname / connect / accept / getpeername / 双向 send-recv 
 
 | 项 | 结论 | 证据 |
 |---|---|---|
-| 内核 socket 服务链接通过（F427） | **仅编译通过** | `Code=170258 RO-data=10094 RW-data=676 ZI-data=95584`，0 Error / 1 Warning（既有 `svcrt_context.S A1581W`） |
-| 内核回归（F401） | **仅编译通过** | `Code=99354`，0 Error / 1 Warning；F401 未开 `SVCRT_USE_LWIP`，`svcrt_net.c` 走 stub 分支 |
-| App 侧 socket 面链接通过 | **仅编译通过** | `SOCKET_DEMO` 0 Error / 0 Warning，`Code=10726`（比 `POSIX_DEMO` 的 7126 多约 3.6 KB，说明 socket 块确已链接进映像） |
+| 内核 socket 服务链接通过（F427） | 上板验证过 | `Code=170958 RO-data=10162 RW-data=708 ZI-data=95552`，0 Error / 1 Warning（既有 `svcrt_context.S A1581W`） |
+| 内核回归（F401） | 仅编译通过 | `Code=99742`，0 Error / 1 Warning；F401 未开 `SVCRT_USE_LWIP`，`svcrt_net.c` 走 stub 分支 |
+| App 侧 socket 面链接通过 | 上板验证过 | `SOCKET_DEMO` 0 Error / 0 Warning，`Code=10726`（比 `POSIX_DEMO` 的 7126 多约 3.6 KB，说明 socket 块确已链接进映像） |
 | 路由门禁 | 已验证 | `tools/ci_gate.py` 7/7 |
-| 上板、socket 语义自检 | **未验证** | 需要烧录（会擦写设备 Flash） |
-| 真实以太网收发 | **未验证** | 这块板没有可用的 PHY 证据 |
+| **上板、socket 语义自检** | **上板验证过** | F427 + `SOCKET_DEMO`（固定槽 0，覆盖安装）：`result : pass=36 fail=0`。顺序为 `[LWIP:45] tcpip up, loopif 127.0.0.1` → `[NET:1028] socket service up (SVC 0x1E)` → App 自检；TCP 回显（含 `select` 可读与超时、`shutdown(SHUT_WR)`、`SO_ERROR`）、UDP（`sendto` / `recvfrom` 含来源端口）、`socket(AF_INET6)` 必须报错，三组全过 |
+| 真实以太网收发 | **未验证** | 这块板没有可用的 PHY 证据；现在跑的是 lwIP 自带的回环网卡 |
+
+## 8. 第一次上板才暴露的三个 bug
+
+这三处的共同形态是**"成功/失败被读反"或"哨兵值与零初始化对不上"**：编译全过、
+mock 也全过，只有真机上跑 `SOCKET_DEMO` 才显形。记在这里是因为它们都是"看起来像
+有结论"的错误，不是崩溃。
+
+| 位置 | 症状 | 真因 |
+|---|---|---|
+| `svcrt_net.c` `svcrt_net_start()` | 日志报 `[E][NET] service task register failed`，`socket()` 回 `EOPNOTSUPP(95)` | `svcrt_task_register()` **成功时返回任务号（>= 1）**，失败才返回负值；这里写的是 `if(rc != 0)`，于是每一次成功都被当成失败——刚建好的请求队列被自己删掉、`g_net_mq` 清成 -1，而任务其实已经在跑。判据改为按符号判（`rc < 0`） |
+| `svcrt_net.c` `g_net_sock[]` | 第一个 `socket()` 就回 `ENOBUFS(105)` | 行表用"`fd < 0` = 这一行空着"作判据，但表是 BSS 零初始化的，开机时每一行都是 `fd == 0`、**看起来全被占用**，`svcrt_net_claim()` 直接回 `ENOBUFS`。改成逐行显式初始化为 `-1`，并加一条"行数必须与初值个数一致"的编译期断言 |
+| `svcrt_net.c` / `svcrt_mq.c` | `socket()` 回 `EBUSY(16)`，`g_net_mq` 指着 `used == 0` 的队列槽 | 请求队列由"当前任务"创建，`creator_id` 就是 lwIP 端口任务，任何一次该任务的资源回收都会把内核自己的服务队列带走；而 `svcrt_net_start()` 被 `g_net_mq >= 0` 幂等短路、`svcrt_net_ready()` 只看句柄是否非负，于是队列没了也照报"已启动"。改为内核所有（`svcrt_mq_create_kernel_internal()`，`creator_id = 0`），并新增 `svcrt_mq_is_alive()`：`ready` 说真话、`start` 能在句柄失效时重建、服务任务在队列失效时按周期等待而不是热自旋 |
+
+另外把 lwIP 端口任务的优先级提到 **9**（与 `DRIVER_TASK_PRIORITY` 并列，高于
+`APP_TASK_PRIORITY (10)`）：它负责把 lwIP 起起来，而 App 在第一条语句里就调
+`socket()` 必须已经能拿到服务。提优先级之前，开机竞态会让 App 先跑并拿到
+`EOPNOTSUPP`——那是**真话**（服务确实还没起来），但对一份普通 POSIX 程序来说
+它无从重试，所以顺序必须由内核保证，而不是靠运气。该任务只在第一轮干活，
+之后按 1 s 周期躺着，占不到 CPU。
+
+**这条经验值得单独记住**：`svcrt_task_register()` 的返回值是任务号，不是
+`0/负值` 的成败码。任何"注册成功后还要做点别的"的调用点，判据都要按符号判。
