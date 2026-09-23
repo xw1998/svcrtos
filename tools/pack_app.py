@@ -599,12 +599,15 @@ def assemble(img_type, hw_compat, version, payload, entry_offset, nominal_base,
     header = build_header(img_type, hw_compat, version, len(payload), entry_offset,
                           nominal_base, 0, flags, image_id, ram_size, reloc_count,
                           nominal_ram_base, manifest=manifest)
-    crc = calc_crc(header, reloc_table, payload)
-    header = header[:CRC32_OFFSET] + struct.pack("<I", crc) + header[CRC32_OFFSET + 4:]
+    # 顺序要紧：内核的 CRC 覆盖 signature 字段（只把 crc32/state/runtime 按 0），
+    # 所以必须先落签名、再算 CRC；反过来会把 CRC 算在「签名还是 0」的头上面，
+    # 签名一填进去，设备重算 CRC 就对不上，报 err -5。
     if sign_key is not None:
         mac = calc_sign(header, reloc_table, payload, sign_key)
         header = (header[:SIG_OFFSET] + mac + b"\x00" * (SIGN_SIZE - SIGN_KEY_LEN)
                   + header[SIG_OFFSET + SIGN_SIZE:])
+    crc = calc_crc(header, reloc_table, payload)
+    header = header[:CRC32_OFFSET] + struct.pack("<I", crc) + header[CRC32_OFFSET + 4:]
     return header + reloc_table + payload, crc, image_id
 
 

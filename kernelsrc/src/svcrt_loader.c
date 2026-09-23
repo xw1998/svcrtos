@@ -455,6 +455,9 @@ static int32 svcrt_loader_sign_gate(const uint8 *image, const svcrt_app_header_t
 #else
 
 #define svcrt_loader_sign_gate(image, p_hdr)   (0)
+#define svcrt_sign_stream_begin(image)         ((void)(image))
+#define svcrt_sign_stream_update(data, len)    ((void)(data), (void)(len))
+#define svcrt_sign_stream_end(p_hdr)           (0)
 
 #endif /* SVCRT_USE_IMAGE_SIGN */
 
@@ -850,6 +853,12 @@ static int32 svcrt_loader_stream_image(int32 dev, uint32 base, const svcrt_app_h
     crc_hdr     = crc_recv;
     crc_rel     = crc_recv;
 
+    /* Signature covers the NOMINAL form (as packed), so it has to be built
+     * from the bytes on the wire, before the relocation patch rewrites them.
+     * The header copy already in Flash is the right input: everything the MAC
+     * excludes (crc32/state/runtime) is zeroed below, the rest is nominal. */
+    svcrt_sign_stream_begin((const uint8 *)base);
+
     /* 重定位表紧跟镜像头，先整段落盘 */
     if(rt_len != 0u)
     {
@@ -872,6 +881,7 @@ static int32 svcrt_loader_stream_image(int32 dev, uint32 base, const svcrt_app_h
             /* 表体是原样落盘的，所以这一份字节既进标称 CRC 也进落盘 CRC */
             crc_recv    = svcrt_crc32(svcrt_loader_chunk, want, crc_recv);
             crc_written = svcrt_crc32(svcrt_loader_chunk, want, crc_written);
+            svcrt_sign_stream_update(svcrt_loader_chunk, want);   /* table is nominal */
 
             if(svcrt_port_flash_write(base + SVCRT_APP_RELOC_OFFSET + got,
                                       svcrt_loader_chunk, want) != 0)
@@ -961,6 +971,7 @@ static int32 svcrt_loader_stream_image(int32 dev, uint32 base, const svcrt_app_h
                 /* 标称 CRC 必须在打补丁之前算：这些字节马上会被就地改成落盘形态。
                  * 只算新收到的这段，尾巴在上一轮已经算过了。 */
                 crc_recv = svcrt_crc32(svcrt_loader_chunk + carry, recv, crc_recv);
+                svcrt_sign_stream_update(svcrt_loader_chunk + carry, recv);   /* pre-patch, nominal */
             }
 
             want += carry;
@@ -1023,6 +1034,15 @@ static int32 svcrt_loader_stream_image(int32 dev, uint32 base, const svcrt_app_h
                    (unsigned)crc_recv, (unsigned)p_hdr->crc32);
         svcrt_loader_nak(dev);
         return SVCRT_LOADER_ERR_CRC;
+    }
+
+    /* Signature gate, on the nominal bytes just streamed.  A bad signature
+     * must never reach state=VALID, so this runs before the caller commits. */
+    if(svcrt_sign_stream_end(p_hdr) != 0)
+    {
+        SVCRT_LOGE("LOADER", "signature mismatch: image rejected");
+        svcrt_loader_nak(dev);
+        return SVCRT_LOADER_ERR_SIGN;
     }
 
     *p_crc_written = crc_written;
@@ -1415,15 +1435,10 @@ int32 svcrt_loader_load_dev_hdr(int32 dev, const svcrt_app_header_t *p_hdr, uint
         }
     }
 
-    {
-        int32 sign_rc = svcrt_loader_sign_gate((const uint8 *)base, &hdr);
-
-        if(sign_rc != 0)
-        {
-            svcrt_ptable_free((uint32)slot);
-            return sign_rc;
-        }
-    }
+    /* 签名校验不在这里：此时 Flash 上躺的是打过重定位补丁的形态，而签名盖的是
+     * 标称形态，拿这里比必然不匹配（落点 ≠ 标称基址时 delta 非零）。标称字节只
+     * 在传输途中有，所以校验已移进 svcrt_loader_stream_image()，在那里的 CRC 复核
+     * 之后、返回之前完成。 */
 
     /* 提交点：单字写入。写下去之前掉电算「没装成」，写下去之后就算装成了；
      * 1 -> 0 是把已置位擦回 0，方向合法（Flash 只能把 1 写成 0）。 */

@@ -8,6 +8,7 @@
 * @author xw
 */
 #include "svcrt_sign.h"
+#include "svcrt_config.h"    /* feature gate: SVCRT_USE_IMAGE_SIGN + key */
 
 #if (SVCRT_USE_IMAGE_SIGN == 1)
 
@@ -215,6 +216,46 @@ void svcrt_sign_image(const uint8 *image, const svcrt_app_header_t *p_hdr,
     svcrt_hmac_update(&h, image + SVCRT_APP_HEADER_SIZE, rt_len + p_hdr->image_size);
 
     svcrt_hmac_final(&h, out);
+}
+
+/* Streaming variant: the streaming installer holds no nominal copy of the
+ * image (it patches each chunk as it lands), so the MAC has to be built up
+ * from the bytes as they arrive.  Header handling is identical to
+ * svcrt_sign_image(); only reloc table + payload come in later. */
+static svcrt_hmac_t svcrt_sign_stream_ctx;
+
+void svcrt_sign_stream_begin(const uint8 *image)
+{
+    static const uint8 zero4[4]  = { 0u, 0u, 0u, 0u };
+    static const uint8 zero64[64] = { 0u };
+
+    svcrt_hmac_init(&svcrt_sign_stream_ctx, svcrt_sign_key, SVCRT_SIGN_KEY_LEN);
+    svcrt_hmac_update(&svcrt_sign_stream_ctx, image, SVCRT_APP_OFF_CRC32);
+    svcrt_hmac_update(&svcrt_sign_stream_ctx, zero4, 4u);
+    svcrt_hmac_update(&svcrt_sign_stream_ctx, zero64, 64u);
+    svcrt_hmac_update(&svcrt_sign_stream_ctx, image + 96u, 4u);
+    svcrt_hmac_update(&svcrt_sign_stream_ctx, zero4, 4u);
+    svcrt_hmac_update(&svcrt_sign_stream_ctx, image + 104u, 148u);
+    svcrt_hmac_update(&svcrt_sign_stream_ctx, zero4, 4u);
+}
+
+void svcrt_sign_stream_update(const uint8 *data, uint32 len)
+{
+    svcrt_hmac_update(&svcrt_sign_stream_ctx, data, len);
+}
+
+int32 svcrt_sign_stream_end(const svcrt_app_header_t *p_hdr)
+{
+    uint8  mac[SVCRT_SIGN_LEN];
+    uint32 i;
+    uint8  diff = 0u;
+
+    svcrt_hmac_final(&svcrt_sign_stream_ctx, mac);
+    for(i = 0u; i < SVCRT_SIGN_LEN; i++)
+    {
+        diff |= (uint8)(mac[i] ^ p_hdr->signature[i]);
+    }
+    return (diff == 0u) ? 0 : -1;
 }
 
 int32 svcrt_sign_verify(const uint8 *image, const svcrt_app_header_t *p_hdr)

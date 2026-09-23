@@ -448,7 +448,7 @@ for (int32 i = 0; i < cnt; i++) {
 - [ ] `APP_AUTO_START` / `DRIVER_AUTO_START` / `APP_CRASH_RESTART_MAX` 按需求确认
 - [ ] `SVCRT_HW_COMPAT_ID` 与本批次硬件一致（改硬件必须改它，否则旧镜像会被拒装）
 - [ ] 所有镜像用 `pack_app.py --verify` 过一遍
-- [ ] 预留：`.svcapp` 的 `signature[64]` 目前为占位，**签名校验尚未实现**（见 §10）
+- [x] `signature[64]` 已是真签名：`SVCRT_USE_IMAGE_SIGN=1` 时安装路径按 HMAC-SHA256 校验（默认关，见 §10、§11.4）
 
 ---
 
@@ -505,6 +505,9 @@ python tools/gen_scatter.py --target all --output build
    HMAC-SHA256 重算 `signature[64]` 并与镜像头比对，不一致直接拒装；打包侧用
    `tools/pack_app.py --sign-key`。这是**对称**方案（能读到设备里那把密钥的人就能签），
    不是「设备只持公钥」的完整信任链——那一条仍未做，见 `kernelsrc/include/svcrt_sign.h`。
+   已上板验证（§11.4）：签名镜像装得进；把负载改一个字节、并把 CRC 一起改对的篡改镜像
+   被拒（`err -18`）。校验在**流式**路径上按线缆送来的**标称**字节做——落盘形态是打过
+   重定位补丁的，签名盖不到它。
 3. ~~崩溃计数持久化~~——**已实现**：跨复位计数落在共享 RAM 尾部的 UNINIT 日记里，
    挡得住「崩溃 → 复位 → 再崩溃」的启动环（见 [崩溃恢复与镜像版本把关.md](崩溃恢复与镜像版本把关.md) §1）。
    仍未做的是**掉电后**仍保留——UNINIT 掉电即清零，要那样得上 RTC 备份寄存器 / Flash。
@@ -576,6 +579,7 @@ python tools/gen_scatter.py --target all --output build
 | 固定槽模式配置写入并重启读回 | 上板验证过 | `cfg show` 读到 `layout : fixed`，`pool` 列出 3 个固定槽（`0x08060000` / `0x08080000` / `0x080A0000`，各 128K） |
 | 按固定槽位安装的落点 | 上板验证过 | `install 2` → 设备回 `install: fixed slot 2 -> 0x080A0000`；`app` 显示新实例 `base 0x080A0000`、`ram 0x20014000`、`size 131072` |
 | 不兼容镜像被拒时当场返回 | 上板验证过 | 设备回 `[E][INSTALL:150] rejected: err -3` 后 **0.7 s** 主机即结束（修复前要等满 5 s 的 ACK 超时） |
+| 镜像签名校验（`SVCRT_USE_IMAGE_SIGN=1`） | 上板验证过 | 签名镜像 `install ok`（`[I][INSTALL:286] slot 0 committed`）；把负载改一字节并把 CRC 重算正确、只留签名过期的篡改镜像被拒：`[E][LOADER] signature mismatch: image rejected` → `rejected: err -18` |
 | 安装失败后设备回到干净的命令提示 | 上板验证过 | 安装器返回前按 `reloc_count` 把本帧残下的重定位表排空（设备日志 `[I][INSTALL] drained N B of the rejected frame (table M B)`）。实测：把 `hw_compat_id` 改坏的镜像装进去，设备回 `rejected: err -3`，屏幕上只剩 `install: failed or timed out` 与干净提示行，不再有 `Command not found` |
 | App 侧 FPU（非特权 VFP + 切换现场） | 上板验证过 | `APP_DEMO` 自测新增 8c 段七项全过：`fpu.usr_vfp_math` / `fpu.s16_hold` / `fpu.thread_create` / `fpu.s16_ctx_main` / `fpu.s16_ctx_worker` / `fpu.float_vs_double`。判据是"写进 S16-S19 的值跨一次任务切换后读回仍等于期望值"，两个执行流用不同 seed 交错 20 轮互不污染。同一轮里 `shell.register ... FAIL (-2)` 是上面 §11.3 的已知占位问题，与 FPU 无关 |
 | 卸载与配置擦除后的还原流程 | 部分验证 | 踩坑的那一步已修：GUI 把「配置槽序号」与「分区表槽号」拆成两个输入框并分别标注（见下），不再有拿错序号的可能；`app uninstall` + `cfg clear` 的完整还原流程**尚未重跑** |

@@ -120,10 +120,13 @@ py -3 tools/pack_app.py --verify build/APP_X.svcapp
   explicit slot)`，而不是"先开着窗口等"。
 - **`install <slot>` 会先擦该槽（整扇区）再打印就绪行**：主机要等这一行出现才发。擦除
   期间 CPU 停住、串口收不进字节，早发一个字节都会丢，表现为中途 `err -4` 且无 `LOADER` 行。
-- **fixed 模式覆盖安装会在开窗之前先擦目标槽**：shell 的 `install <slot>` 与常驻
-  installer（`SHELL_ENABLE=0`）走同一套动作。擦除占约 1 秒且期间收不进字节，必须发生在
-  主机开始发之前；`SHELL_ENABLE=0` 时若这一轮没点名槽位（`slot_hint < 0`），installer
-  直接回参数错误，而不是擦到一半。
+- **fixed 模式覆盖安装会在开窗之前先擦目标槽**：`install <slot>` 走
+  `svcrt_installer_run_once()`，开窗前按 `slot_hint` 预清目标槽（擦除占约 1 秒且期间收不进
+  字节，必须发生在主机开始发之前）；没点名槽位（`slot_hint < 0`）时直接回参数错误，而不是
+  擦到一半。**未闭环**：`SHELL_ENABLE=0` 的常驻任务走的是 `svcrt_installer_pump()`，不经过
+  `run_once()`，因此没有这一步预清——它在 fixed 模式下的覆盖安装仍可能在帧中途擦除。
+  （常驻任务在收到头之前不知道映像是 app 还是 driver、该落哪个槽，所以它无法照抄这一步；
+  要闭环得给它一个配置来源的目标槽。）
 - 覆盖安装一个正在运行的镜像会被拒（`-15 BUSY`）：先 `app stop <slot>`。
 - **镜像头的 `hw_compat_id` 必须等于内核的 `SVCRT_HW_COMPAT_ID`**（F427 当前为 `0x42700005`），
   否则安装会在写负载之前被拒（`err -3`）。仓库里 `build/` 下的旧镜像可能是旧兼容号，

@@ -61,6 +61,15 @@ void svcrt_sign_image(const uint8 *image, const svcrt_app_header_t *p_hdr,
 */
 int32 svcrt_sign_verify(const uint8 *image, const svcrt_app_header_t *p_hdr);
 
+/** Streaming MAC, for the install path that never holds the whole nominal
+ *  image in RAM.  Feed the header (as written to Flash), then the nominal
+ *  reloc table and payload bytes exactly as they arrive over the wire, then
+ *  compare against p_hdr->signature.  Same coverage as svcrt_sign_image();
+ *  one such transfer is in flight at a time, so the state is module-static. */
+void  svcrt_sign_stream_begin(const uint8 *image);
+void  svcrt_sign_stream_update(const uint8 *data, uint32 len);
+int32 svcrt_sign_stream_end(const svcrt_app_header_t *p_hdr);
+
 #endif /* SVCRT_USE_IMAGE_SIGN */
 
 #endif /* __SVCRT_SIGN_H__ */
