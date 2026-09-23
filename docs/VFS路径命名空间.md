@@ -208,7 +208,15 @@ mount: FAILED (-7: already exists)
 本文里的 `ARK_E_*`、`ark_vfs_fsdrv_t`、`ark_vfs_hooks_t` 等名字都指上游的公开面，
 内核侧只经 `svcrt_vfs.h` 用它。
 
+## App 侧：文件类 POSIX 到这一层的映射
+
+已做（SVC 0x1C sub 11..18）：App 写普通 POSIX，路径以 `/` 开头就走进来。
+`open/read/write/lseek/close/stat/fstat/opendir/readdir/closedir/unlink` →
+`svcrt_path_*`，容量有限（fd 8 格、目录流 2 格）且表空时如实报 `EMFILE`/`ENOMEM`。
+能力表与字段口径见 [POSIX与Windows兼容层说明.md](POSIX与Windows兼容层说明.md) §4.7，
+试验件 `example/stm32f427/app_sdk/FS_DEMO/`（**仅编译通过，未上板**）。
+
 ## 未做
 
-- App 侧：POSIX 风格 `open/read/write` 到 VFS 的映射（属 App 兼容面那一条）
+- App 侧：socket / select 到这一层的映射（前置是 TCP/IP 栈，仓库里还没有 lwIP）
 - 组件升级：`tools/sync_ark_vfs.py --apply` 后跑一次全量编译即可

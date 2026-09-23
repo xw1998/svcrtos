@@ -15,7 +15,7 @@ SVCrtOS 的 App 侧兼容层。目标只有一条：**把一份为 Linux / Windo
 | 不是内核的一部分 | 全部在 `kernelsrc/sdk/posix/`，作为 App 工程的一个源文件加进去。内核不为它改一行接口（除了新增的线程服务 SVC 0x1B）。 |
 | 不是 libc | 不提供 `printf` 家族、`string.h`、`stdlib.h`。App 用 SDK 的 `svcrt_*` 或自己带。 |
 | 不是模拟器 | 每个调用都真的落到一个内核服务上，没有"假装成功"的桩。做不到的调用一律返回错误并置 `errno`，而不是返回一个看起来合理的结果。 |
-| 不是进程模型 | 一个 App 就是一个地址空间 + 若干线程，没有 `fork` / `exec` / `waitpid`，也没有文件系统。 |
+| 不是进程模型 | 一个 App 就是一个地址空间 + 若干线程，没有 `fork` / `exec` / `waitpid`，也没有进程级 fd 表：所有 `fd` 由兼容层在 App 侧自己编址。文件是有的，走 VFS 路径命名空间（§4.7）。 |
 
 ---
 
@@ -24,11 +24,13 @@ SVCrtOS 的 App 侧兼容层。目标只有一条：**把一份为 Linux / Windo
 ```
 kernelsrc/sdk/posix/
 ├── svcrt_posix.h          伞头：一次引入全部兼容层 + 堆接口 + 档位开关
-├── svcrt_posix.c          实现（约 1240 行，App 工程加入这一个 .c 即可）
+├── svcrt_posix.c          实现（约 1900 行，App 工程加入这一个 .c 即可）
 ├── svcrt_posix_types.h    基础类型（ssize_t / off_t / time_t / struct timespec）
 ├── errno.h                错误码 + 每线程 errno
-├── fcntl.h                open 标志
-├── unistd.h               read / write / close / sleep / usleep / nanosleep / time
+├── fcntl.h                open 标志（设备与 VFS 路径共用一套）
+├── unistd.h               read / write / close / lseek / unlink / sleep / usleep / nanosleep / time
+├── dirent.h               opendir / readdir / closedir
+├── sys/stat.h             stat / fstat
 ├── time.h                 clock_gettime / sched_yield
 ├── pthread.h              pthread 线程与互斥量
 ├── semaphore.h            无名信号量
@@ -69,6 +71,7 @@ kernelsrc/sdk/posix/
 | `SVCRT_POSIX_HEAP_SIZE` | `1024` | App 侧堆 arena 字节数。 |
 | `SVCRT_POSIX_DEFAULT_PRIO` | `10` | 线程默认内核优先级。 |
 | `SVCRT_POSIX_NO_TIMESPEC` | 未定义 | 平台头已定义 `struct timespec` 时定义它，避免重复定义。 |
+| `SVCRT_POSIX_DIR_MAX` | `2` | 同时打开的目录流（`DIR`）上限。`opendir` 池空时返回 `NULL` + `ENOMEM`，不会指到别的流上。 |
 | `SVCRT_POSIX_WRAP_STDLIB` | 未定义 | 默认关闭。定义后把 `malloc/free/calloc/realloc` 映射到本兼容层的 arena。见 §8。 |
 
 ### 默认档位与 RAM 窗口的账
@@ -90,26 +93,30 @@ arena 与线程栈都是**静态**的：不用也占着。App 槽位 RAM 更大�
 
 ## 4. 能力与映射一览
 
-### 4.1 设备与时间（`unistd.h` / `time.h` / `fcntl.h`）
+### 4.1 设备、路径与时间（`unistd.h` / `time.h` / `fcntl.h`）
+
+`open()` 按**名字**分成两种目标，调用者写同一行代码：
 
 | POSIX | 落到 | 说明 |
 |-------|------|------|
-| `open(name, flags)` | `svcrt_dev_open` | `fd` 就是设备句柄。只有 `O_RDONLY/O_WRONLY/O_RDWR/O_APPEND`（其中 `O_NONBLOCK` 仅记录，内核设备读写无阻塞语义）。 |
-| `read(fd,buf,n)` / `write(fd,buf,n)` | `svcrt_dev_read` / `svcrt_dev_write` | 失败置 `EIO`，参数非法置 `EBADF`。 |
-| `close(fd)` | `svcrt_dev_close` | |
-| `lseek(...)` | **不提供** | `fd` 是**设备句柄**，不是文件句柄：设备侧没有 offset 状态，`unistd.h` 里也没有这个声明。要按偏移读文件，走 `svcrt_fs_read_at()` / `svcrt_fs_read_file()`（内核文件服务），不要绕 POSIX 这一层 |
+| `open(name, flags)` | 名字以 `/` 开头 → `svcrt_path_open`（VFS 路径）；否则 → `svcrt_dev_open`（设备） | 两条路共用同一个 `open()` 和同一个 `fd` 编号空间；`fd` 由兼容层在 App 侧编址（`3..10`，共 8 格），不再是裸的设备句柄 |
+| `read(fd,buf,n)` / `write(fd,buf,n)` | 路径 fd → `svcrt_path_read/write`；设备 fd → `svcrt_dev_read/write` | 失败置 `EIO`，fd 非法置 `EBADF` |
+| `close(fd)` | 对应那一侧的 close | 关完两份内存（路径句柄与 fd 格）都还回去 |
+| `lseek(fd,off,whence)` | 只对**路径 fd** 有效（`svcrt_path_seek`） | 设备没有偏移状态，对设备 fd 回 `-1` 并置 `ESPIPE`，不编一个 0 出来 |
 | `sleep(s)` | `svcrt_task_wait(s*1000)` | 调度的整秒等待。 |
 | `usleep(us)` | 调度等待 | 内核按毫秒等待，**向上取整**：usleep 不会提前返回。 |
 | `nanosleep(req,rem)` | 调度等待 | 绝对时间等待，`rem` 仅在超时未睡够时填。 |
 | `time(t)` / `clock_gettime()` | 启动以来的 ms 节拍 | **没有 RTC，没有日历**。`CLOCK_REALTIME` 被别名到单调时钟，而不是报一个错的真实时间。 |
 | `sched_yield()` | 0ms 等待 | 内核没有"让出 CPU 但仍就绪"的独立原语，这是一次普通等待。 |
 
-不提供：`fork` / `exec*` / `getpid`（除桩）/ `localtime` / `strftime` / `lseek` / `open` 的 `O_CREAT`。
-理由：没有进程模型；`open` 这一层只面向**设备**（`fd` 即设备句柄）。
-内核**有**文件系统（littlefs on NOR，见《SVCrtOS应用安装与调试指南.md》），
-但它走 `svcrt_fs_*` 与 SVC 0x1C，**不挂在 POSIX `open` 下面**：
-文件有路径与偏移，设备没有，两者共用一套 fd 语义只会造出一个看着能用的错东西。
-**编译期就报错**远好过运行期打开一个意想不到的东西。
+不提供：`fork` / `exec*` / `getpid`（除桩）/ `localtime` / `strftime`。理由是没有进程模型，也没有 RTC。
+
+`O_CREAT` / `O_TRUNC` / `O_APPEND` / `O_DIRECTORY` **只对路径有意义**。对**设备名**提出这些要求会被
+**拒绝**而不是静默忽略：`O_CREAT`/`O_TRUNC`/`O_APPEND` 置 `EINVAL`，`O_DIRECTORY` 置 `ENOTDIR`，
+`O_RDWR` 置 `EOPNOTSUPP`（设备只有单向句柄）。一个写了 `O_CREAT` 的调用者不应该以为它拿到的是一个文件。
+
+文件名与设备名混在同一层，靠的是“是否有 `/` 前缀”这一条硬规则；不存在的设备名置 `ENODEV`，
+不存在的路径置 `ENOENT`（来自 §4.7 的 VFS 错误映射），两边不互相兼容。
 
 ### 4.2 errno（`errno.h`）
 
@@ -200,6 +207,34 @@ pthread_create(&th, 0, worker, arg);   /* 零属性，栈从 SDK 静态池取 */
 - **`WaitForSingleObject` 只认"线程句柄 + INFINITE"。** 其它句柄或有限超时直接返回 `WAIT_TIMEOUT`。原因：有限等待若超时，必须在**不收尸**的情况下退出，而调用者无法把"还在跑、句柄仍有效"和"已结束"区分开——所以宁可明说做不到。
 
 **明确不支持**：`CloseHandle` 返回 `FALSE` 并置 `EOPNOTSUPP`。线程句柄就是线程槽位，槽位由 `pthread_join` 释放；不等待就"关闭"会让线程永远占着槽位。
+
+### 4.7 文件类 POSIX（打到 VFS 命名空间）
+
+只要名字以 `/` 开头，`open()` 就走到内核的 VFS（SVC 0x1C），下面这一套跟着可用。
+命名空间的形状（`/` 是易失 ramfs、`/dev` 是设备镜像、`/mnt/<名字>` 是持久卷）见
+[VFS路径命名空间.md](VFS路径命名空间.md)。
+
+| POSIX | 落到 | 说明 |
+|-------|------|------|
+| `open(path, flags)` | `svcrt_path_open` | `O_RDONLY/O_WRONLY/O_RDWR/O_CREAT/O_TRUNC/O_APPEND/O_DIRECTORY` 都有意义 |
+| `read` / `write` | `svcrt_path_read` / `svcrt_path_write` | |
+| `lseek(fd,off,whence)` | `svcrt_path_seek` | 返回**新的绝对偏移** |
+| `unlink(path)` | `svcrt_path_unlink` | 只删文件；没有 `rmdir` / `mkdir` / `rename` |
+| `stat(path,st)` / `fstat(fd,st)` | `svcrt_path_stat` | 只回答 VFS 真有的字段 |
+| `opendir` / `readdir` / `closedir` | `svcrt_path_readdir` | `readdir` 在流末尾返回 `NULL` 且**把 `errno` 置 0**；出错也返回 `NULL` 但 `errno` 非 0 |
+
+`struct stat` **故意只放 VFS 答得出的字段**（`st_mode` 类型位、`st_size`、`st_mtime`）：
+没有 `st_ino` / `st_nlink` / 权限位。`st_mtime` 是**开机以来的秒数**，不是墙上时间（没有 RTC）。
+填一个 0 会被调用者当成事实，所以宁可让这个字段不存在。
+`st_mode` 只带 `S_IFMT` 类型位（与内核的 `SVCRT_PATH_S_IF*` 用静态断言钉住），没有 rwx：
+内核的模型是"这个 App 能不能走到这个路径"，不是"属主读写组只读"。
+
+**容量是有限的，且会说清楚**：路径句柄在 App 侧一张 8 格的 fd 表里（`SVCRT_POSIX_FD_MAX`），
+目录流另有一张 `SVCRT_POSIX_DIR_MAX`（默认 2）格的表。表空时 `open` 回 `-1` + `EMFILE`、
+`opendir` 回 `NULL` + `ENOMEM`，**不会**借一个别人的句柄给你。
+
+**任务退出时句柄会被内核收回**：`task_exit` 会释放该任务占着的那份 VFS 句柄，
+所以一个线程开着文件退出不会把句柄永久漏在 App 的 8 格表外面。
 
 ---
 
@@ -296,8 +331,11 @@ win.strcpy_s / strcpy_s_bounds / sprintf_s                           OK
 |------|------|
 | `kernelsrc/sdk/posix/` | 兼容层全部头文件与实现 |
 | `kernelsrc/include/svcrt.h` | 线程服务（`svcrt_thread_*`）与各内核服务契约 |
-| `kernelsrc/src/svcrt_loader.c` | 线程服务的 SVC 分发 |
+| `kernelsrc/src/svcrt_loader.c` | 线程服务 SVC 0x1B 与 VFS 路径服务 SVC 0x1C 的分发 |
+| `kernelsrc/include/svcrt_vfs.h` / `kernelsrc/src/svcrt_vfs.c` | App 侧文件类 POSIX 的内核面（§4.7） |
 | `example/stm32f427/app_sdk/APP_DEMO/Src/app_demo.c` | 第九节自测（兼容层的真机验证） |
+| `example/stm32f427/app_sdk/POSIX_DEMO/Src/posix_demo.c` | 第十节试验件（未修改的 POSIX 程序） |
+| `example/stm32f427/app_sdk/FS_DEMO/Src/fs_demo.c` | 第十一节试验件（文件类 POSIX 自检） |
 | `docs/配置区与安装策略.md` | 槽位 RAM 窗口与安装策略 |
 | `docs/SVCrtOS应用安装与调试指南.md` | 打包、安装、上板全流程 |
 | `docs/api/SVCrtOS_API参考.md` | SDK 接口参考 |
@@ -372,3 +410,35 @@ id  type  state    auto  task  crash  held  base        size     ram         ent
 
 结论分档：**上板验证过**——`printf` 真的从控制台出来，`pthread_create/join`、`sem_wait`、`qsort`、`malloc/free`、
 `sleep` 在板上都按 POSIX 语义工作，程序源码里没有一处 SVCrtOS 专有名字。
+
+---
+
+## 11. 文件类 POSIX 也跑起来了（编译实证）
+
+第十节验的是"设备与线程"这一半（`pthread` / `semaphore` / `printf`）。文件类那一半的试验件是
+`example/stm32f427/app_sdk/FS_DEMO/Src/fs_demo.c`：只 include `<stdio.h>` / `<string.h>` /
+`<fcntl.h>` / `<unistd.h>` / `<sys/stat.h>` / `<dirent.h>`，跑到 `/`（ramfs）上做一遍自检。
+
+它盖的事（详见该目录 `README.md`）：建/写/读回、`lseek(SEEK_SET/SEEK_END)`、`stat`/`fstat` 的类型位与长度、
+`opendir("/")` + `readdir` 找到同一个名字、把 `/dev/uart0` 当路径打开并靠 `fstat` 的
+`S_ISCHR` 把它与普通文件区分开、不存在的路径必须 `-1`/`NULL` 且 `errno==ENOENT`、`unlink` 后同一路径必须失败。
+
+### 11.1 一个只有工具链才会暴露的 include 坑
+
+`<errno.h>` **必须写成 `"errno.h"`**（引号形式）。原因：`errno.h` 是 ISO C 头，AC5/AC6 的工具链自己带一份，
+尖括号形式先找到的是工具链那一份——而它没有 `ENOENT` 这类 POSIX 错误码，于是编不过：
+
+```
+..\Src\fs_demo.c(226): error:  #20: identifier "ENOENT" is undefined
+```
+
+`<unistd.h>` / `<dirent.h>` / `<sys/stat.h>` 这些 POSIX 头工具链不提供，所以尖括号形式反而能找到 SDK 的，
+不必改。这是"ISO C 头被工具链遮蔽、SDK 覆盖率不够"的一例，处置是引号形式（在 Linux 上引号形式会回退到系统头，两端都能编）。
+
+### 11.2 结论分档
+
+**仅编译通过**（F427，AC5 `UV4 -r`）：0 Error / 0 Warning，`Code=7966`。
+**未上板**——上板需要把镜像写进开发槽 3（会擦写设备 Flash），得先明确授权。
+
+烧录方式与 `POSIX_DEMO` 同：`UV4 -f example/stm32f427/app_sdk/FS_DEMO/MDK-ARM/fs_demo.uvprojx`，
+复位后控制台应出现 `fs_demo: pass=N fail=M` 段落后进入心跳。一旦上板，本节结论会改成"上板验证过"并附实际行。
