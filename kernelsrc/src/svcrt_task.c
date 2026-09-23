@@ -1830,8 +1830,13 @@ static void svcrt_delay_link(int32 idx)
     uint8 cur = svcrt_delay_head;
     uint8 prev = SVCRT_TASK_NIL;
     uint32 t = p->delay_tick;
+    /* Order by the signed distance, the same way svcrt_delay_tick()
+     * expires: a deadline armed shortly before the 32-bit tick wraps is
+     * numerically small yet still the farthest away, and unsigned
+     * ordering would park it at the head and block every other sleeper
+     * until its own deadline. */
 
-    while((cur != SVCRT_TASK_NIL) && (svcrt_task_table[cur].delay_tick <= t))
+    while((cur != SVCRT_TASK_NIL) && ((int32)(svcrt_task_table[cur].delay_tick - t) <= 0))
     {
         prev = cur;
         cur = svcrt_task_table[cur].delay_next;

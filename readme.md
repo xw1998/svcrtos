@@ -639,12 +639,12 @@ STM32F427VGTx @96 MHz，DAPLink（SWD 两线，无 SWO）经 mdkdebug 的 SWD tr
 | POSIX / Windows 兼容层 | APP_DEMO 第九节自测（堆、pthread 创建/join/返回值、mutex、sem 空判、`usleep`、`CreateThread`/`Wait`、`strcpy_s` 越界）全部 `OK` |
 | 设备端配置区 | `tools/svcrt_cfg.py` 的 `write` / `show` / `clear` 三态全部真机跑通：4×128 分块下发、读回 `source: device config region`、坏 CRC 记录被设备拒绝并给出真实原因、`clear` 回退默认。`mode = fixed` 重启后 `pool` 按配置列出固定槽，共享分区表 `layout_mode` 直读与 `cfg show` 一致 |
 | F401 移植 | 双板同源编译通过（F401 `Code=46526`） |
+| 节拍计数器 32 位回绕 | 定向注入使 `svcrt_kernel_tick` 从 `0xFFFFC000` 起算并跨过回绕：`t=` 由 `2147478038 ms` 跳回小值，两侧 `APP_ALIVE` 间隔精确 5.000 s，`fault` 无记录、`sched` 一致。该次实测牵出并修掉了延时链插入排序与到期判定在回绕处不一致的缺陷（见 [docs/调度器说明.md](docs/调度器说明.md) §2.3） |
 
 仍未上板验证或未闭环的项：
 
 - **真实以太网收发**：板上无可用 PHY，网络路径跑的是回环网卡，未做真实链路收发验证（见 [docs/lwIP协议栈接入.md](docs/lwIP协议栈接入.md)）
 - **故障恢复的「连续重启 3 次禁用」**策略未做专项真机验证
 - **固定槽位模式下一次真实 `install <slot>` 的落点复验**（槽表已生效并被 `pool` 列出，但「装进去正好落在配置地址」这一环还没跑）
-- **调度器 `touch_tick` 的 32 位溢出边界**（约 24.8 天）未实测
 
 文档索引见 [docs/README.md](docs/README.md)。
