@@ -644,6 +644,133 @@ int32  svcrt_file_rename(const char *from, const char *to);
 int32  svcrt_file_list_names(const char *dir, char *out, uint32 out_size,
                              uint32 *count);
 
+/**
+* @defgroup path The VFS namespace: open / read / write / stat / dirent
+*  @{
+*/
+
+/*
+* The group above works on one volume and eats a whole file per call. This
+* one is the namespace the whole board lives in, and it keeps a handle open
+* between calls - which is what a POSIX style program actually expects:
+*
+*     h = svcrt_path_open("/mnt/nor/a.txt",
+*                         SVCRT_PATH_O_RDWR | SVCRT_PATH_O_CREAT);
+*     if (h >= 0) { svcrt_path_write(h, "hi", 2); svcrt_path_close(h); }
+*
+* The tree:
+*     /             volatile scratch area (ramfs, gone on reset)
+*     /dev          the device registry, so /dev/uart0 opens like a file
+*     /mnt/<name>   a persistent volume, mounted explicitly by the shell
+*
+* Paths must be absolute. A handle belongs to the task that opened it:
+* another task cannot use it, and the kernel hands it back when the owner
+* exits or is killed, so a crashed App does not keep the kernel's handle
+* table (a small, fixed array) occupied.
+*
+* Errors: 0 on success, a negative value on failure. -1..-15 are the VFS
+* error codes (no such file, is a directory, read only, ...); print the
+* number rather than guessing a cause. -12 (ENOSYS) specifically means this
+* build has no VFS at all - not "your path is missing".
+*/
+
+/* Open flags and seek origins. The values are POSIX's (the kernel pins its
+ * own copy to the same numbers), so an App that also uses the POSIX layer
+ * can pass <fcntl.h>'s O_* / SEEK_* straight through. */
+#define SVCRT_PATH_O_RDONLY     (0x0000u)
+#define SVCRT_PATH_O_WRONLY     (0x0001u)
+#define SVCRT_PATH_O_RDWR       (0x0002u)
+#define SVCRT_PATH_O_ACCMODE    (0x0003u)
+#define SVCRT_PATH_O_CREAT      (0x0004u)
+#define SVCRT_PATH_O_TRUNC      (0x0008u)
+#define SVCRT_PATH_O_APPEND     (0x0010u)
+#define SVCRT_PATH_O_DIRECTORY  (0x0020u)
+
+#define SVCRT_PATH_SEEK_SET     (0u)
+#define SVCRT_PATH_SEEK_CUR     (1u)
+#define SVCRT_PATH_SEEK_END     (2u)
+
+/* File type bits in svcrt_path_stat()'s mode - the usual POSIX S_IFMT set. */
+#define SVCRT_PATH_S_IFCHR      (0x2000u)
+#define SVCRT_PATH_S_IFDIR      (0x4000u)
+#define SVCRT_PATH_S_IFREG      (0x8000u)
+#define SVCRT_PATH_S_IFMT       (0xF000u)
+
+/** @brief Longest accepted namespace path, NUL included. */
+#define SVCRT_PATH_MAX          (64u)
+
+/**
+* @brief Open a file (or a directory) at an absolute namespace path.
+* @param path  absolute path, e.g. "/mnt/nor/a.txt" or "/dev/uart0"
+* @param flags SVCRT_PATH_O_* combination
+* @return a handle (>= 0) on success, a negative error code on failure
+* @note Directories open read only and take SVCRT_PATH_O_DIRECTORY; they are
+*       there for svcrt_path_readdir(). Writing a directory is refused
+*       rather than quietly ignored. A path that is neither in / nor under a
+*       mounted point fails - the namespace does not invent a volume.
+*/
+int32  svcrt_path_open(const char *path, uint32 flags);
+
+/**
+* @brief Read from the current offset.
+* @return bytes read (0 at end of file), or a negative error code
+*/
+int32  svcrt_path_read(int32 handle, void *buf, uint32 len);
+
+/**
+* @brief Write at the current offset.
+* @return bytes written, or a negative error code
+* @note The volume underneath allows one writer at a time; a second writer
+*       gets -15 (busy) instead of a partial write.
+*/
+int32  svcrt_path_write(int32 handle, const void *buf, uint32 len);
+
+/**
+* @brief Move the read/write offset.
+* @param whence SVCRT_PATH_SEEK_SET / _CUR / _END
+* @return the new absolute offset (>= 0); a negative error code on failure,
+*         in which case the offset is left where it was. Seeking past the end
+*         of file is allowed (POSIX); whether anything can be written there is
+*         up to the filesystem. The value is the offset the kernel tracks, so
+*         it is the same on every volume - never read a file system's own
+*         seek return value through this facade.
+*/
+int32  svcrt_path_seek(int32 handle, int32 off, uint32 whence);
+
+/**
+* @brief Take the next entry of a directory opened with SVCRT_PATH_O_DIRECTORY.
+* @param name      buffer for one entry name (no path, one level only)
+* @param name_size capacity of that buffer, including the NUL
+* @param mode      receives the file type bits (SVCRT_PATH_S_IF*), may be NULL
+* @param size      receives the file size in bytes, may be NULL
+* @return 0 = got one; 1 = the directory is exhausted (NOT an error); negative
+*         = a real error. A name that does not fit is reported as -13 rather
+*         than handed back cut short.
+*/
+int32  svcrt_path_readdir(int32 handle, char *name, uint32 name_size,
+                          uint32 *mode, uint32 *size);
+
+/**
+* @brief Return a handle to the kernel. Works for files and directories.
+* @return 0 on success, a negative error code on failure
+*/
+int32  svcrt_path_close(int32 handle);
+
+/**
+* @brief Type and size of a path, without opening it.
+* @param size receives the size in bytes (may be NULL)
+* @param mode receives the type bits (may be NULL)
+* @return 0 on success, a negative error code on failure
+*/
+int32  svcrt_path_stat(const char *path, uint32 *size, uint32 *mode);
+
+/**
+* @brief Remove one file.
+* @return 0 on success, a negative error code on failure
+* @note Files only: this is not the way to remove a directory.
+*/
+int32  svcrt_path_unlink(const char *path);
+
 /** @} */
 
 #endif

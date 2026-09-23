@@ -1123,36 +1123,201 @@ int svcrt_posix_mq_receive(svcrt_mqd_t mqdes, void *msg, uint32 len_words,
  * 3d. unistd / time
  * ========================================================================== */
 
+/* ---- file descriptors ----------------------------------------------------
+ *
+ * A POSIX fd is an index into the small table below, starting at 3 so that
+ * 0/1/2 keep their usual meaning. One table holds both kinds of descriptor
+ * that open() can return: a path in the namespace (a kernel handle from
+ * svcrt_path_open) and a device (a kernel handle from svcrt_dev_open).
+ * Everything above the table goes straight to the device API - that is how a
+ * handle obtained from svcrt_dev_open() itself keeps working, so an App that
+ * mixes the two styles is not silently broken by the table.
+ *
+ * The table is required for one reason: the kernel's VFS handle is not an fd
+ * the App should hand around, and close() has to know whether to go to the
+ * path close or the device close.
+ */
+#define SVCRT_POSIX_FD_MAX   (8)
+#define SVCRT_POSIX_FD_BASE  (3)
+
+#define SVCRT_POSIX_FD_FREE  (0u)
+#define SVCRT_POSIX_FD_DEV   (1u)
+#define SVCRT_POSIX_FD_VFS   (2u)
+
+typedef struct
+{
+    uint8 used;
+    uint8 kind;
+    uint8 is_dir;
+    int32 handle;
+} svcrt_posix_fd_t;
+
+static svcrt_posix_fd_t g_posix_fd[SVCRT_POSIX_FD_MAX];
+
+/* Translate a kernel VFS error code into errno. The codes are ark_vfs's
+ * (-1..-15, see svcrt_vfs.h) and an unknown one is reported as EIO rather
+ * than guessed at. SVCRT_VFS_EINVAL is what the kernel returns for a bad
+ * path or buffer, so it does not get confused with "no such file". */
+static int svcrt_posix_errno_from_vfs(int32 rc)
+{
+    switch(rc)
+    {
+    case -1:  return ENOENT;
+    case -2:  return EINVAL;
+    case -3:  return EMFILE;
+    case -4:  return EBADF;
+    case -5:  return EISDIR;
+    case -6:  return ENOTDIR;
+    case -7:  return EEXIST;
+    case -8:  return ENOTEMPTY;
+    case -9:  return EROFS;
+    case -10: return ENOSPC;
+    case -11: return EIO;
+    case -12: return ENOSYS;
+    case -13: return ENAMETOOLONG;
+    case -14: return ELOOP;
+    case -15: return EBUSY;
+    default:  return EIO;
+    }
+}
+
+/* The entry an fd lives in, or NULL when the fd is not ours (then the caller
+ * falls through to the device API - the pre-table behaviour). */
+static svcrt_posix_fd_t *svcrt_posix_fd_slot(int fd)
+{
+    if((fd < SVCRT_POSIX_FD_BASE) ||
+       (fd >= (SVCRT_POSIX_FD_BASE + SVCRT_POSIX_FD_MAX)))
+    {
+        return 0;
+    }
+    if(g_posix_fd[fd - SVCRT_POSIX_FD_BASE].used == 0u)
+    {
+        return 0;
+    }
+    return &g_posix_fd[fd - SVCRT_POSIX_FD_BASE];
+}
+
+static int svcrt_posix_fd_alloc(uint8 kind, int32 handle, uint8 is_dir)
+{
+    int i;
+
+    for(i = 0; i < (int)SVCRT_POSIX_FD_MAX; i++)
+    {
+        if(g_posix_fd[i].used == 0u)
+        {
+            g_posix_fd[i].used   = 1u;
+            g_posix_fd[i].kind   = kind;
+            g_posix_fd[i].is_dir = is_dir;
+            g_posix_fd[i].handle = handle;
+            return SVCRT_POSIX_FD_BASE + i;
+        }
+    }
+    errno = EMFILE;     /* all fds in use - not "the file is missing" */
+    return -1;
+}
+
 int svcrt_posix_open(const char *name, int flags, ...)
 {
-    /* The kernel device open has no flag argument: a device is whatever the
-     * driver registered. Only the mode is checked, so a caller asking for
-     * something the kernel cannot honour gets a clear failure. */
+    int fd;
+
     if(name == 0)
     {
         errno = EINVAL;
         return -1;
     }
+
+    if(name[0] == '/')
+    {
+        /* A path in the namespace: the file system serves it. */
+        int32 h = svcrt_path_open(name, (uint32)flags);
+
+        if(h < 0)
+        {
+            errno = svcrt_posix_errno_from_vfs(h);
+            return -1;
+        }
+        fd = svcrt_posix_fd_alloc(SVCRT_POSIX_FD_VFS, h,
+                                  (uint8)(((flags & O_DIRECTORY) != 0) ? 1u : 0u));
+        if(fd < 0)
+        {
+            (void)svcrt_path_close(h);      /* do not leak the kernel handle */
+            return -1;                      /* errno already set */
+        }
+        return fd;
+    }
+
+    /* A device name. The kernel device open takes no flags: a device is
+     * whatever the driver registered. Asking for something the device side
+     * cannot honour is refused here instead of being quietly dropped - a
+     * caller that asked O_CREAT should not end up believing it got a file. */
     if((flags & O_ACCMODE) == O_RDWR)
     {
         errno = EOPNOTSUPP;
         return -1;
     }
-    return svcrt_dev_open((char *)name, 0u);
+    if((flags & O_DIRECTORY) != 0)
+    {
+        errno = ENOTDIR;
+        return -1;
+    }
+    if((flags & (O_CREAT | O_TRUNC | O_APPEND)) != 0)
+    {
+        errno = EINVAL;
+        return -1;
+    }
+    {
+        int32 h = svcrt_dev_open((char *)name, 0u);
+
+        if(h < 0)
+        {
+            errno = ENODEV;
+            return -1;
+        }
+        fd = svcrt_posix_fd_alloc(SVCRT_POSIX_FD_DEV, h, 0u);
+        if(fd < 0)
+        {
+            (void)svcrt_dev_close(h);
+            return -1;
+        }
+        return fd;
+    }
 }
 
 int svcrt_posix_close(int fd)
 {
+    svcrt_posix_fd_t *e;
+    int32 r;
+
     if(fd < 0)
     {
         errno = EBADF;
         return -1;
     }
-    return (svcrt_dev_close(fd) == 0) ? 0 : -1;
+    e = svcrt_posix_fd_slot(fd);
+    if(e != 0)
+    {
+        r = (e->kind == SVCRT_POSIX_FD_VFS) ? svcrt_path_close(e->handle)
+                                            : svcrt_dev_close(e->handle);
+        e->used = 0u;
+        if(r < 0)
+        {
+            errno = svcrt_posix_errno_from_vfs(r);
+            return -1;
+        }
+        return 0;
+    }
+    /* Not ours: a raw device handle from svcrt_dev_open(), as before. */
+    if(svcrt_dev_close(fd) != 0)
+    {
+        errno = EBADF;
+        return -1;
+    }
+    return 0;
 }
 
 svcrt_ssize_t svcrt_posix_read(int fd, void *buf, uint32 count)
 {
+    svcrt_posix_fd_t *e;
     int32 r;
 
     if((fd < 0) || (buf == 0))
@@ -1160,10 +1325,25 @@ svcrt_ssize_t svcrt_posix_read(int fd, void *buf, uint32 count)
         errno = EBADF;
         return -1;
     }
-    r = svcrt_dev_read(fd, buf, (int32)count);
+    e = svcrt_posix_fd_slot(fd);
+    if(e != 0)
+    {
+        if(e->kind != SVCRT_POSIX_FD_VFS)
+        {
+            r = svcrt_dev_read(e->handle, buf, (int32)count);
+        }
+        else
+        {
+            r = svcrt_path_read(e->handle, buf, count);
+        }
+    }
+    else
+    {
+        r = svcrt_dev_read(fd, buf, (int32)count);
+    }
     if(r < 0)
     {
-        errno = EIO;
+        errno = (e != 0) ? svcrt_posix_errno_from_vfs(r) : EIO;
         return -1;
     }
     return (svcrt_ssize_t)r;
@@ -1171,6 +1351,7 @@ svcrt_ssize_t svcrt_posix_read(int fd, void *buf, uint32 count)
 
 svcrt_ssize_t svcrt_posix_write(int fd, const void *buf, uint32 count)
 {
+    svcrt_posix_fd_t *e;
     int32 r;
 
     if((fd < 0) || (buf == 0))
@@ -1178,13 +1359,261 @@ svcrt_ssize_t svcrt_posix_write(int fd, const void *buf, uint32 count)
         errno = EBADF;
         return -1;
     }
-    r = svcrt_dev_write(fd, (void *)buf, (int32)count);
+    e = svcrt_posix_fd_slot(fd);
+    if(e != 0)
+    {
+        if(e->kind != SVCRT_POSIX_FD_VFS)
+        {
+            r = svcrt_dev_write(e->handle, (void *)buf, (int32)count);
+        }
+        else
+        {
+            r = svcrt_path_write(e->handle, buf, count);
+        }
+    }
+    else
+    {
+        r = svcrt_dev_write(fd, (void *)buf, (int32)count);
+    }
     if(r < 0)
     {
-        errno = EIO;
+        errno = (e != 0) ? svcrt_posix_errno_from_vfs(r) : EIO;
         return -1;
     }
     return (svcrt_ssize_t)r;
+}
+
+svcrt_off_t svcrt_posix_lseek(int fd, svcrt_off_t off, int whence)
+{
+    svcrt_posix_fd_t *e;
+    int32 r;
+
+    if(fd < 0)
+    {
+        errno = EBADF;
+        return -1;
+    }
+    if((whence != SEEK_SET) && (whence != SEEK_CUR) && (whence != SEEK_END))
+    {
+        errno = EINVAL;
+        return -1;
+    }
+    e = svcrt_posix_fd_slot(fd);
+    if((e == 0) || (e->kind != SVCRT_POSIX_FD_VFS))
+    {
+        /* A device has no offset to move. */
+        errno = ESPIPE;
+        return -1;
+    }
+    r = svcrt_path_seek(e->handle, (int32)off, (uint32)whence);
+    if(r < 0)
+    {
+        errno = svcrt_posix_errno_from_vfs(r);
+        return -1;
+    }
+    return (svcrt_off_t)r;      /* the new absolute offset */
+}
+
+int svcrt_posix_unlink(const char *path)
+{
+    int32 r;
+
+    if(path == 0)
+    {
+        errno = EINVAL;
+        return -1;
+    }
+    if(path[0] != '/')
+    {
+        /* A device name has nothing to unlink. */
+        errno = EINVAL;
+        return -1;
+    }
+    r = svcrt_path_unlink(path);
+    if(r < 0)
+    {
+        errno = svcrt_posix_errno_from_vfs(r);
+        return -1;
+    }
+    return 0;
+}
+
+static int svcrt_posix_stat_fill(struct stat *st, uint32 mode, uint32 size)
+{
+    st->st_mode  = (svcrt_mode_t)mode;
+    st->st_size  = (svcrt_off_t)size;
+    st->st_mtime = svcrt_posix_time(0);
+    return 0;
+}
+
+int svcrt_posix_stat(const char *path, struct stat *st)
+{
+    uint32 size = 0u;
+    uint32 mode = 0u;
+    int32  r;
+
+    if((path == 0) || (st == 0))
+    {
+        errno = EINVAL;
+        return -1;
+    }
+    if(path[0] != '/')
+    {
+        /* A device can be stat'ed through fstat once opened, but stat() by a
+         * bare device name would have to guess a type - so it is refused. */
+        errno = EINVAL;
+        return -1;
+    }
+    r = svcrt_path_stat(path, &size, &mode);
+    if(r < 0)
+    {
+        errno = svcrt_posix_errno_from_vfs(r);
+        return -1;
+    }
+    return svcrt_posix_stat_fill(st, mode, size);
+}
+
+int svcrt_posix_fstat(int fd, struct stat *st)
+{
+    svcrt_posix_fd_t *e;
+
+    if((fd < 0) || (st == 0))
+    {
+        errno = EBADF;
+        return -1;
+    }
+    e = svcrt_posix_fd_slot(fd);
+    if((e == 0) || (e->kind == SVCRT_POSIX_FD_DEV))
+    {
+        /* A device: character type, no size. */
+        return svcrt_posix_stat_fill(st, S_IFCHR, 0u);
+    }
+    if(e->is_dir != 0u)
+    {
+        return svcrt_posix_stat_fill(st, S_IFDIR, 0u);
+    }
+    /* The size of an open file: the kernel tracks the offset, so SEEK_END is
+     * the size of the file. The offset is put back afterwards - and if that
+     * fails the call reports an error rather than leaving the position
+     * somewhere the caller did not ask for. There is no path cached here on
+     * purpose: a path could go stale, an offset cannot. */
+    {
+        int32 cur = svcrt_path_seek(e->handle, 0, SVCRT_PATH_SEEK_CUR);
+        int32 end;
+
+        if(cur < 0)
+        {
+            errno = svcrt_posix_errno_from_vfs(cur);
+            return -1;
+        }
+        end = svcrt_path_seek(e->handle, 0, SVCRT_PATH_SEEK_END);
+        if(end < 0)
+        {
+            errno = svcrt_posix_errno_from_vfs(end);
+            return -1;
+        }
+        if(svcrt_path_seek(e->handle, cur, SVCRT_PATH_SEEK_SET) < 0)
+        {
+            errno = EIO;
+            return -1;
+        }
+        return svcrt_posix_stat_fill(st, S_IFREG, (uint32)end);
+    }
+}
+
+/* ---- directory streams -------------------------------------------------- */
+
+struct svcrt_posix_dir
+{
+    uint8 used;
+    int   fd;           /* the POSIX fd, so closedir() closes it the one way */
+    int32 handle;       /* the kernel handle, for readdir                    */
+    struct dirent ent;
+};
+
+static struct svcrt_posix_dir g_posix_dir[SVCRT_POSIX_DIR_MAX];
+
+DIR *svcrt_posix_opendir(const char *path)
+{
+    int i;
+    int fd;
+    svcrt_posix_fd_t *e;
+
+    if(path == 0)
+    {
+        errno = EINVAL;
+        return 0;
+    }
+    for(i = 0; i < (int)SVCRT_POSIX_DIR_MAX; i++)
+    {
+        if(g_posix_dir[i].used == 0u)
+        {
+            break;
+        }
+    }
+    if(i >= (int)SVCRT_POSIX_DIR_MAX)
+    {
+        errno = ENOMEM;     /* streams are a fixed pool, not a malloc */
+        return 0;
+    }
+    fd = svcrt_posix_open(path, O_RDONLY | O_DIRECTORY);
+    if(fd < 0)
+    {
+        return 0;
+    }
+    e = svcrt_posix_fd_slot(fd);
+    if((e == 0) || (e->is_dir == 0u))
+    {
+        (void)svcrt_posix_close(fd);
+        errno = ENOTDIR;
+        return 0;
+    }
+    g_posix_dir[i].used   = 1u;
+    g_posix_dir[i].fd     = fd;
+    g_posix_dir[i].handle = e->handle;
+    return &g_posix_dir[i];
+}
+
+struct dirent *svcrt_posix_readdir(DIR *d)
+{
+    uint32 mode = 0u;
+    uint32 size = 0u;
+    int32  r;
+
+    if((d == 0) || (d->used == 0u))
+    {
+        errno = EBADF;
+        return 0;
+    }
+    r = svcrt_path_readdir(d->handle, d->ent.d_name, SVCRT_POSIX_NAME_MAX,
+                           &mode, &size);
+    if(r == 1)
+    {
+        errno = 0;      /* end of the directory, and that is not an error */
+        return 0;
+    }
+    if(r < 0)
+    {
+        errno = svcrt_posix_errno_from_vfs(r);
+        return 0;
+    }
+    d->ent.d_type = (uint32)IFTODT(mode);
+    d->ent.d_size = (svcrt_off_t)size;
+    return &d->ent;
+}
+
+int svcrt_posix_closedir(DIR *d)
+{
+    int r;
+
+    if((d == 0) || (d->used == 0u))
+    {
+        errno = EBADF;
+        return -1;
+    }
+    r = svcrt_posix_close(d->fd);
+    d->used = 0u;
+    return r;
 }
 
 uint32 svcrt_posix_sleep(uint32 seconds)

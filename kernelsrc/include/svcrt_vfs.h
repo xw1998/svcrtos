@@ -52,6 +52,15 @@ extern "C" {
 #define SVCRT_VFS_ENOSYS     (-12)
 
 /**
+* @brief 参数不合法（路径指针/长度/缓冲越出调用者自己的 RAM，或标志组合
+*        本身矛盾）。值与 ark_vfs 的 ARK_E_INVAL 相同。
+* @note  内核侧的参数校验失败必须回这个码，不能回 -1：-1 是 ARK_E_NOENT，
+*        回 -1 会让 App 把「你的路径太长」读成「文件不存在」——那正是
+*        「看似权威的错答案」。所以 11..18 各分支的校验失败一律用它。
+*/
+#define SVCRT_VFS_EINVAL     (-2)
+
+/**
 * @brief 挂载点的一行信息，用于 shell 的 mount 命令
 * @note  fs/source 两个指针指向只读常量，调用者不得释放或改写。
 */
@@ -144,6 +153,110 @@ int32 svcrt_vfs_list(const char *dir, svcrt_vfs_list_cb_t cb, void *arg);
 *        自己给出的原因。
 */
 const char *svcrt_vfs_error_name(int32 rc);
+
+/* ============================================================
+ * App 面：带句柄的流式打开（POSIX 的 open / read / write / close）
+ *
+ * 上面那组是「内核自己用」的入口：要么一次吞掉整个文件，要么拿一个裸的
+ * ark_vfs fd。POSIX 程序要的是 open → read/write × N → close，句柄必须在
+ * 调用之间活着。
+ *
+ * 句柄号不直接放 ark_vfs 的 fd 号，而是内核自己发的 token：
+ *   1) 归属：token 只对打开它的任务有效，别的任务猜到号码也只会拿到 BADF；
+ *   2) 回收：任务退出/崩溃时按任务号把它的句柄全部关掉——ark_vfs 的 fd 表
+ *      全机器只有 ARK_VFS_MAX_FDS 张，被一个死掉的 App 占着就是别人打不开
+ *      文件。
+ * 这两件事是这张表存在的全部理由，所以句柄一律经 svcrt_vfs_app_* 使用，
+ * 不要拿它去调上面那些裸 fd 的入口。
+ * ============================================================ */
+
+/** @brief open 标志。数值是 SVCrtOS 自己的，svcrt_vfs.c 里逐位映射到
+ *         ark_vfs 的 ARK_O_*——App 不 include ark_vfs 的头，所以上游的值
+ *         不能当 ABI 用。 */
+#define SVCRT_VFS_O_RDONLY     (0x0000u)
+#define SVCRT_VFS_O_WRONLY     (0x0001u)
+#define SVCRT_VFS_O_RDWR       (0x0002u)
+#define SVCRT_VFS_O_ACCMODE    (0x0003u)
+#define SVCRT_VFS_O_CREAT      (0x0004u)
+#define SVCRT_VFS_O_TRUNC      (0x0008u)
+#define SVCRT_VFS_O_APPEND     (0x0010u)
+#define SVCRT_VFS_O_DIRECTORY  (0x0020u)
+
+/** @brief stat 的文件类型位，与 POSIX 的 S_IFMT 同形，映射到 ARK_S_IF*。 */
+#define SVCRT_VFS_S_IFCHR      (0x2000u)
+#define SVCRT_VFS_S_IFDIR      (0x4000u)
+#define SVCRT_VFS_S_IFREG      (0x8000u)
+#define SVCRT_VFS_S_IFMT       (0xF000u)
+
+/** @brief seek 起点，与 POSIX 的 SEEK_* 同值 */
+#define SVCRT_VFS_SEEK_SET     (0u)
+#define SVCRT_VFS_SEEK_CUR     (1u)
+#define SVCRT_VFS_SEEK_END     (2u)
+
+/** @brief 句柄号的高位标志：句柄 = 标志 | (序号 << 8) | 槽号。
+ *         序号 1..255（0 留给「从没用过」），槽号 < 256；槽被回收后重新
+ *         发出去时序号加一，所以旧号码在新持有者那里一律 BADF。
+ *         与设备句柄的 SVCRT_DEV_HANDLE_FLAG 不同值，两者不会互相误认。 */
+#define SVCRT_VFS_HANDLE_FLAG  (0x01300000)
+
+/** @brief 同时打开的 VFS 句柄数。注意底层 ark_vfs 的 fd 表全机器只有
+ *         ARK_VFS_MAX_FDS 张，与内核自身（shell 的 cat/ls 等）共用，
+ *         所以打满时 open 回 ARK_E_FULL(-3) 而不是静默成功。 */
+#define SVCRT_VFS_HANDLE_MAX   (8u)
+
+/**
+* @brief 按路径打开一个文件或目录。
+* @param path  命名空间路径，绝对路径（"/mnt/nor/a.txt"、"/dev/uart0"、"/tmp"）
+* @param flags SVCRT_VFS_O_* 的组合
+* @return 0 以上是句柄；负值为 ark_vfs 错误码
+* @note  带 SVCRT_VFS_O_DIRECTORY 时打开的是目录（用于 readdir）。
+*        目录只能只读打开。
+*/
+int32 svcrt_vfs_app_open(const char *path, uint32 flags);
+
+/** @brief 从当前偏移读。返回值 = 读到的字节数，0 = 文件尾，负值 = 错误 */
+int32 svcrt_vfs_app_read(int32 handle, uint8 *buf, uint32 len);
+
+/** @brief 从当前偏移写。返回值 = 写入的字节数，负值 = 错误 */
+int32 svcrt_vfs_app_write(int32 handle, const uint8 *buf, uint32 len);
+
+/**
+* @brief 移动读写偏移。whence 用 SVCRT_VFS_SEEK_*。
+* @return 新的绝对偏移（>= 0）；负值为错误码，且失败时偏移不动。
+* @note  返回的是内核自己记账的位置，不是下层文件系统的返回值——
+*        ramfs 与 littlefs 桥对 seek 的返回约定不一样（前者回新偏移、
+*        后者回 0），直接用下层的会让 lseek 在某个卷上静默回错值。
+*        允许 seek 越过文件尾（POSIX 语义）；能不能写在那里由下层决定。
+*        越界或非法的移动由下层拒绝，此时位置保持不变。
+*/
+int32 svcrt_vfs_app_seek(int32 handle, int32 off, uint32 whence);
+
+/**
+* @brief 取目录里的下一条。
+* @param name  输出名字的缓冲区（不含路径，只一层）
+* @param mode  收文件类型位（可 NULL）
+* @param size  收文件大小（可 NULL）
+* @return 0 = 取到一条；1 = 目录已列完（不是错误，POSIX 的 readdir 在这里回 NULL）；
+*         负值 = 错误
+*/
+int32 svcrt_vfs_app_readdir(int32 handle, char *name, uint32 cap,
+                           uint32 *mode, uint32 *size);
+
+/** @brief 归还句柄。目录句柄与文件句柄走同一个入口 */
+int32 svcrt_vfs_app_close(int32 handle);
+
+/** @brief 按路径取类型与大小（不打开）。mode 收 SVCRT_VFS_S_IF* */
+int32 svcrt_vfs_app_stat(const char *path, uint32 *size, uint32 *mode);
+
+/** @brief 删除一个文件（目录不可用这个入口删） */
+int32 svcrt_vfs_app_unlink(const char *path);
+
+/**
+* @brief 关掉 task_id 名下全部句柄。任务退出/崩溃路径调用。
+* @note  必须在任务还被标记为有效时调用（表里靠任务号比对），且对没有
+*        句柄的任务是无副作用的空操作。
+*/
+void svcrt_vfs_app_task_exit(uint32 task_id);
 
 #ifdef __cplusplus
 }

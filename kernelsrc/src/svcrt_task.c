@@ -27,6 +27,7 @@
 #include "svcrt_mpu.h"
 #include "svcrt_loader.h"
 #include "svcrt_fs.h"    /* SVC 0x1C user file service */
+#include "svcrt_vfs.h"   /* SVC 0x1C sub 11..17: the VFS namespace face */
 #include "svcrt_mini.h"   /* SVC 0x18 子命令：小程序装载/停止 */
 #include "svcrt_partition.h"    /* 用户可见内存窗口（共享区/App RAM/驱动 RAM/固件区） */
 
@@ -1016,6 +1017,20 @@ void SVC_Server(void *p_svc_ctx)
          *   p[0] = 3 remove (p[1] = path)
          *   p[0] = 4 stat   (p[1] = path, p[2] = size out, p[3] = is_dir out)
          *   p[0] = 5 info   (p[1] = total out, p[2] = used out)
+         *   p[0] = 11..18 the VFS namespace (POSIX style open/read/write):
+         *                  11 open    (p[1]=path, p[2]=flags)      -> handle
+         *                  12 read    (p[1]=handle, p[2]=buf, p[3]=len)
+         *                  13 write   (p[1]=handle, p[2]=buf, p[3]=len)
+         *                  14 close   (p[1]=handle)
+         *                  15 stat    (p[1]=path, p[2]=size out, p[3]=mode out)
+         *                  16 seek    (p[1]=handle, p[2]=off, p[3]=whence)
+         *                  17 readdir (p[1]=handle, p[2]=name, p[3]=cap,
+         *                              p[4]=mode out, p[5]=size out)
+         *                  18 unlink  (p[1]=path)
+         *   The two groups keep different path models on purpose: 1..10 are
+         *   volume relative (svcrt_fs), 11..17 are namespace absolute
+         *   ("/mnt/nor/a.txt", "/dev/uart0"). A handle from 11 is only valid
+         *   for the task that opened it; see svcrt_vfs.h.
          * One global mount with one set of static caches means two callers
          * must never be inside littlefs at the same time; the scheduler lock
          * keeps other tasks out without disabling interrupts (a NOR erase
@@ -1215,8 +1230,153 @@ void SVC_Server(void *p_svc_ctx)
                 SVCRT_SVC_RET(p_svc_ctx, (uint32)fs_ret);
                 break;
 
+            /* ---- 11..18: the VFS namespace ----
+             * No scheduler lock of our own here: ark_vfs takes the port lock
+             * (which is svcrt_sched_lock) around everything it does, and
+             * nesting it would only make the unlock order something to get
+             * wrong. Path and buffer checks stay on this side because only
+             * the kernel knows what the caller may legally reach. */
+            case 11:                /* open  path, flags -> handle */
+                if(svcrt_kernel_svc_args_ok(p, 12u) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)SVCRT_VFS_EINVAL);
+                    break;
+                }
+                if(svcrt_kernel_user_name_ok((const void *)p[1],
+                                             SVCRT_VFS_PATH_MAX) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)SVCRT_VFS_EINVAL);
+                    break;
+                }
+                SVCRT_SVC_RET(p_svc_ctx,
+                              (uint32)svcrt_vfs_app_open((const char *)p[1], p[2]));
+                break;
+
+            case 12:                /* read  handle, buf, len -> bytes */
+                if(svcrt_kernel_svc_args_ok(p, 16u) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)SVCRT_VFS_EINVAL);
+                    break;
+                }
+                if(svcrt_kernel_dev_buf_ok((const void *)p[2], (int32)p[3]) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)SVCRT_VFS_EINVAL);
+                    break;
+                }
+                SVCRT_SVC_RET(p_svc_ctx,
+                              (uint32)svcrt_vfs_app_read((int32)p[1],
+                                                         (uint8 *)p[2], p[3]));
+                break;
+
+            case 13:                /* write handle, buf, len -> bytes */
+                if(svcrt_kernel_svc_args_ok(p, 16u) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)SVCRT_VFS_EINVAL);
+                    break;
+                }
+                if((p[3] != 0u) &&
+                   (svcrt_kernel_user_ro_ok((const void *)p[2], p[3]) == 0u))
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)SVCRT_VFS_EINVAL);
+                    break;
+                }
+                SVCRT_SVC_RET(p_svc_ctx,
+                              (uint32)svcrt_vfs_app_write((int32)p[1],
+                                                          (const uint8 *)p[2], p[3]));
+                break;
+
+            case 14:                /* close handle */
+                if(svcrt_kernel_svc_args_ok(p, 8u) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)SVCRT_VFS_EINVAL);
+                    break;
+                }
+                SVCRT_SVC_RET(p_svc_ctx,
+                              (uint32)svcrt_vfs_app_close((int32)p[1]));
+                break;
+
+            case 15:                /* stat path, size out, mode out */
+                if(svcrt_kernel_svc_args_ok(p, 16u) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)SVCRT_VFS_EINVAL);
+                    break;
+                }
+                if(svcrt_kernel_user_name_ok((const void *)p[1],
+                                             SVCRT_VFS_PATH_MAX) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)SVCRT_VFS_EINVAL);
+                    break;
+                }
+                if(((p[2] != 0u) &&
+                    (svcrt_kernel_dev_buf_ok((const void *)p[2], 4) == 0u)) ||
+                   ((p[3] != 0u) &&
+                    (svcrt_kernel_dev_buf_ok((const void *)p[3], 4) == 0u)))
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)SVCRT_VFS_EINVAL);
+                    break;
+                }
+                SVCRT_SVC_RET(p_svc_ctx,
+                              (uint32)svcrt_vfs_app_stat((const char *)p[1],
+                                                         (uint32 *)p[2],
+                                                         (uint32 *)p[3]));
+                break;
+
+            case 16:                /* seek handle, off, whence */
+                if(svcrt_kernel_svc_args_ok(p, 16u) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)SVCRT_VFS_EINVAL);
+                    break;
+                }
+                SVCRT_SVC_RET(p_svc_ctx,
+                              (uint32)svcrt_vfs_app_seek((int32)p[1],
+                                                         (int32)p[2], p[3]));
+                break;
+
+            case 17:                /* readdir handle, name, cap, mode, size */
+                if(svcrt_kernel_svc_args_ok(p, 24u) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)SVCRT_VFS_EINVAL);
+                    break;
+                }
+                if((p[3] == 0u) ||
+                   (svcrt_kernel_dev_buf_ok((const void *)p[2], (int32)p[3]) == 0u))
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)SVCRT_VFS_EINVAL);
+                    break;
+                }
+                if(((p[4] != 0u) &&
+                    (svcrt_kernel_dev_buf_ok((const void *)p[4], 4) == 0u)) ||
+                   ((p[5] != 0u) &&
+                    (svcrt_kernel_dev_buf_ok((const void *)p[5], 4) == 0u)))
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)SVCRT_VFS_EINVAL);
+                    break;
+                }
+                SVCRT_SVC_RET(p_svc_ctx,
+                              (uint32)svcrt_vfs_app_readdir((int32)p[1],
+                                                            (char *)p[2], p[3],
+                                                            (uint32 *)p[4],
+                                                            (uint32 *)p[5]));
+                break;
+
+            case 18:                /* unlink path */
+                if(svcrt_kernel_svc_args_ok(p, 8u) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)SVCRT_VFS_EINVAL);
+                    break;
+                }
+                if(svcrt_kernel_user_name_ok((const void *)p[1],
+                                             SVCRT_VFS_PATH_MAX) == 0u)
+                {
+                    SVCRT_SVC_RET(p_svc_ctx, (uint32)SVCRT_VFS_EINVAL);
+                    break;
+                }
+                SVCRT_SVC_RET(p_svc_ctx,
+                              (uint32)svcrt_vfs_app_unlink((const char *)p[1]));
+                break;
+
             default:
-                SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                SVCRT_SVC_RET(p_svc_ctx, (uint32)SVCRT_VFS_EINVAL);
                 break;
             }
         }
@@ -2213,6 +2373,17 @@ void svcrt_task_kill_internal(void)
         svcrt_task_table[svcrt_current_task_id - 1].status = SVCRT_TASK_INVALID;
         SVCRT_ENABLE_IRQ();
     }
+
+#if SVCRT_USE_VFS
+    /* Hand this task's VFS handles back before it is gone. This is the
+     * thread context exit path (interrupts on), so closing the files - and
+     * whatever cache flush sits behind the close - is allowed here. It is
+     * deliberately NOT in svcrt_task_release_resources(): that one is also
+     * reached from the fault handler, where no file I/O may happen. A handle
+     * left behind by a fault is not lost: svcrt_vfs_app_open() reclaims the
+     * handles of a task that is no longer alive. */
+    svcrt_vfs_app_task_exit((uint32)svcrt_current_task_id);
+#endif
 
 #if SVCRT_USE_MINIAPP
     /* 小程序回收：主任务退出就意味着整个小程序结束，它借的那块 RAM 必须在这里还回池。

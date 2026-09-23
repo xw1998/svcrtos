@@ -55,6 +55,8 @@
 #include "pthread.h"
 #include "semaphore.h"
 #include "mqueue.h"
+#include "sys/stat.h"
+#include "dirent.h"
 
 /* ----------------------------------------------------------- App memory.
  * A small first fit arena inside the App's own RAM. It is intentionally not

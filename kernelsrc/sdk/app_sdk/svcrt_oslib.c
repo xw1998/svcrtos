@@ -803,3 +803,98 @@ int32 svcrt_file_list_names(const char *dir, char *buf, uint32 size, uint32 *cou
     parameters[4] = (uint32)count;
     return svcrt_call_file_svc(parameters);
 }
+
+/* ============================================================
+ * The VFS namespace (SVC 0x1C, sub 11..18)
+ *
+ * Same service number as the volume calls above, different sub commands:
+ * 1..10 take a path inside the mounted volume, 11..18 take an absolute
+ * namespace path and keep a kernel side handle open between calls. The
+ * kernel validates the path and every buffer against the caller's own RAM
+ * and refuses a handle that belongs to another task.
+ * ============================================================ */
+int32 svcrt_path_open(const char *path, uint32 flags)
+{
+    uint32 parameters[3];
+
+    parameters[0] = 11;
+    parameters[1] = (uint32)path;
+    parameters[2] = flags;
+    return svcrt_call_file_svc(parameters);
+}
+
+int32 svcrt_path_read(int32 handle, void *buf, uint32 len)
+{
+    uint32 parameters[4];
+
+    parameters[0] = 12;
+    parameters[1] = (uint32)handle;
+    parameters[2] = (uint32)buf;
+    parameters[3] = len;
+    return svcrt_call_file_svc(parameters);
+}
+
+int32 svcrt_path_write(int32 handle, const void *buf, uint32 len)
+{
+    uint32 parameters[4];
+
+    parameters[0] = 13;
+    parameters[1] = (uint32)handle;
+    parameters[2] = (uint32)buf;
+    parameters[3] = len;
+    return svcrt_call_file_svc(parameters);
+}
+
+int32 svcrt_path_close(int32 handle)
+{
+    uint32 parameters[2];
+
+    parameters[0] = 14;
+    parameters[1] = (uint32)handle;
+    return svcrt_call_file_svc(parameters);
+}
+
+int32 svcrt_path_stat(const char *path, uint32 *size, uint32 *mode)
+{
+    uint32 parameters[4];
+
+    parameters[0] = 15;
+    parameters[1] = (uint32)path;
+    parameters[2] = (uint32)size;
+    parameters[3] = (uint32)mode;
+    return svcrt_call_file_svc(parameters);
+}
+
+int32 svcrt_path_seek(int32 handle, int32 off, uint32 whence)
+{
+    uint32 parameters[4];
+
+    parameters[0] = 16;
+    parameters[1] = (uint32)handle;
+    parameters[2] = (uint32)off;
+    parameters[3] = whence;
+    return svcrt_call_file_svc(parameters);
+}
+
+int32 svcrt_path_readdir(int32 handle, char *name, uint32 name_size,
+                         uint32 *mode, uint32 *size)
+{
+    uint32 parameters[6];
+
+    parameters[0] = 17;
+    parameters[1] = (uint32)handle;
+    parameters[2] = (uint32)name;
+    parameters[3] = name_size;
+    parameters[4] = (uint32)mode;
+    parameters[5] = (uint32)size;
+    return svcrt_call_file_svc(parameters);
+}
+
+int32 svcrt_path_unlink(const char *path)
+{
+    uint32 parameters[2];
+
+    parameters[0] = 18;
+    parameters[1] = (uint32)path;
+    return svcrt_call_file_svc(parameters);
+}

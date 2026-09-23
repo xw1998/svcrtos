@@ -1,11 +1,18 @@
 /**
 * @file fcntl.h
 * @brief open()/close() flags for SVCrtOS Apps.
-* @details An SVCrtOS "file descriptor" is a device handle from
-*          svcrt_dev_open(). There is no filesystem, so the flags that only
-*          make sense with one (O_CREAT, O_TRUNC, ...) are absent on purpose:
-*          a program that needs them should fail at compile time rather than
-*          open something unexpected at run time.
+* @details Two kinds of "file" can be opened through open(), and the caller
+*          writes the same code for both:
+*            - a name that starts with '/' is an absolute path in the VFS
+*              namespace ("/dev/uart0", "/mnt/nor/a.txt", "/tmp") and is
+*              served by the file system;
+*            - any other name is a device the driver registered with the
+*              kernel ("uart0"), exactly as before.
+*          The O_* values are the POSIX ones and are pinned to the kernel's
+*          SVCRT_PATH_O_* by a static assert on the kernel side, so a program
+*          that compares against O_CREAT keeps its meaning. Creation,
+*          truncation and append are only meaningful for a path; asking a
+*          device for them is refused rather than quietly ignored.
 * @author xw
 */
 #ifndef __SVCRT_FCNTL_H__
@@ -17,14 +24,18 @@
 #define O_WRONLY    0x0001
 #define O_RDWR      0x0002
 #define O_ACCMODE   0x0003
-#define O_NONBLOCK  0x0004
-#define O_APPEND    0x0008
+#define O_CREAT     0x0004
+#define O_TRUNC     0x0008
+#define O_APPEND    0x0010
+#define O_DIRECTORY 0x0020
 
 int  svcrt_posix_open(const char *name, int flags, ...);
 int  svcrt_posix_close(int fd);
 
-/* Two arguments only: there is no O_CREAT here, so no mode argument is ever
- * meaningful and accepting one would suggest otherwise. */
-#define open(name, flags)  svcrt_posix_open((name), (flags))
+/* The real open() takes an optional third argument (the mode, only used with
+ * O_CREAT). There are no permission bits here, so the argument is accepted
+ * and ignored - accepting it lets portable source compile unchanged instead
+ * of failing on the extra parameter. */
+#define open(...)  svcrt_posix_open(__VA_ARGS__)
 
 #endif /* __SVCRT_FCNTL_H__ */
