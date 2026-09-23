@@ -169,6 +169,17 @@
 #define SVCRT_POSIX_WRAP_STDLIB       0
 #endif
 
+/* lwIP TCP/IP 协议栈（components/lwip）+ 其 SVCrtOS 端口（port/）。
+ * 打开后内核多出一个周期轮询任务，为 socket / select 兼容面提供回环网卡
+ * （127.0.0.1/8，lwIP 2.1.3 内建）。第三方源码本身不带条件编译，本开关
+ * 只门控 port/ 那一层：关掉即不编 port，socket 相关 SVC 返回 NOSYS。
+ * 真实以太网网卡尚未接入——当前只能验证协议栈与 socket 语义，不能验证收发。
+ * 体积不小（源码 2.5MB、静态 RAM 数十 KB），不是每个用户都要，
+ * 所以默认关闭，由工程用 -D 显式开。 */
+#ifndef SVCRT_USE_LWIP
+#define SVCRT_USE_LWIP                0
+#endif
+
 /* MDK trace 采集（components/mdk_trace，依赖 DWT/ITM 调试硬件） */
 #ifndef SVCRT_USE_MDK_TRACE
 #define SVCRT_USE_MDK_TRACE           1
@@ -229,6 +240,12 @@
 
 #if SVCRT_USE_VFS_LFS && !SVCRT_USE_FS
 #error "SVCRT_USE_VFS_LFS=1 requires SVCRT_USE_FS=1 (the bridge drives the svcrt_fs volume)"
+#endif
+
+/* lwIP 端口层建在消息队列上（sys_arch.c 的邮箱就是 svcrt_mq），
+ * 关掉 SVCRT_USE_MQ 会让它到链接期才炸；这里先挡住。 */
+#if SVCRT_USE_LWIP && !SVCRT_USE_MQ
+#error "SVCRT_USE_LWIP=1 requires SVCRT_USE_MQ=1 (sys_arch.c maps lwIP mailboxes onto svcrt_mq)"
 #endif
 
 #endif /* __SVCRT_FEATURES_H__ */

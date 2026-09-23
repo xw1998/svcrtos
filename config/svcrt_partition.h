@@ -54,7 +54,16 @@
  */
 #define BOOT_SIZE            (0)             /* Bootloader 区大小；0 = 暂不划分（内核直接从 Flash 起始运行） */
 #ifndef KERNEL_SIZE
-#define KERNEL_SIZE          (128 * 1024)    /* 内核固件区；可按编译结果调整(inspect the resulting layout with tools/gen_scatter.py --target all) */
+/* 256K：内核里现在编进了 lwIP（SVCRT_USE_LWIP=1，见 kernelsrc/components/lwip）。
+ * 128K 时链接报 L6407E：还有 0x5DE0(24032) 字节的段塞不进去，所以上调一档。
+ * 只能按 2 的幂往上翻（MPU 区域约束，见下方 svcrt_mpu_window_check），
+ * 128K 的下一档就是 256K，代价是 IMAGE_POOL 少 128K。
+ * 代价核算：Flash 1MB - KERNEL 256K - CONFIG 128K = 池 640K（原 768K），
+ * 扣掉 1 个扇区压实余量后可分配 512K。关掉 SVCRT_USE_LWIP 想省回来的话，
+ * 本值仍可被工程 -D 覆盖回 128K。
+ * 改这里会让池基址整体上移（0x08020000 → 0x08060000）：设备端配置区的旧
+ * 内容与池里已安装的镜像都会对不上，需要重新写布局配置/重装镜像。 */
+#define KERNEL_SIZE          (256 * 1024)
 #endif
 #define IMAGE_POOL_SECTOR    (128 * 1024)    /* 芯片物理擦除单位（F427 的 sector 5~11） */
 /* 设备端布局配置区（安装策略的持久配置，SVCrtOS 的唯一「非编译期」布局来源）

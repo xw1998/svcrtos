@@ -44,6 +44,9 @@
 #include "svcrt_audit.h"
 #include "svcrt_guard.h"
 #include "svcrt_crash.h"
+#if (SVCRT_USE_LWIP == 1)
+#include "lwip_port.h"
+#endif
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -138,6 +141,13 @@ int main(void)
   svcrt_port_irq_init();
 
   svcrt_kernel_init();
+
+  /* lwIP 端口：在调度器起来之前把轮询任务登记好。真正的 tcpip_init()
+   * 留到该任务的第一轮再调——它会在信号量上等待，而那时候还没有人
+   * 能把它唤醒。 */
+#if (SVCRT_USE_LWIP == 1)
+  svcrt_lwip_start();
+#endif
 
   svcrt_start_idle();
   /* USER CODE END 2 */
