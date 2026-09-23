@@ -218,5 +218,5 @@ mount: FAILED (-7: already exists)
 
 ## 未做
 
-- App 侧：socket / select 到这一层的映射（前置是 TCP/IP 栈，仓库里还没有 lwIP）
+- App 侧：socket / select 到这一层的映射（TCP/IP 栈已接：lwIP 2.1.3 编进了内核、起的是回环网卡，见 [lwIP协议栈接入](lwIP协议栈接入.md)；App 侧 socket 门面还没做）
 - 组件升级：`tools/sync_ark_vfs.py --apply` 后跑一次全量编译即可

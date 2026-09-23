@@ -32,12 +32,16 @@
 
 | 分区 | 地址范围 | 大小 | 内容 |
 |---|---|---|---|
-| KERNEL | `0x08000000 ~ 0x0801FFFF` | 128 KB | 内核（含 shell、安装逻辑） |
-| CONFIG | `0x08020000 ~ 0x0803FFFF` | 128 KB | 设备端配置记录（只用开头 512 B） |
-| IMAGE_POOL | `0x08040000 ~ 0x080FFFFF` | 768 KB | **统一镜像池**：App 与驱动共用，6 个 128 KB 扇区 |
+| KERNEL | `0x08000000 ~ 0x0803FFFF` | 256 KB | 内核（含 shell、安装逻辑、lwIP 协议栈；见 [lwIP协议栈接入](lwIP协议栈接入.md)） |
+| CONFIG | `0x08040000 ~ 0x0805FFFF` | 128 KB | 设备端配置记录（只用开头 512 B） |
+| IMAGE_POOL | `0x08060000 ~ 0x080FFFFF` | 640 KB | **统一镜像池**：App 与驱动共用，5 个 128 KB 扇区 |
 
 池的分配粒度是 1 KB（`SVCRT_POOL_ALLOC_UNIT`），擦除粒度是扇区（128 KB）。
 一个 10 KB 的 App 在 auto 模式下只占约 11 KB，不再整扇区占用。
+
+> KERNEL 从 128 KB 提到 256 KB 是因为 lwIP（`SVCRT_USE_LWIP=1`）：MPU 区域必须是
+> 2 的幂，装不下只能往上一档翻，代价是池少 128 KB。代价与撤掉办法见
+> [lwIP协议栈接入](lwIP协议栈接入.md) 第 6 节。
 
 **F401（512 KB）**：KERNEL 128 KB + CONFIG 128 KB + 池 256 KB（2 个扇区）。
 
