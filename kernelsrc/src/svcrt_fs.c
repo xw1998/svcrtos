@@ -25,6 +25,10 @@
 #include "lfs.h"
 #include "lfs_svcrt_config.h"   /* asserts the LFS_NO_* build switches */
 #include "svcrt_config.h"    /* feature gates: SVCRT_USE_FS */
+
+#if (SVCRT_USE_MINIAPP == 1)
+#include "svcrt_mini.h"      /* 卷挂上后的自启钩子（见 fs_mount_with） */
+#endif
 /* Error codes of our own. Anything at or below -1000 belongs to SVCrtOS, and
  * anything above it is a value littlefs returned as-is - that split is what
  * lets a reader tell "the file system said this" from "the facade said this"
@@ -328,6 +332,14 @@ static int32 fs_mount_with(struct lfs_config *cfg)
 
     g_fs.mounted = 1u;
     g_fs.last_error = 0;
+
+#if (SVCRT_USE_MINIAPP == 1)
+    /* 卷可用了——这是小程序唯一能起来的时刻：它的代码就放在这个卷里，而内核
+     * 不去猜哪个设备上有文件系统（那是板级知识，挂载由上层发起）。所以把
+     * 「挂上」当作「可以自启了」的信号：谁把它挂上，自启就在那一刻被带上。
+     * 本次开机只做一次；没有清单文件就安静地什么都不做。 */
+    (void)svcrt_mini_boot_autostart();
+#endif
 
     return 0;
 }

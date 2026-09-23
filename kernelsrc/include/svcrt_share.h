@@ -55,8 +55,20 @@
  *            数据窗也就不必再与代码窗共用「可执行」属性。
  *            末尾追加 mini_code_base / mini_code_size；mini_ram_* 含义不变。
  *            纯追加，已有字段偏移不变。
+ *  v9 -> v10: 小程序支持**同一时刻多个**：原来 4 个标量字段（mini_code_base /
+ *            mini_code_size / mini_ram_base / mini_ram_size）只能记一组块，
+ *            等于把「一个小程序」写进了 ABI。改成 4 个长度为
+ *            SVCRT_MINI_ARRAY_MAX 的数组，下标记同一个小程序的两块。
+ *            本次是**改字段**（标量变数组），不是纯追加：结构体尺寸变了，
+ *            共享 RAM 里的旧版本记录必须被识别成旧版本而不是按新布局读——
+ *            这正是 version 字段存在的理由，开机校验不过就整表重建。
  */
-#define SVCRT_PARTITION_VERSION   (9u)
+#define SVCRT_PARTITION_VERSION   (10u)
+
+/** @brief 小程序块数组的固定长度（ABI 形状常量）。
+ *  运行期同时能跑几个小程序由 SVCRT_MINI_MAX 决定（见 svcrt_features.h），
+ *  它必须 <= 本值；数组长度写死是为了让结构体尺寸与偏移跨版本稳定。 */
+#define SVCRT_MINI_ARRAY_MAX      (4u)
 
 /** @brief 槽位数组的固定长度（ABI 形状常量）。
  *  实际使用的槽位数由运行期字段 slot_max 决定，必须 <= 本值；
@@ -153,11 +165,16 @@ typedef struct {
      *      它们不挂任何槽位——小程序没有槽位记录（它在文件系统里，不在
      *      镜像池里），这正是需要单独记账的原因。
      *      v9 起是两块：代码块（可执行）与 RAM 块（RW/ZI + 栈）。两块都是
-     *      2 的幂、各自对齐自己的大小，因此各能精确落进一个 MPU 区域。 */
-    uint32 mini_code_base;                      /* 小程序代码块基址（0 = 无） */
-    uint32 mini_code_size;                      /* 小程序代码块字节数（0 = 无） */
-    uint32 mini_ram_base;                       /* 小程序 RAM 块基址（0 = 无） */
-    uint32 mini_ram_size;                       /* 小程序 RAM 块字节数（0 = 无） */
+     *      2 的幂、各自对齐自己的大小，因此各能精确落进一个 MPU 区域。
+     *      v10 起是**数组**：同一下标 i 记一个小程序的两块，空的项 base 为 0。
+ *      之所以必须下放到共享表，是因为「哪些 RAM 段已被占用」只能有一份账：
+ *      伙伴分配器在 ptable 里按这张表算缺口，`pool` / `stats` 也按它报余量。
+ *      账放在别处（比如内核私有数组）会让余量报出比实际大的数字——那是一句
+     *      看着权威的错话。 */
+    uint32 mini_code_base[SVCRT_MINI_ARRAY_MAX];/* 小程序代码块基址（0 = 空项） */
+    uint32 mini_code_size[SVCRT_MINI_ARRAY_MAX];/* 小程序代码块字节数（0 = 空项） */
+    uint32 mini_ram_base[SVCRT_MINI_ARRAY_MAX]; /* 小程序 RAM 块基址（0 = 空项） */
+    uint32 mini_ram_size[SVCRT_MINI_ARRAY_MAX]; /* 小程序 RAM 块字节数（0 = 空项） */
 } svcrt_partition_table_t;
 
 #endif /* __SVCRT_SHARE_H__ */

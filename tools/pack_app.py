@@ -795,6 +795,15 @@ def do_pack(args):
     layout = load_layout(args.header)
     v = layout.v
     img_type = {"app": TYPE_APP, "driver": TYPE_DRIVER, "miniapp": TYPE_MINIAPP}[args.type]
+
+    # 小程序的「开机自启」不在镜像头里：它在卷内的自启清单文件
+    # （/mini.autostart，见 kernelsrc/include/svcrt_mini.h 的
+    # SVCRT_MINI_AUTOSTART_FILE），用控制台 'mini autostart add <path>' 增删。
+    # 这里直接拒收 --autostart，而不是写一个没人读的标志位——后者会让人以为
+    # 「打了包就自启」，而那正是最难查的一类静默错答案。
+    if (img_type == TYPE_MINIAPP) and args.autostart:
+        raise PackError("--autostart 对小程序无效：小程序的自启写在卷内的 /mini.autostart，"
+                        "请烧录后用控制台的 'mini autostart add <path>' 打开自启")
     # 小程序与 App 同栈口径：内核侧也是按 APP_TASK_STACK_SIZE 起它的任务
     stack_size = v("DRIVER_TASK_STACK_SIZE") if img_type == TYPE_DRIVER \
         else v("APP_TASK_STACK_SIZE")

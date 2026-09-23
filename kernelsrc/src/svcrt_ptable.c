@@ -85,7 +85,32 @@ typedef struct {
  * 不挂槽位）—— 见 svcrt_pt_collect()。留出的余量比实际可能出现的区间数多，
  * 于是收集循环永远不会因为 `n < max` 而丢掉一个区间（丢一个区间 = 分配器
  * 看不见一块已占内存，会把它再分出去一次）。 */
-#define SVCRT_PT_RANGE_MAX   (SVCRT_SLOT_ARRAY_MAX + 2u)
+#define SVCRT_PT_RANGE_MAX   (SVCRT_SLOT_ARRAY_MAX + (2u * SVCRT_MINI_ARRAY_MAX))
+
+/* 按基址升序插一段。返回新的区间数；装不下时回 0（调用方把它当失败）。
+ * 升序是后面 find_gap「扫间隙」的前提，不能只追加到尾部。 */
+static uint32 svcrt_pt_range_push(svcrt_pt_range_t *out, uint32 n, uint32 max,
+                                  uint32 base, uint32 size)
+{
+    uint32 j;
+
+    if((n >= max) || (size == 0u))
+    {
+        return 0u;
+    }
+
+    j = n;
+    while((j > 0u) && (out[j - 1u].base > base))
+    {
+        out[j] = out[j - 1u];
+        j--;
+    }
+
+    out[j].base = base;
+    out[j].end  = base + size;
+
+    return n + 1u;
+}
 
 /* 收集所有占用区间（Flash 或 RAM），按基址升序插入排序。
  * 返回区间个数。选择哪一组字段由 ram_select 决定。 */
@@ -135,39 +160,30 @@ static uint32 svcrt_pt_collect(const svcrt_partition_table_t *pt, svcrt_pt_range
     }
 
     /* 小程序的两块都不挂槽位（它在文件系统里，不在镜像池里），因此上面
-     * 那一圈看不到它们。不算进来，第二个使用者就会拿到同一块内存。 */
-    if((ram_select != 0u) && (n < max) &&
-       (pt->mini_code_base != 0u) && (pt->mini_code_size != 0u))
+     * 那一圈看不到它们。不算进来，第二个使用者就会拿到同一块内存。
+     * 同一时刻可以有多个小程序（每项两组块），所以这里是双层循环而不是
+     * 两组 if——漏掉一项就等于把一块已占内存再分出去一次。 */
+    if(ram_select != 0u)
     {
-        uint32 base = pt->mini_code_base;
+        uint32 k;
 
-        j = n;
-        while((j > 0u) && (out[j - 1u].base > base))
+        for(k = 0u; k < SVCRT_MINI_ARRAY_MAX; k++)
         {
-            out[j] = out[j - 1u];
-            j--;
+            if(n >= max) { break; }
+            if((pt->mini_code_base[k] != 0u) && (pt->mini_code_size[k] != 0u))
+            {
+                n = svcrt_pt_range_push(out, n, max,
+                                        pt->mini_code_base[k],
+                                        pt->mini_code_size[k]);
+            }
+            if(n >= max) { break; }
+            if((pt->mini_ram_base[k] != 0u) && (pt->mini_ram_size[k] != 0u))
+            {
+                n = svcrt_pt_range_push(out, n, max,
+                                        pt->mini_ram_base[k],
+                                        pt->mini_ram_size[k]);
+            }
         }
-
-        out[j].base = base;
-        out[j].end  = base + pt->mini_code_size;
-        n++;
-    }
-
-    if((ram_select != 0u) && (n < max) &&
-       (pt->mini_ram_base != 0u) && (pt->mini_ram_size != 0u))
-    {
-        uint32 base = pt->mini_ram_base;
-
-        j = n;
-        while((j > 0u) && (out[j - 1u].base > base))
-        {
-            out[j] = out[j - 1u];
-            j--;
-        }
-
-        out[j].base = base;
-        out[j].end  = base + pt->mini_ram_size;
-        n++;
     }
 
     return n;
@@ -248,6 +264,7 @@ static int32 svcrt_pt_find_gap(uint32 pool_base, uint32 pool_end,
 void svcrt_ptable_init(void)
 {
     svcrt_partition_table_t *pt = svcrt_ptable_ptr();
+    uint32 i;
 
     pt->magic          = SVCRT_PARTITION_MAGIC;
     pt->version        = SVCRT_PARTITION_VERSION;
@@ -286,10 +303,13 @@ void svcrt_ptable_init(void)
     /* 小程序的两块：开机必定没有小程序在跑（它们都是运行期借、退出即还的
      * 瞬态块），所以这里必须显式清零 —— 共享 RAM 里的内容是上次上电留下的，
      * 残留一个非零值会让首次分配直接报「已有小程序在跑」。 */
-    pt->mini_code_base = 0u;
-    pt->mini_code_size = 0u;
-    pt->mini_ram_base  = 0u;
-    pt->mini_ram_size  = 0u;
+    for(i = 0u; i < SVCRT_MINI_ARRAY_MAX; i++)
+    {
+        pt->mini_code_base[i] = 0u;
+        pt->mini_code_size[i] = 0u;
+        pt->mini_ram_base[i]  = 0u;
+        pt->mini_ram_size[i]  = 0u;
+    }
 
     svcrt_ptable_clear_slots();
 }
@@ -982,6 +1002,7 @@ static uint32 svcrt_pt_range_insert(svcrt_pt_range_t *out, uint32 n, uint32 max,
 }
 
 int32 svcrt_ptable_mini_alloc(uint32 code_bytes, uint32 ram_bytes,
+                              uint32 *p_index,
                               uint32 *p_code_base, uint32 *p_code_size,
                               uint32 *p_ram_base, uint32 *p_ram_size)
 {
@@ -995,10 +1016,14 @@ int32 svcrt_ptable_mini_alloc(uint32 code_bytes, uint32 ram_bytes,
     uint32 code_aligned = 0u;
     uint32 ram_base = 0u;
     uint32 ram_aligned = 0u;
+    uint32 idx = 0u;
+    uint32 k;
     int32 ret;
+    int32 have_slot = 0;
 
-    if((p_code_base == 0) || (p_code_size == 0) || (p_ram_base == 0) ||
-       (p_ram_size == 0) || (code_bytes == 0u) || (ram_bytes == 0u))
+    if((p_index == 0) || (p_code_base == 0) || (p_code_size == 0) ||
+       (p_ram_base == 0) || (p_ram_size == 0) ||
+       (code_bytes == 0u) || (ram_bytes == 0u))
     {
         return -1;
     }
@@ -1025,10 +1050,19 @@ int32 svcrt_ptable_mini_alloc(uint32 code_bytes, uint32 ram_bytes,
 
     svcrt_spin_lock_irqsave(&svcrt_ptable_lock, &irq_state);
 
-    /* 同一时刻只允许一个小程序。已经借出就拒绝——静默共用一块会让两个
-     * 程序互相改对方的代码，那种错现场查不出来。 */
-    if((pt->mini_code_base != 0u) || (pt->mini_code_size != 0u) ||
-       (pt->mini_ram_base != 0u) || (pt->mini_ram_size != 0u))
+    /* 找一项空着的。项满就拒绝——静默共用一块会让两个程序互相改对方的
+     * 代码，那种错现场查不出来。 */
+    for(k = 0u; k < SVCRT_MINI_ARRAY_MAX; k++)
+    {
+        if((pt->mini_code_base[k] == 0u) && (pt->mini_code_size[k] == 0u) &&
+           (pt->mini_ram_base[k] == 0u) && (pt->mini_ram_size[k] == 0u))
+        {
+            idx = k;
+            have_slot = 1;
+            break;
+        }
+    }
+    if(have_slot == 0)
     {
         svcrt_spin_unlock_irqrestore(&svcrt_ptable_lock, irq_state);
         return -1;
@@ -1061,11 +1095,12 @@ int32 svcrt_ptable_mini_alloc(uint32 code_bytes, uint32 ram_bytes,
     {
         /* 记账与分配同一把锁：两处都做完才算借出，否则两次并发分配会
          * 拿到同一个块（伙伴分配器只看账，记账晚了就等于没占）。 */
-        pt->mini_code_base = code_base;
-        pt->mini_code_size = want_code;
-        pt->mini_ram_base  = ram_base;
-        pt->mini_ram_size  = want_ram;
+        pt->mini_code_base[idx] = code_base;
+        pt->mini_code_size[idx] = want_code;
+        pt->mini_ram_base[idx]  = ram_base;
+        pt->mini_ram_size[idx]  = want_ram;
 
+        *p_index     = idx;
         *p_code_base = code_base;
         *p_code_size = want_code;
         *p_ram_base  = ram_base;
@@ -1077,36 +1112,71 @@ int32 svcrt_ptable_mini_alloc(uint32 code_bytes, uint32 ram_bytes,
     return ret;
 }
 
-int32 svcrt_ptable_mini_free(void)
+int32 svcrt_ptable_mini_free(uint32 index)
 {
     svcrt_partition_table_t *pt = svcrt_ptable_get();
     uint32 irq_state;
 
+    if(index >= SVCRT_MINI_ARRAY_MAX)
+    {
+        return -1;              /* 越界：不能拿一个下标去清别人那项 */
+    }
+
     svcrt_spin_lock_irqsave(&svcrt_ptable_lock, &irq_state);
 
-    if((pt->mini_code_base == 0u) && (pt->mini_code_size == 0u) &&
-       (pt->mini_ram_base == 0u) && (pt->mini_ram_size == 0u))
+    if((pt->mini_code_base[index] == 0u) && (pt->mini_code_size[index] == 0u) &&
+       (pt->mini_ram_base[index] == 0u) && (pt->mini_ram_size[index] == 0u))
     {
         svcrt_spin_unlock_irqrestore(&svcrt_ptable_lock, irq_state);
         return -1;              /* 本就没借：如实报错，不假装归还成功 */
     }
 
-    pt->mini_code_base = 0u;
-    pt->mini_code_size = 0u;
-    pt->mini_ram_base  = 0u;
-    pt->mini_ram_size  = 0u;
+    pt->mini_code_base[index] = 0u;
+    pt->mini_code_size[index] = 0u;
+    pt->mini_ram_base[index]  = 0u;
+    pt->mini_ram_size[index]  = 0u;
 
     svcrt_spin_unlock_irqrestore(&svcrt_ptable_lock, irq_state);
 
     return 0;
 }
 
-int32 svcrt_ptable_mini_info(uint32 *p_code_base, uint32 *p_code_size,
+int32 svcrt_ptable_mini_used(uint32 *p_used, uint32 *p_max)
+{
+    svcrt_partition_table_t *pt = svcrt_ptable_get();
+    uint32 irq_state;
+    uint32 used = 0u;
+    uint32 k;
+
+    svcrt_spin_lock_irqsave(&svcrt_ptable_lock, &irq_state);
+
+    for(k = 0u; k < SVCRT_MINI_ARRAY_MAX; k++)
+    {
+        if((pt->mini_code_base[k] != 0u) || (pt->mini_ram_base[k] != 0u))
+        {
+            used++;
+        }
+    }
+
+    svcrt_spin_unlock_irqrestore(&svcrt_ptable_lock, irq_state);
+
+    if(p_used != 0) { *p_used = used; }
+    if(p_max != 0)  { *p_max  = SVCRT_MINI_ARRAY_MAX; }
+
+    return 0;
+}
+
+int32 svcrt_ptable_mini_info(uint32 index,
+                             uint32 *p_code_base, uint32 *p_code_size,
                              uint32 *p_ram_base, uint32 *p_ram_size)
 {
     svcrt_partition_table_t *pt = svcrt_ptable_get();
     uint32 irq_state;
 
+    if(index >= SVCRT_MINI_ARRAY_MAX)
+    {
+        return -1;
+    }
     if((p_code_base == 0) && (p_code_size == 0) &&
        (p_ram_base == 0) && (p_ram_size == 0))
     {
@@ -1117,19 +1187,19 @@ int32 svcrt_ptable_mini_info(uint32 *p_code_base, uint32 *p_code_size,
 
     if(p_code_base != 0)
     {
-        *p_code_base = pt->mini_code_base;
+        *p_code_base = pt->mini_code_base[index];
     }
     if(p_code_size != 0)
     {
-        *p_code_size = pt->mini_code_size;
+        *p_code_size = pt->mini_code_size[index];
     }
     if(p_ram_base != 0)
     {
-        *p_ram_base = pt->mini_ram_base;
+        *p_ram_base = pt->mini_ram_base[index];
     }
     if(p_ram_size != 0)
     {
-        *p_ram_size = pt->mini_ram_size;
+        *p_ram_size = pt->mini_ram_size[index];
     }
 
     svcrt_spin_unlock_irqrestore(&svcrt_ptable_lock, irq_state);

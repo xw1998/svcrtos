@@ -202,8 +202,10 @@ int32 svcrt_ptable_ram_info(uint32 slot, uint32 *p_base, uint32 *p_size);
 * @param code_bytes 代码块需要的字节数（负载长度按 8 字节上取整，调用方已算好）
 * @param ram_bytes  RAM 块需要的字节数（镜像声明的 RAM 需求，本身就是 2 的幂）
 * @param p_code_base / p_code_size 输出代码块基址与字节数（2 的幂）
+* @param p_index    输出本次借出的块在共享表里占了哪一项（0..SVCRT_MINI_ARRAY_MAX-1）；
+*                   归还时必须把同一个下标交回来，它是「还哪两块」的唯一凭据
 * @param p_ram_base  / p_ram_size  输出 RAM 块基址与字节数（2 的幂）
-* @return 0=成功；-1=没有合适的块 / 参数非法 / 已经有一个在跑
+* @return 0=成功；-1=没有合适的块 / 参数非法 / 项已满
 * @details 与 svcrt_ptable_ram_alloc() 的区别：那个只算地址、记账要靠调用方
 *          再调 ram_bind() 挂到某个槽位上；而小程序**没有槽位（它在文件系统里，
 *          不在镜像池里）**，所以分配与记账必须在同一把锁里完成，否则两次
@@ -216,27 +218,40 @@ int32 svcrt_ptable_ram_info(uint32 slot, uint32 *p_base, uint32 *p_size);
 * @note 两块**同生同死**：要么都借到、要么一块都不借（先给代码块找地方，
 *       找不到合适的 RAM 块就把代码块的记账一并放弃）；没有「半借」状态，
 *       否则归还路径要处理一种谁也没见过的组合。
-* @note 同一时刻只允许一个：再借一次直接返回 -1，不静默共用一块。
+* @note 同一时刻不止一个：数组里有几项空着就能借几份（上限
+*       SVCRT_MINI_ARRAY_MAX，运行期同时允许几个由 SVCRT_MINI_MAX 管）。
+*       每一项各记一组块，互不共用。
 */
 int32 svcrt_ptable_mini_alloc(uint32 code_bytes, uint32 ram_bytes,
+                              uint32 *p_index,
                               uint32 *p_code_base, uint32 *p_code_size,
                               uint32 *p_ram_base, uint32 *p_ram_size);
 
 /**
-* @brief 归还小程序的两块（把 mini_code_* / mini_ram_* 全部清回 0）
-* @return 0=成功，-1=本就没借（如实报错，不假装归还成功）
-* @details 只清记账，不擦内存内容，也不会失败：调用方（装载失败路径与任务
-*          退出路径）必须无论如何都把账还回去，否则每跑一次小程序漏两块 RAM。
+* @brief 归还某一项的块（把该项的四个字段全部清回 0）
+* @param index svcrt_ptable_mini_alloc 交回来的下标
+* @return 0=成功，-1=下标越界或该项本就空（如实报错，不假装归还成功）
+* @details 只清记账，不擦内存内容：调用方（装载失败路径与任务退出路径）必须
+*          无论如何都把账还回去，否则每跑一次小程序漏两块 RAM。
 */
-int32 svcrt_ptable_mini_free(void);
+int32 svcrt_ptable_mini_free(uint32 index);
 
 /**
-* @brief 读出小程序的两块（调试 / shell 展示）
-* @return 0=成功（未借出时对应输出为 0），-1=四个指针全为空
+* @brief 读出某一项的两块（调试 / shell 展示）
+* @return 0=成功（空项时对应输出为 0），-1=下标越界或四个指针全为空
 * @note 允许逐个传 0：只关心 RAM 块的调用者不必准备四个变量。
 */
-int32 svcrt_ptable_mini_info(uint32 *p_code_base, uint32 *p_code_size,
+int32 svcrt_ptable_mini_info(uint32 index,
+                             uint32 *p_code_base, uint32 *p_code_size,
                              uint32 *p_ram_base, uint32 *p_ram_size);
+
+/**
+* @brief 统计小程序块的项数与在用项数
+* @param p_used 在用项数（可为 0）
+* @param p_max  数组容量（= SVCRT_MINI_ARRAY_MAX）
+* @return 0=成功
+*/
+int32 svcrt_ptable_mini_used(uint32 *p_used, uint32 *p_max);
 
 /**
 * @brief 取池的统计值（供 shell 的 info 命令展示）

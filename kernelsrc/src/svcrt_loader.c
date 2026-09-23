@@ -38,6 +38,7 @@
 #include "svcrt_dev.h"
 #include "svcrt_cfg.h"
 #include "svcrt_task.h"
+#include "svcrt_mini.h"    /* MiniApp fault hook: no slot, its own bookkeeping */
 #include "svcrt_mpu.h"
 #include "svcrt_fault.h"
 #include "svcrt_partition.h"    /* 内核专属：读取池布局 / 任务运行参数 */
@@ -2690,6 +2691,16 @@ int32 svcrt_loader_on_fault(int32 task_id)
 
     if(slot < 0)
     {
+        /* 没有槽位：要么是内核任务，要么是小程序。小程序在文件系统里、不进
+         * 镜像池，所以查不到槽位。它用自己那本账（同一套上限，身份是路径），
+         * 达到上限回 1 表示「已禁用、不要再恢复」，与本函数对槽位的回答同义。 */
+        #if (SVCRT_USE_MINIAPP == 1)
+        if(svcrt_mini_on_fault(task_id) == 1)
+        {
+            return 1;
+        }
+        #endif
+
         return -1;              /* 内核任务：沿用默认故障处理 */
     }
 

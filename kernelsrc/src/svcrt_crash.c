@@ -10,6 +10,29 @@
 #include "svcrt_task.h"         /* svcrt_kernel_tick */
 #include "svcrt_log.h"
 #include "svcrt_config.h"    /* feature gates: SVCRT_USE_CRASH_LOG */
+
+/* FNV-1a over the path bytes. Defined outside the SVCRT_USE_CRASH_LOG gate: the
+ * MiniApp loader and the console both need one stable identity for a path even
+ * in a build where the journal itself is compiled out (there the accounting
+ * below is a no-op, but the name of a MiniApp still has to agree) . */
+uint32 svcrt_crash_hash_path(const char *path)
+{
+    uint32 h = 2166136261u;
+
+    if((path == 0) || (path[0] == '\0'))
+    {
+        return 0u;
+    }
+
+    while(*path != '\0')
+    {
+        h = (h ^ (uint32)(uint8)(*path)) * 16777619u;
+        path++;
+    }
+
+    return (h == 0u) ? 1u : h;      /* 0 always means "empty entry" */
+}
+
 #if SVCRT_USE_CRASH_LOG
 
 /* The journal lives in the UNINIT region the scatter file reserves at the end
@@ -91,6 +114,15 @@ static void svcrt_crash_clear_entry(uint32 slot)
     svcrt_crash_journal.base[slot]        = 0u;
 }
 
+static void svcrt_crash_clear_mini(uint32 i)
+{
+    svcrt_crash_journal.mini_hash[i]        = 0u;
+    svcrt_crash_journal.mini_cnt[i]         = 0u;
+    svcrt_crash_journal.mini_last_reason[i] = SVCRT_CRASH_REASON_NONE;
+    svcrt_crash_journal.mini_dis_reason[i]  = SVCRT_CRASH_REASON_NONE;
+    svcrt_crash_journal.mini_dis_tick[i]    = 0u;
+}
+
 /* Effective consecutive-fault limit, in the same precedence order the let
  * operator uses: the device-side configuration region may override the
  * compile-time default, and 0 in that region means "keep the default"
@@ -133,6 +165,14 @@ void svcrt_crash_init(void)
     for(i = 0u; i < (uint32)SVCRT_SLOT_ARRAY_MAX; i++)
     {
         svcrt_crash_clear_entry(i);
+    }
+
+    /* The MiniApp table is part of the same record: a journal rebuilt from
+     * scratch has to start with it empty too, or leftover RAM bytes would be
+     * read as "these paths already crashed N times". */
+    for(i = 0u; i < (uint32)SVCRT_CRASH_MINI_MAX; i++)
+    {
+        svcrt_crash_clear_mini(i);
     }
 
     p_j->magic   = (uint32)SVCRT_CRASH_MAGIC;
@@ -374,6 +414,193 @@ uint32 svcrt_crash_area_size(void)
     return (uint32)CRASH_LOG_SIZE;
 }
 
+/* ---- MiniApp bookkeeping ------------------------------------------- */
+
+/* Index of the entry tracked for this hash, or -1. */
+static int32 svcrt_crash_mini_find(uint32 hash)
+{
+    uint32 i;
+
+    for(i = 0u; i < (uint32)SVCRT_CRASH_MINI_MAX; i++)
+    {
+        if(svcrt_crash_journal.mini_hash[i] == hash)
+        {
+            return (int32)i;
+        }
+    }
+
+    return -1;
+}
+
+/* Pick an entry for a path that is not tracked yet: an empty one, else the
+ * least-faulted entry that is not disabled (a disabled entry is operator state
+ * the journal exists to keep). -1 when every entry is a disabled MiniApp. */
+static int32 svcrt_crash_mini_victim(void)
+{
+    int32 best = -1;
+    uint32 best_cnt = 0xffffffffu;
+    uint32 i;
+
+    for(i = 0u; i < (uint32)SVCRT_CRASH_MINI_MAX; i++)
+    {
+        if(svcrt_crash_journal.mini_hash[i] == 0u)
+        {
+            return (int32)i;
+        }
+    }
+
+    for(i = 0u; i < (uint32)SVCRT_CRASH_MINI_MAX; i++)
+    {
+        if(svcrt_crash_journal.mini_dis_reason[i] != SVCRT_CRASH_REASON_NONE)
+        {
+            continue;
+        }
+        if(svcrt_crash_journal.mini_cnt[i] < best_cnt)
+        {
+            best_cnt = svcrt_crash_journal.mini_cnt[i];
+            best = (int32)i;
+        }
+    }
+
+    return best;
+}
+
+uint32 svcrt_crash_mini_fault(uint32 hash, uint32 reason)
+{
+    svcrt_crash_journal_t *p_j = &svcrt_crash_journal;
+    uint32 limit = svcrt_crash_limit();
+    uint32 irq_state;
+    uint32 count;
+    int32 idx;
+
+    if(hash == 0u)
+    {
+        return 0u;
+    }
+
+    irq_state = SVCRT_ENTER_CRITICAL();
+
+    idx = svcrt_crash_mini_find(hash);
+    if(idx < 0)
+    {
+        idx = svcrt_crash_mini_victim();
+    }
+
+    if(idx < 0)
+    {
+        /* Every entry belongs to a disabled MiniApp: there is nowhere honest to
+         * put this fault, so say so (0) rather than fabricate a count. */
+        SVCRT_EXIT_CRITICAL(irq_state);
+        return 0u;
+    }
+
+    if(p_j->mini_hash[idx] != hash)
+    {
+        /* Fresh identity, or a reused victim whose count was someone else's:
+         * start this path at 1. */
+        svcrt_crash_clear_mini((uint32)idx);
+        p_j->mini_hash[idx] = hash;
+    }
+
+    p_j->mini_cnt[idx]++;
+    p_j->mini_last_reason[idx] = reason;
+
+    if((limit != 0u) && (p_j->mini_cnt[idx] >= limit) &&
+       (p_j->mini_dis_reason[idx] == SVCRT_CRASH_REASON_NONE))
+    {
+        p_j->mini_dis_reason[idx] = reason;
+        p_j->mini_dis_tick[idx]   = svcrt_kernel_tick;
+    }
+
+    count = p_j->mini_cnt[idx];
+    svcrt_crash_commit();
+
+    SVCRT_EXIT_CRITICAL(irq_state);
+
+    return count;
+}
+
+uint32 svcrt_crash_mini_disabled(uint32 hash)
+{
+    int32 idx;
+
+    if(hash == 0u)
+    {
+        return 0u;
+    }
+
+    idx = svcrt_crash_mini_find(hash);
+
+    return (idx < 0) ? 0u : svcrt_crash_journal.mini_dis_reason[idx];
+}
+
+uint32 svcrt_crash_mini_count(uint32 hash)
+{
+    int32 idx;
+
+    if(hash == 0u)
+    {
+        return 0u;
+    }
+
+    idx = svcrt_crash_mini_find(hash);
+
+    return (idx < 0) ? 0u : svcrt_crash_journal.mini_cnt[idx];
+}
+
+uint32 svcrt_crash_mini_disabled_tick(uint32 hash)
+{
+    int32 idx;
+
+    if(hash == 0u)
+    {
+        return 0u;
+    }
+
+    idx = svcrt_crash_mini_find(hash);
+
+    return (idx < 0) ? 0u : svcrt_crash_journal.mini_dis_tick[idx];
+}
+
+uint32 svcrt_crash_mini_at(uint32 idx, uint32 *hash, uint32 *cnt,
+                           uint32 *last, uint32 *hold, uint32 *tick)
+{
+    if(idx >= SVCRT_CRASH_MINI_MAX)
+    {
+        return 0u;
+    }
+
+    if(hash != 0) { *hash = svcrt_crash_journal.mini_hash[idx]; }
+    if(cnt  != 0) { *cnt  = svcrt_crash_journal.mini_cnt[idx]; }
+    if(last != 0) { *last = svcrt_crash_journal.mini_last_reason[idx]; }
+    if(hold != 0) { *hold = svcrt_crash_journal.mini_dis_reason[idx]; }
+    if(tick != 0) { *tick = svcrt_crash_journal.mini_dis_tick[idx]; }
+
+    return (svcrt_crash_journal.mini_hash[idx] != 0u) ? 1u : 0u;
+}
+
+void svcrt_crash_mini_forget(uint32 hash)
+{
+    uint32 irq_state;
+    int32 idx;
+
+    if(hash == 0u)
+    {
+        return;
+    }
+
+    irq_state = SVCRT_ENTER_CRITICAL();
+
+    idx = svcrt_crash_mini_find(hash);
+    if(idx >= 0)
+    {
+        svcrt_crash_clear_mini((uint32)idx);
+        svcrt_crash_commit();
+    }
+
+    SVCRT_EXIT_CRITICAL(irq_state);
+}
+
 #else   /* SVCRT_USE_CRASH_LOG == 0 */
 /* Cross-reset crash journal compiled out.  Nothing is ever recorded, so
  * nothing is ever disabled by a fault count and the region has no address.
@@ -454,4 +681,53 @@ uint32 svcrt_crash_area_size(void)
 {
     return 0u;
 }
+
+/* MiniApp bookkeeping compiled out: nothing is ever counted, so nothing is ever
+ * disabled and the loader's DISABLED answer can never fire. The hash is still
+ * real (it is just arithmetic), so callers keep sharing one identity. */
+uint32 svcrt_crash_mini_fault(uint32 hash, uint32 reason)
+{
+    (void)hash;
+    (void)reason;
+    return 0u;
+}
+
+uint32 svcrt_crash_mini_disabled(uint32 hash)
+{
+    (void)hash;
+    return 0u;
+}
+
+uint32 svcrt_crash_mini_count(uint32 hash)
+{
+    (void)hash;
+    return 0u;
+}
+
+uint32 svcrt_crash_mini_disabled_tick(uint32 hash)
+{
+    (void)hash;
+    return 0u;
+}
+
+uint32 svcrt_crash_mini_at(uint32 idx, uint32 *hash, uint32 *cnt,
+                           uint32 *last, uint32 *hold, uint32 *tick)
+{
+    /* No journal exists, so no index ever holds an entry. The out-parameters
+     * are still written: a caller that reads them without checking the return
+     * value then reads zeroes rather than whatever was on its stack. */
+    (void)idx;
+    if(hash != 0) { *hash = 0u; }
+    if(cnt  != 0) { *cnt  = 0u; }
+    if(last != 0) { *last = 0u; }
+    if(hold != 0) { *hold = 0u; }
+    if(tick != 0) { *tick = 0u; }
+    return 0u;
+}
+
+void svcrt_crash_mini_forget(uint32 hash)
+{
+    (void)hash;
+}
+
 #endif /* SVCRT_USE_CRASH_LOG */

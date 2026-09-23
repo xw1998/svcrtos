@@ -805,6 +805,39 @@ static int cmd_guard(int argc, char *argv[])
  * @note 掉电即清零是设计取舍而不是遗漏：复位才是要数的那个事件，
  *       断电是操作者说“重新开始”。详见 svcrt_crash.h。
  * ============================================================ */
+#if SVCRT_USE_MINIAPP
+/* MiniApp 日记的回填：日记里只存了路径哈希（定长的才能进 UNINIT 区），
+ * 没存路径本身。要把一行读成人能用的东西，就得拿手上还知道的那份路径
+ * 去对哈希——自启清单是唯一一份仍在板上的“路径 -> 哈希”对照表。
+ * 对不上就不给路径：宁可显示哈希并标注未对上，也不猜一个像样的路径。 */
+typedef struct {
+    uint32 want;
+    uint32 hit;
+    char  *dst;
+} mini_hash_lookup_t;
+
+static int mini_hash_lookup_cb(const char *path, void *arg)
+{
+    mini_hash_lookup_t *m = (mini_hash_lookup_t *)arg;
+    uint32 i;
+
+    if(svcrt_crash_hash_path(path) != m->want)
+    {
+        return 0;
+    }
+
+    /* 拷出来：path 落在 svcrt_mini.c 的共用缓冲里，下一条会覆盖它。 */
+    for(i = 0u; (i + 1u < SVCRT_MINI_PATH_MAX) && (path[i] != '\0'); i++)
+    {
+        m->dst[i] = path[i];
+    }
+    m->dst[i] = '\0';
+    m->hit = 1u;
+
+    return 1;   /* 找到了就停，别让后面的条目把答案冲掉 */
+}
+#endif /* SVCRT_USE_MINIAPP */
+
 static int cmd_crash(int argc, char *argv[])
 {
     svcrt_partition_table_t *pt = svcrt_ptable_get();
@@ -848,6 +881,63 @@ static int cmd_crash(int argc, char *argv[])
         sh_out("\r\nhold = the kernel will not autostart this slot. 'app start' / 'drv start'\r\n"
                "       is the explicit retry that clears it (the image must still validate).\r\n");
     }
+
+#if SVCRT_USE_MINIAPP
+    /* 小程序走自己的表（没有槽位号，身份是路径哈希），所以单独列一段：
+     * 两套策略不能读成一套——看到的数字必须知道自己数的是什么。 */
+    {
+        char   path[SVCRT_MINI_PATH_MAX];
+        uint32 j;
+        uint32 mini_shown = 0u;
+
+        ark_shell_printf("\r\nmini path  faults last        hold      held_at\r\n");
+
+        for(j = 0u; j < SVCRT_CRASH_MINI_MAX; j++)
+        {
+            uint32 hash = 0u, cnt = 0u, last = 0u, hold = 0u, tick = 0u;
+            mini_hash_lookup_t look;
+
+            if(svcrt_crash_mini_at(j, &hash, &cnt, &last, &hold, &tick) == 0u)
+            {
+                continue;
+            }
+
+            mini_shown++;
+            path[0] = '\0';
+            look.want = hash;
+            look.hit  = 0u;
+            look.dst  = path;
+            (void)svcrt_mini_autostart_foreach(mini_hash_lookup_cb, &look);
+
+            if(look.hit != 0u)
+            {
+                ark_shell_printf(" %-10s  %-6u  %-10s  %-8s  %u\r\n",
+                                 path, (unsigned)cnt,
+                                 svcrt_crash_reason_name(last),
+                                 svcrt_crash_reason_name(hold),
+                                 (unsigned)tick);
+            }
+            else
+            {
+                ark_shell_printf(" #%08X    %-6u  %-10s  %-8s  %u\r\n",
+                                 (unsigned)hash, (unsigned)cnt,
+                                 svcrt_crash_reason_name(last),
+                                 svcrt_crash_reason_name(hold),
+                                 (unsigned)tick);
+            }
+        }
+
+        if(mini_shown == 0u)
+        {
+            sh_out("no MiniApp has a fault on record since the last power-on.\r\n");
+        }
+        else
+        {
+            sh_out("path is known only while /mini.autostart still names it; '#' is the raw\r\n"
+                   "       path hash otherwise. 'mini forget <path>' clears either.\r\n");
+        }
+    }
+#endif /* SVCRT_USE_MINIAPP */
 
     return 0;
 }
@@ -3033,13 +3123,59 @@ static int cmd_vfs_rm(int argc, char *argv[])
 #if SVCRT_USE_MINIAPP
 /* 小程序：把文件系统里的一份负载按需 load 进 RAM 执行，退出/停止就把那块 RAM 还回池。
  * 它占的是「代码 + RW/ZI + 栈」整块池内存，所以运行期与 App 抢的是同一个池。*/
+/* mini autostart 列表的回调：把「列了几条、缺几条、被禁几条」带回调用处。
+ * 存在与否用 fs 的 stat 判、禁用与否用崩溃日记判——两件事各有各的账本，
+ * 这里只负责把两边的答案并排摆出来，不替它们下结论。 */
+typedef struct {
+    uint32 index;
+    uint32 missing;
+    uint32 disabled;
+} mini_auto_ctx_t;
+
+static int mini_auto_show(const char *path, void *arg)
+{
+    mini_auto_ctx_t *c = (mini_auto_ctx_t *)arg;
+    uint32 size   = 0u;
+    uint32 is_dir = 0u;
+    uint32 hash;
+
+    c->index++;
+
+    ark_shell_printf("  [%u] %s\r\n", (unsigned)c->index, path);
+
+    if(svcrt_fs_stat_path(path, &size, &is_dir) != 0)
+    {
+        int32 e = svcrt_fs_last_error();
+
+        c->missing++;
+        ark_shell_printf("      not in the volume (fs err %d: %s)\r\n",
+                         (int)e, svcrt_fs_error_name(e));
+    }
+    else
+    {
+        ark_shell_printf("      %u bytes%s\r\n", (unsigned)size,
+                         (is_dir != 0u) ? " (a directory)" : "");
+    }
+
+    hash = svcrt_crash_hash_path(path);
+    if(svcrt_crash_mini_disabled(hash) != 0u)
+    {
+        c->disabled++;
+        ark_shell_printf("      DISABLED: %u consecutive faults (mini forget %s)\r\n",
+                         (unsigned)svcrt_crash_mini_count(hash), path);
+    }
+
+    return 0;
+}
 static int cmd_mini(int argc, char *argv[])
 {
     svcrt_mini_info_t mi;
+    uint32 n;
+    int32 rc;
 
     if((argc == 3) && (strcmp(argv[1], "run") == 0))
     {
-        int32 rc = svcrt_mini_run(argv[2]);
+        rc = svcrt_mini_run(argv[2]);
 
         if(rc != 0)
         {
@@ -3048,8 +3184,25 @@ static int cmd_mini(int argc, char *argv[])
             {
                 /* 上限是运行期可配的：报不下就得说清楚当前上限是多少，
                  * 否则用户只能猜。 */
-                ark_shell_printf("  size limit: %u B now (mini limit <bytes>)"
-                                 "\r\n", (unsigned)svcrt_mini_max_bytes());
+                ark_shell_printf("  size limit: %u B now (mini limit <bytes>)\r\n",
+                                 (unsigned)svcrt_mini_max_bytes());
+            }
+            if(rc == SVCRT_LOADER_ERR_BUSY)
+            {
+                ark_shell_printf("  running %u of %u allowed (mini count <n>),"
+                                 " or a load is already in progress\r\n",
+                                 (unsigned)svcrt_mini_running(),
+                                 (unsigned)svcrt_mini_max_count());
+            }
+            if(rc == SVCRT_MINI_ERR_DISABLED)
+            {
+                /* 到连续故障上限：说清是几次、怎么放行。上限与带槽位的 App
+                 * 是同一个数字（分区表 cfg_restart_max），不是小程序专用值。 */
+                ark_shell_printf("  disabled after %u consecutive faults"
+                                 " (mini forget %s)\r\n",
+                                 (unsigned)svcrt_crash_mini_count(
+                                     svcrt_crash_hash_path(argv[2])),
+                                 argv[2]);
             }
             if(rc == SVCRT_MINI_ERR_FS)
             {
@@ -3059,24 +3212,107 @@ static int cmd_mini(int argc, char *argv[])
             }
             return 1;
         }
-        (void)svcrt_mini_info(&mi);
+        if(svcrt_mini_info(&mi) != 0)
+        {
+            /* 装载成功，但此刻已没有可报的实例：镜像可能刚跑起来就连续故障、
+             * 并已被禁用（阈值与带槽位 App 相同）。此时 mi 根本没被写入，
+             * 打印它等于打印栈上垃圾——宁可报错，也不给看似权威的错答案。 */
+            ark_shell_printf("\r\nmini run: %s loaded but no longer running"
+                             " (see 'mini', or 'mini forget %s' if disabled)\r\n",
+                             argv[2], argv[2]);
+            return 1;
+        }
         ark_shell_printf("\r\nmini running: task %u, code %u B in %u B @ 0x%08X, RW/stack %u B @ 0x%08X\r\n",
                          (unsigned)mi.task_id, (unsigned)mi.code_size,
                          (unsigned)mi.code_block, (unsigned)mi.code_base,
                          (unsigned)mi.ram_size, (unsigned)mi.ram_base);
+        ark_shell_printf("  running %u of %u allowed\r\n",
+                         (unsigned)svcrt_mini_running(),
+                         (unsigned)svcrt_mini_max_count());
         return 0;
     }
 
-    if((argc == 2) && (strcmp(argv[1], "stop") == 0))
+    /* mini stop / mini stop <n>：停全部，或只停第 n 个（编号见 'mini'） */
+    if((argc >= 2) && (argc <= 3) && (strcmp(argv[1], "stop") == 0))
     {
-        int32 rc = svcrt_mini_stop();
-
-        if(rc != 0)
+        if(argc == 2)
         {
-            ark_shell_printf("\r\nmini stop: nothing to stop (rc=%d)\r\n", (int)rc);
+            rc = svcrt_mini_stop();
+            if(rc != 0)
+            {
+                ark_shell_printf("\r\nmini stop: nothing to stop (rc=%d)\r\n", (int)rc);
+                return 1;
+            }
+            ark_shell_printf("\r\nmini stopped: all blocks returned to the pool\r\n");
+            return 0;
+        }
+
+        {
+            uint32 want = 0u;
+
+            if(parse_u32(argv[2], &want) != 0)
+            {
+                ark_shell_printf("\r\nmini stop: %s is not a decimal number\r\n", argv[2]);
+                return 1;
+            }
+
+            rc = svcrt_mini_stop_at(want);
+            if(rc != 0)
+            {
+                ark_shell_printf("\r\nmini stop %u: no such running MiniApp (rc=%d, see 'mini')\r\n",
+                                 (unsigned)want, (int)rc);
+                return 1;
+            }
+            ark_shell_printf("\r\nmini %u stopped: block returned to the pool\r\n",
+                             (unsigned)want);
+            return 0;
+        }
+    }
+
+    /* mini count / mini count <n>：同一时刻最多跑几个。运行期只能收紧，
+     * 不能放宽到超过编译期的 SVCRT_MINI_MAX（超范围报 PARAM，不夹取）。 */
+    if((argc >= 2) && (argc <= 3) && (strcmp(argv[1], "count") == 0))
+    {
+        if(argc == 2)
+        {
+            ark_shell_printf("\r\nmini count: %u allowed, %u running (compile-time max %u)\r\n",
+                             (unsigned)svcrt_mini_max_count(),
+                             (unsigned)svcrt_mini_running(),
+                             (unsigned)SVCRT_MINI_MAX);
+            return 0;
+        }
+
+        {
+            uint32 want = 0u;
+
+            if(parse_u32(argv[2], &want) != 0)
+            {
+                ark_shell_printf("\r\nmini count: %s is not a decimal number\r\n", argv[2]);
+                return 1;
+            }
+
+            rc = svcrt_mini_set_max_count(want);
+            if(rc != 0)
+            {
+                ark_shell_printf("\r\nmini count: %u rejected, rc=%d (range 1..%u)\r\n",
+                                 (unsigned)want, (int)rc, (unsigned)SVCRT_MINI_MAX);
+                return 1;
+            }
+            ark_shell_printf("\r\nmini count set to %u\r\n",
+                             (unsigned)svcrt_mini_max_count());
+            return 0;
+        }
+    }
+
+    /* mini forget <path>：清除某路径的崩溃记忆，让被禁用的小程序重新可跑 */
+    if((argc == 3) && (strcmp(argv[1], "forget") == 0))
+    {
+        if(svcrt_mini_forget(argv[2]) != 0)
+        {
+            ark_shell_printf("\r\nmini forget: empty path\r\n");
             return 1;
         }
-        ark_shell_printf("\r\nmini stopped: RAM block returned to the pool\r\n");
+        ark_shell_printf("\r\nmini forget: %s enabled again\r\n", argv[2]);
         return 0;
     }
 
@@ -3096,7 +3332,6 @@ static int cmd_mini(int argc, char *argv[])
 
         {
             uint32 want = 0u;
-            int32 rc;
 
             if(parse_u32(argv[2], &want) != 0)
             {
@@ -3120,26 +3355,135 @@ static int cmd_mini(int argc, char *argv[])
         }
     }
 
-    if((argc == 1) || ((argc == 2) && (strcmp(argv[1], "stat") == 0)))
+    /* mini / mini stat / mini list：列出所有在跑的小程序（编号用于 mini stop <n>） */
+    if((argc == 1) || ((argc == 2) &&
+       ((strcmp(argv[1], "stat") == 0) || (strcmp(argv[1], "list") == 0))))
     {
-        if(svcrt_mini_info(&mi) != 0)
+        n = svcrt_mini_running();
+
+        if(n == 0u)
         {
             ark_shell_printf("\r\nmini: none running (usage: mini run <path>)\r\n");
             return 0;
         }
-        ark_shell_printf("\r\nmini running: task %u, entry 0x%08X\r\n",
-                         (unsigned)mi.task_id, (unsigned)mi.entry);
-        ark_shell_printf("  code %u B in %u B block @ 0x%08X\r\n",
-                         (unsigned)mi.code_size, (unsigned)mi.code_block,
-                         (unsigned)mi.code_base);
-        ark_shell_printf("  RW/ZI+stack %u B block @ 0x%08X, crc 0x%08X\r\n",
-                         (unsigned)mi.ram_size, (unsigned)mi.ram_base,
-                         (unsigned)mi.crc);
+
+        ark_shell_printf("\r\nmini: %u running of %u allowed\r\n",
+                         (unsigned)n, (unsigned)svcrt_mini_max_count());
+        for(n = 0u; svcrt_mini_info_at(n, &mi) == 0; n++)
+        {
+            ark_shell_printf("  [%u] task %u entry 0x%08X\r\n",
+                             (unsigned)n, (unsigned)mi.task_id, (unsigned)mi.entry);
+            ark_shell_printf("      code %u B in %u B block @ 0x%08X\r\n",
+                             (unsigned)mi.code_size, (unsigned)mi.code_block,
+                             (unsigned)mi.code_base);
+            ark_shell_printf("      RW/ZI+stack %u B block @ 0x%08X, crc 0x%08X\r\n",
+                             (unsigned)mi.ram_size, (unsigned)mi.ram_base,
+                             (unsigned)mi.crc);
+        }
+        {
+            uint32 used = 0u;
+            uint32 maxe = 0u;
+
+            (void)svcrt_ptable_mini_used(&used, &maxe);
+            ark_shell_printf("  block entries: %u of %u in use\r\n",
+                             (unsigned)used, (unsigned)maxe);
+        }
         ark_shell_printf("  size limit %u B\r\n", (unsigned)svcrt_mini_max_bytes());
         return 0;
     }
 
-    ark_shell_printf("\r\nusage: mini [stat] | mini run <path> | mini stop | mini limit [bytes]\r\n");
+    /* mini autostart / list / add <path> / del <path> / now
+     * 清单是卷内的一个文本文件（一行一个路径，见 svcrt_mini.h）。这里只做
+     * 增删查与「立刻跑一遍」；启动判据全部走 svcrt_mini_run，与手工 run
+     * 同一条路——自启不是第二条装载路径。 */
+    if((argc >= 2) && (strcmp(argv[1], "autostart") == 0))
+    {
+        mini_auto_ctx_t ctx;
+        int32           arc;
+
+        ctx.index    = 0u;
+        ctx.missing  = 0u;
+        ctx.disabled = 0u;
+
+        if((argc == 2) || ((argc == 3) && (strcmp(argv[2], "list") == 0)))
+        {
+            arc = svcrt_mini_autostart_foreach(mini_auto_show, &ctx);
+            if(arc != 0)
+            {
+                ark_shell_printf("\r\nmini autostart: no list (%s)"
+
+                                 " -- 'mini autostart add <path>' starts one at boot\r\n",
+                                 SVCRT_MINI_AUTOSTART_FILE);
+                return 1;
+            }
+            if(ctx.index == 0u)
+            {
+                ark_shell_printf("\r\nmini autostart: empty list, nothing starts at boot\r\n");
+                return 0;
+            }
+            ark_shell_printf("  %u listed, %u missing in the volume, %u disabled\r\n",
+                             (unsigned)ctx.index, (unsigned)ctx.missing,
+                             (unsigned)ctx.disabled);
+            return 0;
+        }
+
+        if((argc == 4) && ((strcmp(argv[2], "add") == 0) ||
+                           (strcmp(argv[2], "del") == 0)))
+        {
+            uint32 on = (strcmp(argv[2], "add") == 0) ? 1u : 0u;
+
+            arc = svcrt_mini_autostart_set(argv[3], on);
+            if(arc == SVCRT_LOADER_ERR_PARAM)
+            {
+                /* 不替用户补 '/'：补上去会让清单里的路径与手工 `mini run` 的
+                 * 那条不是同一个身份串（崩溃记账按路径哈希归属）。 */
+                ark_shell_printf("\r\nmini autostart: '%s' is not a usable path"
+                                 " (write it as 'mini run' would, starting with '/')\r\n",
+                                 argv[3]);
+                return 1;
+            }
+            if(arc == SVCRT_LOADER_ERR_NOSPACE)
+            {
+                ark_shell_printf("\r\nmini autostart: list full (%u B max in %s)\r\n",
+                                 (unsigned)SVCRT_MINI_AUTOSTART_MAX,
+                                 SVCRT_MINI_AUTOSTART_FILE);
+                return 1;
+            }
+            if(arc == SVCRT_MINI_ERR_FS)
+            {
+                int32 e = svcrt_fs_last_error();
+
+                ark_shell_printf("\r\nmini autostart: file system: %d (%s)\r\n",
+                                 (int)e, svcrt_fs_error_name(e));
+                return 1;
+            }
+            ark_shell_printf("\r\nmini autostart: %s %s\r\n", argv[3],
+                             (on != 0u) ? "will start at boot"
+                                        : "will not start at boot");
+            return 0;
+        }
+
+        if((argc == 3) && (strcmp(argv[2], "now") == 0))
+        {
+            arc = svcrt_mini_autostart_now();
+            if(arc < 0)
+            {
+                ark_shell_printf("\r\nmini autostart now: no list (%s)\r\n",
+                                 SVCRT_MINI_AUTOSTART_FILE);
+                return 1;
+            }
+            ark_shell_printf("\r\nmini autostart now: %d started\r\n", (int)arc);
+            return 0;
+        }
+
+        ark_shell_printf("\r\nusage: mini autostart [list | add <path> |"
+                         " del <path> | now]\r\n");
+        return 1;
+    }
+
+    ark_shell_printf("\r\nusage: mini [stat|list] | mini run <path> | mini stop [n] |"
+                     " mini count [n] | mini limit [bytes] | mini forget <path> |"
+                     " mini autostart [list | add <path> | del <path> | now]\r\n");
     return 1;
 }
 #endif /* SVCRT_USE_MINIAPP */
@@ -3210,7 +3554,9 @@ static int register_kernel_commands(void)
 
 #if SVCRT_USE_MINIAPP
     g_cmd_table[idx++] = ARK_SHELL_CMD("mini", cmd_mini,
-        "MiniApp from the file system: mini [stat] | mini run <path> | mini stop | mini limit [bytes]", 3);
+        "MiniApp from the file system: mini [list] | mini run <path> | mini stop [n] |"
+        " mini count [n] | mini limit [bytes] | mini forget <path> |"
+        " mini autostart [list | add <path> | del <path> | now]", 4);
 #endif /* SVCRT_USE_MINIAPP */
 #if SVCRT_USE_AUDIT
     g_cmd_table[idx++] = ARK_SHELL_CMD("audit", cmd_audit,
@@ -3224,7 +3570,8 @@ static int register_kernel_commands(void)
 
 #if SVCRT_USE_CRASH_LOG
     g_cmd_table[idx++] = ARK_SHELL_CMD("crash", cmd_crash,
-        "Cross-reset crash journal: boots, per-slot fault counts and held slots", 1);
+        "Cross-reset crash journal: boots, per-slot fault counts, held slots and"
+        " disabled MiniApps", 1);
 #endif /* SVCRT_USE_CRASH_LOG */
 
     g_cmd_table[idx].name = NULL;

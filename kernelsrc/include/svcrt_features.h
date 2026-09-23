@@ -144,6 +144,20 @@
 #define SVCRT_USE_MINIAPP             1
 #endif
 
+/* 同一时刻能跑几个小程序（编译期上限）。
+ * 它同时受两个硬约束，两个都是结构性的，不是调参：
+ *   1. 共享表里记账用的数组长度是 SVCRT_MINI_ARRAY_MAX（ABI 形状常量），
+ *      本值必须 <= 它；
+ *   2. 每个在跑的小程序要占一块代码块 + 一块 RAM 块，而 MPU 每任务只给
+ *      两个区域（代码窗/数据窗），所以并发数不影响单任务，但会影响 RAM 池。
+ * 运行期还能在这个上限内再收紧（shell: mini count <n>），不能放宽——
+ * 「设了 8 却只跑 2 个」会是一句看不出来的谎话，所以设超范围直接报错。
+ * 默认 2：够用来跑「一个干活 + 一个被观察」，静态开销也小（每项只是一组
+ * 记账字段与一组状态）。 */
+#ifndef SVCRT_MINI_MAX
+#define SVCRT_MINI_MAX                2u
+#endif
+
 /* POSIX / Windows 兼容层（kernelsrc/sdk/posix）。关掉后 App 只能用
  * 原生 oslib，不能 include <pthread.h> 那一套 */
 #ifndef SVCRT_USE_POSIX
@@ -196,6 +210,13 @@
 
 #if SVCRT_USE_MINIAPP && !SVCRT_USE_FS
 #error "SVCRT_USE_MINIAPP=1 requires SVCRT_USE_FS=1 (a MiniApp is loaded from the file system)"
+#endif
+
+/* 并发数要么是 1（退化成原来的单实例），要么必须落在共享表数组的容量内：
+ * 开成 0 会让「一个小程序都跑不了」看起来像装载失败，开超了则会让记账
+ * 写到数组外。两个都在编译期挡住。 */
+#if SVCRT_USE_MINIAPP && ((SVCRT_MINI_MAX < 1u) || (SVCRT_MINI_MAX > 4u))
+#error "SVCRT_MINI_MAX must be 1..4 (= SVCRT_MINI_ARRAY_MAX, the shared table array length)"
 #endif
 
 #if SVCRT_USE_VFS && !SVCRT_USE_BLK

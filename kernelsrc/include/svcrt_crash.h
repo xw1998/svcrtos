@@ -52,7 +52,7 @@
 /** @brief Journal layout version. A build that changes the struct must bump
  *         this: an older journal is then rejected as "not evidence" instead of
  *         being interpreted with the wrong field offsets. */
-#define SVCRT_CRASH_VERSION     (1u)
+#define SVCRT_CRASH_VERSION     (2u)
 
 /* ---- why a slot was disabled (stored per slot, 0 = not disabled) ---- */
 #define SVCRT_CRASH_REASON_NONE     (0u)   /* slot is not disabled */
@@ -60,6 +60,17 @@
 #define SVCRT_CRASH_REASON_HEARTBEAT (2u)  /* stopped honouring its heartbeat contract */
 #define SVCRT_CRASH_REASON_AUDIT    (3u)   /* structure self-audit failed while it ran */
 
+/* ---- MiniApps (svcrt_mini.c) -------------------------------------------------
+ * A MiniApp has no slot and no pool address, so the identity used for slots does
+ * not apply. Its identity is the FNV-1a hash of the image path inside the file
+ * system, and the bookkeeping lives in its own table so the two policies cannot
+ * be confused for one another. The limit itself is NOT a second constant: both
+ * paths read the same cfg_restart_max (see svcrt_crash_limit).
+ * The table has to fit in the same UNINIT region as the slot arrays, which is
+ * why it is smaller than SVCRT_SLOT_ARRAY_MAX: a disabled MiniApp is a sticky
+ * entry an operator may still want, while eight of them already means the board
+ * is in a state no operator would keep. */
+#define SVCRT_CRASH_MINI_MAX    (8u)
 /**
 * @brief The journal itself, placed in the UNINIT region by the linker.
 * @note Size is checked at compile time against CRASH_LOG_SIZE; growing this
@@ -76,6 +87,11 @@ typedef struct {
     uint32 dis_reason[SVCRT_SLOT_ARRAY_MAX];    /* SVCRT_CRASH_REASON_x (0 = enabled) */
     uint32 dis_tick[SVCRT_SLOT_ARRAY_MAX];      /* tick when disabled (0 = before this boot) */
     uint32 base[SVCRT_SLOT_ARRAY_MAX];          /* pool address the entry belongs to */
+    uint32 mini_hash[SVCRT_CRASH_MINI_MAX];     /* path hash of the tracked MiniApp (0 = free) */
+    uint32 mini_cnt[SVCRT_CRASH_MINI_MAX];      /* consecutive faults for that path */
+    uint32 mini_last_reason[SVCRT_CRASH_MINI_MAX]; /* why its most recent fault happened */
+    uint32 mini_dis_reason[SVCRT_CRASH_MINI_MAX];  /* SVCRT_CRASH_REASON_x (0 = enabled) */
+    uint32 mini_dis_tick[SVCRT_CRASH_MINI_MAX];    /* tick when disabled (0 = before this boot) */
     uint32 check;                               /* checksum over every field above */
 } svcrt_crash_journal_t;
 
@@ -157,5 +173,66 @@ const char *svcrt_crash_reason_name(uint32 reason);
 /** @brief Address and size of the journal region, for the shell and the audit. */
 uint32 svcrt_crash_area_base(void);
 uint32 svcrt_crash_area_size(void);
+
+/* ==================================================================
+ * MiniApp bookkeeping (see SVCRT_CRASH_MINI_MAX above)
+ *
+ * The identity is a 32-bit FNV-1a hash of the image path rather than the path
+ * itself: the journal region is a fixed 512-byte window shared with the slot
+ * arrays, and eight paths of up to 64 bytes would not fit. The hash is used
+ * only to tell two paths apart, and both ends (the run path and the console)
+ * recompute it from the same string, so a collision would need two live paths
+ * hashing equal - and would then be about as visible as any other wrong answer
+ * this module exists to refuse.
+ * ================================================================== */
+
+/** @brief FNV-1a hash of an image path, the MiniApp identity. @return 0 only
+ *         for a null/empty path (never a real path) so 0 can mean "free". */
+uint32 svcrt_crash_hash_path(const char *path);
+
+/**
+* @brief Count one fault against a MiniApp path, disabling it at the limit.
+* @param hash    svcrt_crash_hash_path() of the path.
+* @param reason  SVCRT_CRASH_REASON_x to remember.
+* @return The new consecutive-fault count, or 0 when it could not be recorded
+*         at all (hash 0, or every journal entry already held by a disabled
+*         MiniApp - the caller is told so instead of being given a made-up
+*         count).
+* @note Runs from exception context on the fault path: critical section only.
+*/
+uint32 svcrt_crash_mini_fault(uint32 hash, uint32 reason);
+
+/** @brief SVCRT_CRASH_REASON_x when this path is disabled, 0 when it may run. */
+uint32 svcrt_crash_mini_disabled(uint32 hash);
+
+/** @brief Consecutive faults on record for this path (0 when untracked). */
+uint32 svcrt_crash_mini_count(uint32 hash);
+
+/** @brief Tick at which this path was disabled (0 = not disabled / before boot). */
+uint32 svcrt_crash_mini_disabled_tick(uint32 hash);
+
+/**
+* @brief Read one MiniApp journal entry by table index.
+* @details The slot table can be listed because a slot has a number; a MiniApp
+*          is identified by a path hash instead, so a listing has to walk the
+*          table index by index. A free entry reads back as all zeroes so a
+*          caller sees the same "nothing here" a slot listing sees for an
+*          empty slot, rather than a path hash it then has to explain away.
+* @param idx   0..SVCRT_CRASH_MINI_MAX-1.
+* @param hash  receives the path hash (0 = free).
+* @param cnt   receives the consecutive-fault count.
+* @param last  receives the most recent fault reason (SVCRT_CRASH_REASON_x).
+* @param hold  receives the disable reason (SVCRT_CRASH_REASON_x, 0 = enabled).
+* @param tick  receives the tick it was disabled at (0 = not / before this boot).
+* @return 1 when the entry is in use, 0 when free or idx is out of range.
+* @note Only the hash is kept, never the path: the journal must stay a fixed
+*       size in UNINIT RAM, and a path is variable-length. A caller that wants
+*       the path has to match the hash against a path it already knows.
+*/
+uint32 svcrt_crash_mini_at(uint32 idx, uint32 *hash, uint32 *cnt,
+                           uint32 *last, uint32 *hold, uint32 *tick);
+
+/** @brief Forget this path's crash history and clear its disabled state. */
+void svcrt_crash_mini_forget(uint32 hash);
 
 #endif /* __SVCRT_CRASH_H__ */
