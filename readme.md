@@ -640,6 +640,7 @@ STM32F427VGTx @96 MHz，DAPLink（SWD 两线，无 SWO）经 mdkdebug 的 SWD tr
 | 设备端配置区 | `tools/svcrt_cfg.py` 的 `write` / `show` / `clear` 三态全部真机跑通：4×128 分块下发、读回 `source: device config region`、坏 CRC 记录被设备拒绝并给出真实原因、`clear` 回退默认。`mode = fixed` 重启后 `pool` 按配置列出固定槽，共享分区表 `layout_mode` 直读与 `cfg show` 一致 |
 | F401 移植 | 双板同源编译通过（F401 `Code=46526`） |
 | 节拍计数器 32 位回绕 | 定向注入使 `svcrt_kernel_tick` 从 `0xFFFFC000` 起算并跨过回绕：`t=` 由 `2147478038 ms` 跳回小值，两侧 `APP_ALIVE` 间隔精确 5.000 s，`fault` 无记录、`sched` 一致。该次实测牵出并修掉了延时链插入排序与到期判定在回绕处不一致的缺陷（见 [docs/调度器说明.md](docs/调度器说明.md) §2.3） |
+| VFS 端口并发锁 | 两个写者 + 一个只读的第三方读者同时压同一条路径：读者必须看到两种**完整**载荷（`vfs.conc_saw_both`），两次干净开机自检 `pass=128 fail=0`，`sched` 一致、`fault` 无记录（见 [docs/VFS路径命名空间.md](docs/VFS路径命名空间.md)） |
 
 仍未上板验证或未闭环的项：
 

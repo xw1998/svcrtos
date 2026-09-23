@@ -180,7 +180,16 @@ mount: FAILED (-7: already exists)
 | 字符设备读 | `cat /dev/LED` → `-11: backend error`（驱动拒绝，不是 EOF） |
 | 卸载 | `umount /mnt/nor` → 成功，`mount` 回到两行 |
 
-**未上板**：端口的锁只验过嵌套配平，没验过真并发——那需要两块任务在板上抢。
+**上板验证过（并发）**：`example/stm32f427/app_sdk/APP_DEMO` 自检里的 `10c)` 一项把
+三块任务压到同一条路径上——两个写者（本任务写 32 B 的 `'A'`、一个 pthread 写 48 B 的 `'B'`，
+各 40 轮“写完重读复核”）加一个只读不写的第三方读者。判据是读者必须同时看到两种
+**完整**载荷（`vfs.conc_saw_both`）——只看到一种就说明两个写者其实被串行化了，
+其余断言不构成证据。F427 上两次干净开机自检 `pass=128 fail=0`，`vfs.conc_*` 六项全 OK，
+同时 `sched: consistent`、`fault: no fault recorded`。
+
+量尺寸时注意：POSIX 层的 pthread 池只有 `SVCRT_POSIX_THREAD_MAX`（默认 2）个槽，
+所以“两写者 + 一读者”里必须有一块由 App 主任务充当，三块都开 pthread 会静默少一块
+（第三个 `pthread_create` 失败，读者根本没跑）。
 
 ## 已知限制（说清楚做不到，不是静默降级）
 

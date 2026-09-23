@@ -353,6 +353,192 @@ static svcrt_ushell_cmd_t g_app_cmd =
 
 static volatile int32 g_pth_hits = 0;
 
+/* ----------------------------------------------------------------
+ * Concurrent VFS probe.
+ *
+ * Three tasks run against one path at the same time: two writers that
+ * keep replacing the file with a payload of their own, and one reader
+ * that never writes. Every App file call is one round trip (the kernel
+ * opens, moves the bytes and closes it again), so this cannot catch a
+ * half-open handle - what it can catch is a torn read, a payload whose
+ * length and content disagree, a deadlock, or a scheduler lock that
+ * was taken and never given back.
+ *
+ * The reader is what makes it a real concurrency test: it has to
+ * observe whole payloads of *both* writers. Should only one pattern
+ * ever show up, the two writers were in fact serialised and the other
+ * assertions would pass without proving anything.
+ *
+ * Each task owns its own result slot - the counters must not race
+ * either, or the test would be measuring itself. The slots are int8 so
+ * that the whole probe costs single digit bytes of RAM.
+ * ---------------------------------------------------------------- */
+#define VFS_RACE_ROUNDS   40
+#define VFS_RACE_LEN_A    32
+#define VFS_RACE_LEN_B    48
+#define VFS_RACE_PATH     "/app_race.txt"
+#define VFS_RACE_RDR_CAP  4000
+
+static volatile int8 g_vfs_race_bad[2];
+static volatile int8 g_vfs_race_done[2];
+static volatile int8 g_vfs_race_rsaw_a;
+static volatile int8 g_vfs_race_rsaw_b;
+static volatile int8 g_vfs_race_rbad;
+static volatile int8 g_vfs_race_rdone;
+
+static int32 vfs_race_len_of(char c)
+{
+    if(c == 'A')
+    {
+        return (int32)VFS_RACE_LEN_A;
+    }
+    if(c == 'B')
+    {
+        return (int32)VFS_RACE_LEN_B;
+    }
+    return -1;
+}
+
+/* 1 when buf[0..n-1] is one whole payload of a single writer. On
+ * success the observed pattern is handed back through *pat. */
+static int32 vfs_race_classify(const char *buf, int32 n, char *pat)
+{
+    int32 want;
+    int32 i;
+
+    if(n <= 0)
+    {
+        return 0;
+    }
+
+    want = vfs_race_len_of(buf[0]);
+
+    if((want < 0) || (want != n))
+    {
+        return 0;
+    }
+
+    for(i = 0; i < n; i++)
+    {
+        if(buf[i] != buf[0])
+        {
+            return 0;
+        }
+    }
+
+    if(pat != 0)
+    {
+        *pat = buf[0];
+    }
+    return 1;
+}
+
+/* One writer's whole run: VFS_RACE_ROUNDS replace-and-verify cycles. The
+ * main task takes pattern 0 and the other writer lives on a pthread, so
+ * two writers plus the reader cost only two of the POSIX pool's
+ * SVCRT_POSIX_THREAD_MAX slots. */
+static void vfs_race_run(int32 mine)
+{
+    char   mypat[VFS_RACE_LEN_B];
+    char   back[VFS_RACE_LEN_B];
+    uint32 mylen = (mine == 0) ? (uint32)VFS_RACE_LEN_A : (uint32)VFS_RACE_LEN_B;
+    int32  bad = 0;
+    int32  i;
+    int32  k;
+
+    for(k = 0; k < (int32)VFS_RACE_LEN_B; k++)
+    {
+        mypat[k] = (char)((mine == 0) ? 'A' : 'B');
+        back[k]  = 0;
+    }
+
+    for(k = 0; k < VFS_RACE_ROUNDS; k++)
+    {
+        int32 r = svcrt_file_write(VFS_RACE_PATH, mypat, mylen);
+
+        if(r != 0)
+        {
+            bad++;
+        }
+
+        for(i = 0; i < (int32)VFS_RACE_LEN_B; i++)
+        {
+            back[i] = 0;
+        }
+
+        r = svcrt_file_read(VFS_RACE_PATH, back, (uint32)VFS_RACE_LEN_B);
+
+        /* The reading has to be a whole payload of one of the two
+         * writers. Anything else is a torn read. */
+        if(vfs_race_classify(back, r, 0) == 0)
+        {
+            bad++;
+        }
+
+        svcrt_task_wait(1u);        /* hand the CPU to the other writer */
+    }
+
+    g_vfs_race_bad[mine]  = (int8)bad;
+    g_vfs_race_done[mine] = 1;
+}
+
+static void *vfs_race_worker(void *arg)
+{
+    vfs_race_run((arg != 0) ? 1 : 0);
+    return arg;
+}
+
+/* Third party: never writes, only reads, and records which of the two
+ * payloads it got to see while the writers were still going. */
+static void *vfs_race_reader(void *arg)
+{
+    char  back[VFS_RACE_LEN_B];
+    int32 guard = 0;
+    int32 i;
+
+    (void)arg;
+
+    while(((g_vfs_race_done[0] == 0) || (g_vfs_race_done[1] == 0)) &&
+          (guard < VFS_RACE_RDR_CAP))
+    {
+        int32 r;
+
+        for(i = 0; i < (int32)VFS_RACE_LEN_B; i++)
+        {
+            back[i] = 0;
+        }
+
+        r = svcrt_file_read(VFS_RACE_PATH, back, (uint32)VFS_RACE_LEN_B);
+
+        if(r > 0)
+        {
+            char pat = 0;
+
+            if(vfs_race_classify(back, r, &pat) == 0)
+            {
+                if(g_vfs_race_rbad < 100)
+                {
+                    g_vfs_race_rbad++;
+                }
+            }
+            else if(pat == 'A')
+            {
+                g_vfs_race_rsaw_a = 1;
+            }
+            else if(pat == 'B')
+            {
+                g_vfs_race_rsaw_b = 1;
+            }
+        }
+
+        guard++;
+        svcrt_task_wait(1u);
+    }
+
+    g_vfs_race_rdone = 1;
+    return arg;
+}
+
 /* pthread start routine: plain POSIX signature. */
 static void *pth_worker(void *arg)
 {
@@ -1192,6 +1378,81 @@ void AppMain(void)
 
         r = svcrt_file_remove("/app_renamed.txt");
         report("fs.cleanup", (r == 0), r);
+    }
+
+    /* ---------------------------------------------------------------
+     * 10c) three tasks on the same VFS path at the same time: two
+     *      writers and one reader. The port lock is what makes one call
+     *      one round trip; this checks it from the outside, under
+     *      contention, and the reader supplies the proof that the two
+     *      writers really did overlap.
+     * --------------------------------------------------------------- */
+    {
+        svcrt_pthread_t tw = 0u;
+        svcrt_pthread_t tr = 0u;
+        int32 cw;
+        int32 cr;
+        int32 bad;
+
+        (void)svcrt_file_remove(VFS_RACE_PATH);
+        g_vfs_race_bad[0]  = 0;
+        g_vfs_race_bad[1]  = 0;
+        g_vfs_race_done[0] = 0;
+        g_vfs_race_done[1] = 0;
+        g_vfs_race_rsaw_a  = 0;
+        g_vfs_race_rsaw_b  = 0;
+        g_vfs_race_rbad    = 0;
+        g_vfs_race_rdone   = 0;
+
+        /* Two of the three participants live on the POSIX pool (pattern 1
+         * writer and the reader); this task is pattern 0. The pool keeps
+         * SVCRT_POSIX_THREAD_MAX slots, so the count matters. */
+        cw = pthread_create(&tw, 0, vfs_race_worker, (void *)1u);
+        cr = pthread_create(&tr, 0, vfs_race_reader, (void *)2u);
+        report("vfs.conc_create", ((cw == 0) && (cr == 0)), (cw | cr));
+
+        vfs_race_run(0);
+
+        if(cw == 0)
+        {
+            (void)pthread_join(tw, 0);
+        }
+        if(cr == 0)
+        {
+            (void)pthread_join(tr, 0);
+        }
+
+        report("vfs.conc_both_ran",
+               ((g_vfs_race_done[0] == 1) && (g_vfs_race_done[1] == 1)),
+               (g_vfs_race_done[0] + g_vfs_race_done[1]));
+
+        report("vfs.conc_reader_ran", (g_vfs_race_rdone == 1), g_vfs_race_rdone);
+
+        /* Whole payloads of both writers were seen by the reader: this
+         * is what proves the two writes overlapped in time. */
+        report("vfs.conc_saw_both",
+               ((g_vfs_race_rsaw_a == 1) && (g_vfs_race_rsaw_b == 1)),
+               (g_vfs_race_rsaw_a + g_vfs_race_rsaw_b));
+
+        bad = (int32)g_vfs_race_bad[0] + (int32)g_vfs_race_bad[1] +
+              (int32)g_vfs_race_rbad;
+        report("vfs.conc_no_torn", (bad == 0), bad);
+
+        /* The volume still has to work after the contention: one more
+         * read, from the task that was not racing. */
+        {
+            char one[8];
+            int32 rr;
+
+            for(rr = 0; rr < (int32)sizeof(one); rr++)
+            {
+                one[rr] = 0;
+            }
+            rr = svcrt_file_read(VFS_RACE_PATH, one, 8u);
+            report("vfs.conc_after_ok", (rr > 0), rr);
+        }
+
+        report("vfs.conc_cleanup", (svcrt_file_remove(VFS_RACE_PATH) == 0), 0);
     }
 
     /* ---------------------------------------------------------------
