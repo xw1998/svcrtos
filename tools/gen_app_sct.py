@@ -54,7 +54,7 @@ def main():
     ap = argparse.ArgumentParser(description="SVCrtOS 工程 .sct 生成包装")
     ap.add_argument("--project", required=True, help="Keil 工程（.uvprojx）")
     ap.add_argument("--target-name", help="工程里的 Target 名（默认取第一个）")
-    ap.add_argument("--type", choices=["app", "driver"], default="app")
+    ap.add_argument("--type", choices=["app", "driver", "miniapp"], default="app")
     ap.add_argument("--dev-slot", type=int, default=0,
                     help="开发槽位表条目号（裸镜像的固定落点，与 config 一致）")
     ap.add_argument("--ram-size", type=auto_int, default=None,

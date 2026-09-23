@@ -86,7 +86,15 @@ MAGIC = 0x53564341              # "SVCA"
 HEADER_SIZE = 256
 TYPE_APP = 1
 TYPE_DRIVER = 2
-TYPE_NAME = {TYPE_APP: "app", TYPE_DRIVER: "driver"}
+TYPE_MINIAPP = 3                # 小程序：常驻文件系统、装载进内存执行（见 docs/小程序设计.md）
+TYPE_NAME = {TYPE_APP: "app", TYPE_DRIVER: "driver", TYPE_MINIAPP: "miniapp"}
+
+# 各类镜像的默认入口符号（缺省由各自的 SDK 桩提供，见 kernelsrc/sdk/）
+DEFAULT_ENTRY = {"app": "APPSTART", "driver": "DRVSTART", "miniapp": "MINISTART"}
+
+# 重定位表条目上限，与 kernelsrc/include/svcrt_app_image.h 的 SVCRT_APP_RELOC_MAX 一致。
+# Loader 的 svcrt_loader_check_header() 会拒收超限的表，这里提前拦下来。
+RELOC_MAX = 1024
 
 VERSION_FILE = "app_version.txt"    # 版本号唯一来源（与工程同级）
 SIG_OFFSET = 32                 # signature[64]
@@ -688,7 +696,7 @@ def build_passes(args, layout, proj_ctx=None):
     """
     v = layout.v
     delta = v("SVCRT_RELOC_DELTA")
-    entry_sym = args.entry_symbol or ("APPSTART" if args.type == "app" else "DRVSTART")
+    entry_sym = args.entry_symbol or DEFAULT_ENTRY[args.type]
 
     if args.bin_a:
         for name in ("bin_b", "bin_c"):
@@ -786,8 +794,10 @@ def restore_dev_scatter(proj_ctx):
 def do_pack(args):
     layout = load_layout(args.header)
     v = layout.v
-    img_type = TYPE_APP if args.type == "app" else TYPE_DRIVER
-    stack_size = v("APP_TASK_STACK_SIZE") if img_type == TYPE_APP else v("DRIVER_TASK_STACK_SIZE")
+    img_type = {"app": TYPE_APP, "driver": TYPE_DRIVER, "miniapp": TYPE_MINIAPP}[args.type]
+    # 小程序与 App 同栈口径：内核侧也是按 APP_TASK_STACK_SIZE 起它的任务
+    stack_size = v("DRIVER_TASK_STACK_SIZE") if img_type == TYPE_DRIVER \
+        else v("APP_TASK_STACK_SIZE")
 
     proj_ctx = None
     if args.project:
@@ -860,10 +870,11 @@ def do_pack(args):
 
     # ---- RAM 需求核对 ----
     ram_size = args.ram_size
-    if "app" == args.type:
-        ram_size = ram_size or pow2_ceil(2 * stack_size)
-    else:
+    if "driver" == args.type:
         ram_size = ram_size or pow2_ceil(4 * stack_size)
+    else:
+        # App 与小程序同口径：RAM 块里要有 RW/ZI + 栈，默认给 2 倍栈
+        ram_size = ram_size or pow2_ceil(2 * stack_size)
     if ram_size < v("SLOT_RAM_MIN_BLOCK") or ram_size > v("SLOT_RAM_MAX_BLOCK") or \
             (ram_size & (ram_size - 1)) != 0:
         raise PackError("ram_size=%d 必须是 [%d, %d] 内的 2 的幂"
@@ -892,6 +903,26 @@ def do_pack(args):
                                     version, img_a, entry_offset,
                                     payload_link_base, nominal_ram_base, ram_size,
                                     entries, flags, manifest)
+
+    # ---- 小程序：RAM 池里要同时借出「代码块 + RAM 块」，两块都是 pow2 ----
+    # 内核侧 svcrt_ptable_mini_alloc() 的上限口径：两块各自落在
+    # [SLOT_RAM_MIN_BLOCK, SLOT_RAM_MAX_BLOCK]，且都从 SLOT_RAM_TOTAL 这片
+    # 池子里出。这里做静态预检，把「打完包也跑不起来」的镜像挡在打包期。
+    code_block = 0
+    if img_type == TYPE_MINIAPP:
+        if reloc_count > RELOC_MAX:
+            raise PackError("重定位表 %d 项超过上限 %d：小程序装载器不做滑动窗口，"
+                            "超限镜像读不完表" % (reloc_count, RELOC_MAX))
+        code_span = (len(img_a) + 7) & ~7            # 负载按 8 字节上取整
+        code_block = max(pow2_ceil(code_span), v("SLOT_RAM_MIN_BLOCK"))
+        if code_block > v("SLOT_RAM_MAX_BLOCK"):
+            raise PackError("小程序代码块 %d 字节（负载 %d 取 2 的幂）超过单块上限 %d："
+                            "内核会以 ERR_SIZE 拒收。请精简代码或改用 App 安装路径"
+                            % (code_block, len(img_a), v("SLOT_RAM_MAX_BLOCK")))
+        if code_block + ram_size > v("SLOT_RAM_TOTAL"):
+            raise PackError("小程序代码块 %d + RAM 块 %d = %d 字节，超过 RAM 池总量 %d，"
+                            "任何时刻都借不到这两块"
+                            % (code_block, ram_size, code_block + ram_size, v("SLOT_RAM_TOTAL")))
 
     # ---- 落点跨度是否装得进池 ----
     total = len(image)
@@ -938,6 +969,9 @@ def do_pack(args):
     print("[pack] 入口偏移    : 0x%08X" % entry_offset)
     print("[pack] 重定位表    : %d 项（ROM %d / RAM %d）" % (reloc_count, n_rom, n_ram))
     print("[pack] RAM 声明    : %d 字节" % ram_size)
+    if img_type == TYPE_MINIAPP:
+        print("[pack] 小程序占用  : 代码块 %d B + RAM 块 %d B（二者同生同死，"
+              "负载 %d B）" % (code_block, ram_size, len(img_a)))
     print("[pack] 版本        : %s" % version_str(version))
     print("[pack] 硬件兼容 ID : 0x%08X" % (args.hw_compat or v("SVCRT_HW_COMPAT_ID")))
     print("[pack] flags       : 0x%08X（%s）" % (flags, "自启" if flags & FLAG_AUTOSTART else "不自启"))
@@ -1119,7 +1153,8 @@ def main():
 
     out = ap.add_argument_group("输出与元数据")
     out.add_argument("--out", help="输出 .svcapp 路径")
-    out.add_argument("--type", choices=["app", "driver"], default="app", help="镜像类型")
+    out.add_argument("--type", choices=["app", "driver", "miniapp"], default="app",
+                     help="镜像类型（miniapp = 常驻文件系统、装载进内存执行的小程序）")
     out.add_argument("--name", help="镜像名（写进清单，并作为默认输出文件名）")
     out.add_argument("--version", default="",
                      help="版本号，如 1.0.0 或 0x010203；缺省时读工程根目录的 %s" % VERSION_FILE)
@@ -1147,7 +1182,7 @@ def main():
     args = ap.parse_args()
 
     if args.entry_symbol is None:
-        args.entry_symbol = "APPSTART" if args.type == "app" else "DRVSTART"
+        args.entry_symbol = DEFAULT_ENTRY[args.type]
 
     try:
         if args.info:

@@ -169,6 +169,7 @@ typedef enum {
     SVCRT_MPU_MEM_NONE = 0,     /* region disabled */
     SVCRT_MPU_MEM_ROM,          /* read-only, executable (task code) */
     SVCRT_MPU_MEM_RAM,          /* read/write, non-executable (data / stack) */
+    SVCRT_MPU_MEM_RAMX,         /* read/write AND executable (MiniApp block only) */
     SVCRT_MPU_MEM_PERIPH_RO,    /* peripheral, unprivileged read-only */
     SVCRT_MPU_MEM_PERIPH_RW     /* peripheral, unprivileged read/write */
 } svcrt_mpu_mem_t;

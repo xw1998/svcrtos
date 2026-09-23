@@ -135,6 +135,15 @@
  * 与关闭时的空实现早已就位。不要在此再定义第二个 shell 开关：两个名字
  * 管一件事，迟早会出现「看着关了其实还开着」。 */
 
+/* 小程序（svcrt_mini.c）：把文件系统里的一份负载按需 load 进 RAM 执行，
+ * 退出或停止即把整块 RAM 还回档位池。它复用 App 的镜像容器与 App SDK，
+ * 但**不进镜像池、不占槽位**：每次运行现从文件系统读、现借一块 RAM、
+ * 跑完即还——牺牲效率换「放上就能跑、不用安装」。
+ * 依赖 SVCRT_USE_FS：镜像就放在文件系统里，没有文件系统就没有小程序。 */
+#ifndef SVCRT_USE_MINIAPP
+#define SVCRT_USE_MINIAPP             1
+#endif
+
 /* POSIX / Windows 兼容层（kernelsrc/sdk/posix）。关掉后 App 只能用
  * 原生 oslib，不能 include <pthread.h> 那一套 */
 #ifndef SVCRT_USE_POSIX
@@ -183,6 +192,10 @@
 
 #if SVCRT_USE_FS && !SVCRT_USE_BLK
 #error "SVCRT_USE_FS=1 requires SVCRT_USE_BLK=1 (file system sits on the block layer)"
+#endif
+
+#if SVCRT_USE_MINIAPP && !SVCRT_USE_FS
+#error "SVCRT_USE_MINIAPP=1 requires SVCRT_USE_FS=1 (a MiniApp is loaded from the file system)"
 #endif
 
 #if SVCRT_USE_VFS && !SVCRT_USE_BLK

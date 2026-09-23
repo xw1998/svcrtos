@@ -32,6 +32,7 @@
 #include "svcrt_fault.h"
 #include "svcrt_installer.h"
 #include "svcrt_loader.h"
+#include "svcrt_mini.h"
 #include "svcrt_dev.h"
 #include "svcrt_layout.h"
 #include "svcrt_ptable.h"
@@ -3029,6 +3030,120 @@ static int cmd_vfs_rm(int argc, char *argv[])
 }
 #endif /* SVCRT_USE_VFS */
 #endif /* SVCRT_USE_FS */
+#if SVCRT_USE_MINIAPP
+/* 小程序：把文件系统里的一份负载按需 load 进 RAM 执行，退出/停止就把那块 RAM 还回池。
+ * 它占的是「代码 + RW/ZI + 栈」整块池内存，所以运行期与 App 抢的是同一个池。*/
+static int cmd_mini(int argc, char *argv[])
+{
+    svcrt_mini_info_t mi;
+
+    if((argc == 3) && (strcmp(argv[1], "run") == 0))
+    {
+        int32 rc = svcrt_mini_run(argv[2]);
+
+        if(rc != 0)
+        {
+            ark_shell_printf("\r\nmini run: %s failed, rc=%d\r\n", argv[2], (int)rc);
+            if(rc == SVCRT_LOADER_ERR_SIZE)
+            {
+                /* 上限是运行期可配的：报不下就得说清楚当前上限是多少，
+                 * 否则用户只能猜。 */
+                ark_shell_printf("  size limit: %u B now (mini limit <bytes>)"
+                                 "\r\n", (unsigned)svcrt_mini_max_bytes());
+            }
+            if(rc == SVCRT_MINI_ERR_FS)
+            {
+                int32 e = svcrt_fs_last_error();
+                ark_shell_printf("  file system: %d (%s)\r\n",
+                                 (int)e, svcrt_fs_error_name(e));
+            }
+            return 1;
+        }
+        (void)svcrt_mini_info(&mi);
+        ark_shell_printf("\r\nmini running: task %u, code %u B in %u B @ 0x%08X, RW/stack %u B @ 0x%08X\r\n",
+                         (unsigned)mi.task_id, (unsigned)mi.code_size,
+                         (unsigned)mi.code_block, (unsigned)mi.code_base,
+                         (unsigned)mi.ram_size, (unsigned)mi.ram_base);
+        return 0;
+    }
+
+    if((argc == 2) && (strcmp(argv[1], "stop") == 0))
+    {
+        int32 rc = svcrt_mini_stop();
+
+        if(rc != 0)
+        {
+            ark_shell_printf("\r\nmini stop: nothing to stop (rc=%d)\r\n", (int)rc);
+            return 1;
+        }
+        ark_shell_printf("\r\nmini stopped: RAM block returned to the pool\r\n");
+        return 0;
+    }
+
+    /* mini limit / mini limit <bytes>：单个小程序的体积上限（块的字节数）。
+     * 只影响下一次装载；越界或非 2 的幂报 PARAM，不静默夹取。 */
+    if((argc >= 2) && (argc <= 3) && (strcmp(argv[1], "limit") == 0))
+    {
+        if(argc == 2)
+        {
+            ark_shell_printf("\r\nmini size limit: %u B (default %u B, range %u..%u B)\r\n",
+                             (unsigned)svcrt_mini_max_bytes(),
+                             (unsigned)SLOT_RAM_MAX_BLOCK,
+                             (unsigned)SLOT_RAM_MIN_BLOCK,
+                             (unsigned)SLOT_RAM_MAX_BLOCK);
+            return 0;
+        }
+
+        {
+            uint32 want = 0u;
+            int32 rc;
+
+            if(parse_u32(argv[2], &want) != 0)
+            {
+                ark_shell_printf("\r\nmini limit: %s is not a decimal number\r\n",
+                                 argv[2]);
+                return 1;
+            }
+
+            rc = svcrt_mini_set_max_bytes(want);
+            if(rc != 0)
+            {
+                ark_shell_printf("\r\nmini limit: %u rejected, rc=%d (need a power of two in %u..%u B, 0 = default)\r\n",
+                                 (unsigned)want, (int)rc,
+                                 (unsigned)SLOT_RAM_MIN_BLOCK,
+                                 (unsigned)SLOT_RAM_MAX_BLOCK);
+                return 1;
+            }
+            ark_shell_printf("\r\nmini size limit set to %u B\r\n",
+                             (unsigned)svcrt_mini_max_bytes());
+            return 0;
+        }
+    }
+
+    if((argc == 1) || ((argc == 2) && (strcmp(argv[1], "stat") == 0)))
+    {
+        if(svcrt_mini_info(&mi) != 0)
+        {
+            ark_shell_printf("\r\nmini: none running (usage: mini run <path>)\r\n");
+            return 0;
+        }
+        ark_shell_printf("\r\nmini running: task %u, entry 0x%08X\r\n",
+                         (unsigned)mi.task_id, (unsigned)mi.entry);
+        ark_shell_printf("  code %u B in %u B block @ 0x%08X\r\n",
+                         (unsigned)mi.code_size, (unsigned)mi.code_block,
+                         (unsigned)mi.code_base);
+        ark_shell_printf("  RW/ZI+stack %u B block @ 0x%08X, crc 0x%08X\r\n",
+                         (unsigned)mi.ram_size, (unsigned)mi.ram_base,
+                         (unsigned)mi.crc);
+        ark_shell_printf("  size limit %u B\r\n", (unsigned)svcrt_mini_max_bytes());
+        return 0;
+    }
+
+    ark_shell_printf("\r\nusage: mini [stat] | mini run <path> | mini stop | mini limit [bytes]\r\n");
+    return 1;
+}
+#endif /* SVCRT_USE_MINIAPP */
+
 static int register_kernel_commands(void)
 {
     int idx = g_cmd_count;
@@ -3093,6 +3208,10 @@ static int register_kernel_commands(void)
         "Remove a file from the VFS namespace: rm <path>", 2);
 #endif /* SVCRT_USE_VFS */
 
+#if SVCRT_USE_MINIAPP
+    g_cmd_table[idx++] = ARK_SHELL_CMD("mini", cmd_mini,
+        "MiniApp from the file system: mini [stat] | mini run <path> | mini stop | mini limit [bytes]", 3);
+#endif /* SVCRT_USE_MINIAPP */
 #if SVCRT_USE_AUDIT
     g_cmd_table[idx++] = ARK_SHELL_CMD("audit", cmd_audit,
         "Structure self-audit: partition / slots / tasks vs their invariants", 1);

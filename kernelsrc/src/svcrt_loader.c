@@ -196,8 +196,14 @@ static void svcrt_loader_halt_task(uint32 task_id)
  * The RAM window is the identity here: the loader hands the main task the
  * image's RAM block, and every thread an App creates passes a kernel check
  * proving its stack lies inside that same block. Kernel tasks (shell, timer,
- * idle ...) live in the kernel RAM region and can never match. */
-static void svcrt_loader_halt_image(uint32 task_id)
+ * idle ...) live in the kernel RAM region and can never match.
+ *
+ * Not static: a MiniApp's RAM block is the very same identity - its code, data
+ * and stack all live in one borrowed block - so svcrt_mini.c stops a MiniApp
+ * with exactly this rule instead of inventing a second one. Two copies of
+ * "which tasks belong to this image" would eventually disagree, and the one
+ * that is wrong leaves a dead task in the scheduler holding its objects. */
+void svcrt_loader_halt_image(uint32 task_id)
 {
     uint32 ram_base;
     uint32 ram_end;
@@ -237,9 +243,15 @@ static void svcrt_loader_halt_image(uint32 task_id)
  * @param p_hdr 镜像头
  * @param p_rel 重定位表表体地址。传 0 表示「此刻表体还不在可寻址的地方」
  *              （流式安装只先拿到 256 字节的头，表体还在串口上），
- *              此时只校字段，调用方必须在表体落盘后补一次带地址的调用。 */
-static int32 svcrt_loader_check_header(const svcrt_app_header_t *p_hdr,
-                                       const uint32 *p_rel)
+ *              此时只校字段，调用方必须在表体落盘后补一次带地址的调用。
+ * @param types_mask 接受的镜像类型位掩码（SVCRT_APP_TYPE_MASK_x）。安装 /
+ *              扫描 / 搬移路径传 SVCRT_APP_TYPE_MASK_POOL（小程序不进池，
+ *              装进池里必须报错）；小程序装载路径传 MASK_MINI。
+ * @note 非 static：小程序装载路径（svcrt_mini.c）必须用同一份字段与表体校验，
+ *       抄一份出来迟早在两条路径上给出不同判定。 */
+int32 svcrt_loader_check_header(const svcrt_app_header_t *p_hdr,
+                                const uint32 *p_rel,
+                                uint32 types_mask)
 {
     if(p_hdr->magic != SVCRT_APP_MAGIC)
     {
@@ -251,7 +263,8 @@ static int32 svcrt_loader_check_header(const svcrt_app_header_t *p_hdr,
         return SVCRT_LOADER_ERR_COMPAT;
     }
 
-    if((p_hdr->type != SVCRT_APP_TYPE_APP) && (p_hdr->type != SVCRT_APP_TYPE_DRIVER))
+    /* 越界的 type 必须先挡住：1u << 33 是未定义行为，不能把它当掩码判断用 */
+    if((p_hdr->type >= 32u) || (((types_mask >> p_hdr->type) & 1u) == 0u))
     {
         return SVCRT_LOADER_ERR_PARAM;
     }
@@ -616,7 +629,7 @@ static void svcrt_loader_reloc_movw(uint8 *p, uint32 delta)
 *          （MOVW/MOVT）长 8 字节且只保证半字对齐，「表项不跨块」这条对它们
 *          不成立，所以要把可提交长度交回调用者。
 */
-static uint32 svcrt_loader_reloc_apply(uint8 *buf, uint32 buf_off, uint32 len,
+uint32 svcrt_loader_reloc_apply(uint8 *buf, uint32 buf_off, uint32 len,
                                       const svcrt_app_header_t *p_hdr,
                                       const uint32 *p_rel,
                                       uint32 *p_idx,
@@ -758,12 +771,16 @@ static int32 svcrt_loader_read_dev(int32 dev, uint8 *buf, uint32 len)
     return (int32)got;
 }
 
-/* 镜像头在镜像 CRC 里的参与方式：crc32 / state / runtime_ram_base 三个字段
+/* 对外开放：小程序装载路径（svcrt_mini.c）要在流式读负载之前先算出头部的 CRC，
+ * 再接着算重定位表与负载；头部公式（哪几个字要按 0 代入）只能有一份，
+ * 否则两条装载路径会对同一个文件算出不同校验值。
+ *
+ * 镜像头在镜像 CRC 里的参与方式：crc32 / state / runtime_ram_base 三个字段
  * 各按四个 0 字节代入。
  * 注意不能把这两段「跳过」：打包工具算校验时这两个字段确实是 0，但零字节
  * 是要参与 CRC 运算的，跳过与代入 0 得到的值不同（实测 APP_DEMO 差
  * 0x27DE38AB vs 0x474E26D7），跳过会让每一次安装都误报 CRC 错。 */
-static uint32 svcrt_loader_crc_header(const svcrt_app_header_t *p_hdr)
+uint32 svcrt_loader_crc_header(const svcrt_app_header_t *p_hdr)
 {
     const uint8 *p = (const uint8 *)p_hdr;
     uint32 crc;
@@ -849,8 +866,10 @@ static int32 svcrt_loader_stream_image(int32 dev, uint32 base, const svcrt_app_h
      * 表体非法的话，后面的补丁会按乱序/越界的偏移乱改 Flash，
      * 而且改完就不可逆，所以必须在收负载之前先拒掉。 */
     {
-        int32 chk = svcrt_loader_check_header(p_hdr,
-                                              (const uint32 *)(base + SVCRT_APP_RELOC_OFFSET));
+        int32 chk = svcrt_loader_check_header(
+                        p_hdr,
+                        (const uint32 *)(base + SVCRT_APP_RELOC_OFFSET),
+                        SVCRT_APP_TYPE_MASK_POOL);
 
         if(chk != 0)
         {
@@ -1183,7 +1202,7 @@ int32 svcrt_loader_load_dev_hdr(int32 dev, const svcrt_app_header_t *p_hdr, uint
 
     /* 此刻只收到 256 字节的头，表体还在设备上：先只校字段，
      * 表体等 svcrt_loader_stream_image() 把它落盘后再校。 */
-    ret = svcrt_loader_check_header(&hdr, 0);
+    ret = svcrt_loader_check_header(&hdr, 0, SVCRT_APP_TYPE_MASK_POOL);
     if(ret != 0)
     {
         return ret;
@@ -1346,7 +1365,8 @@ int32 svcrt_loader_load_buffer(const uint8 *image, uint32 image_len)
 
     ret = svcrt_loader_check_header(
               p_src,
-              (const uint32 *)((const uint8 *)p_src + SVCRT_APP_RELOC_OFFSET));
+              (const uint32 *)((const uint8 *)p_src + SVCRT_APP_RELOC_OFFSET),
+              SVCRT_APP_TYPE_MASK_POOL);
     if(ret != 0)
     {
         return ret;
@@ -1525,7 +1545,8 @@ static int32 svcrt_loader_accept(uint32 base, uint32 *out_total, uint32 *out_ent
 
     if(svcrt_loader_check_header(
            p_hdr,
-           (const uint32 *)((const uint8 *)p_hdr + SVCRT_APP_RELOC_OFFSET)) != 0)
+           (const uint32 *)((const uint8 *)p_hdr + SVCRT_APP_RELOC_OFFSET),
+           SVCRT_APP_TYPE_MASK_POOL) != 0)
     {
         /* 头字段不合法：不属于可用镜像。给出一个保守的跳过长度，
          * 免得在残片里逐个分配单元地磨下去。 */
@@ -1946,7 +1967,8 @@ static int32 svcrt_loader_move_slot(uint32 slot, uint32 new_base)
 
     if(svcrt_loader_check_header(
            p_old,
-           (const uint32 *)((const uint8 *)p_old + SVCRT_APP_RELOC_OFFSET)) != 0)
+           (const uint32 *)((const uint8 *)p_old + SVCRT_APP_RELOC_OFFSET),
+           SVCRT_APP_TYPE_MASK_POOL) != 0)
     {
         return SVCRT_LOADER_ERR_MAGIC;
     }

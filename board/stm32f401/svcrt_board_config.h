@@ -27,6 +27,16 @@
 #undef  SVCRT_USE_PRIV
 #define SVCRT_USE_PRIV            0
 
+/* MiniApp (小程序). Loading one needs a 4 KB static relocation-table
+ * buffer in the kernel image (the whole table is validated in one piece),
+ * and this board has the least kernel RAM of the family: 96 KB SRAM minus
+ * 8 KB shared minus 32 KB slot pool leaves 56 KB. With MiniApp compiled in
+ * the linker ran out of RAM (L6406E on svcrt_mini.o(.bss)); the feature
+ * switch exists for exactly this situation, so it is off here and on for
+ * F427. Nothing else in the kernel depends on it. */
+#undef  SVCRT_USE_MINIAPP
+#define SVCRT_USE_MINIAPP         0
+
 /* Independent watchdog (IWDG). Hardware fact, so it lives with the board:
  * 1 = the kernel guard owns the counter and stops feeding when an invariant
  *     is violated (see svcrt_guard.c);

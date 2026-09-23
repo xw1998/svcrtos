@@ -27,6 +27,7 @@
 #include "svcrt_mpu.h"
 #include "svcrt_loader.h"
 #include "svcrt_fs.h"    /* SVC 0x1C user file service */
+#include "svcrt_mini.h"   /* SVC 0x18 子命令：小程序装载/停止 */
 #include "svcrt_partition.h"    /* 用户可见内存窗口（共享区/App RAM/驱动 RAM/固件区） */
 
 /* ------------------------------------------------------------------
@@ -1246,6 +1247,24 @@ void SVC_Server(void *p_svc_ctx)
         case 6:     /* 从设备安装驱动镜像到驱动区 */
             SVCRT_SVC_RET(p_svc_ctx, (uint32)svcrt_loader_load_driver((int32)p[1], p[2]));
             break;
+#if SVCRT_USE_MINIAPP
+        case 7:     /* 从文件系统装载并运行一个小程序：p[1]=路径指针，p[2]=路径长度 */
+            /* 长度要由调用方给出，并且 [ptr, ptr+len] 这一段（含结尾 NUL）
+             * 都必须在调用者自己的窗口内：否则内核就在替它读越界的
+             * 字符串。比只验一个指针字节更严，也不会因为字符串恰好
+             * 贴在 App RAM 块尾就误拒。 */
+            if((p[2] == 0u) || (p[2] >= SVCRT_FS_PATH_MAX) ||
+               (svcrt_kernel_user_ro_ok((const void *)p[1], p[2] + 1u) == 0u))
+            {
+                SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
+                break;
+            }
+            SVCRT_SVC_RET(p_svc_ctx, (uint32)svcrt_mini_run((const char *)p[1]));
+            break;
+        case 8:     /* 停止小程序并归还它的 RAM 块 */
+            SVCRT_SVC_RET(p_svc_ctx, (uint32)svcrt_mini_stop());
+            break;
+#endif /* SVCRT_USE_MINIAPP */
         default:
             SVCRT_SVC_RET(p_svc_ctx, (uint32)(-1));
             break;
@@ -2194,6 +2213,13 @@ void svcrt_task_kill_internal(void)
         svcrt_task_table[svcrt_current_task_id - 1].status = SVCRT_TASK_INVALID;
         SVCRT_ENABLE_IRQ();
     }
+
+#if SVCRT_USE_MINIAPP
+    /* 小程序回收：主任务退出就意味着整个小程序结束，它借的那块 RAM 必须在这里还回池。
+     * 放在切走之前，且此刻自身已被置为 INVALID：halt_image 不会重复收尸它，而在还块
+     * 与切换之间没有任何分配者能跑（分配只在别的任务上下文里发生）。 */
+    (void)svcrt_mini_on_task_exit((uint32)svcrt_current_task_id);
+#endif /* SVCRT_USE_MINIAPP */
 
     {
         SVCRT_SWITCH_TASK();

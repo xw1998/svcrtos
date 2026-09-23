@@ -42,6 +42,30 @@
 /** @brief 镜像类型 */
 #define SVCRT_APP_TYPE_APP        (1u)
 #define SVCRT_APP_TYPE_DRIVER     (2u)
+/** @brief 小程序（MiniApp）：文件系统里的可执行件，运行时才载入内存
+ *  @note 与上两个类型的根本区别：
+ *        - **不进镜像池**。它存在文件系统里（普通文件，扩展名 .mini），
+ *          因此没有槽位记录、不参与安装/卸载/搬移/回收那一整套。
+ *        - **运行时整体载入 RAM 执行**（App 是代码留在 Flash 原地执行）。
+ *          退出即释放，再跑重新载入。这是拿 RAM 换「不用安装」。
+ *        - 容器格式与类型 1/2 完全一致（256B 头 + 重定位表 + 负载），
+ *          所以打包/校验/重定位代码完全复用；区别只在装载路径与运行位置。
+ *        池内安装器只接受 1/2，把 3 装进 Flash 池会被拒收。
+ *        详见 docs/小程序设计.md。*/
+#define SVCRT_APP_TYPE_MINIAPP    (3u)
+
+/** @brief 类型位掩码：内核的头部校验函数按掩码判定「这个类型接受不接受」
+ *  @details 用具名掩码而不是在调用点写 `type == A || type == B`，是因为
+ *           校验函数被多条装载路径共用（安装 / 上电扫描 / 搬移 / 小程序），
+ *           每条路径接受的类型不同，而「能不能接受」必须只有一处判定。 */
+#define SVCRT_APP_TYPE_MASK(t)    (1u << (uint32)(t))
+
+/** @brief 镜像池安装器接受的全部类型（小程序不在列：它属于文件系统） */
+#define SVCRT_APP_TYPE_MASK_POOL \
+    (SVCRT_APP_TYPE_MASK(SVCRT_APP_TYPE_APP) | SVCRT_APP_TYPE_MASK(SVCRT_APP_TYPE_DRIVER))
+
+/** @brief 小程序装载路径接受的类型 */
+#define SVCRT_APP_TYPE_MASK_MINI  (SVCRT_APP_TYPE_MASK(SVCRT_APP_TYPE_MINIAPP))
 
 /** @brief 镜像头 flags 位定义（见 svcrt_app_header_t.flags）
  *  @note 该字段落在头部 offset 96（原 reserved 区首 4 字节）。旧镜像该位置

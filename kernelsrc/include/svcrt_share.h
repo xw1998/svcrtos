@@ -39,8 +39,24 @@
  *            RAW_ALLOW 位（是否接受池内直接烧录的裸镜像）。分区表末尾
  *            追加 cfg_boot_delay_ms / cfg_raw_allow 两个生效值，
  *            让上位机能一眼看出设备到底按哪套配置在跑。
+ *  v7 -> v8: 小程序（MiniApp，见 svcrt_mini.h）需要一个**瞬态** RAM 块：
+ *            运行时从镜像 RAM 池借、退出即归还，因此它不属于任何镜像槽位，
+ *            没法记在 slot_ram_* 里。末尾追加 mini_ram_base / mini_ram_size
+ *            两个字段专门给这个块记账，伙伴分配器把非零的它当作一个占用
+ *            区间（同一时刻最多一个小程序，所以一组字段就够）。
+ *            纯追加，已有字段偏移不变；硬件兼容签名不受影响（那是镜像侧的
+ *            代号，与分区表 ABI 无关）。
+ *  v8 -> v9: 小程序的内存布局由「一个 pow2 块」改成「代码块 + RAM 块」两块。
+ *            原来把代码与 RW/ZI+栈塞进同一块、块大小取
+ *            pow2_ceil(代码 + RAM)：pow2 是池的分配粒度，于是最常见的
+ *            「代码远小于 RAM」会被放大到接近两倍——代码 1KB + RAM 8KB 要
+ *            一块 16KB，分两块只要 1KB + 8KB。两块各自取 pow2、各自对齐
+ *            自己的大小，正好各占一个 MPU 区域（代码窗 / 数据窗），
+ *            数据窗也就不必再与代码窗共用「可执行」属性。
+ *            末尾追加 mini_code_base / mini_code_size；mini_ram_* 含义不变。
+ *            纯追加，已有字段偏移不变。
  */
-#define SVCRT_PARTITION_VERSION   (7u)
+#define SVCRT_PARTITION_VERSION   (9u)
 
 /** @brief 槽位数组的固定长度（ABI 形状常量）。
  *  实际使用的槽位数由运行期字段 slot_max 决定，必须 <= 本值；
@@ -130,6 +146,18 @@ typedef struct {
      *      移动已有字段的偏移） ---- */
     uint32 cfg_boot_delay_ms;                   /* 自启前等待的毫秒数（0 = 不等待） */
     uint32 cfg_raw_allow;                       /* 非 0 = 接受池内直接烧录的裸镜像 */
+
+    /* ---- 小程序瞬态块（v8 起，追加在末尾以免移动已有字段的偏移）
+     *      这些字段只在**一个小程序正在运行时**非零：内核装载小程序时向
+     *      镜像 RAM 池借两块记在这里，任务退出时清回 0 归还。
+     *      它们不挂任何槽位——小程序没有槽位记录（它在文件系统里，不在
+     *      镜像池里），这正是需要单独记账的原因。
+     *      v9 起是两块：代码块（可执行）与 RAM 块（RW/ZI + 栈）。两块都是
+     *      2 的幂、各自对齐自己的大小，因此各能精确落进一个 MPU 区域。 */
+    uint32 mini_code_base;                      /* 小程序代码块基址（0 = 无） */
+    uint32 mini_code_size;                      /* 小程序代码块字节数（0 = 无） */
+    uint32 mini_ram_base;                       /* 小程序 RAM 块基址（0 = 无） */
+    uint32 mini_ram_size;                       /* 小程序 RAM 块字节数（0 = 无） */
 } svcrt_partition_table_t;
 
 #endif /* __SVCRT_SHARE_H__ */

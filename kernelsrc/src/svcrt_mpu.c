@@ -87,11 +87,48 @@ static void svcrt_mpu_add_region(svcrt_arch_mpu_t *p_mpu, uint32 idx,
  *     pool: neighbouring code can be read, nothing outside the pool can.
  *
  * Kernel internal tasks carry rom_start == 0 and fall back to kernel flash. */
+/** Is this task's code window in RAM instead of the flash image pool?
+ *  True for MiniApps only (they are loaded into RAM and run there, see
+ *  svcrt_mini.c); every App / Driver / kernel task answers no. The test is on
+ *  the recorded window, not on a flag: a window in the image RAM pool can only
+ *  have been put there by the MiniApp loader. */
+static uint8 svcrt_mpu_code_in_ram(const svcrt_task_t *p_task)
+{
+    uint32 start = p_task->rom_start;
+
+    return ((start >= SVCRT_MPU_SLOT_RAM_BASE) &&
+            (start <  (SVCRT_MPU_SLOT_RAM_BASE + SVCRT_MPU_SLOT_RAM_TOTAL))) ? 1u : 0u;
+}
+
 static void svcrt_mpu_rom_window(const svcrt_task_t *p_task,
                                  uint32 *p_base, uint32 *p_size)
 {
     uint32 start = p_task->rom_start;
     uint32 span  = p_task->rom_size;
+
+    /* MiniApp: code lives in RAM. The block is a buddy block, so it is already
+     * a power of two aligned to its own size and the window comes out exact.
+     * An inexact window is REFUSED (size 0 = region left disabled) rather than
+     * rounded outwards: an enclosing power-of-two region would reach into a
+     * neighbour's RAM and hand this task an executable view of it. Failing
+     * closed costs a fault in a case that cannot happen; failing open would
+     * break isolation silently. */
+    if(svcrt_mpu_code_in_ram(p_task) != 0u)
+    {
+        if((span != 0u) &&
+           ((span & (span - 1u)) == 0u) &&
+           ((start & (span - 1u)) == 0u) &&
+           ((start + span) <= (SVCRT_MPU_SLOT_RAM_BASE + SVCRT_MPU_SLOT_RAM_TOTAL)))
+        {
+            *p_base = start;
+            *p_size = span;
+            return;
+        }
+
+        *p_base = 0u;
+        *p_size = 0u;
+        return;
+    }
 
     if((start >= SVCRT_MPU_IMAGE_POOL_BASE) &&
        (start <  (SVCRT_MPU_IMAGE_POOL_BASE + SVCRT_MPU_IMAGE_POOL_SIZE)) &&
@@ -146,6 +183,19 @@ static void svcrt_mpu_ram_window(const svcrt_task_t *p_task,
         return;
     }
 
+    /* A window in the pool that does not qualify is refused (size 0 = region
+     * left disabled, the task faults instead of running with a wrong window).
+     * Only a task that is NOT an image gets the whole-chip fallback: handing a
+     * MiniApp whose block has gone bad the kernel RAM window would let it read
+     * and write every other task's stack, and nothing would look wrong. */
+    if((addr >= SVCRT_MPU_SLOT_RAM_BASE) &&
+       (addr <  (SVCRT_MPU_SLOT_RAM_BASE + SVCRT_MPU_SLOT_RAM_TOTAL)))
+    {
+        *p_base = 0u;
+        *p_size = 0u;
+        return;
+    }
+
     *p_base = SVCRT_MPU_KERNEL_RAM_FALLBACK;
     *p_size = svcrt_mpu_round_up(CHIP_RAM_SIZE);
 }
@@ -167,23 +217,40 @@ void svcrt_mpu_build_task(svcrt_task_t *p_task)
     uint32 rom_size = 0u;
     uint32 ram_base = 0u;
     uint32 ram_size = 0u;
+    uint8  code_in_ram;
 
     if(p_task == 0)
     {
         return;
     }
 
+    code_in_ram = svcrt_mpu_code_in_ram(p_task);
+
     p_mpu = &p_task->mpu;
     svcrt_mpu_clear(p_mpu);
 
     /* Region 0: code. rom_start == 0 marks a kernel internal task, which runs
-     * kernel code, so it gets the kernel flash window. */
+     * kernel code, so it gets the kernel flash window. A MiniApp executes
+     * from its RAM block, which therefore needs an executable attribute
+     * (SVCRT_MPU_MEM_RAMX) instead of the read-only flash one. */
     svcrt_mpu_rom_window(p_task, &rom_base, &rom_size);
-    svcrt_mpu_add_region(p_mpu, SVCRT_MPU_RGN_CODE, rom_base, rom_size, SVCRT_MPU_MEM_ROM);
+    svcrt_mpu_add_region(p_mpu, SVCRT_MPU_RGN_CODE, rom_base, rom_size,
+                         (code_in_ram != 0u) ? SVCRT_MPU_MEM_RAMX
+                                             : SVCRT_MPU_MEM_ROM);
 
-    /* Region 1: data / stack. */
+    /* Region 1: data / stack. A MiniApp has two separate blocks (code block in
+     * region 0, RAM block here), so this window is a plain non-executable data
+     * window - the normal case, same as an App whose RAM lives in the pool.
+     * The only exception is a task whose RAM window IS its code window (same
+     * base and size): region 1 outranks region 0 on overlap, so it must then
+     * carry the same executable attribute, otherwise the task would fault on
+     * its own first instruction fetch. Keep that case working even though no
+     * current loader produces it. */
     svcrt_mpu_ram_window(p_task, &ram_base, &ram_size);
-    svcrt_mpu_add_region(p_mpu, SVCRT_MPU_RGN_DATA, ram_base, ram_size, SVCRT_MPU_MEM_RAM);
+    svcrt_mpu_add_region(p_mpu, SVCRT_MPU_RGN_DATA, ram_base, ram_size,
+                         ((code_in_ram != 0u) && (ram_base == rom_base) &&
+                          (ram_size == rom_size)) ? SVCRT_MPU_MEM_RAMX
+                                                  : SVCRT_MPU_MEM_RAM);
 
     /* Region 2: shared RAM, where the partition table lives. Every external
      * task reads it at boot. Skipped when the RAM window already covers it. */

@@ -650,41 +650,41 @@
             </File>
           </Files>
         </Group>
-          <Group>
-            <GroupName>SVCRTOS/VFS</GroupName>
-            <Files>
-              <File>
-                <FileName>svcrt_vfs.c</FileName>
-                <FileType>1</FileType>
-                <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_vfs.c</FilePath>
-              </File>
-              <File>
-                <FileName>svcrt_vfs_lfs.c</FileName>
-                <FileType>1</FileType>
-                <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_vfs_lfs.c</FilePath>
-              </File>
-              <File>
-                <FileName>ark_vfs_core.c</FileName>
-                <FileType>1</FileType>
-                <FilePath>..\..\..\..\..\kernelsrc\components\ark_vfs\src\ark_vfs_core.c</FilePath>
-              </File>
-              <File>
-                <FileName>ark_vfs_ramfs.c</FileName>
-                <FileType>1</FileType>
-                <FilePath>..\..\..\..\..\kernelsrc\components\ark_vfs\src\ark_vfs_ramfs.c</FilePath>
-              </File>
-              <File>
-                <FileName>ark_vfs_port_svcrtos.c</FileName>
-                <FileType>1</FileType>
-                <FilePath>..\..\..\..\..\kernelsrc\components\ark_vfs\port\ark_vfs_port_svcrtos.c</FilePath>
-              </File>
-              <File>
-                <FileName>ark_vfs_devfs.c</FileName>
-                <FileType>1</FileType>
-                <FilePath>..\..\..\..\..\kernelsrc\components\ark_vfs\port\ark_vfs_devfs.c</FilePath>
-              </File>
-            </Files>
-          </Group>
+        <Group>
+          <GroupName>SVCRTOS/VFS</GroupName>
+          <Files>
+            <File>
+              <FileName>svcrt_vfs.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_vfs.c</FilePath>
+            </File>
+            <File>
+              <FileName>svcrt_vfs_lfs.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_vfs_lfs.c</FilePath>
+            </File>
+            <File>
+              <FileName>ark_vfs_core.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\components\ark_vfs\src\ark_vfs_core.c</FilePath>
+            </File>
+            <File>
+              <FileName>ark_vfs_ramfs.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\components\ark_vfs\src\ark_vfs_ramfs.c</FilePath>
+            </File>
+            <File>
+              <FileName>ark_vfs_port_svcrtos.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\components\ark_vfs\port\ark_vfs_port_svcrtos.c</FilePath>
+            </File>
+            <File>
+              <FileName>ark_vfs_devfs.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\components\ark_vfs\port\ark_vfs_devfs.c</FilePath>
+            </File>
+          </Files>
+        </Group>
         <Group>
           <GroupName>SVCRTOS/Kernel</GroupName>
           <Files>
@@ -807,6 +807,11 @@
               <FileName>svcrt_loader.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_loader.c</FilePath>
+            </File>
+            <File>
+              <FileName>svcrt_mini.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_mini.c</FilePath>
             </File>
             <File>
               <FileName>svcrt_installer.c</FileName>

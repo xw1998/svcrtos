@@ -305,4 +305,74 @@ uint32 svcrt_loader_start_autostart(void);
 }
 #endif
 
+/* ============================================================
+ * 容器层共用件（对内核内其他装载路径开放）
+ * @details 下面两个函数不是为外部调用者"导出"的便利接口，而是**唯一实现**：
+ *          镜像头与重定位表的合法性规则、MOVW/MOVT 的编码细节，都必须只有
+ *          一份。小程序（svcrt_mini.c）走的是完全不同的装载路径（文件系统 ->
+ *          RAM，而不是串口 -> Flash 池），但它解析的是同一种容器，因此复用
+ *          这两个函数，而不是另写一套。
+ * ============================================================ */
+
+/**
+* @brief 校验镜像头：字段级约束 + 重定位表表体合法性
+* @param p_hdr      镜像头（调用方已读进可寻址内存）
+* @param p_rel      重定位表表体地址；传 0 表示表体此刻还不在可寻址的地方，
+*                   此时只校字段，调用方必须在表体可用后补一次带地址的调用
+* @param types_mask 接受的镜像类型位掩码（`SVCRT_APP_TYPE_MASK_x`）
+* @return 0=通过，负值为 SVCRT_LOADER_ERR_x
+* @note 表体校验覆盖：条目数上限、编码版本、`payload_offset` 自洽、每个条目的
+*       对齐要求与「落在负载范围内」、以及偏移必须升序。这些规则只能有一份，
+*       否则「池内安装」与「小程序装载」会对同一个文件给出不同判定。
+*/
+int32 svcrt_loader_check_header(const svcrt_app_header_t *p_hdr,
+                                const uint32 *p_rel,
+                                uint32 types_mask);
+
+/**
+* @brief 给一段负载打重定位补丁，并给出本段可安全落盘的末尾
+* @param buf       装载缓冲（对应镜像内偏移 buf_off 起的连续 len 字节）
+* @param buf_off   该缓冲在**镜像内**的起始偏移（不是内存地址）
+* @param len       缓冲长度
+* @param p_hdr     镜像头（提供表项数与两条标称基址）
+* @param p_rel     重定位表表体（可以是整表，也可以是一段滑动窗口，只要
+*                  `p_rel[idx]` 是第 idx 条全局条目）
+* @param p_idx     表前进指针（跨调用必须复用同一个变量）
+* @param delta_rom 给 ROM 类表项叠加的增量
+* @param delta_ram 给 RAM 类表项叠加的增量
+* @return 本段可以落盘的末尾偏移（镜像内）。正常等于 buf_off + len；若段尾
+*         恰好切开一条 8 字节指令类表项，则等于该表项起始偏移，调用方必须把
+*         这段之后的字节留到下一段开头一起处理。
+* @note 表项按偏移升序，所以只需要一个前进指针；但返回的"可落盘末尾"不是
+*       可选的：忽略它会让被切开的表项在下一次调用里落到
+*       「偏移落在本段之前」那条防御分支上而**静默丢掉一次修补**。
+*/
+uint32 svcrt_loader_reloc_apply(uint8 *buf, uint32 buf_off, uint32 len,
+                               const svcrt_app_header_t *p_hdr,
+                               const uint32 *p_rel,
+                               uint32 *p_idx,
+                               uint32 delta_rom, uint32 delta_ram);
+
+/**
+* @brief 算镜像头部（前 256 字节）的 CRC，供流式装载方接续计算
+* @param p_hdr 镜像头（调用方已读进可寻址内存）
+* @return 只覆盖头部 256 字节的 CRC 值（crc32 / state / runtime_ram_base 三个
+*         字段按四个 0 字节代入）
+* @note 完整镜像 CRC = 本值继续喂入「重定位表」与「负载」两段**标称形态**的字节。
+*       小程序的负载是边读边落 RAM、边打补丁的，所以只能在收到字节的那一刻
+*       算 CRC，不能在打完补丁之后再回读——回读的是 relocation 之后的形态，
+*       与打包工具算的标称形态必然不同。
+*/
+uint32 svcrt_loader_crc_header(const svcrt_app_header_t *p_hdr);
+
+/**
+* @brief 硬停同一 RAM 窗口内的所有任务（镜像级停止）
+* @param task_id 该镜像的主任务号（1 起）
+* @note RAM 窗口就是归属判据：镜像的代码块/数据块由装载方交给主任务，
+*       它自己创建的线程其栈必须落在同一块内（由内核的创建校验保证），
+*       内核内置任务住在内核 RAM 区，永远不会匹配。
+*       池内卸载与小程序停止必须用同一份判据，不能各写一套。
+*/
+void svcrt_loader_halt_image(uint32 task_id);
+
 #endif /* __SVCRT_LOADER_H__ */

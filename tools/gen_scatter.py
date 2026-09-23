@@ -451,7 +451,9 @@ def image_region(layout, unit, units, img_type):
     size = units * sector
     ram_base = layout.dev_ram_base(unit)
     ram_size = v("SVCRT_DEV_RAM_WINDOW")
-    stack_size = v("APP_TASK_STACK_SIZE") if img_type == "app" else v("DRIVER_TASK_STACK_SIZE")
+    # 只有驱动用驱动栈；App 与小程序同栈（内核侧一致）
+    stack_size = v("DRIVER_TASK_STACK_SIZE") if img_type == "driver" \
+        else v("APP_TASK_STACK_SIZE")
     return base, size, ram_base, ram_size, stack_size
 
 def gen_target(layout, target, out_path, raw=False, unit=0, units=1, img_type="app",
@@ -515,8 +517,8 @@ def gen_target(layout, target, out_path, raw=False, unit=0, units=1, img_type="a
                 raise SystemExit("ram_size=%d 超出块范围 %d ~ %d"
                                  % (ram_size, v("SLOT_RAM_MIN_BLOCK"),
                                     v("SLOT_RAM_MAX_BLOCK")))
-            stack_size = v("APP_TASK_STACK_SIZE") if img_type == "app" \
-                else v("DRIVER_TASK_STACK_SIZE")
+            stack_size = v("DRIVER_TASK_STACK_SIZE") if img_type == "driver" \
+                else v("APP_TASK_STACK_SIZE")
             if stack_size >= ram_size:
                 raise SystemExit("ram_size=%d 装不下 %d 字节栈（RW/ZI 还要占地方）"
                                  % (ram_size, stack_size))
@@ -560,8 +562,8 @@ def main():
                     help="RAM 链接基址额外偏移量（差异链接用，动态装载才需要）")
     ap.add_argument("--unit", type=auto_int, default=0, help="起始分配单元号（默认 0）")
     ap.add_argument("--units", type=auto_int, default=1, help="占用单元数，必须是 2 的幂（默认 1）")
-    ap.add_argument("--type", choices=["app", "driver"], default="app",
-                    help="镜像类型，决定任务栈大小（默认 app）")
+    ap.add_argument("--type", choices=["app", "driver", "miniapp"], default="app",
+                    help="镜像类型，决定任务栈大小（默认 app；miniapp 与 app 同栈）")
     ap.add_argument("--dev-slot", type=int, default=None,
                     help="按开发槽位表条目号取 单元/单元数/类型（0 ~ SVCRT_DEV_SLOT_MAX-1）")
     ap.add_argument("--check", action="store_true", help="仅校验布局")

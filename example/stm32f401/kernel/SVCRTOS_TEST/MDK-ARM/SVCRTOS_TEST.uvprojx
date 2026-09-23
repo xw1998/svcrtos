@@ -575,6 +575,11 @@
               <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_loader.c</FilePath>
             </File>
             <File>
+              <FileName>svcrt_mini.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_mini.c</FilePath>
+            </File>
+            <File>
               <FileName>svcrt_installer.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_installer.c</FilePath>

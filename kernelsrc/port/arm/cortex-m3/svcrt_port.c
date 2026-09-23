@@ -397,6 +397,19 @@ int32 svcrt_port_mpu_encode(svcrt_arch_mpu_t *p_mpu, uint32 idx, uint32 base, ui
             attr = 0x13060001u;     /* AP=0b011: read-write, XN=1 */
             break;
 
+        case SVCRT_MPU_MEM_RAMX:
+            /* Same attributes as MEM_RAM but with XN cleared: the MiniApp
+             * block is the only place in this kernel where code lives in
+             * RAM, so that one region has to be executable.
+             * W^X does not hold inside it - accepted, documented tradeoff:
+             * splitting it into an RO+X code region and an RW+XN data region
+             * would need two power-of-two aligned MPU regions and waste up
+             * to half of the block, which is exactly what a load-to-RAM
+             * MiniApp cannot afford. The block is private to the MiniApp and
+             * released when it exits (see docs/小程序设计.md). */
+            attr = 0x03060001u;     /* AP=0b011: read-write, XN=0 */
+            break;
+
         case SVCRT_MPU_MEM_PERIPH_RO:
             attr = 0x12060001u;     /* AP=0b010: unprivileged read-only, XN=1 */
             break;
