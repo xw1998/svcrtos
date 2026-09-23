@@ -42,7 +42,7 @@ typedef int ark_vfs_devfs_disabled_tu;
 struct ark_vfs_file {
     uint8_t  used;
     uint8_t  is_dir;
-    int16_t  dev;                   /* svcrt_dev handle, or -1          */
+    int32_t  dev;                   /* svcrt_dev handle, or -1          */
     uint32_t scan;                  /* readdir cursor, slot index       */
 };
 
@@ -159,7 +159,7 @@ static int32_t devfs_open(struct ark_vfs_mnt *mnt, const char *rel, int flags,
         return ARK_E_FULL;
     }
     h->is_dir = 0u;
-    h->dev    = (int16_t)dev;
+    h->dev    = dev;
     *out = h;
     return ARK_VFS_OK;
 }

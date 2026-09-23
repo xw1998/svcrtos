@@ -1149,6 +1149,7 @@ typedef struct
     uint8 used;
     uint8 kind;
     uint8 is_dir;
+    uint32 mode;        /* S_IFMT type bits, captured at open; 0 = unknown */
     int32 handle;
 } svcrt_posix_fd_t;
 
@@ -1197,7 +1198,8 @@ static svcrt_posix_fd_t *svcrt_posix_fd_slot(int fd)
     return &g_posix_fd[fd - SVCRT_POSIX_FD_BASE];
 }
 
-static int svcrt_posix_fd_alloc(uint8 kind, int32 handle, uint8 is_dir)
+static int svcrt_posix_fd_alloc(uint8 kind, int32 handle, uint8 is_dir,
+                                uint32 mode)
 {
     int i;
 
@@ -1208,6 +1210,7 @@ static int svcrt_posix_fd_alloc(uint8 kind, int32 handle, uint8 is_dir)
             g_posix_fd[i].used   = 1u;
             g_posix_fd[i].kind   = kind;
             g_posix_fd[i].is_dir = is_dir;
+            g_posix_fd[i].mode   = mode;
             g_posix_fd[i].handle = handle;
             return SVCRT_POSIX_FD_BASE + i;
         }
@@ -1229,15 +1232,28 @@ int svcrt_posix_open(const char *name, int flags, ...)
     if(name[0] == '/')
     {
         /* A path in the namespace: the file system serves it. */
-        int32 h = svcrt_path_open(name, (uint32)flags);
+        uint32 size = 0u;
+        uint32 mode = 0u;
+        int32  h;
 
+        /* Ask the type *before* opening, so fstat() can answer for a character
+         * device - it has no seek, so its size cannot be found by seeking to
+         * the end. Best effort: a path about to be created has no type yet,
+         * and 0 then means "unknown", not "regular". */
+        if(svcrt_path_stat(name, &size, &mode) < 0)
+        {
+            mode = 0u;
+        }
+
+        h = svcrt_path_open(name, (uint32)flags);
         if(h < 0)
         {
             errno = svcrt_posix_errno_from_vfs(h);
             return -1;
         }
         fd = svcrt_posix_fd_alloc(SVCRT_POSIX_FD_VFS, h,
-                                  (uint8)(((flags & O_DIRECTORY) != 0) ? 1u : 0u));
+                                  (uint8)(((flags & O_DIRECTORY) != 0) ? 1u : 0u),
+                                  mode);
         if(fd < 0)
         {
             (void)svcrt_path_close(h);      /* do not leak the kernel handle */
@@ -1273,7 +1289,7 @@ int svcrt_posix_open(const char *name, int flags, ...)
             errno = ENODEV;
             return -1;
         }
-        fd = svcrt_posix_fd_alloc(SVCRT_POSIX_FD_DEV, h, 0u);
+        fd = svcrt_posix_fd_alloc(SVCRT_POSIX_FD_DEV, h, 0u, S_IFCHR);
         if(fd < 0)
         {
             (void)svcrt_dev_close(h);
@@ -1488,9 +1504,17 @@ int svcrt_posix_fstat(int fd, struct stat *st)
         /* A device: character type, no size. */
         return svcrt_posix_stat_fill(st, S_IFCHR, 0u);
     }
-    if(e->is_dir != 0u)
+    /* A path opened by name can itself be a device: the namespace mirrors the
+     * device registry under /dev. The type comes from what open() saw, so a
+     * character device never reaches the seek-based size below - it cannot be
+     * seeked, and a failed fstat is a worse answer than a typed one. */
+    if(S_ISDIR(e->mode))
     {
         return svcrt_posix_stat_fill(st, S_IFDIR, 0u);
+    }
+    if(S_ISCHR(e->mode))
+    {
+        return svcrt_posix_stat_fill(st, S_IFCHR, 0u);
     }
     /* The size of an open file: the kernel tracks the offset, so SEEK_END is
      * the size of the file. The offset is put back afterwards - and if that

@@ -6,9 +6,9 @@
 | 项 | 值 |
 |---|---|
 | 来源 | `D:/工作/git_project/ark_vfs` |
-| 源 commit | `027b9367ee40a5e76b639ce88fa173202919d0a6` |
+| 源 commit | `ed8da8dfaa5d34db122fad7b8bdec48f49857552` |
 | 工作区 | 干净 |
-| 同步日期 | 2026-09-22 |
+| 同步日期 | 2026-09-23 |
 | 文件数 | 10 |
 
 复制范围：`include/` → `include/`、`src/` → `src/`、

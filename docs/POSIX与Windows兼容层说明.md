@@ -413,14 +413,14 @@ id  type  state    auto  task  crash  held  base        size     ram         ent
 
 ---
 
-## 11. 文件类 POSIX 也跑起来了（编译实证）
+## 11. 文件类 POSIX 也跑起来了（上板验证过）
 
 第十节验的是"设备与线程"这一半（`pthread` / `semaphore` / `printf`）。文件类那一半的试验件是
 `example/stm32f427/app_sdk/FS_DEMO/Src/fs_demo.c`：只 include `<stdio.h>` / `<string.h>` /
 `<fcntl.h>` / `<unistd.h>` / `<sys/stat.h>` / `<dirent.h>`，跑到 `/`（ramfs）上做一遍自检。
 
 它盖的事（详见该目录 `README.md`）：建/写/读回、`lseek(SEEK_SET/SEEK_END)`、`stat`/`fstat` 的类型位与长度、
-`opendir("/")` + `readdir` 找到同一个名字、把 `/dev/uart0` 当路径打开并靠 `fstat` 的
+`opendir("/")` + `readdir` 找到同一个名字、把 `/dev/COM1` 当路径打开、写一行字并靠 `fstat` 的
 `S_ISCHR` 把它与普通文件区分开、不存在的路径必须 `-1`/`NULL` 且 `errno==ENOENT`、`unlink` 后同一路径必须失败。
 
 ### 11.1 一个只有工具链才会暴露的 include 坑
@@ -435,10 +435,38 @@ id  type  state    auto  task  crash  held  base        size     ram         ent
 `<unistd.h>` / `<dirent.h>` / `<sys/stat.h>` 这些 POSIX 头工具链不提供，所以尖括号形式反而能找到 SDK 的，
 不必改。这是"ISO C 头被工具链遮蔽、SDK 覆盖率不够"的一例，处置是引号形式（在 Linux 上引号形式会回退到系统头，两端都能编）。
 
-### 11.2 结论分档
+### 11.2 上板实测
 
-**仅编译通过**（F427，AC5 `UV4 -r`）：0 Error / 0 Warning，`Code=7966`。
-**未上板**——上板需要把镜像写进开发槽 3（会擦写设备 Flash），得先明确授权。
+**上板验证过**（F427，`UV4 -f` 写开发槽 3，复位后抓串口）：
+
+```
+  ok   open /dev/COM1 as path      
+  ok   fstat is char device        
+  ok   single write is not an error
+[fs_demo] device opened as a path
+  ok   write to device path        
+fs_demo: pass=32 fail=0
+```
+
+设备名是 `/dev/COM1`，不是想当然的 `/dev/uart0`：`/dev` 列出的名字直接来自内核设备注册表
+（本板是 `LED` / `LED2` / `LED3` / `COM1` / `BLED`），"编译通过"证明不了名字存在——第一版上板就是
+`FAIL open /dev/uart0 as path (saw -1)`。改成先 `opendir("/dev")` 枚举、再按注册名打开。
 
 烧录方式与 `POSIX_DEMO` 同：`UV4 -f example/stm32f427/app_sdk/FS_DEMO/MDK-ARM/fs_demo.uvprojx`，
-复位后控制台应出现 `fs_demo: pass=N fail=M` 段落后进入心跳。一旦上板，本节结论会改成"上板验证过"并附实际行。
+复位后控制台出现 `fs_demo: pass=32 fail=0` 段落后进入心跳。
+
+### 11.3 上板暴露的两个真问题
+
+**① 按路径打开的字符设备，`fstat` 回 -1。** 第一版 `FAIL fstat is char device (saw -1)`。
+按路径打开的 `/dev/COM1` 是 VFS 句柄，而 `fstat` 对 VFS 句柄一律 `lseek(SEEK_END)` 求大小——字符设备
+没有位置可 seek，于是 -1，正好与 `sys/stat.h` 里"设备报 `S_IFCHR`、size 0"的说法自相矛盾。
+修法：`open` 时先 `svcrt_path_stat` 把 `S_IFMT` 类型位缓存进 fd 槽，`fstat` 按缓存回答，
+只有普通文件才去 seek 求长度。
+
+**② 往设备写一次返回 0（一个字节都没进去）。** 第二版 `FAIL write to device path (saw 0)`。
+根因在 VFS 的 devfs 端口：它把内核设备句柄存进 `int16_t`，而句柄是 `(槽号 | SVCRT_DEV_HANDLE_FLAG 0x01200000)`，
+高位标志被截掉后内核一律按"句柄非法"回 -1（更早那版是 `saw -1` 就是这个原因）；长度改 `int32_t` 后不再报错。
+**但返回 0 本身不是错误**：驱动发送管道是定长环，写正好赶在它满时一个字节也收不下，POSIX 允许字符设备短写。
+（`opened==0` 与坏 magic 这两条已在设备侧排除——同一根管道前后都在正常输出 `printf`。）
+所以客户端正确写法就是内核控制台自己用的那套：一次写不完就按字节重试，并设上限。
+改完后 33 字节全送到，控制台上出现 `[fs_demo] device opened as a path`，自检 `pass=32 fail=0`。

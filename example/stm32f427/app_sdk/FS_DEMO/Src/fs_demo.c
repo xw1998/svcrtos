@@ -5,7 +5,8 @@
 * @details Everything here is standard POSIX: the includes are <stdio.h>,
 *          <string.h>, <errno.h>, <fcntl.h>, <unistd.h>, <sys/stat.h> and
 *          <dirent.h>. There is no svcrt.h, no device name hard coded beyond
-*          the path string "/dev/uart0", no address and no partition id.
+*          the path string "/dev/COM1" (the name this board registers its
+*          console UART under), no address and no partition id.
 *
 *          Two things this file is meant to show:
 *            1. a file and a device come in through the *same* open(): a name
@@ -42,7 +43,8 @@
 #include <dirent.h>
 
 #define FILE_PATH   "/fsdemo.txt"
-#define DEV_PATH    "/dev/uart0"
+#define DEV_DIR     "/dev"
+#define DEV_PATH    "/dev/COM1"    /* the console UART as this board registers it */
 #define BAD_PATH    "/no/such/file"
 
 static const char g_payload[] = "hello svcrtos vfs\n";   /* 18 bytes */
@@ -193,15 +195,45 @@ static void t_readdir(void)
 /**
 * @brief A device and a file open through the same call and are told apart by
 *        fstat, which is the whole point of the "path is a name" design.
+*        The device is enumerated first and then opened by its registered
+*        name - on this board the console is "COM1", not "uart0".
 */
 static void t_device(void)
 {
-    struct stat st;
-    const char *banner = "[fs_demo] /dev/uart0 opened as a path\n";
-    int         fd;
+    struct stat   st;
+    DIR          *d;
+    struct dirent *e;
+    const char   *banner = "[fs_demo] device opened as a path\n";
+    int           chars = 0;
+    int           named = 0;
+    int           fd;
+    int           n;
+    int           spin;
+    int           written;
+    unsigned      total;
+
+    d = opendir(DEV_DIR);
+    check("opendir /dev", d != NULL, 0);
+    if(d != NULL)
+    {
+        while((e = readdir(d)) != NULL)
+        {
+            if(e->d_type == DT_CHR)
+            {
+                chars++;
+            }
+            if(strcmp(e->d_name, "COM1") == 0)
+            {
+                named = 1;
+            }
+        }
+        closedir(d);
+    }
+    check("/dev has char devices", chars > 0, chars);
+    check("/dev lists COM1", named, named);
 
     fd = open(DEV_PATH, O_WRONLY);
-    check("open /dev/uart0 as path", fd >= 0, fd);
+    check("open /dev/COM1 as path", fd >= 0, fd);
     if(fd < 0)
     {
         return;
@@ -214,7 +246,28 @@ static void t_device(void)
     {
         check("fstat is char device", 0, -1);
     }
-    write(fd, banner, (unsigned)strlen(banner));
+    total = (unsigned)strlen(banner);
+
+    /* A character device may accept fewer bytes than asked: the driver's
+     * transmit pipe is a fixed ring, and a write that lands while it is full
+     * puts nothing in and returns 0. That is a short write, which POSIX
+     * allows on a device, not an error - so the honest client loop is the one
+     * the kernel's own console writers use: push a byte, let the transmit
+     * interrupt make room, push the next. Bounded, so a dead line cannot
+     * hang the App. */
+    n = (int)write(fd, banner, total);
+    check("single write is not an error", n >= 0, n);
+    written = (n > 0) ? n : 0;
+    for(spin = 0; (written < (int)total) && (spin < 200000); spin++)
+    {
+        n = (int)write(fd, banner + written, 1u);
+        if(n < 0)
+        {
+            break;
+        }
+        written += n;
+    }
+    check("write to device path", written == (int)total, written);
     close(fd);
 }
 
