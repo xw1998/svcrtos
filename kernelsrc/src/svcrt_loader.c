@@ -1038,6 +1038,63 @@ int32 svcrt_loader_slot_hint_get(void)
     return svcrt_loader_slot_hint;
 }
 
+/* Erase [base, base+size) to 0xFF. Used to clear a fixed slot before an
+ * overwrite install. An already blank range returns immediately: an erase
+ * stalls the CPU for about a second per sector, and a serial frame arrives
+ * exactly in that window (the host sends header + relocation table as one
+ * burst), so the RX interrupt cannot run and the hardware overruns the bytes
+ * away. Skipping a blank slot is therefore part of correctness, not an
+ * optimization - callers that own a live wire must clear the slot *before*
+ * opening the receive window (see svcrt_loader_clear_fixed_slot).
+ *
+ * size must be a whole number of physical sectors: erase granularity is the
+ * sector, so a partial tail would reach into a neighbour. Refuse, do not guess.
+ */
+static int32 svcrt_loader_clear_span(uint32 base, uint32 size)
+{
+    svcrt_partition_table_t *pt = svcrt_ptable_get();
+    uint32 end = base + size;
+    uint32 p;
+    uint32 clr;
+
+    if(size == 0u)
+    {
+        return 0;
+    }
+
+    if((pt->pool_sector == 0u) || ((size % pt->pool_sector) != 0u))
+    {
+        return -1;
+    }
+
+    for(p = base; p < end; p += 4u)
+    {
+        if(*(const volatile uint32 *)p != 0xFFFFFFFFu)
+        {
+            break;
+        }
+    }
+
+    if(p >= end)
+    {
+        return 0;               /* already blank */
+    }
+
+    for(clr = base; clr < end; clr += pt->pool_sector)
+    {
+        if(svcrt_port_flash_erase(clr, pt->pool_sector) != 0)
+        {
+            return -1;
+        }
+
+        /* One 128K sector takes about a second and a slot may span several,
+         * which is long enough to matter against an armed watchdog. */
+        svcrt_port_wdg_feed();
+    }
+
+    return 0;
+}
+
 /* 固定槽位模式下挑槽：只认配置里登记的地址，不在池里另找空位。 */
 static int32 svcrt_loader_reserve_fixed(uint32 type, const svcrt_app_header_t *p_hdr,
                                         uint32 total, uint32 *p_base, uint32 *p_ram_base)
@@ -1119,6 +1176,31 @@ static int32 svcrt_loader_reserve_fixed(uint32 type, const svcrt_app_header_t *p
         }
 
         (void)svcrt_ptable_ram_bind((uint32)slot, slots[i].ram_base, slots[i].ram_size);
+        /* A fixed slot's landing area comes from the configuration, so what is
+         * in it right now is none of our business: re-installing over an
+         * existing image has to go through an erase first. Flash programming
+         * only clears bits (1 -> 0), so writing on top of the old image stores
+         * the AND of the two - reloc_count / payload_offset come back as
+         * (old & new), the relocation table is mangled the same way, and the
+         * device drops the frame while checking that table (err -13). The field
+         * symptom is "a fresh image installs fine, re-installing over one is
+         * refused".
+         *
+         * AUTO mode never reaches here: svcrt_loader_find_clean() only accepts
+         * runs of 0xFF, so the base it reports is blank already.
+         *
+         * The wire-facing caller clears the slot before the frame starts (see
+         * svcrt_loader_clear_fixed_slot), so in practice this finds it blank
+         * and returns without stalling the CPU - which matters, because an
+         * erase here would eat the relocation table already on the wire. */
+        if(svcrt_loader_clear_span(s_base, s_size) != 0)
+        {
+            SVCRT_LOGE("LOADER", "cannot clear fixed slot %d (0x%08X +%u)",
+                       (int)slot, (unsigned)s_base, (unsigned)s_size);
+            svcrt_ptable_free((uint32)slot);
+            return SVCRT_LOADER_ERR_FLASH;
+        }
+
 
         *p_base     = s_base;
         *p_ram_base = slots[i].ram_base;
@@ -1126,6 +1208,44 @@ static int32 svcrt_loader_reserve_fixed(uint32 type, const svcrt_app_header_t *p
     }
 
     return (hint >= 0) ? SVCRT_LOADER_ERR_NO_SLOT : SVCRT_LOADER_ERR_NOSPACE;
+}
+
+/* Clear one configured fixed slot, so that a following install writes into
+ * blank flash instead of AND-ing with the image that is already there.
+ *
+ * Only meaningful in FIXED mode (AUTO picks a blank run via find_clean()); an
+ * out-of-range index or an already blank slot is a no-op and returns 0.
+ *
+ * The caller must own the moment: this blocks for about a second per sector
+ * with the CPU stalled, so it has to run while nothing is on the wire. The
+ * shell's "install <slot>" command is exactly that place - it clears the slot
+ * before it tells the host to send (see cmd_install).
+ */
+int32 svcrt_loader_clear_fixed_slot(int32 index)
+{
+    svcrt_partition_table_t *pt = svcrt_ptable_get();
+    const svcrt_cfg_slot_t *cs;
+
+    if(pt->layout_mode != (uint32)SVCRT_LAYOUT_MODE_FIXED)
+    {
+        return 0;
+    }
+
+    if((index < 0) || ((uint32)index >= svcrt_layout_slot_count()))
+    {
+        return 0;
+    }
+
+    cs = svcrt_layout_slot((uint32)index);
+
+    if(cs == 0)
+    {
+        return 0;
+    }
+
+    return (svcrt_loader_clear_span(cs->base, cs->size) == 0)
+               ? 0
+               : SVCRT_LOADER_ERR_FLASH;
 }
 
 static int32 svcrt_loader_reserve(uint32 type, const svcrt_app_header_t *p_hdr,

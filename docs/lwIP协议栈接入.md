@@ -98,9 +98,9 @@ MPU 区域要求 2 的幂（`svcrt_partition.h` 的 `svcrt_mpu_window_check`）�
 
 | 项 | 结论 | 证据 |
 |---|---|---|
-| F427 内核工程链接通过 | **仅编译通过** | `Code=145222 RO-data=10022 RW-data=652 ZI-data=93800`，0 Error / 1 Warning（`svcrt_context.S A1581W`，既有） |
+| F427 内核工程链接通过 | **仅编译通过** | `Code=170258 RO-data=10094 RW-data=676 ZI-data=95584`，0 Error / 1 Warning（`svcrt_context.S A1581W`，既有）；这是**含 socket 服务（SVC 0x1E）**的当前构建 |
 | `.sct` 随配置头重算 | 已验证 | `build/kernel.sct` 生成 `LR_KERNEL 0x08000000 0x00040000` |
-| F401 内核工程回归 | **仅编译通过** | `Code=99322`，0 Error / 1 Warning。F401 配置里 `SVCRT_USE_LWIP` 未开，不受影响 |
+| F401 内核工程回归 | **仅编译通过** | `Code=99354`，0 Error / 1 Warning。F401 配置里 `SVCRT_USE_LWIP` 未开，`svcrt_net.c` 走 stub 分支 |
 | 路由门禁 | 已验证 | `tools/ci_gate.py` 7/7 |
 | 上板、socket 语义自检 | **未验证** | 需要烧录（会擦写设备 Flash），且会作废板上现有镜像 |
 | 真实以太网收发 | **未验证** | 这块板没有可用的 PHY 证据 |

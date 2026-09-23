@@ -1096,9 +1096,32 @@ static int cmd_install(int argc, char *argv[])
             return -1;
         }
 
+        /* Overwrite install: the fixed slot may still hold the previous
+         * image, so clear it before receiving the frame. It has to happen
+         * here, not in the middle of the frame: an erase stalls the CPU for
+         * about a second, the RX interrupt cannot run, and the relocation
+         * table the host already sent is lost to a hardware overrun (the
+         * symptom is err -4 with the table never written). So: clear first,
+         * while the host is still waiting for its banner, then say "send".
+         * The loader's own blank check then skips its erase. */
+        if(svcrt_loader_clear_fixed_slot((int32)want) != 0)
+        {
+            sh_out("install: cannot clear the slot (flash erase failed)\r\n");
+            return -1;
+        }
+
         svcrt_loader_slot_hint_set((int32)want);
         ark_shell_printf("install: fixed slot %u -> 0x%08X\r\n",
                          (unsigned)want, (unsigned)cs->base);
+    }
+    else if(svcrt_ptable_get()->layout_mode == (uint32)SVCRT_LAYOUT_MODE_FIXED)
+    {
+        /* In fixed-slot mode the landing place is the operator's decision. A
+         * bare command would leave the kernel guessing which slot to clear (it
+         * only learns the image type from the frame), so refuse instead of
+         * picking one. */
+        sh_out("usage: install <slot>   (fixed-slot mode needs an explicit slot)\r\n");
+        return -1;
     }
     else
     {

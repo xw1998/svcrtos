@@ -30,6 +30,7 @@
 #include "svcrt_log.h"
 
 #include "lwip_port.h"
+#include "svcrt_net.h"      /* socket service: starts once tcpip is alive */
 
 #if (SVCRT_USE_LWIP == 1)
 
@@ -42,6 +43,11 @@ static void svcrt_lwip_task(void)
      * 调度，第一轮超时不影响后续节拍。 */
     tcpip_init(NULL, NULL);
     SVCRT_LOGI("LWIP", "tcpip up, loopif 127.0.0.1");
+
+    /* Start the socket service task here and nowhere else: it must not
+     * accept a request before the tcpip thread exists, and this is the only
+     * point that knows that happened. */
+    (void)svcrt_net_start();
 
     /* 之后没有周期工作。任务不能退出（内核没有"结束自己"这个语义），所以
      * 按周期躺着；将来接真实以太网驱动时，收包搬运就落在这个循环里。 */

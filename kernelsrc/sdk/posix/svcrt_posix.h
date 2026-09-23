@@ -57,6 +57,10 @@
 #include "mqueue.h"
 #include "sys/stat.h"
 #include "dirent.h"
+#include "sys/socket.h"
+#include "netinet/in.h"
+#include "arpa/inet.h"
+
 
 /* ----------------------------------------------------------- App memory.
  * A small first fit arena inside the App's own RAM. It is intentionally not

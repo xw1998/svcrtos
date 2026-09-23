@@ -21,6 +21,8 @@
 #include "svcrt_posix.h"
 #include "svcrt_win_compat.h"
 #include "svcrt_features.h"  /* feature gates: SVCRT_USE_POSIX */
+#include "svcrt_net_abi.h"   /* wire contract of SVC 0x1E (sockets) */
+#include "svcrt_svc_call.h"  /* SVCRT_SVC_DECL_1 for the call itself */
 #if SVCRT_USE_POSIX
 
 /* ==========================================================================
@@ -51,6 +53,22 @@ int32 *svcrt_posix_errno_location(void)
         tid = SVCRT_POSIX_ERRNO_SLOTS - 1;
     }
     return &svcrt_posix_errno_cells[tid];
+}
+
+/* The C library has an errno of its own, reached through
+ * __aeabi_errno_addr(). Its <errno.h> defines the name "errno"
+ * unconditionally, so an App that includes <stdio.h> - or anything else
+ * that drags <errno.h> in - before our header keeps the library's macro,
+ * while this file keeps ours: two cells, one written and one read, and
+ * every failure reported as "errno=0". Redefining the library's accessor
+ * here points both names at the same per-thread cell, whatever the
+ * include order. (Defining the symbol also keeps the library's own errno
+ * object out of the image, for the same reason.) */
+volatile int *__aeabi_errno_addr(void);
+
+volatile int *__aeabi_errno_addr(void)
+{
+    return (volatile int *)svcrt_posix_errno_location();
 }
 
 /* ==========================================================================
@@ -1144,12 +1162,27 @@ int svcrt_posix_mq_receive(svcrt_mqd_t mqdes, void *msg, uint32 len_words,
 #define SVCRT_POSIX_FD_DEV   (1u)
 #define SVCRT_POSIX_FD_VFS   (2u)
 
+/* A socket. It shares this table rather than getting a second descriptor
+ * space: close(), read(), write(), fstat() and select() all have to see
+ * sockets too, and mixing two numbering spaces is how a caller ends up
+ * closing the wrong object. */
+#define SVCRT_POSIX_FD_SOCK  (3u)
+
 typedef struct
 {
     uint8 used;
     uint8 kind;
     uint8 is_dir;
     uint32 mode;        /* S_IFMT type bits, captured at open; 0 = unknown */
+
+/* Socket only, i.e. when kind == SVCRT_POSIX_FD_SOCK; unused for a path
+ * or a device. nonblock is a promise this layer keeps itself (the
+ * kernel's socket calls never block), and the two timeouts are
+ * SO_RCVTIMEO / SO_SNDTIMEO, honoured by the blocking loops here. */
+    uint32 nonblock;
+    uint32 sotype;
+    uint32 rcv_to;
+    uint32 snd_to;
     int32 handle;
 } svcrt_posix_fd_t;
 
@@ -1212,6 +1245,10 @@ static int svcrt_posix_fd_alloc(uint8 kind, int32 handle, uint8 is_dir,
             g_posix_fd[i].is_dir = is_dir;
             g_posix_fd[i].mode   = mode;
             g_posix_fd[i].handle = handle;
+            g_posix_fd[i].nonblock = 0u;
+            g_posix_fd[i].sotype   = 0u;
+            g_posix_fd[i].rcv_to   = 0xFFFFFFFFu;   /* wait for ever */
+            g_posix_fd[i].snd_to   = 0xFFFFFFFFu;
             return SVCRT_POSIX_FD_BASE + i;
         }
     }
@@ -1299,6 +1336,13 @@ int svcrt_posix_open(const char *name, int flags, ...)
     }
 }
 
+/* Defined in the socket block at the end of this file. read() and write()
+ * hand a socket descriptor to them, so an App keeps one set of verbs for
+ * every kind of descriptor. */
+static int   svcrt_posix_sock_close(svcrt_posix_fd_t *e);
+svcrt_ssize_t svcrt_posix_recv(int fd, void *buf, uint32 len, int flags);
+svcrt_ssize_t svcrt_posix_send(int fd, const void *buf, uint32 len, int flags);
+
 int svcrt_posix_close(int fd)
 {
     svcrt_posix_fd_t *e;
@@ -1312,6 +1356,12 @@ int svcrt_posix_close(int fd)
     e = svcrt_posix_fd_slot(fd);
     if(e != 0)
     {
+        if(e->kind == SVCRT_POSIX_FD_SOCK)
+        {
+            /* The service closes the kernel side, and the descriptor is
+             * released either way - see svcrt_posix_sock_close(). */
+            return svcrt_posix_sock_close(e);
+        }
         r = (e->kind == SVCRT_POSIX_FD_VFS) ? svcrt_path_close(e->handle)
                                             : svcrt_dev_close(e->handle);
         e->used = 0u;
@@ -1344,6 +1394,10 @@ svcrt_ssize_t svcrt_posix_read(int fd, void *buf, uint32 count)
     e = svcrt_posix_fd_slot(fd);
     if(e != 0)
     {
+        if(e->kind == SVCRT_POSIX_FD_SOCK)
+        {
+            return svcrt_posix_recv(fd, buf, count, 0);
+        }
         if(e->kind != SVCRT_POSIX_FD_VFS)
         {
             r = svcrt_dev_read(e->handle, buf, (int32)count);
@@ -1378,6 +1432,10 @@ svcrt_ssize_t svcrt_posix_write(int fd, const void *buf, uint32 count)
     e = svcrt_posix_fd_slot(fd);
     if(e != 0)
     {
+        if(e->kind == SVCRT_POSIX_FD_SOCK)
+        {
+            return svcrt_posix_send(fd, buf, count, 0);
+        }
         if(e->kind != SVCRT_POSIX_FD_VFS)
         {
             r = svcrt_dev_write(e->handle, (void *)buf, (int32)count);
@@ -1497,6 +1555,12 @@ int svcrt_posix_fstat(int fd, struct stat *st)
     {
         errno = EBADF;
         return -1;
+    }
+    if((e != 0) && (e->kind == SVCRT_POSIX_FD_SOCK))
+    {
+        /* No size and no offset, and neither the file service nor the
+         * device API is the right place to ask about a socket. */
+        return svcrt_posix_stat_fill(st, S_IFSOCK, 0u);
     }
     e = svcrt_posix_fd_slot(fd);
     if((e == 0) || (e->kind == SVCRT_POSIX_FD_DEV))
@@ -1940,6 +2004,1359 @@ int svcrt_win_snprintf_s(char *dst, uint32 dst_size, const char *fmt, ...)
         return -1;
     }
     return written;
+}
+
+/* ==========================================================================
+ * 4. sockets - the POSIX face over SVC 0x1E
+ *
+ * The kernel's socket service never waits: an SVC handler cannot yield, so a
+ * request is handed to a service task and answered EPENDING until it is done,
+ * and re-issuing the very same call is how the caller polls (the contract is
+ * in svcrt_net_abi.h). Blocking semantics therefore live here, in the App,
+ * and are built from two primitives:
+ *
+ *   1. one request, waited for (svcrt_posix_net_req) - a scheduling wait, not
+ *      a network wait, because the service task is an ordinary task;
+ *   2. a readiness probe (SVCRT_NET_SUB_POLL), which is how a caller waits
+ *      for a socket to become readable or writable without holding the
+ *      request slot for ever.
+ *
+ * Retries, O_NONBLOCK, SO_RCVTIMEO and SO_SNDTIMEO are all composed from
+ * those two, which is why the kernel never has to know about any of them.
+ *
+ * Ownership: the kernel pins a socket to the task that created it, so an App
+ * must use the descriptor from the thread that opened it. Sharing a socket
+ * between threads is a design decision with a lock in it, not something this
+ * layer can guess at.
+ * ========================================================================== */
+
+SVCRT_SVC_DECL_1(int32, 0x1E, svcrt_call_net, uint32 *);
+
+/* Budget for a call that waits on the service task rather than on the
+ * network. The reply is a scheduling delay; a whole second is already far
+ * past anything healthy, and an expiry is reported instead of sat on. */
+#define SVCRT_POSIX_NET_CMD_BUDGET_MS  (1000u)
+#define SVCRT_POSIX_NET_FOREVER        (0xFFFFFFFFu)
+
+/* ---------------------------------------------------------------- errors */
+
+/* Kernel wire error -> errno. An unknown code is EIO: picking the closest
+ * sounding errno would invent a cause the kernel never reported. */
+static int svcrt_posix_errno_from_net(int32 rc)
+{
+    switch(rc)
+    {
+    case SVCRT_NET_EPENDING:     return ETIMEDOUT;  /* the service never
+                                                       answered in budget */
+    case SVCRT_NET_EBUSY:        return EBUSY;
+    case SVCRT_NET_ENOTSUP:      return EOPNOTSUPP;
+    case SVCRT_NET_EINVAL:       return EINVAL;
+    case SVCRT_NET_EWOULDBLOCK:  return EAGAIN;
+    case SVCRT_NET_EINPROGRESS:  return EINPROGRESS;
+    case SVCRT_NET_EALREADY:     return EALREADY;
+    case SVCRT_NET_EISCONN:      return EISCONN;
+    case SVCRT_NET_ENOTCONN:     return ENOTCONN;
+    case SVCRT_NET_ECONNREFUSED: return ECONNREFUSED;
+    case SVCRT_NET_ECONNRESET:   return ECONNRESET;
+    case SVCRT_NET_ECONNABORTED: return ECONNABORTED;
+    case SVCRT_NET_EHOSTUNREACH: return EHOSTUNREACH;
+    case SVCRT_NET_EMSGSIZE:     return EMSGSIZE;
+    case SVCRT_NET_ENOBUFS:      return ENOBUFS;
+    default:                     return EIO;
+    }
+}
+
+/* -------------------------------------------------------------- requests */
+
+/* One request, from issue to reply. The argument block must stay identical
+ * between issues: the kernel recognises its own pending request by the whole
+ * block, and a different block is a different call - which is exactly how a
+ * caller that gave up on a request stops being handed that request's reply. */
+static int32 svcrt_posix_net_req(const uint32 *p, uint32 budget_ms)
+{
+    uint32 t0 = svcrt_get_time_ms();
+    int32  r;
+
+    for(;;)
+    {
+        r = svcrt_call_net((uint32 *)p);
+        if((r != SVCRT_NET_EPENDING) && (r != SVCRT_NET_EBUSY))
+        {
+            return r;
+        }
+        if((budget_ms != SVCRT_POSIX_NET_FOREVER) &&
+           ((uint32)(svcrt_get_time_ms() - t0) >= budget_ms))
+        {
+            /* EPENDING: still ours, just unfinished. EBUSY: another task's
+             * request owns the slot. Either way this is not an answer, and
+             * the caller must not treat it as one. */
+            return r;
+        }
+        svcrt_task_wait(1u);
+    }
+}
+
+/* A control call: create, bind, listen, close, options, shutdown, name. None
+ * of them has a notion of blocking, so a request the service never answered
+ * is an error, and the reply - a handle or 0 - comes back through *out. */
+static int svcrt_posix_net_ctl(uint32 *p, int32 *out)
+{
+    int32 r = svcrt_posix_net_req(p, SVCRT_POSIX_NET_CMD_BUDGET_MS);
+
+    if(r < 0)
+    {
+        errno = svcrt_posix_errno_from_net(r);
+        return -1;
+    }
+    *out = r;
+    return 0;
+}
+
+/* Readiness of one socket as a SVCRT_NET_POLL_* mask, or -1 with errno set.
+ * Zero ready bits is a valid answer, not an error. */
+static int32 svcrt_posix_net_bits(uint32 handle, uint32 flags)
+{
+    uint32 p[SVCRT_NET_ARG_WORDS] = {0u};
+    int32  r;
+
+    p[0] = SVCRT_NET_SUB_POLL;
+    p[1] = handle;
+    p[2] = flags;
+    r = svcrt_posix_net_req(p, SVCRT_POSIX_NET_CMD_BUDGET_MS);
+    if(r < 0)
+    {
+        errno = svcrt_posix_errno_from_net(r);
+        return -1;
+    }
+    return r;
+}
+
+/* Wait until a socket is ready in any of `flags`. Returns the ready bits, 0
+ * when budget_ms ran out, or -1 with errno set. */
+static int32 svcrt_posix_sock_wait(uint32 handle, uint32 flags, uint32 budget_ms)
+{
+    uint32 t0 = svcrt_get_time_ms();
+    int32  r;
+
+    for(;;)
+    {
+        r = svcrt_posix_net_bits(handle, flags);
+        if(r < 0)
+        {
+            return -1;
+        }
+        if(r != 0)
+        {
+            return r;
+        }
+        if((budget_ms != SVCRT_POSIX_NET_FOREVER) &&
+           ((uint32)(svcrt_get_time_ms() - t0) >= budget_ms))
+        {
+            return 0;
+        }
+        svcrt_task_wait(1u);
+    }
+}
+
+/* ------------------------------------------------------- descriptor glue */
+
+static svcrt_posix_fd_t *svcrt_posix_sock_slot(int fd)
+{
+    svcrt_posix_fd_t *e = svcrt_posix_fd_slot(fd);
+
+    if((e == 0) || (e->kind != SVCRT_POSIX_FD_SOCK))
+    {
+        errno = ENOTSOCK;
+        return 0;
+    }
+    return e;
+}
+
+/* Hand a kernel socket handle straight back, leaving errno alone: every
+ * caller is on a failure path and is about to report the errno it already
+ * has, so cleanup must not overwrite it. */
+static void svcrt_posix_sock_return(int32 handle)
+{
+    uint32 p[SVCRT_NET_ARG_WORDS] = {0u};
+    int    saved = errno;
+
+    p[0] = SVCRT_NET_SUB_CLOSE;
+    p[1] = (uint32)handle;
+    (void)svcrt_posix_net_req(p, SVCRT_POSIX_NET_CMD_BUDGET_MS);
+    errno = saved;
+}
+
+/* The App descriptor of a socket is released before the kernel is asked:
+ * a refusal from the service must not leave a descriptor that can never be
+ * used again. Returns the kernel's verdict so the caller can report it. */
+static int svcrt_posix_sock_close(svcrt_posix_fd_t *e)
+{
+    uint32 p[SVCRT_NET_ARG_WORDS] = {0u};
+    int32  dummy;
+
+    p[0] = SVCRT_NET_SUB_CLOSE;
+    p[1] = (uint32)e->handle;
+    e->used   = 0u;
+    e->kind   = SVCRT_POSIX_FD_FREE;
+    e->handle = -1;
+    return svcrt_posix_net_ctl(p, &dummy);
+}
+
+/* ------------------------------------------------------------ addresses */
+
+/* struct sockaddr -> the two scalars the kernel takes. A short address or a
+ * foreign family is refused rather than zero filled: a silently zeroed
+ * address is a bind to every interface, which is not what the caller said. */
+static int svcrt_posix_addr_in(const struct sockaddr *addr, socklen_t len,
+                               uint32 *ip, uint32 *port)
+{
+    const struct sockaddr_in *sin;
+
+    if(addr == 0)
+    {
+        errno = EFAULT;
+        return -1;
+    }
+    if(len < (socklen_t)sizeof(struct sockaddr_in))
+    {
+        errno = EINVAL;
+        return -1;
+    }
+    if(addr->sa_family != (sa_family_t)AF_INET)
+    {
+        errno = EAFNOSUPPORT;
+        return -1;
+    }
+    sin   = (const struct sockaddr_in *)addr;
+    *ip   = svcrt_posix_ntohl(sin->sin_addr.s_addr);
+    *port = (uint32)svcrt_posix_ntohs(sin->sin_port);
+    return 0;
+}
+
+/* The two scalars back into the caller's struct sockaddr. A NULL address, or
+ * a NULL length, is legal POSIX and means "not interested". When the buffer
+ * is smaller than the address, the bytes that fit are written and the full
+ * length is reported - what POSIX describes, and what a caller can tell
+ * apart from "no address". */
+static void svcrt_posix_addr_out(struct sockaddr *addr, socklen_t *len,
+                                 uint32 ip, uint32 port)
+{
+    struct sockaddr_in sin;
+    uint32 n;
+
+    if((addr == 0) || (len == 0))
+    {
+        return;
+    }
+    (void)svcrt_posix_memset(&sin, 0, (uint32)sizeof(sin));
+    sin.sin_family      = (sa_family_t)AF_INET;
+    sin.sin_port        = svcrt_posix_htons((uint16)port);
+    sin.sin_addr.s_addr = svcrt_posix_htonl(ip);
+
+    n = (uint32)(*len);
+    if(n > (uint32)sizeof(sin))
+    {
+        n = (uint32)sizeof(sin);
+    }
+    if(n != 0u)
+    {
+        (void)svcrt_posix_memcpy(addr, &sin, n);
+    }
+    *len = (socklen_t)sizeof(sin);
+}
+
+/* ------------------------------------------------------- byte order, IPv4
+ * SVCrtOS is 32-bit and Cortex-M is little endian, so the network byte order
+ * conversions are exactly these byte swaps. They are plain arithmetic: no
+ * kernel call, no lwIP, nothing to be conditional about. */
+uint16 svcrt_posix_htons(uint16 x)
+{
+    return (uint16)(((x & 0x00FFu) << 8) | ((x & 0xFF00u) >> 8));
+}
+
+uint16 svcrt_posix_ntohs(uint16 x)
+{
+    return svcrt_posix_htons(x);
+}
+
+uint32 svcrt_posix_htonl(uint32 x)
+{
+    return ((x & 0x000000FFu) << 24) | ((x & 0x0000FF00u) << 8) |
+           ((x & 0x00FF0000u) >> 8)  | ((x & 0xFF000000u) >> 24);
+}
+
+uint32 svcrt_posix_ntohl(uint32 x)
+{
+    return svcrt_posix_htonl(x);
+}
+
+/* Strict dotted quad: exactly four decimal octets, nothing else. Returns 0
+ * and fills four bytes in network order, or -1. */
+static int svcrt_posix_parse_ipv4(const char *src, uint8 *out4)
+{
+    uint32 acc  = 0u;
+    int    seen = 0;
+    int    part = 0;
+    int    i;
+
+    if(src == 0)
+    {
+        return -1;
+    }
+    for(i = 0; ; i++)
+    {
+        char c = src[i];
+
+        if((c >= '0') && (c <= '9'))
+        {
+            acc = acc * 10u + (uint32)(c - '0');
+            if(acc > 255u)
+            {
+                return -1;
+            }
+            seen = 1;
+        }
+        else if((c == '.') || (c == '\0'))
+        {
+            if(seen == 0)
+            {
+                return -1;              /* "1..2", "", ".1" */
+            }
+            out4[part] = (uint8)acc;
+            part++;
+            acc  = 0u;
+            seen = 0;
+            if(c == '\0')
+            {
+                break;
+            }
+            if(part >= 4)
+            {
+                return -1;              /* five parts */
+            }
+        }
+        else
+        {
+            return -1;
+        }
+    }
+    return (part == 4) ? 0 : -1;
+}
+
+in_addr_t svcrt_posix_inet_addr(const char *cp)
+{
+    uint8 b[4];
+
+    if(svcrt_posix_parse_ipv4(cp, b) != 0)
+    {
+        return (in_addr_t)INADDR_NONE;
+    }
+    return (in_addr_t)svcrt_posix_htonl(((uint32)b[0] << 24) |
+                                        ((uint32)b[1] << 16) |
+                                        ((uint32)b[2] << 8)  |
+                                        (uint32)b[3]);
+}
+
+static char *svcrt_posix_put_octet(char *p, uint32 v)
+{
+    if(v >= 100u)
+    {
+        *p++ = (char)('0' + (v / 100u));
+        v %= 100u;
+        *p++ = (char)('0' + (v / 10u));
+        v %= 10u;
+    }
+    else if(v >= 10u)
+    {
+        *p++ = (char)('0' + (v / 10u));
+        v %= 10u;
+    }
+    *p++ = (char)('0' + v);
+    return p;
+}
+
+char *svcrt_posix_inet_ntoa(struct in_addr in)
+{
+    static char buf[16];
+    char  *p = buf;
+    uint32 v = svcrt_posix_ntohl(in.s_addr);
+
+    p = svcrt_posix_put_octet(p, (v >> 24) & 0xFFu);
+    *p++ = '.';
+    p = svcrt_posix_put_octet(p, (v >> 16) & 0xFFu);
+    *p++ = '.';
+    p = svcrt_posix_put_octet(p, (v >> 8) & 0xFFu);
+    *p++ = '.';
+    p = svcrt_posix_put_octet(p, v & 0xFFu);
+    *p = '\0';
+    return buf;
+}
+
+int svcrt_posix_inet_pton(int af, const char *src, void *dst)
+{
+    uint8 b[4];
+
+    if(af != AF_INET)
+    {
+        errno = ENOSYS;         /* no such family here, and not a bad address */
+        return -1;
+    }
+    if((src == 0) || (dst == 0))
+    {
+        errno = EFAULT;
+        return -1;
+    }
+    if(svcrt_posix_parse_ipv4(src, b) != 0)
+    {
+        return 0;               /* POSIX: 0 means "not a valid address" */
+    }
+    (void)svcrt_posix_memcpy(dst, b, 4u);
+    return 1;
+}
+
+const char *svcrt_posix_inet_ntop(int af, const void *src, char *dst,
+                                  socklen_t dst_size)
+{
+    struct in_addr in;
+    uint32 len;
+
+    if(af != AF_INET)
+    {
+        errno = ENOSYS;
+        return 0;
+    }
+    if((src == 0) || (dst == 0))
+    {
+        errno = EFAULT;
+        return 0;
+    }
+    if(dst_size < 16u)
+    {
+        errno = ENOSPC;         /* the longest AF_INET text is 15 + NUL */
+        return 0;
+    }
+    (void)svcrt_posix_memcpy(&in, src, 4u);
+    len = svcrt_posix_strlen(svcrt_posix_inet_ntoa(in));
+    (void)svcrt_posix_memcpy(dst, svcrt_posix_inet_ntoa(in), len + 1u);
+    return dst;
+}
+
+/* -------------------------------------------------------------- facades */
+
+int svcrt_posix_socket(int domain, int type, int protocol)
+{
+    uint32 p[SVCRT_NET_ARG_WORDS] = {0u};
+    svcrt_posix_fd_t *e;
+    int32  h;
+    int    fd;
+
+    if(domain != AF_INET)
+    {
+        errno = EAFNOSUPPORT;
+        return -1;
+    }
+    if((type != SOCK_STREAM) && (type != SOCK_DGRAM))
+    {
+        errno = ESOCKTNOSUPPORT;
+        return -1;
+    }
+    if((protocol != 0) && (protocol != IPPROTO_TCP) && (protocol != IPPROTO_UDP))
+    {
+        errno = EPROTONOSUPPORT;
+        return -1;
+    }
+
+    p[0] = SVCRT_NET_SUB_SOCKET;
+    p[1] = (uint32)type;
+    if(svcrt_posix_net_ctl(p, &h) < 0)
+    {
+        return -1;      /* EOPNOTSUPP when the kernel was built without lwIP */
+    }
+
+    fd = svcrt_posix_fd_alloc(SVCRT_POSIX_FD_SOCK, h, 0u, 0u);
+    if(fd < 0)
+    {
+        /* Out of App descriptors: the kernel handle must not outlive the
+         * failure, and errno stays EMFILE from fd_alloc. */
+        svcrt_posix_sock_return(h);
+        return -1;
+    }
+    e = svcrt_posix_fd_slot(fd);
+    if(e != 0)
+    {
+        e->sotype = (uint32)type;
+    }
+    return fd;
+}
+
+int svcrt_posix_bind(int fd, const struct sockaddr *addr, socklen_t len)
+{
+    svcrt_posix_fd_t *e = svcrt_posix_sock_slot(fd);
+    uint32 p[SVCRT_NET_ARG_WORDS] = {0u};
+    uint32 ip = 0u;
+    uint32 port = 0u;
+    int32  r;
+
+    if(e == 0)
+    {
+        return -1;
+    }
+    if(svcrt_posix_addr_in(addr, len, &ip, &port) < 0)
+    {
+        return -1;
+    }
+    p[0] = SVCRT_NET_SUB_BIND;
+    p[1] = (uint32)e->handle;
+    p[2] = ip;
+    p[3] = port;
+    return svcrt_posix_net_ctl(p, &r);
+}
+
+int svcrt_posix_listen(int fd, int backlog)
+{
+    svcrt_posix_fd_t *e = svcrt_posix_sock_slot(fd);
+    uint32 p[SVCRT_NET_ARG_WORDS] = {0u};
+    int32  r;
+
+    if(e == 0)
+    {
+        return -1;
+    }
+    if((backlog < 0) || (backlog > 255))
+    {
+        /* The kernel takes a byte and would refuse anything larger; saying so
+         * here keeps the caller's errno about its argument, not about us. */
+        errno = EINVAL;
+        return -1;
+    }
+    p[0] = SVCRT_NET_SUB_LISTEN;
+    p[1] = (uint32)e->handle;
+    p[2] = (uint32)backlog;
+    return svcrt_posix_net_ctl(p, &r);
+}
+
+int svcrt_posix_accept(int fd, struct sockaddr *addr, socklen_t *len)
+{
+    svcrt_posix_fd_t *e = svcrt_posix_sock_slot(fd);
+    uint32 p[SVCRT_NET_ARG_WORDS] = {0u};
+    svcrt_posix_fd_t *n;
+    int32  h  = 0;
+    int32  r  = 0;
+    int    nfd;
+
+    if(e == 0)
+    {
+        return -1;
+    }
+
+    p[0] = SVCRT_NET_SUB_ACCEPT;
+    p[1] = (uint32)e->handle;
+
+    for(;;)
+    {
+        r = svcrt_posix_net_req(p, SVCRT_POSIX_NET_CMD_BUDGET_MS);
+        if(r > 0)
+        {
+            h = r;
+            break;
+        }
+        if(r != SVCRT_NET_EWOULDBLOCK)
+        {
+            errno = svcrt_posix_errno_from_net(r);
+            return -1;
+        }
+        if(e->nonblock != 0u)
+        {
+            errno = EAGAIN;
+            return -1;
+        }
+        r = svcrt_posix_sock_wait((uint32)e->handle, SVCRT_NET_POLL_IN,
+                                  e->rcv_to);
+        if(r < 0)
+        {
+            return -1;
+        }
+        if(r == 0)
+        {
+            errno = EAGAIN;         /* the receive timeout ran out */
+            return -1;
+        }
+    }
+
+    nfd = svcrt_posix_fd_alloc(SVCRT_POSIX_FD_SOCK, h, 0u, 0u);
+    if(nfd < 0)
+    {
+        svcrt_posix_sock_return(h);
+        return -1;
+    }
+    n = svcrt_posix_fd_slot(nfd);
+    if(n != 0)
+    {
+        /* lwIP's accepted socket is of the same type as the listener, and it
+         * starts blocking on this side too - O_NONBLOCK is per descriptor. */
+        n->sotype = e->sotype;
+    }
+
+    if((addr != 0) && (len != 0))
+    {
+        uint32 q[SVCRT_NET_ARG_WORDS] = {0u};
+        uint32 ip = 0u;
+        uint32 port = 0u;
+
+        /* ACCEPT's reply carries no address, so ask for it separately. If that
+         * fails the descriptor is still good: report "no address" by a zero
+         * length instead of leaving whatever happened to be in the buffer. */
+        q[0] = SVCRT_NET_SUB_GETPEERNAME;
+        q[1] = (uint32)h;
+        q[2] = (uint32)&ip;
+        q[3] = (uint32)&port;
+        if(svcrt_posix_net_ctl(q, &r) < 0)
+        {
+            *len = 0;
+        }
+        else
+        {
+            svcrt_posix_addr_out(addr, len, ip, port);
+        }
+    }
+    return nfd;
+}
+
+int svcrt_posix_connect(int fd, const struct sockaddr *addr, socklen_t len)
+{
+    svcrt_posix_fd_t *e = svcrt_posix_sock_slot(fd);
+    uint32 p[SVCRT_NET_ARG_WORDS] = {0u};
+    uint32 ip = 0u;
+    uint32 port = 0u;
+    int32  r;
+
+    if(e == 0)
+    {
+        return -1;
+    }
+    if(svcrt_posix_addr_in(addr, len, &ip, &port) < 0)
+    {
+        return -1;
+    }
+
+    p[0] = SVCRT_NET_SUB_CONNECT;
+    p[1] = (uint32)e->handle;
+    p[2] = ip;
+    p[3] = port;
+    r = svcrt_posix_net_req(p, SVCRT_POSIX_NET_CMD_BUDGET_MS);
+    if(r == 0)
+    {
+        return 0;
+    }
+    if(r != SVCRT_NET_EINPROGRESS)
+    {
+        errno = svcrt_posix_errno_from_net(r);
+        return -1;
+    }
+
+    /* Still connecting. A non-blocking caller is done here: POSIX puts the
+     * rest on select() / SO_ERROR, and reporting success now would be a lie. */
+    if(e->nonblock != 0u)
+    {
+        errno = EINPROGRESS;
+        return -1;
+    }
+
+    r = svcrt_posix_sock_wait((uint32)e->handle, SVCRT_NET_POLL_OUT, e->snd_to);
+    if(r < 0)
+    {
+        return -1;
+    }
+    if(r == 0)
+    {
+        errno = ETIMEDOUT;
+        return -1;
+    }
+
+    /* Writable means the attempt finished - not that it worked. The outcome
+     * only exists in SO_ERROR, so read it rather than assume. */
+    {
+        uint32 q[SVCRT_NET_ARG_WORDS] = {0u};
+        uint32 so = 0u;
+
+        q[0] = SVCRT_NET_SUB_GETSOCKOPT;
+        q[1] = (uint32)e->handle;
+        q[2] = SVCRT_NET_SO_ERROR;
+        q[3] = (uint32)&so;
+        if(svcrt_posix_net_ctl(q, &r) < 0)
+        {
+            return -1;
+        }
+        if((int32)so < 0)
+        {
+            errno = svcrt_posix_errno_from_net((int32)so);
+            return -1;
+        }
+    }
+    return 0;
+}
+
+svcrt_ssize_t svcrt_posix_send(int fd, const void *buf, uint32 len, int flags)
+{
+    svcrt_posix_fd_t *e = svcrt_posix_sock_slot(fd);
+    uint32 p[SVCRT_NET_ARG_WORDS] = {0u};
+    int32  r;
+
+    if(e == 0)
+    {
+        return -1;
+    }
+    if(len == 0u)
+    {
+        return 0;               /* POSIX: nothing to send, nothing to report */
+    }
+
+    p[0] = SVCRT_NET_SUB_SEND;
+    p[1] = (uint32)e->handle;
+    p[2] = (uint32)buf;
+    p[3] = len;
+    p[4] = (uint32)flags;
+
+    for(;;)
+    {
+        r = svcrt_posix_net_req(p, SVCRT_POSIX_NET_CMD_BUDGET_MS);
+        if(r >= 0)
+        {
+            return (svcrt_ssize_t)r;    /* a short count is normal for a socket */
+        }
+        if(r != SVCRT_NET_EWOULDBLOCK)
+        {
+            errno = svcrt_posix_errno_from_net(r);
+            return -1;
+        }
+        if((e->nonblock != 0u) || ((flags & MSG_DONTWAIT) != 0))
+        {
+            errno = EAGAIN;
+            return -1;
+        }
+        r = svcrt_posix_sock_wait((uint32)e->handle, SVCRT_NET_POLL_OUT,
+                                  e->snd_to);
+        if(r < 0)
+        {
+            return -1;
+        }
+        if(r == 0)
+        {
+            errno = EAGAIN;         /* the send timeout ran out */
+            return -1;
+        }
+    }
+}
+
+svcrt_ssize_t svcrt_posix_recv(int fd, void *buf, uint32 len, int flags)
+{
+    svcrt_posix_fd_t *e = svcrt_posix_sock_slot(fd);
+    uint32 p[SVCRT_NET_ARG_WORDS] = {0u};
+    int32  r;
+
+    if(e == 0)
+    {
+        return -1;
+    }
+    if(len == 0u)
+    {
+        return 0;
+    }
+
+    p[0] = SVCRT_NET_SUB_RECV;
+    p[1] = (uint32)e->handle;
+    p[2] = (uint32)buf;
+    p[3] = len;
+    p[4] = (uint32)flags;
+
+    for(;;)
+    {
+        r = svcrt_posix_net_req(p, SVCRT_POSIX_NET_CMD_BUDGET_MS);
+        if(r >= 0)
+        {
+            return (svcrt_ssize_t)r;
+        }
+        if(r != SVCRT_NET_EWOULDBLOCK)
+        {
+            errno = svcrt_posix_errno_from_net(r);
+            return -1;
+        }
+        if((e->nonblock != 0u) || ((flags & MSG_DONTWAIT) != 0))
+        {
+            errno = EAGAIN;
+            return -1;
+        }
+        r = svcrt_posix_sock_wait((uint32)e->handle, SVCRT_NET_POLL_IN,
+                                  e->rcv_to);
+        if(r < 0)
+        {
+            return -1;
+        }
+        if(r == 0)
+        {
+            errno = EAGAIN;
+            return -1;
+        }
+    }
+}
+
+svcrt_ssize_t svcrt_posix_sendto(int fd, const void *buf, uint32 len, int flags,
+                                 const struct sockaddr *addr, socklen_t addrlen)
+{
+    svcrt_posix_fd_t *e = svcrt_posix_sock_slot(fd);
+    uint32 p[SVCRT_NET_ARG_WORDS] = {0u};
+    uint32 ip = 0u;
+    uint32 port = 0u;
+    int32  r;
+
+    if(e == 0)
+    {
+        return -1;
+    }
+    if(len == 0u)
+    {
+        return 0;
+    }
+    if(svcrt_posix_addr_in(addr, addrlen, &ip, &port) < 0)
+    {
+        return -1;
+    }
+
+    p[0] = SVCRT_NET_SUB_SENDTO;
+    p[1] = (uint32)e->handle;
+    p[2] = (uint32)buf;
+    p[3] = len;
+    p[4] = ip;
+    p[5] = port;
+
+    /* Datagrams are all-or-nothing: there is no half of a message to retry,
+     * so a not-yet-writable socket is reported rather than waited for unless
+     * the caller asked for a blocking send. */
+    for(;;)
+    {
+        r = svcrt_posix_net_req(p, SVCRT_POSIX_NET_CMD_BUDGET_MS);
+        if(r >= 0)
+        {
+            return (svcrt_ssize_t)r;
+        }
+        if(r != SVCRT_NET_EWOULDBLOCK)
+        {
+            errno = svcrt_posix_errno_from_net(r);
+            return -1;
+        }
+        if((e->nonblock != 0u) || ((flags & MSG_DONTWAIT) != 0))
+        {
+            errno = EAGAIN;
+            return -1;
+        }
+        r = svcrt_posix_sock_wait((uint32)e->handle, SVCRT_NET_POLL_OUT,
+                                  e->snd_to);
+        if(r < 0)
+        {
+            return -1;
+        }
+        if(r == 0)
+        {
+            errno = EAGAIN;
+            return -1;
+        }
+    }
+}
+
+svcrt_ssize_t svcrt_posix_recvfrom(int fd, void *buf, uint32 len, int flags,
+                                   struct sockaddr *addr, socklen_t *addrlen)
+{
+    svcrt_posix_fd_t *e = svcrt_posix_sock_slot(fd);
+    uint32 p[SVCRT_NET_ARG_WORDS] = {0u};
+    uint32 ip = 0u;
+    uint32 port = 0u;
+    int32  r;
+
+    if(e == 0)
+    {
+        return -1;
+    }
+    if(len == 0u)
+    {
+        return 0;
+    }
+
+    p[0] = SVCRT_NET_SUB_RECVFROM;
+    p[1] = (uint32)e->handle;
+    p[2] = (uint32)buf;
+    p[3] = len;
+    p[4] = (uint32)&ip;
+    p[5] = (uint32)&port;
+
+    for(;;)
+    {
+        r = svcrt_posix_net_req(p, SVCRT_POSIX_NET_CMD_BUDGET_MS);
+        if(r >= 0)
+        {
+            break;
+        }
+        if(r != SVCRT_NET_EWOULDBLOCK)
+        {
+            errno = svcrt_posix_errno_from_net(r);
+            return -1;
+        }
+        if((e->nonblock != 0u) || ((flags & MSG_DONTWAIT) != 0))
+        {
+            errno = EAGAIN;
+            return -1;
+        }
+        r = svcrt_posix_sock_wait((uint32)e->handle, SVCRT_NET_POLL_IN,
+                                  e->rcv_to);
+        if(r < 0)
+        {
+            return -1;
+        }
+        if(r == 0)
+        {
+            errno = EAGAIN;
+            return -1;
+        }
+    }
+
+    if((addr != 0) && (addrlen != 0))
+    {
+        svcrt_posix_addr_out(addr, addrlen, ip, port);
+    }
+    return (svcrt_ssize_t)r;
+}
+
+int svcrt_posix_setsockopt(int fd, int level, int optname,
+                           const void *optval, socklen_t optlen)
+{
+    svcrt_posix_fd_t *e = svcrt_posix_sock_slot(fd);
+    uint32 p[SVCRT_NET_ARG_WORDS] = {0u};
+    int32  r;
+
+    if(e == 0)
+    {
+        return -1;
+    }
+    if(level != SOL_SOCKET)
+    {
+        errno = ENOPROTOOPT;
+        return -1;
+    }
+
+    if((optname == SO_RCVTIMEO) || (optname == SO_SNDTIMEO))
+    {
+        /* Kept here and never sent on: the kernel's socket calls do not block,
+         * so a timeout is a property of this layer's blocking loops. A zero
+         * timeval means "wait for ever", which is what POSIX says it means.
+         * Accepting the option and doing nothing would be the worst of both. */
+        const struct timeval *tv = (const struct timeval *)optval;
+        uint32 ms;
+
+        if((tv == 0) || (optlen < (socklen_t)sizeof(struct timeval)) ||
+           (tv->tv_usec < 0) ||
+           (tv->tv_usec >= 1000000))
+        {
+            errno = EINVAL;
+            return -1;
+        }
+        if((tv->tv_sec == 0) && (tv->tv_usec == 0))
+        {
+            ms = SVCRT_POSIX_NET_FOREVER;
+        }
+        else
+        {
+            /* Rounded up, like every other wait in this file: a timeout never
+             * fires early. */
+            ms = (uint32)tv->tv_sec * 1000u +
+                 (uint32)((tv->tv_usec + 999) / 1000);
+        }
+        if(optname == SO_RCVTIMEO)
+        {
+            e->rcv_to = ms;
+        }
+        else
+        {
+            e->snd_to = ms;
+        }
+        return 0;
+    }
+
+    if((optname == SO_REUSEADDR) || (optname == SO_RCVBUF) ||
+       (optname == SO_SNDBUF))
+    {
+        int    v;
+        uint32 wire;
+
+        if((optval == 0) || (optlen < (socklen_t)sizeof(int)))
+        {
+            errno = EINVAL;
+            return -1;
+        }
+        v = *(const int *)optval;
+        if(optname == SO_REUSEADDR)
+        {
+            wire = SVCRT_NET_SO_REUSEADDR;
+        }
+        else if(optname == SO_RCVBUF)
+        {
+            wire = SVCRT_NET_SO_RCVBUF;
+        }
+        else
+        {
+            wire = SVCRT_NET_SO_SNDBUF;
+        }
+        p[0] = SVCRT_NET_SUB_SETSOCKOPT;
+        p[1] = (uint32)e->handle;
+        p[2] = wire;
+        p[3] = (uint32)v;
+        return svcrt_posix_net_ctl(p, &r);
+    }
+
+    /* Refused, not ignored: an App that believes a timeout or an option is
+     * armed when it is not is worse off than one that is told so. */
+    errno = ENOPROTOOPT;
+    return -1;
+}
+
+int svcrt_posix_getsockopt(int fd, int level, int optname,
+                           void *optval, socklen_t *optlen)
+{
+    svcrt_posix_fd_t *e = svcrt_posix_sock_slot(fd);
+    int32  r;
+
+    if(e == 0)
+    {
+        return -1;
+    }
+    if((optval == 0) || (optlen == 0))
+    {
+        errno = EFAULT;
+        return -1;
+    }
+    if(level != SOL_SOCKET)
+    {
+        errno = ENOPROTOOPT;
+        return -1;
+    }
+
+    if(optname == SO_TYPE)
+    {
+        if(*optlen < (socklen_t)sizeof(int))
+        {
+            errno = EINVAL;
+            return -1;
+        }
+        *(int *)optval = (int)e->sotype;
+        *optlen = (socklen_t)sizeof(int);
+        return 0;
+    }
+
+    if(optname == SO_ERROR)
+    {
+        uint32 q[SVCRT_NET_ARG_WORDS] = {0u};
+        uint32 so = 0u;
+
+        if(*optlen < (socklen_t)sizeof(int))
+        {
+            errno = EINVAL;
+            return -1;
+        }
+        q[0] = SVCRT_NET_SUB_GETSOCKOPT;
+        q[1] = (uint32)e->handle;
+        q[2] = SVCRT_NET_SO_ERROR;
+        q[3] = (uint32)&so;
+        if(svcrt_posix_net_ctl(q, &r) < 0)
+        {
+            return -1;
+        }
+        /* The kernel answers in wire codes (negative); POSIX wants an errno
+         * number - positive - and 0 for "no error". */
+        *(int *)optval = ((int32)so < 0) ? svcrt_posix_errno_from_net((int32)so)
+                                         : 0;
+        *optlen = (socklen_t)sizeof(int);
+        return 0;
+    }
+
+    if((optname == SO_RCVTIMEO) || (optname == SO_SNDTIMEO))
+    {
+        struct timeval *tv = (struct timeval *)optval;
+        uint32 ms = (optname == SO_RCVTIMEO) ? e->rcv_to : e->snd_to;
+
+        if(*optlen < (socklen_t)sizeof(struct timeval))
+        {
+            errno = EINVAL;
+            return -1;
+        }
+        if(ms == SVCRT_POSIX_NET_FOREVER)
+        {
+            tv->tv_sec  = 0;
+            tv->tv_usec = 0;
+        }
+        else
+        {
+            tv->tv_sec  = (svcrt_time_t)(ms / 1000u);
+            tv->tv_usec = (svcrt_useconds_t)((ms % 1000u) * 1000u);
+        }
+        *optlen = (socklen_t)sizeof(struct timeval);
+        return 0;
+    }
+
+    errno = ENOPROTOOPT;
+    return -1;
+}
+
+static int svcrt_posix_sock_name(int fd, struct sockaddr *addr, socklen_t *len,
+                                 uint32 sub)
+{
+    svcrt_posix_fd_t *e = svcrt_posix_sock_slot(fd);
+    uint32 p[SVCRT_NET_ARG_WORDS] = {0u};
+    uint32 ip = 0u;
+    uint32 port = 0u;
+    int32  r;
+
+    if(e == 0)
+    {
+        return -1;
+    }
+    if((addr == 0) || (len == 0))
+    {
+        errno = EFAULT;
+        return -1;
+    }
+    p[0] = sub;
+    p[1] = (uint32)e->handle;
+    p[2] = (uint32)&ip;
+    p[3] = (uint32)&port;
+    if(svcrt_posix_net_ctl(p, &r) < 0)
+    {
+        return -1;
+    }
+    svcrt_posix_addr_out(addr, len, ip, port);
+    return 0;
+}
+
+int svcrt_posix_getsockname(int fd, struct sockaddr *addr, socklen_t *len)
+{
+    return svcrt_posix_sock_name(fd, addr, len, SVCRT_NET_SUB_GETSOCKNAME);
+}
+
+int svcrt_posix_getpeername(int fd, struct sockaddr *addr, socklen_t *len)
+{
+    return svcrt_posix_sock_name(fd, addr, len, SVCRT_NET_SUB_GETPEERNAME);
+}
+
+int svcrt_posix_shutdown(int fd, int how)
+{
+    svcrt_posix_fd_t *e = svcrt_posix_sock_slot(fd);
+    uint32 p[SVCRT_NET_ARG_WORDS] = {0u};
+    int32  r;
+
+    if(e == 0)
+    {
+        return -1;
+    }
+    if((how != SHUT_RD) && (how != SHUT_WR) && (how != SHUT_RDWR))
+    {
+        errno = EINVAL;
+        return -1;
+    }
+    p[0] = SVCRT_NET_SUB_SHUTDOWN;
+    p[1] = (uint32)e->handle;
+    p[2] = (uint32)how;
+    return svcrt_posix_net_ctl(p, &r);
+}
+
+int svcrt_posix_fcntl(int fd, int cmd, ...)
+{
+    svcrt_posix_fd_t *e;
+    va_list ap;
+    int     arg = 0;
+
+    if(fd < 0)
+    {
+        errno = EBADF;
+        return -1;
+    }
+    va_start(ap, cmd);
+    arg = va_arg(ap, int);
+    va_end(ap);
+
+    e = svcrt_posix_fd_slot(fd);
+    if(e == 0)
+    {
+        /* A raw device handle from svcrt_dev_open(): there is no flag store
+         * for it here, and the kernel's own read/write is what would block.
+         * F_GETFL is answerable; F_SETFL is refused rather than swallowed. */
+        if(cmd == F_GETFL)
+        {
+            return O_RDWR;
+        }
+        errno = EBADF;
+        return -1;
+    }
+    if(e->kind != SVCRT_POSIX_FD_SOCK)
+    {
+        /* Paths and devices have no status flag of their own in this layer. */
+        errno = EINVAL;
+        return -1;
+    }
+    if(cmd == F_GETFL)
+    {
+        return (int)(O_RDWR | ((e->nonblock != 0u) ? O_NONBLOCK : 0));
+    }
+    if(cmd == F_SETFL)
+    {
+        e->nonblock = ((arg & O_NONBLOCK) != 0) ? 1u : 0u;
+        return 0;
+    }
+    errno = EINVAL;
+    return -1;
+}
+
+int svcrt_posix_select(int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds,
+                       struct timeval *timeout)
+{
+    uint32 budget = SVCRT_POSIX_NET_FOREVER;
+    uint32 t0;
+    int    fd;
+
+    if((nfds < 0) || (nfds > FD_SETSIZE))
+    {
+        /* Above FD_SETSIZE the bit for a descriptor would land in the wrong
+         * place, so this is refused rather than masked into something else. */
+        errno = EINVAL;
+        return -1;
+    }
+    if(timeout != 0)
+    {
+        if((timeout->tv_usec < 0) || (timeout->tv_usec >= 1000000))
+        {
+            errno = EINVAL;
+            return -1;
+        }
+        budget = (uint32)timeout->tv_sec * 1000u +
+                 (uint32)((timeout->tv_usec + 999) / 1000);
+    }
+    t0 = svcrt_get_time_ms();
+
+    for(;;)
+    {
+        fd_set rout;
+        fd_set wout;
+        fd_set eout;
+        int    ready = 0;
+
+        FD_ZERO(&rout);
+        FD_ZERO(&wout);
+        FD_ZERO(&eout);
+
+        for(fd = 0; fd < nfds; fd++)
+        {
+            int want_r = ((rfds != 0) && (FD_ISSET(fd, rfds) != 0u)) ? 1 : 0;
+            int want_w = ((wfds != 0) && (FD_ISSET(fd, wfds) != 0u)) ? 1 : 0;
+            int want_e = ((efds != 0) && (FD_ISSET(fd, efds) != 0u)) ? 1 : 0;
+            svcrt_posix_fd_t *e;
+            uint32 flags = 0u;
+            int32  bits;
+
+            if((want_r == 0) && (want_w == 0) && (want_e == 0))
+            {
+                continue;
+            }
+
+            e = svcrt_posix_fd_slot(fd);
+            if((e == 0) || (e->kind != SVCRT_POSIX_FD_SOCK))
+            {
+                /* A path, a device, or a raw device handle. None of them has a
+                 * "not yet" state, which is the same answer POSIX gives for a
+                 * regular file: ready. Blocking on one would never end. */
+                if(want_r != 0)
+                {
+                    FD_SET(fd, &rout);
+                }
+                if(want_w != 0)
+                {
+                    FD_SET(fd, &wout);
+                }
+                if(want_e != 0)
+                {
+                    FD_SET(fd, &eout);
+                }
+                ready++;
+                continue;
+            }
+
+            if(want_r != 0)
+            {
+                flags |= SVCRT_NET_POLL_IN;
+            }
+            if(want_w != 0)
+            {
+                flags |= SVCRT_NET_POLL_OUT;
+            }
+            if(want_e != 0)
+            {
+                flags |= SVCRT_NET_POLL_ERR;
+            }
+            bits = svcrt_posix_net_bits((uint32)e->handle, flags);
+            if(bits < 0)
+            {
+                return -1;
+            }
+            if((want_r != 0) && ((bits & SVCRT_NET_POLL_IN) != 0))
+            {
+                FD_SET(fd, &rout);
+            }
+            if((want_w != 0) && ((bits & SVCRT_NET_POLL_OUT) != 0))
+            {
+                FD_SET(fd, &wout);
+            }
+            if((want_e != 0) && ((bits & SVCRT_NET_POLL_ERR) != 0))
+            {
+                FD_SET(fd, &eout);
+            }
+            if((bits & flags) != 0)
+            {
+                ready++;
+            }
+        }
+
+        if(ready > 0)
+        {
+            if(rfds != 0)
+            {
+                *rfds = rout;
+            }
+            if(wfds != 0)
+            {
+                *wfds = wout;
+            }
+            if(efds != 0)
+            {
+                *efds = eout;
+            }
+            return ready;
+        }
+
+        if((budget != SVCRT_POSIX_NET_FOREVER) &&
+           ((uint32)(svcrt_get_time_ms() - t0) >= budget))
+        {
+            /* The timeout: POSIX clears all three sets. */
+            if(rfds != 0)
+            {
+                FD_ZERO(rfds);
+            }
+            if(wfds != 0)
+            {
+                FD_ZERO(wfds);
+            }
+            if(efds != 0)
+            {
+                FD_ZERO(efds);
+            }
+            return 0;
+        }
+        svcrt_task_wait(1u);
+    }
 }
 
 #endif /* SVCRT_USE_POSIX */

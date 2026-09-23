@@ -29,11 +29,18 @@ struct stat
 #define S_IFMT   0xF000
 #define S_IFCHR  0x2000
 #define S_IFDIR  0x4000
+
+/* A socket has no size and no offset. The value is this layer's own: no
+ * socket descriptor is ever described to the kernel as a file, so nothing
+ * depends on the kernel's S_IF* set growing a matching bit. */
+#define S_IFSOCK 0xC000
 #define S_IFREG  0x8000
 
 #define S_ISCHR(m)  (((m) & S_IFMT) == S_IFCHR)
 #define S_ISDIR(m)  (((m) & S_IFMT) == S_IFDIR)
 #define S_ISREG(m)  (((m) & S_IFMT) == S_IFREG)
+#define S_ISSOCK(m) (((m) & S_IFMT) == S_IFSOCK)
+
 
 /** Stat a path in the namespace. Returns 0, or -1 with errno set. */
 int svcrt_posix_stat(const char *path, struct stat *st);

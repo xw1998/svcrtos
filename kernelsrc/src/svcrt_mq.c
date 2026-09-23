@@ -260,6 +260,32 @@ int32 svcrt_mq_create_internal(char *name)
     return -1;
 }
 
+/* Kernel owned variant of svcrt_mq_create_internal(): same table, same
+ * handle form, but the creator id is pinned to 0 ("kernel") instead of the
+ * current task. Queues made here survive every task teardown, which is what
+ * a kernel service needs - its queue is not a task's property. */
+int32 svcrt_mq_create_kernel_internal(char *name)
+{
+    int32 i;
+    SVCRT_DISABLE_IRQ();
+    for(i = 0; i < SVCRT_MQ_NUM; i++)
+    {
+        if(svcrt_mqs[i].used == 0)
+        {
+            svcrt_mq_copy_name(svcrt_mqs[i].name, name);
+            svcrt_mqs[i].used  = 1;
+            svcrt_mqs[i].head  = 0;
+            svcrt_mqs[i].tail  = 0;
+            svcrt_mqs[i].count = 0;
+            svcrt_mqs[i].creator_id = 0;
+            SVCRT_ENABLE_IRQ();
+            return (i | SVCRT_MQ_HANDLE_FLAG);
+        }
+    }
+    SVCRT_ENABLE_IRQ();
+    return -1;
+}
+
 /* 计算“被唤醒后重新排队”可用的剩余超时（ms）。
  * deadline==0 表示无限等待，返回 -1；已用尽返回 0。 */
 static int32 svcrt_mq_remain_ms(uint32 start_tick, uint32 deadline)
@@ -513,7 +539,7 @@ int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
     {
         svcrt_mq_waiter_remove(p_mq->recv_waiters, p_tsk);
         SVCRT_ENABLE_IRQ();
-        return -1;                          /* 超时未收到消息 */
+        return SVCRT_SYNC_ERR_TIMEOUT;       /* 超时未收到消息 */
     }
     /* 被唤醒不等于一定拿到消息：唤醒后消息可能已被其它接收者取走。
      * 原实现此时直接返回 -1（队列里明明有数据却被判失败）；这里按剩余时间重试。 */
@@ -523,7 +549,7 @@ int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
         if(remain == 0)
         {
             SVCRT_ENABLE_IRQ();
-            return -1;                      /* 超时未收到消息 */
+            return SVCRT_SYNC_ERR_TIMEOUT;   /* 超时未收到消息 */
         }
 
         {
@@ -544,7 +570,7 @@ int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
             SVCRT_ENABLE_IRQ();
             if(reason == SVCRT_WAKE_TIMEOUT)
             {
-                return -1;
+                return SVCRT_SYNC_ERR_TIMEOUT;
             }
             return -1;
         }
@@ -611,6 +637,21 @@ int32 svcrt_mq_delete_internal(int32 handle)
     return 0;
 }
 
+/* Liveness probe: the handle must carry the queue flag, the index must be
+ * in range, and the object must still be marked used. Unlike the range
+ * checks inside send/recv/delete this answers "is the object really there",
+ * which is the only question a stored handle cannot answer by itself. */
+int32 svcrt_mq_is_alive(int32 handle)
+{
+    int32 idx = handle & SVCRT_HANDLE_RELMASK;
+
+    if(SVCRT_MQ_HANDLE_FLAG != (handle & SVCRT_HANDLE_MASK))
+        return 0;
+    if(idx >= SVCRT_MQ_NUM)
+        return 0;
+    return (svcrt_mqs[idx].used != 0) ? 1 : 0;
+}
+
 #else   /* SVCRT_USE_MQ == 0 */
 /* Message queues compiled out.  Creating one fails and every transfer is
  * refused, so an application that asks for a queue is told "no" here rather
@@ -650,6 +691,18 @@ int32 svcrt_mq_delete_internal(int32 handle)
 {
     (void)handle;
     return -1;
+}
+
+int32 svcrt_mq_create_kernel_internal(char *name)
+{
+    (void)name;
+    return -1;
+}
+
+int32 svcrt_mq_is_alive(int32 handle)
+{
+    (void)handle;
+    return 0;
 }
 
 int32 svcrt_mq_send_from_isr_internal(int32 handle, void *buf, int32 len_words)

@@ -33,6 +33,17 @@ typedef struct {
 void  svcrt_mq_module_init(void);
 
 int32 svcrt_mq_create_internal(char *name);
+
+/* Kernel owned queue: the creator id is pinned to 0, so
+ * svcrt_mq_release_task() never collects it when some task goes away.
+ * Use it for queues the kernel itself owns and that must outlive every
+ * task (the socket request queue is one). */
+int32 svcrt_mq_create_kernel_internal(char *name);
+
+/* 1 = the handle still names a live queue object, not merely an in-range
+ * index. A stored handle keeps passing the plain range checks after the
+ * object behind it is gone, so this is the probe that tells the truth. */
+int32 svcrt_mq_is_alive(int32 handle);
 int32 svcrt_mq_send_internal(int32 handle, uint32 *buf, int32 len_words, int32 timeout_ms);
 int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 timeout_ms);
 int32 svcrt_mq_delete_internal(int32 handle);

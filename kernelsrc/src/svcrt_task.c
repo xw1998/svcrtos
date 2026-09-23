@@ -26,6 +26,8 @@
 #include "svcrt_ptable.h"
 #include "svcrt_mpu.h"
 #include "svcrt_loader.h"
+#include "svcrt_kernel_check.h"   /* shared SVC pointer checks */
+#include "svcrt_net.h"            /* SVC 0x1E network service */
 #include "svcrt_fs.h"    /* SVC 0x1C user file service */
 #include "svcrt_vfs.h"   /* SVC 0x1C sub 11..17: the VFS namespace face */
 #include "svcrt_mini.h"   /* SVC 0x18 子命令：小程序装载/停止 */
@@ -105,7 +107,7 @@ static uint8 svcrt_kernel_ptr_flash_ok(const void *p, uint32 len)
 }
 
 /* SVC 参数块（sub-cmd + 参数数组）必须位于用户可见 RAM */
-static uint8 svcrt_kernel_svc_args_ok(const void *p, uint32 len)
+uint8 svcrt_kernel_svc_args_ok(const void *p, uint32 len)
 {
     return svcrt_kernel_ptr_ram_ok(p, len);
 }
@@ -125,7 +127,7 @@ static uint8 svcrt_kernel_mq_buf_ok(const void *p, int32 len_words)
  * 因此按“RAM 窗口 + 用户固件窗口”判定。
  * len 必须按目标对象名字段的真实大小给出：事件名是 char[16]（最多读 15 字节），
  * 其余对象是 char[8]。统一按 8 校验会让事件名有 7 个字节落在校验窗口之外。 */
-static uint8 svcrt_kernel_user_name_ok(const void *p, uint32 len)
+uint8 svcrt_kernel_user_name_ok(const void *p, uint32 len)
 {
     return svcrt_kernel_ptr_flash_ok(p, len);
 }
@@ -189,7 +191,7 @@ static uint8 svcrt_kernel_cb_own_ram_ok(const void *p, uint32 len)
     return svcrt_kernel_in_window(start, end, p_tsk->ram_start, p_tsk->ram_size);
 }
 
-static uint8 svcrt_kernel_dev_buf_ok(const void *p, int32 len)
+uint8 svcrt_kernel_dev_buf_ok(const void *p, int32 len)
 {
     if(len <= 0)
     {
@@ -204,7 +206,7 @@ static uint8 svcrt_kernel_dev_buf_ok(const void *p, int32 len)
  * string literals are legal and the feature matches its documented contract.
  * Paths where the kernel WRITES into the buffer (dev_read) must keep using
  * svcrt_kernel_dev_buf_ok below. */
-static uint8 svcrt_kernel_user_ro_ok(const void *p, uint32 len)
+uint8 svcrt_kernel_user_ro_ok(const void *p, uint32 len)
 {
     const char *s = (const char *)p;
 
@@ -1382,6 +1384,17 @@ void SVC_Server(void *p_svc_ctx)
         }
         break;
 
+    case SVCRT_SVC_NET:
+        /* Network service (SVC 0x1E). Non-blocking by construction:
+         * this handler only takes the request and answers EPENDING, a
+         * normal kernel task runs the lwIP call in thread mode (an SVC
+         * handler must never wait - PendSV cannot preempt SVC), and the
+         * App side polls the same call until the reply arrives.
+         * Argument block and every buffer are checked inside
+         * svcrt_net_svc(); see svcrt_net.c for the whole contract. */
+        SVCRT_SVC_RET(p_svc_ctx, (uint32)svcrt_net_svc(p_svc_ctx));
+        break;
+
     case SVCRT_SVC_APP_MGR:
         p = (uint32 *)SVCRT_SVC_ARG(p_svc_ctx, 0);
         /* 用户参数块必须先校验再解引用：内核 RAM / 内核 Flash 一律拒绝 */
@@ -2350,6 +2363,9 @@ void svcrt_task_release_resources(int32 task_id)
     svcrt_sync_release_task(task_id);
     svcrt_mq_release_task(task_id);
     svcrt_event_release_task(task_id);
+    /* Sockets are marked for the service task to close - no lwIP call
+     * from here (this path can run with interrupts masked). */
+    svcrt_net_release_task(task_id);
     /* A dead task no longer owns its shell commands. Registering a name keeps
      * it reserved until somebody gives it back, and the dispatch guard only
      * proves the target address is inside *some* loaded image - not that it is

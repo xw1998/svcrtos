@@ -39,6 +39,8 @@
  * against the caller's own memory first. */
 #define SVCRT_SVC_HEARTBEAT         (0x1D)
 #define SVCRT_SVC_FILE_SYS          (0x1C)
+/* Network service: the App side socket/select face (svcrt_net.c) */
+#define SVCRT_SVC_NET               (0x1E)
 
 /* 同步原语（信号量/互斥锁）返回码：0=成功，负值=失败。
  * 超时必须返回负值——调用方据此判断“本次没有拿到资源”；

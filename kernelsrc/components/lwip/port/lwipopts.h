@@ -83,7 +83,9 @@
 #define MEMP_NUM_UDP_PCB                2
 #define MEMP_NUM_REASSDATA              2
 #define MEMP_NUM_NETBUF                 2
-#define MEMP_NUM_NETCONN                2   /* = 同时存在的 socket 数上限（受内核信号量/队列数约束） */
+#define MEMP_NUM_NETCONN                4   /* = 同时存在的 socket 数上限。回环回显自检要同时占 3 个 netconn
+                                               （监听 + 被 accept 的 + 客户端），留 1 个余量。
+                                               每个 netconn 一个 mailbox：4 + tcpip 线程 1 = 5 <= SVCRT_MQ_NUM(8)。 */
 #define MEMP_NUM_TCPIP_MSG_API          8
 #define MEMP_NUM_TCPIP_MSG_INPKT        8
 #define MEMP_NUM_SYS_TIMEOUT            8

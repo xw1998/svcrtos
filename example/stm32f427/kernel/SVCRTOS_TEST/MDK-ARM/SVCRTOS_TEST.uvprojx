@@ -959,6 +959,11 @@
               <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_mq.c</FilePath>
             </File>
             <File>
+              <FileName>svcrt_net.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_net.c</FilePath>
+            </File>
+            <File>
               <FileName>svcrt_timer.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_timer.c</FilePath>

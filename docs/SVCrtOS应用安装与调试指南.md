@@ -54,10 +54,10 @@
 
 | 工程 | 类型 | Flash 落点 | RAM 窗口 | 栈顶 |
 |---|---|---|---|---|
-| `DRV_DEMO` | 驱动 | `0x08040000`（单元 0） | `0x20010000 +16 K` | `0x20014000` |
-| `APP_DEMO` | App | `0x08060000`（单元 1） | `0x20014000 +16 K` | `0x20018000` |
-| `BLED_DRV` | 驱动 | `0x08080000`（单元 2） | `0x20018000 +16 K` | `0x2001C000` |
-| `BLED_APP` | App | `0x080A0000`（单元 3） | `0x2001C000 +16 K` | `0x20020000` |
+| `DRV_DEMO` | 驱动 | `0x08060000`（单元 0） | `0x20010000 +16 K` | `0x20014000` |
+| `APP_DEMO` | App | `0x08080000`（单元 1） | `0x20014000 +16 K` | `0x20018000` |
+| `BLED_DRV` | 驱动 | `0x080A0000`（单元 2） | `0x20018000 +16 K` | `0x2001C000` |
+| `BLED_APP` | App | `0x080C0000`（单元 3） | `0x2001C000 +16 K` | `0x20020000` |
 
 对应 `.sct` 分别是 `build/drv_demo.sct` / `app_demo.sct` / `bled_drv.sct` / `bled_app.sct`。
 
@@ -169,7 +169,7 @@ python tools/gen_scatter.py --dump      # 打印当前布局，确认地址再�
 步骤同上，只是：
 
 - 工程换成 `DRV_DEMO` / `BLED_DRV`，`.sct` 换成 `build/drv_demo.sct` / `build/bled_drv.sct`
-- 下载地址分别是 `0x08040000` / `0x08080000`
+- 下载地址分别是 `0x08060000` / `0x080A0000`
 - 内核先启动驱动（优先级 9，高于 App 的 10），再启动 App
 
 ### 2.4 只重下 App、不重烧内核
@@ -315,7 +315,7 @@ python tools/pack_app.py --verify build/APP_DEMO/APP_DEMO.svcapp    # 校验完�
 | 映像 | 烧录地址 | 来源 |
 |---|---|---|
 | 内核 | `0x08000000` | 内核工程构建产物 |
-| 配置记录（可选） | `0x08020000` | `tools/svcrt_layout.py build --bin` 的输出 |
+| 配置记录（可选） | `0x08040000` | `tools/svcrt_layout.py build --bin` 的输出 |
 | 驱动 `.svcapp` | 池内任意空闲槽位（auto）或配置指定的槽位（fixed） | `pack_app.py` 输出 |
 | App `.svcapp` | 同上 | `pack_app.py` 输出 |
 | 裸镜像 | 开发槽位表指定的地址（见 §1.2） | App 工程的 `.axf`/`.bin` |
@@ -556,7 +556,7 @@ python tools/gen_scatter.py --target all --output build
 
 | 验证项 | 结论 | 证据 |
 |---|---|---|
-| 固定槽模式配置写入并重启读回 | 上板验证过 | `cfg show` 读到 `layout : fixed`，`pool` 列出 3 个固定槽（`0x08040000` / `0x08080000` / `0x080A0000`，各 128K） |
+| 固定槽模式配置写入并重启读回 | 上板验证过 | `cfg show` 读到 `layout : fixed`，`pool` 列出 3 个固定槽（`0x08060000` / `0x08080000` / `0x080A0000`，各 128K） |
 | 按固定槽位安装的落点 | 上板验证过 | `install 2` → 设备回 `install: fixed slot 2 -> 0x080A0000`；`app` 显示新实例 `base 0x080A0000`、`ram 0x20014000`、`size 131072` |
 | 不兼容镜像被拒时当场返回 | 上板验证过 | 设备回 `[E][INSTALL:150] rejected: err -3` 后 **0.7 s** 主机即结束（修复前要等满 5 s 的 ACK 超时） |
 | 安装失败后设备回到干净的命令提示 | 未达成（已知副作用） | 见下 |

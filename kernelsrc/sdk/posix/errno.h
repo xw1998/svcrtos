@@ -60,6 +60,31 @@
 #define EINPROGRESS 115
 #define EOPNOTSUPP   95
 
+/* ---- sockets ---------------------------------------------------------- */
+
+/* Two names, one condition: a non-blocking socket that cannot proceed now. */
+#define EWOULDBLOCK     EAGAIN
+#define ENOTSOCK        88
+#define EMSGSIZE        90
+#define EPROTOTYPE      91
+#define ENOPROTOOPT     92
+#define EPROTONOSUPPORT 93
+#define ESOCKTNOSUPPORT 94
+#define EAFNOSUPPORT    97
+#define EADDRINUSE      98
+#define EADDRNOTAVAIL   99
+#define ENETDOWN       100
+#define ENETUNREACH    101
+#define ENETRESET      102
+#define ECONNABORTED   103
+#define ECONNRESET     104
+#define ENOBUFS        105
+#define EISCONN        106
+#define ENOTCONN       107
+#define ECONNREFUSED   111
+#define EHOSTUNREACH   113
+#define EALREADY       114
+
 /** Address of the calling thread's errno cell; never NULL. */
 int32 *svcrt_posix_errno_location(void);
 

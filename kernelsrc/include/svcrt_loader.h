@@ -204,6 +204,14 @@ uint32 svcrt_loader_state_driver(uint32 slot);
 */
 int32 svcrt_loader_load_dev_hdr(int32 dev, const svcrt_app_header_t *p_hdr, uint32 image_len);
 
+/* Clear a configured fixed slot ahead of an overwrite install. Call it while
+ * nothing is on the wire (see the implementation) and before the host is told
+ * to send. Returns 0 when the slot is ready to be written (erased or already
+ * blank), SVCRT_LOADER_ERR_FLASH when the erase failed. */
+int32 svcrt_loader_clear_fixed_slot(int32 index);
+
+
+
 /**
 * @brief 从设备安装驱动镜像（自行读头）
 * @param dev       已打开的设备句柄，位置在镜像头之前

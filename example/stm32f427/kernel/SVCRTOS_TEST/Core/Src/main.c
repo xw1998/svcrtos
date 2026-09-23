@@ -142,9 +142,9 @@ int main(void)
 
   svcrt_kernel_init();
 
-  /* lwIP 端口：在调度器起来之前把轮询任务登记好。真正的 tcpip_init()
-   * 留到该任务的第一轮再调——它会在信号量上等待，而那时候还没有人
-   * 能把它唤醒。 */
+  /* lwIP: register the service task before the scheduler starts. The
+   * real tcpip_init() is left to that task first round - it waits on
+   * a semaphore and at this point nobody would be there to wake it. */
 #if (SVCRT_USE_LWIP == 1)
   svcrt_lwip_start();
 #endif
