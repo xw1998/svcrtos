@@ -53,6 +53,7 @@
 | `audit` | `audit` | 内核结构自审 |
 | `blk` | `blk [list \| probe \| rd \| wr \| erase \| test]` | 块设备（NOR / 内部 Flash）：枚举、探测、读写、擦除、自测 |
 | `fs` | `fs [mount \| unmount \| format \| info \| ls \| wr \| rd \| put \| rm \| test \| err]` | littlefs 卷：挂载 / 卸载 / 格式化 / 容量 / 列目录 / 写 / 读 / 收文件 / 删 / 自测 / 错误名。挂载点形如 `mounted nor0 at 0x0, 4194304 bytes` |
+| `mini` | `mini [list \| run <path> \| stop [n] \| count [n] \| limit [bytes] \| forget <path> \| autostart [list \| add <path> \| del <path> \| now]]` | 小程序（放在文件系统里、`run` 时 load 进内存执行的第三种用户态应用）：列实例 / 跑一个路径 / 停一个 / 查改并发上限 / 清某路径的崩溃计数 / 维护开机自启清单 `/mini.autostart` |
 | 内置 | `version` / `clear` / `echo` / `reboot` | `reboot` 走平台钩子，直接写 `AIRCR.SYSRESETREQ` 复位整机 |
 
 ## 4. 典型操作
@@ -136,6 +137,33 @@ pool: free 641592 B (largest run 510504 B), tasks 5/48
 
 `free` 是 Flash 上为 `0xFF` 的字节数，含每个镜像槽位没被写到的尾巴；
 `largest` 才是“现在能装下的最大镜像”。判断能不能装下要同时看这两个。
+
+### 4.6 小程序：从文件系统里跑，不占槽位（`mini`）
+
+小程序不安装、不占分区/槽位，就是卷里的一个 `.svcapp` 文件，`run` 时被 load 进内存执行，
+退出后代码块与 RAM 块立刻还回池子。完整模型见 [小程序设计.md](小程序设计.md)。
+
+```
+ark> mini autostart add /mini_demo.app     # 登记开机自启（写清单 /mini.autostart）
+will start at boot
+ark> mini autostart                        # 查清单：列出的同时报“卷里找不到”与“已禁用”
+[1] /mini_demo.app  1308 bytes
+1 listed, 0 missing in the volume, 0 disabled
+ark> mini run /mini_demo.app               # 立即跑一个
+ark> mini list                             # 在跑 / 在册实例
+ark> mini autostart del /mini_demo.app     # 取消自启（删到空时清单文件也删掉）
+will not start at boot
+```
+
+几条口径：
+
+- **自启清单是账本，不是开关**：`add` 只写清单；启动时逐条尝试，**被崩溃禁用的项不会被启动**，
+  日志报 `rc=-19`（`SVCRT_MINI_ERR_DISABLED`），不会假装启动成功。
+- **并发数可配置**：`mini count [n]` 查/改运行期上限（只能收紧，不超过编译期 `SVCRT_MINI_MAX`）；
+  装不下时如实报 `NOSPACE`，不会挤掉在跑的实例。
+- **连续崩溃会被禁用**：与槽位应用同一套计数，日记在 UNINIT 区跨复位存活；`mini forget <path>` 清。
+- **`crash` 会把小程序记账区一起渲染**（路径列在崩溃日记里只存哈希，显示时用自启清单回填；
+  对不上就显 `#<hash>`，不会猜一个像样的路径）。
 
 ## 5. 与其它路径的关系
 
