@@ -3,7 +3,7 @@ name: svcrtos
 description: SVCrtOS（Cortex-M 上的 SVC 特权隔离 RTOS）工程操作手册：编译/烧录内核、打包与安装 .svcapp 应用到设备、读写设备端布局配置区、使用串口 shell、以及经 mdk_agent_mcp 做在线调试。当任务涉及 SVCrtOS 工程、应用/驱动安装、分区与固定槽位、布局策略、或该目标板的真机验证时使用本 skill。
 ---
 
-# SVCrtOS 工程操作手册（给 AI 代理）
+# SVCrtOS 工程操作手册
 
 工程根目录 = 本文件所在目录往上两级（`<root>/skills/svcrtos/SKILL.md`）。
 北向目标：**让 MCU 像手机一样安装应用与驱动**——不写死地址、安装时以最高密度往后挪、
@@ -120,8 +120,10 @@ py -3 tools/pack_app.py --verify build/APP_X.svcapp
   explicit slot)`，而不是"先开着窗口等"。
 - **`install <slot>` 会先擦该槽（整扇区）再打印就绪行**：主机要等这一行出现才发。擦除
   期间 CPU 停住、串口收不进字节，早发一个字节都会丢，表现为中途 `err -4` 且无 `LOADER` 行。
-- 已知边界：`SHELL_ENABLE=0` 时没有"先擦再喊"这一步，fixed 覆盖安装仍可能失败——先
-  `app uninstall` 或换空闲槽位。
+- **fixed 模式覆盖安装会在开窗之前先擦目标槽**：shell 的 `install <slot>` 与常驻
+  installer（`SHELL_ENABLE=0`）走同一套动作。擦除占约 1 秒且期间收不进字节，必须发生在
+  主机开始发之前；`SHELL_ENABLE=0` 时若这一轮没点名槽位（`slot_hint < 0`），installer
+  直接回参数错误，而不是擦到一半。
 - 覆盖安装一个正在运行的镜像会被拒（`-15 BUSY`）：先 `app stop <slot>`。
 - **镜像头的 `hw_compat_id` 必须等于内核的 `SVCRT_HW_COMPAT_ID`**（F427 当前为 `0x42700005`），
   否则安装会在写负载之前被拒（`err -3`）。仓库里 `build/` 下的旧镜像可能是旧兼容号，
@@ -209,7 +211,7 @@ MCP 调试工具，可不下载、不打断地读写目标：
 | `install` 被拒 `err -3` | 镜像 `hw_compat_id` 与内核不符 → `pack_app.py --info`，重新打包 |
 | 安装后 `app` 里出现两个实例、输出逐字节交错 | 上一个实例没停：`app list` → `app stop <slot>`（自启镜像会自己回来） |
 | `app uninstall 2` 回 `usage:`（明明槽位存在） | 拿配置槽序号当分区表槽号了：先 `app` 看 `base` 对上是哪一行，用那一行的 `id` |
-| 安装被拒后控制台冒出一行 `Command not found: ...` | 头/表必须背靠背发送，而兼容性只看 256 B 头就早退，残下的重定位表字节落入 shell。属固有副作用，不影响后续操作 |
+| 安装被拒后控制台冒出一行 `Command not found: ...` | 头/表必须背靠背发送，而兼容性只看 256 B 头就早退，残下的重定位表字节原先会落入 shell。安装器现在返回前会把这张表读完（日志 `drained N B of the rejected frame`）；若仍看到这一行，先确认设备侧有没有这条排空记录 |
 | `install: failed or timed out` | 看设备侧 `INSTALL` / `LOADER` 日志行 + `fault`；不要相信主机侧的"发送完成" |
 | `cfg show` 显示 fixed 但 `pool` 不列槽位 | 读 `0x20000000 + 52` 核对真正生效的 `layout_mode`，两个真相源要不一致就是 bug |
 | 编译 0 Error 但行为不对 | 检查宏是否真的进了命令行（uvprojx 的 `<Define>` 有静默不生效的坑） |

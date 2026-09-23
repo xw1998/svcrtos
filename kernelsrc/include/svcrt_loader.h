@@ -54,6 +54,7 @@ extern "C" {
 #define SVCRT_LOADER_ERR_BUSY     (-15)  /* 镜像正在运行，不允许搬移或卸载 */
 #define SVCRT_LOADER_ERR_VERSION  (-16)  /* 版本回灌：同 image_id 且版本号不高于已装版本 */
 #define SVCRT_LOADER_ERR_DUP      (-17)  /* 重复副本：同一 image_id 且版本与内容完全相同的镜像已在池内 */
+#define SVCRT_LOADER_ERR_SIGN     (-18)  /* 签名校验失败（SVCRT_USE_IMAGE_SIGN=1 时） */
 
 /**
 * @brief 从内存缓冲区加载完整 App 镜像

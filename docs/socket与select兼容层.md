@@ -7,10 +7,11 @@ sendto/recvfrom/select/getsockname/getpeername/shutdown/getsockopt/setsockopt/fc
 这些名字由 `kernelsrc/sdk/posix` 提供，经 **SVC `0x1E`** 打到内核的 socket 服务
 （`kernelsrc/src/svcrt_net.c`），服务再转给内核里的 lwIP。
 
-**结论分档（务必看清）**：当前状态是「**仅编译通过**」——内核侧 F427/F401 两个工程 0 Error，
-App 侧 `SOCKET_DEMO` 也 0 Error / 0 Warning 并且 socket 代码确已链接进映像。
-**尚未上板、尚未跑过 socket 语义自检**。协议栈只有 lwIP 回环网卡（127.0.0.1/8），
-包不出芯片（见 [lwIP协议栈接入.md](lwIP协议栈接入.md)）。
+**结论分档（务必看清）**：当前状态是「**上板验证过**」——内核侧 F427/F401 两个工程 0 Error，
+App 侧 `SOCKET_DEMO` 0 Error / 0 Warning 并且 socket 代码确已链接进映像；F427 上把
+`SOCKET_DEMO` 装进固定槽 0 覆盖安装后跑过 socket 语义自检，`result : pass=36 fail=0`
+（逐项证据见 §7）。协议栈只有 lwIP 回环网卡（127.0.0.1/8），包不出芯片；
+**真实以太网收发未验证**（见 [lwIP协议栈接入.md](lwIP协议栈接入.md)）。
 
 ## 1. 头文件与名字
 
@@ -76,7 +77,10 @@ App 侧映射成 `EOPNOTSUPP`。也就是说**内核没编协议栈时，`socket
 - **fd 数值空间重叠**：`svcrt_posix_open()` 返回的 App fd（3 起）与 `svcrt_dev_open()`
   返回的裸内核句柄数值空间会重叠；同一个数值在 App 侧被当 fd 用时，表内判定优先，
   混用这两种句柄会误判。**不要把 `svcrt_dev_open` 的裸句柄交给 `read`/`write`/`close` 之外的 POSIX 接口。**
-- 打开路径时传 `O_NONBLOCK` 会被内核路径标志拒绝（socket 侧不受影响）。
+- **路径 `open()` 传 `O_NONBLOCK` 会被接受并记住**：POSIX 规定它对普通文件无效果，
+  所以内核侧把这一位剥离后再转给路径层，同时记进 App 自己的 fd 表（`fcntl(F_GETFL)`
+  能读回、`F_SETFL` 能改），可移植代码不会因此失败。见
+  [POSIX与Windows兼容层说明.md](POSIX与Windows兼容层说明.md) §4.7。
 - 多任务共享 lwIP 的全局 `errno`（lwIP sockets 层的已知限制）：判断调用是否失败**看返回值**，
   不要跨任务依赖 `errno`。
 

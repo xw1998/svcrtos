@@ -23,6 +23,7 @@
 *            SVCRT_POSIX_DEFAULT_PRIO default thread priority    (default 10)
 *            SVCRT_POSIX_NO_TIMESPEC  platform already has struct timespec
 *            SVCRT_POSIX_WRAP_STDLIB  also #define malloc/free/... over ours
+*            SVCRT_POSIX_PTHREAD_KEY  thread-specific data (TLS)  (default 1)
 *
 * @note  Declarations only. svcrt_posix.c has to be added to the App project
 *        once; the memory it costs is the two static arenas below.
@@ -45,6 +46,13 @@
 #endif
 #ifndef SVCRT_POSIX_DEFAULT_PRIO
 #define SVCRT_POSIX_DEFAULT_PRIO  (10u)
+#endif
+
+/* Thread-specific data (pthread_key_*) and pthread_once.  Set to 0 to drop
+ * both the declarations and the static pointer table svcrt_posix.c keeps for
+ * them (SVCRT_POSIX_KEY_MAX x (SVCRT_POSIX_THREAD_MAX + 1) pointers). */
+#ifndef SVCRT_POSIX_PTHREAD_KEY
+#define SVCRT_POSIX_PTHREAD_KEY   1
 #endif
 
 #include "svcrt_posix_types.h"

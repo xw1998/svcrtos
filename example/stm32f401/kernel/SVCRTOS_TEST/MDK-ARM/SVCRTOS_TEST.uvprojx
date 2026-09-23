@@ -485,6 +485,11 @@
               <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_crash.c</FilePath>
             </File>
             <File>
+              <FileName>svcrt_sign.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_sign.c</FilePath>
+            </File>
+            <File>
               <FileName>lfs.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\kernelsrc\fs\littlefs\lfs.c</FilePath>

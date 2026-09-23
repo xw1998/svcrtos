@@ -214,9 +214,12 @@ mount: FAILED (-7: already exists)
 `open/read/write/lseek/close/stat/fstat/opendir/readdir/closedir/unlink` →
 `svcrt_path_*`，容量有限（fd 8 格、目录流 2 格）且表空时如实报 `EMFILE`/`ENOMEM`。
 能力表与字段口径见 [POSIX与Windows兼容层说明.md](POSIX与Windows兼容层说明.md) §4.7，
-试验件 `example/stm32f427/app_sdk/FS_DEMO/`（**仅编译通过，未上板**）。
+试验件 `example/stm32f427/app_sdk/FS_DEMO/`（**上板验证过**：F427 固定槽 0 覆盖安装后
+跑文件类 POSIX 自检，逐项 `ok`，结尾 `result : pass=32 fail=0`）。
 
 ## 未做
 
-- App 侧：socket / select 到这一层的映射（TCP/IP 栈已接：lwIP 2.1.3 编进了内核、起的是回环网卡，见 [lwIP协议栈接入](lwIP协议栈接入.md)；App 侧 socket 门面还没做）
+- App 侧：socket / select **不走这一层**——它经 SVC `0x1E` 打到内核的 socket 服务
+  （lwIP 2.1.3，起的是回环网卡），见 [socket与select兼容层.md](socket与select兼容层.md)
+  与 [lwIP协议栈接入](lwIP协议栈接入.md)
 - 组件升级：`tools/sync_ark_vfs.py --apply` 后跑一次全量编译即可

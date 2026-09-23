@@ -12,7 +12,7 @@
 | 看调度器在真机上长什么样（图） | 根目录 [`README.md`](../README.md) §调度表现（4.97 s trace 实测图，图存 `docs/img/`） |
 | 用串口控制台看状态、启停 App、改配置 | [内核Shell控制台使用说明.md](内核Shell控制台使用说明.md) |
 | 不想敲命令行，要图形界面 | `python tools/svcrt_host_gui.py`（连接 / 控制台 / 安装 / 布局配置四个页签） |
-| 让 AI 代理直接驱动这块板子 | [`../skills/svcrtos/SKILL.md`](../skills/svcrtos/SKILL.md) 与《SVCrtOS应用安装与调试指南.md》§11 |
+| 用脚本 / 自动化流程驱动这块板子 | [`../skills/svcrtos/SKILL.md`](../skills/svcrtos/SKILL.md) 与《SVCrtOS应用安装与调试指南.md》§11 |
 | 想在线把配置记录写进设备（不拆板、不用烧录器） | [配置区与安装策略.md](配置区与安装策略.md) §6.3（`tools/svcrt_cfg.py`）与 §6.5（真机验收结论） |
 | 想把板子上跑的过程录成 trace 并画成网页 | [`../skills/svcrtos/SKILL.md`](../skills/svcrtos/SKILL.md) §4.1（武装 / 采集 / 切段 / 渲染） |
 | 搞懂同步原语怎么写、令牌为什么不会丢、`syncinfo` 怎么读 | [同步原语与令牌守恒.md](同步原语与令牌守恒.md)（三条契约 + 返回值/唤醒原因 + 排障口径） |

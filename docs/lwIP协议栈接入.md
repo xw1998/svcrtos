@@ -5,8 +5,10 @@
 内核里编进了 lwIP 2.1.3（`kernelsrc/components/lwip`），由 `SVCRT_USE_LWIP` 门控；
 现在起了一张**回环**网卡（127.0.0.1/8），还没有真实以太网收发。
 
-**结论分档（务必看清）**：当前状态是「**仅编译通过**」——F427 内核工程 0 Error
-（Code=145222 B），F401 内核工程回归 0 Error。**尚未上板、尚未跑过 socket 语义自检**。
+**结论分档（务必看清）**：当前状态是「**上板验证过**」——F427 内核工程 0 Error，
+F401 内核工程回归 0 Error；F427 上装 `SOCKET_DEMO`（固定槽 0 覆盖安装）跑过 socket
+语义自检，`result : pass=36 fail=0`（逐项证据见
+[socket与select兼容层.md](socket与select兼容层.md) §7）。
 
 ## 1. 为什么是 lwIP，为什么先做回环
 
@@ -100,9 +102,9 @@ MPU 区域要求 2 的幂（`svcrt_partition.h` 的 `svcrt_mpu_window_check`）�
 |---|---|---|
 | F427 内核工程链接通过 | **仅编译通过** | `Code=170258 RO-data=10094 RW-data=676 ZI-data=95584`，0 Error / 1 Warning（`svcrt_context.S A1581W`，既有）；这是**含 socket 服务（SVC 0x1E）**的当前构建 |
 | `.sct` 随配置头重算 | 已验证 | `build/kernel.sct` 生成 `LR_KERNEL 0x08000000 0x00040000` |
-| F401 内核工程回归 | **仅编译通过** | `Code=99354`，0 Error / 1 Warning。F401 配置里 `SVCRT_USE_LWIP` 未开，`svcrt_net.c` 走 stub 分支 |
+| F401 内核工程回归 | 仅编译通过 | `Code=100102`，0 Error / 1 Warning。F401 配置里 `SVCRT_USE_LWIP` 未开，`svcrt_net.c` 走 stub 分支 |
 | 路由门禁 | 已验证 | `tools/ci_gate.py` 7/7 |
-| 上板、socket 语义自检 | **未验证** | 需要烧录（会擦写设备 Flash），且会作废板上现有镜像 |
+| 上板、socket 语义自检 | **上板验证过** | F427 + `SOCKET_DEMO`（固定槽 0 覆盖安装）：`[LWIP:45] tcpip up, loopif 127.0.0.1` → `[NET:1028] socket service up (SVC 0x1E)` → App 自检，`result : pass=36 fail=0`；逐项见 [socket与select兼容层.md](socket与select兼容层.md) §7 |
 | 真实以太网收发 | **未验证** | 这块板没有可用的 PHY 证据 |
 
 ## 8. 容量与限制（记住这几条，接 App 面时会撞上）

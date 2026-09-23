@@ -21,6 +21,13 @@
 
 #include "svcrt_posix_types.h"
 
+/* Thread-specific data (pthread_key_*) and pthread_once.  Kept behind a
+ * switch because a program that never uses them should not pay for the
+ * static pointer table svcrt_posix.c keeps for them. */
+#ifndef SVCRT_POSIX_PTHREAD_KEY
+#define SVCRT_POSIX_PTHREAD_KEY  1
+#endif
+
 typedef uint32 svcrt_pthread_t;
 #define SVCRT_PTHREAD_NULL  ((svcrt_pthread_t)0)
 
@@ -115,5 +122,40 @@ extern volatile int32 svcrt_posix_pth_dbg_boot;    /* claimed via boot_slot   */
 extern volatile int32 svcrt_posix_pth_dbg_lost;    /* gave up: no slot to be  */
 extern volatile int32 svcrt_posix_pth_dbg_post;    /* trampoline posted done  */
 extern volatile int32 svcrt_posix_pth_dbg_exit;    /* pthread_exit() posted   */
+
+
+#if (SVCRT_POSIX_PTHREAD_KEY == 1)
+
+/* ---- thread-specific data (TLS) -----------------------------------------
+ * pthread_key_* maps onto a static per-App table, keyed by the thread slot
+ * this layer hands out (pthread_self() returns slot + 1; 0 is the App main
+ * task).  No kernel object is involved, so no new SVC either.
+ */
+typedef uint32 svcrt_pthread_key_t;
+typedef svcrt_pthread_key_t pthread_key_t;
+#define SVCRT_POSIX_KEY_MAX   (8u)
+
+int  svcrt_posix_key_create(pthread_key_t *key, void (*destructor)(void *));
+int  svcrt_posix_key_delete(pthread_key_t key);
+int  svcrt_posix_setspecific(pthread_key_t key, const void *value);
+void *svcrt_posix_getspecific(pthread_key_t key);
+
+#define pthread_key_create(k, d)   svcrt_posix_key_create((k), (d))
+#define pthread_key_delete(k)      svcrt_posix_key_delete(k)
+#define pthread_setspecific(k, v)  svcrt_posix_setspecific((k), (v))
+#define pthread_getspecific(k)     svcrt_posix_getspecific(k)
+
+/* pthread_once: runs init_routine exactly once, on the first caller.  The
+ * body runs with the scheduler lock held, so on a single core a second
+ * caller cannot observe "started but not finished".  init_routine must not
+ * block (it may neither sleep nor wait on a kernel object). */
+typedef uint32 svcrt_pthread_once_t;
+typedef svcrt_pthread_once_t pthread_once_t;
+#define PTHREAD_ONCE_INIT  0u
+
+int  svcrt_posix_once(pthread_once_t *once_control, void (*init_routine)(void));
+#define pthread_once(o, f)  svcrt_posix_once((o), (f))
+
+#endif /* SVCRT_POSIX_PTHREAD_KEY */
 
 #endif /* __SVCRT_PTHREAD_H__ */

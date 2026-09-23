@@ -203,13 +203,12 @@ typedef struct {
                                    「落点 + payload_offset - 本字段」算 ROM 增量 */
     uint32 crc32;               /* 镜像校验值（计算时本字段按 0） */
 
-    uint8  signature[64];       /* 预留：数字签名——**当前全 0，没有任何验签**。
-                                 * 内核不读这 64 字节（安装路径只校验 hw_compat、
-                                 * 长度、重定位表与 CRC32），主机侧 tools/pack_app.py
-                                 * 也是写死 64 个 0。它在这里的作用只是把偏移钉住，
-                                 * 免得以后加验签时改动整个头的布局。
-                                 * 因此：本字段不提供任何防篡改能力，别把它当成
-                                 * 「已签名」的证据。 */
+    uint8  signature[64];       /* 数字签名：HMAC-SHA256 的输出放在前 32 字节，后 32 字节为 0。
+                                 * 校验与否由 SVCRT_USE_IMAGE_SIGN 决定（默认关）。
+                                 * 开关关时打包侧仍写 64 个 0、内核不读本字段；开关开时打包侧
+                                 * 用预共享密钥计算（tools/pack_app.py --sign-key），内核在安装
+                                 * 路径重算并比对，不一致就拒绝安装。
+                                 * 这是**对称**方案（不是完整信任链），详见 svcrt_sign.h。 */
     uint32 flags;               /* SVCRT_APP_FLAG_x；0 表示不自启（旧镜像即为此值） */
     uint32 state;               /* SVCRT_APP_STATE_x（计算 CRC 时按 0） */
     uint32 image_id;            /* 负载身份 = 负载的 crc32；用于重复副本判定 */
@@ -253,6 +252,8 @@ typedef struct {
  *         而「类型不是已知镜像」会被 check_header 拒收、上电扫描丢弃。
  *         magic 故意留着，好让回收沿用「本区间有带头内容」的判断。 */
 #define SVCRT_APP_OFF_TYPE        (4u)
+/** @brief signature 字段在头内的偏移（64 字节，见 svcrt_sign.h） */
+#define SVCRT_APP_OFF_SIGN        (32u)
 
 /**
 * @brief 镜像头尺寸静态校验
@@ -275,6 +276,10 @@ typedef char svcrt_app_off_state_check[
     (((uint32)&(((svcrt_app_header_t *)0)->state)) == SVCRT_APP_OFF_STATE) ? 1 : -1];
 typedef char svcrt_app_off_type_check[
     (((uint32)&(((svcrt_app_header_t *)0)->type)) == SVCRT_APP_OFF_TYPE) ? 1 : -1];
+
+/** @brief signature 字段的偏移断言（签名子系统按它取 64 字节） */
+typedef char svcrt_app_off_sign_check[
+    (((uint32)&(((svcrt_app_header_t *)0)->signature)) == SVCRT_APP_OFF_SIGN) ? 1 : -1];
 typedef char svcrt_app_off_runtime_ram_base_check[
     (((uint32)&(((svcrt_app_header_t *)0)->runtime_ram_base)) == SVCRT_APP_OFF_RUNTIME_RAM_BASE) ? 1 : -1];
 

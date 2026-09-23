@@ -33,6 +33,7 @@
 #include "svcrt_layout_def.h"   /* strategy constants (reclaim mode) */
 #include "svcrt_layout.h"       /* effective mode + fixed slot table */
 #include "svcrt_app_image.h"
+#include "svcrt_sign.h"
 #include "svcrt_hal.h"
 #include "svcrt_config.h"
 #include "svcrt_dev.h"
@@ -436,6 +437,27 @@ static uint32 svcrt_loader_image_crc(const uint8 *image, const svcrt_app_header_
  * 扇区，此时 find_clean 找到的候选落点必然被 svcrt_ptable_alloc 判为重叠，
  * 上层只能报出误导性的 NO_SLOT。这里返回冲突记录之后的地址（0 = 不冲突），
  * 让调用方能跳过这段区间继续找。 */
+#if (SVCRT_USE_IMAGE_SIGN == 1)
+
+/* Signature gate.  Called right after the CRC check at every install entry,
+ * before the commit write, so a bad signature can never reach state=VALID.
+ * Returns 0 or SVCRT_LOADER_ERR_SIGN. */
+static int32 svcrt_loader_sign_gate(const uint8 *image, const svcrt_app_header_t *p_hdr)
+{
+    if(svcrt_sign_verify(image, p_hdr) != 0)
+    {
+        SVCRT_LOGE("LOADER", "signature mismatch: image rejected");
+        return SVCRT_LOADER_ERR_SIGN;
+    }
+    return 0;
+}
+
+#else
+
+#define svcrt_loader_sign_gate(image, p_hdr)   (0)
+
+#endif /* SVCRT_USE_IMAGE_SIGN */
+
 static uint32 svcrt_loader_slot_conflict_end(uint32 base, uint32 size)
 {
     svcrt_partition_table_t *pt = svcrt_ptable_get();
@@ -1393,6 +1415,16 @@ int32 svcrt_loader_load_dev_hdr(int32 dev, const svcrt_app_header_t *p_hdr, uint
         }
     }
 
+    {
+        int32 sign_rc = svcrt_loader_sign_gate((const uint8 *)base, &hdr);
+
+        if(sign_rc != 0)
+        {
+            svcrt_ptable_free((uint32)slot);
+            return sign_rc;
+        }
+    }
+
     /* 提交点：单字写入。写下去之前掉电算「没装成」，写下去之后就算装成了；
      * 1 -> 0 是把已置位擦回 0，方向合法（Flash 只能把 1 写成 0）。 */
     hdr.state = SVCRT_APP_STATE_VALID;
@@ -1502,6 +1534,15 @@ int32 svcrt_loader_load_buffer(const uint8 *image, uint32 image_len)
     if(svcrt_loader_image_crc(image, p_src) != p_src->crc32)
     {
         return SVCRT_LOADER_ERR_CRC;
+    }
+
+    {
+        int32 sign_rc = svcrt_loader_sign_gate(image, p_src);
+
+        if(sign_rc != 0)
+        {
+            return sign_rc;
+        }
     }
 
     pt = svcrt_ptable_get();

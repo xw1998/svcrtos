@@ -68,6 +68,8 @@ SVCrtOS 镜像打包工具（App / 驱动，动态装载路径）
 from __future__ import print_function
 
 import argparse
+import hashlib
+import hmac
 import io
 import json
 import os
@@ -118,6 +120,9 @@ RUNTIME_RAM_OFFSET = 252        # runtime_ram_base：安装时由内核写，打
 
 CRC32_OFFSET = 28               # 计算 CRC 时本字段按 0
 STATE_CRC_OFFSET = 100          # 计算 CRC 时本字段按 0
+RUNTIME_OFFSET = 252            # 计算 CRC/签名时本字段按 0（安装时由内核写）
+SIGN_SIZE = 64                  # signature 字段总长（字节）
+SIGN_KEY_LEN = 32               # HMAC-SHA256 的密钥/输出长度（字节）
 
 RELOC_SIZE = 4
 RELOC_KIND_ROM = 0
@@ -541,8 +546,43 @@ def calc_crc(header, reloc_table, payload):
     return crc & 0xFFFFFFFF
 
 
+def calc_sign(header, reloc_table, payload, key):
+    """与内核 svcrt_sign_image 等价：头（crc32 / signature / state /
+    runtime_ram_base 四个区域按 0）+ 重定位表 + 负载，HMAC-SHA256。
+    签名不能覆盖自身，也必须跳过安装后才定的字段，否则搬移/重装会让它失效。"""
+    z = bytearray(header)
+    z[CRC32_OFFSET:CRC32_OFFSET + 4] = b"\x00" * 4
+    z[SIG_OFFSET:SIG_OFFSET + SIGN_SIZE] = b"\x00" * SIGN_SIZE
+    z[STATE_CRC_OFFSET:STATE_CRC_OFFSET + 4] = b"\x00" * 4
+    z[RUNTIME_OFFSET:RUNTIME_OFFSET + 4] = b"\x00" * 4
+    mac = hmac.new(key, bytes(z) + reloc_table + payload, hashlib.sha256).digest()
+    return mac[:SIGN_KEY_LEN]
+
+def load_sign_key(text):
+    """--sign-key：SIGN_KEY_LEN*2 个 hex 字符，或一个含 hex / 原始 SIGN_KEY_LEN
+    字节的文件。任何含糊的输入都直接报错，不猜。"""
+    if text is None:
+        return None
+    s = text.strip()
+    if len(s) == SIGN_KEY_LEN * 2 and all(c in "0123456789abcdefABCDEF" for c in s):
+        return bytes.fromhex(s)
+    if os.path.isfile(s):
+        with open(s, "rb") as f:
+            raw = f.read()
+        if len(raw) == SIGN_KEY_LEN:
+            return raw
+        try:
+            txt = raw.decode("ascii").strip()
+            if len(txt) == SIGN_KEY_LEN * 2 and all(c in "0123456789abcdefABCDEF" for c in txt):
+                return bytes.fromhex(txt)
+        except Exception:  # noqa: BLE001
+            pass
+    raise PackError("签名密钥既不是 %d 个 hex 字符，也不是 %d 字节的文件：%s"
+                    % (SIGN_KEY_LEN * 2, SIGN_KEY_LEN, text))
+
 def assemble(img_type, hw_compat, version, payload, entry_offset, nominal_base,
-             nominal_ram_base, ram_size, entries, flags, manifest=None):
+             nominal_ram_base, ram_size, entries, flags, manifest=None,
+             sign_key=None):
     """组装最终镜像（头 + 重定位表 + 负载）"""
     reloc_count = len(entries)
     if reloc_count > 1024:
@@ -561,6 +601,10 @@ def assemble(img_type, hw_compat, version, payload, entry_offset, nominal_base,
                           nominal_ram_base, manifest=manifest)
     crc = calc_crc(header, reloc_table, payload)
     header = header[:CRC32_OFFSET] + struct.pack("<I", crc) + header[CRC32_OFFSET + 4:]
+    if sign_key is not None:
+        mac = calc_sign(header, reloc_table, payload, sign_key)
+        header = (header[:SIG_OFFSET] + mac + b"\x00" * (SIGN_SIZE - SIGN_KEY_LEN)
+                  + header[SIG_OFFSET + SIGN_SIZE:])
     return header + reloc_table + payload, crc, image_id
 
 
@@ -792,6 +836,7 @@ def restore_dev_scatter(proj_ctx):
 
 
 def do_pack(args):
+    sign_key = load_sign_key(args.sign_key)
     layout = load_layout(args.header)
     v = layout.v
     img_type = {"app": TYPE_APP, "driver": TYPE_DRIVER, "miniapp": TYPE_MINIAPP}[args.type]
@@ -911,7 +956,8 @@ def do_pack(args):
     image, crc, image_id = assemble(img_type, args.hw_compat or v("SVCRT_HW_COMPAT_ID"),
                                     version, img_a, entry_offset,
                                     payload_link_base, nominal_ram_base, ram_size,
-                                    entries, flags, manifest)
+                                    entries, flags, manifest,
+                                    sign_key=sign_key)
 
     # ---- 小程序：RAM 池里要同时借出「代码块 + RAM 块」，两块都是 pow2 ----
     # 内核侧 svcrt_ptable_mini_alloc() 的上限口径：两块各自落在
@@ -1162,6 +1208,10 @@ def main():
 
     out = ap.add_argument_group("输出与元数据")
     out.add_argument("--out", help="输出 .svcapp 路径")
+    out.add_argument("--sign-key",
+                     help="镜像签名密钥：%d 个 hex 字符，或含 hex/原始 %d 字节的文件；"
+                          "给出后按 HMAC-SHA256 写入 signature（内核需开 SVCRT_USE_IMAGE_SIGN）"
+                          % (SIGN_KEY_LEN * 2, SIGN_KEY_LEN))
     out.add_argument("--type", choices=["app", "driver", "miniapp"], default="app",
                      help="镜像类型（miniapp = 常驻文件系统、装载进内存执行的小程序）")
     out.add_argument("--name", help="镜像名（写进清单，并作为默认输出文件名）")

@@ -26,6 +26,7 @@
 #include "svcrt_dev.h"
 #include "svcrt_task.h"
 #include "svcrt_cfg.h"
+#include "svcrt_layout.h"   /* fixed-slot mode + slot table */
 #include "svcrt_fault.h"
 #include "svcrt_ptable.h"
 #include "svcrt_share.h"
@@ -40,6 +41,16 @@
 
 /* run_once 每轮让出 CPU 的步长（ms）：一次 pump 空转即约等于这个粒度 */
 #define SVCRT_INSTALLER_POLL_MS      (5u)
+
+/* The relocation table is sent with the header, but the host pauses between
+ * the two writes (its own header-settle delay, tens of ms). So the drain must
+ * *wait* for the table rather than stop at the first gap: give each byte this
+ * long, and give up on the table after this long with nothing arriving. */
+#define SVCRT_INSTALLER_DRAIN_BYTE_MS  (300u)
+
+/* Trailing flush after the table: absorb any slack already on the wire, then
+ * stop, so a command typed right after a failed install is not swallowed. */
+#define SVCRT_INSTALLER_DRAIN_QUIET_MS (5u)
 
 /* 安装任务的静态栈（内核任务，取自内核 RAM；与 App 无关） */
 static uint32 svcrt_installer_stack[INSTALLER_TASK_STACK_SIZE / 4u];
@@ -111,6 +122,60 @@ static int32 svcrt_installer_pump(int32 dev)
 *          安装路径与开机扫描路径用同一套判据，避免同一个镜像「烧录自启、
 *          安装不自启」这种不一致。
 */
+/* Discard the tail of a frame that was already on the wire when the load
+ * failed. The protocol sends the 256 B header and the relocation table back
+ * to back, so a failure decided while reading the header (compat id, size,
+ * reserve, flash) leaves that table sitting in the receive FIFO, where the
+ * shell then reads it as a command and prints "Command not found". Drain
+ * only what belongs to this frame and stop once the line goes quiet.
+ * Only the serial path needs it: the file path (image_len != 0) feeds the
+ * loader from a stream we already own. */
+static void svcrt_installer_drain(int32 dev)
+{
+    uint32 rt     = (svcrt_installer_hdr.reloc_count > SVCRT_APP_RELOC_MAX)
+                  ? (SVCRT_APP_RELOC_MAX * SVCRT_APP_RELOC_SIZE)
+                  : (svcrt_installer_hdr.reloc_count * SVCRT_APP_RELOC_SIZE);
+    uint32 got    = 0u;
+    uint32 waited = 0u;
+    uint32 quiet  = 0u;
+    uint8  b;
+
+    /* Phase 1: the relocation table belongs to this frame and is already on
+     * its way. Wait for the whole of it - the host's header->table pause is
+     * longer than a quiet-gap heuristic can see. */
+    while((got < rt) && (waited < SVCRT_INSTALLER_DRAIN_BYTE_MS))
+    {
+        if(svcrt_dev_read_internal(dev, &b, 1) == 1)
+        {
+            got++;
+            waited = 0u;
+            continue;
+        }
+        svcrt_task_wait_internal(1u);
+        waited++;
+    }
+
+    /* Phase 2: whatever else of this frame has landed meanwhile. */
+    while(quiet < SVCRT_INSTALLER_DRAIN_QUIET_MS)
+    {
+        if(svcrt_dev_read_internal(dev, &b, 1) == 1)
+        {
+            got++;
+            quiet = 0u;
+            continue;
+        }
+        svcrt_task_wait_internal(1u);
+        quiet++;
+    }
+
+    if(got != 0u)
+    {
+        SVCRT_LOGI("INSTALL",
+                   "drained %u B of the rejected frame (table %u B)",
+                   (unsigned)got, (unsigned)rt);
+    }
+}
+
 static int32 svcrt_installer_load(int32 dev, uint32 image_len)
 {
     uint32 autostart = ((svcrt_installer_hdr.flags & SVCRT_APP_FLAG_AUTOSTART) != 0u) ? 1u : 0u;
@@ -207,6 +272,13 @@ static int32 svcrt_installer_load(int32 dev, uint32 image_len)
             (void)svcrt_dev_write_internal(dev, &nak, 1u);
         }
 
+        /* The table the host already sent is still in the receive FIFO;
+         * drop it before the shell resumes, or it reads as a command. */
+        if(image_len == 0u)
+        {
+            svcrt_installer_drain(dev);
+        }
+
         svcrt_fault_record(SVCRT_FAULT_INSTALLFAIL, svcrt_current_task_id);
     }
     else
@@ -271,6 +343,33 @@ int32 svcrt_installer_run_once(int32 dev, uint32 timeout_ms)
     if(dev < 0)
     {
         return SVCRT_LOADER_ERR_PARAM;
+    }
+
+    /* FIXED mode: the landing area comes from the configuration, so the slot
+     * may still hold the previous image. Clear it here - before the host is
+     * told to send - because an erase mid-frame stalls the CPU for about a
+     * second, the RX interrupt cannot run, and the relocation table the host
+     * already put on the wire is lost to a hardware overrun (the symptom is
+     * err -4 with the table never written). The loader's own blank check then
+     * skips its erase. The shell's `install <slot>` does exactly this; the
+     * resident task needs the slot named up front, so refuse rather than
+     * erase in the middle of a frame. */
+    if(svcrt_ptable_get()->layout_mode == (uint32)SVCRT_LAYOUT_MODE_FIXED)
+    {
+        int32 hint = svcrt_loader_slot_hint_get();
+
+        if(hint < 0)
+        {
+            SVCRT_LOGE("INSTALL",
+                       "fixed-slot mode needs a slot: call "
+                       "svcrt_loader_slot_hint_set() before opening the window");
+            return SVCRT_LOADER_ERR_PARAM;
+        }
+        if(svcrt_loader_clear_fixed_slot(hint) != 0)
+        {
+            SVCRT_LOGE("INSTALL", "cannot clear fixed slot %d", (int)hint);
+            return SVCRT_LOADER_ERR_FLASH;
+        }
     }
 
     /* 每次窗口从干净的同步状态开始，避免上一次窗口残留的半截头污染本帧 */

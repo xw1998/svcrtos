@@ -377,6 +377,15 @@ static uint32 svcrt_pth_next_id = 1u;
  * 可能已经被调度到；没有这个握手，它就只能靠"扫不到自己"来退出。 */
 static volatile int32 svcrt_pth_boot_slot = -1;
 
+/* Destructor-hook, called when a thread leaves.  Defined with the TSD code
+ * further down; declared here because the trampoline and pthread_exit run
+ * long before it.  When the feature is off it collapses to nothing. */
+#if (SVCRT_POSIX_PTHREAD_KEY == 1)
+static void svcrt_pth_run_dtors(uint32 tslot);
+#else
+#define svcrt_pth_run_dtors(tslot)   ((void)0)
+#endif
+
 static void svcrt_pth_init(void)
 {
     uint32 i;
@@ -491,6 +500,7 @@ static void svcrt_pth_trampoline(void)
 
         slot->retval = retval;
         svcrt_posix_pth_dbg_post++;
+        svcrt_pth_run_dtors(idx + 1u);
         /* Order matters: publish the result, wake the joiner, and only then
          * drop the task id so a recycled id cannot be matched to this slot. */
         (void)svcrt_sem_post(slot->done);
@@ -677,6 +687,7 @@ void svcrt_posix_pthread_exit(void *retval)
         {
             svcrt_pth_slots[i].retval = retval;
             svcrt_posix_pth_dbg_exit++;
+            svcrt_pth_run_dtors((uint32)(i + 1u));
             (void)svcrt_sem_post(svcrt_pth_slots[i].done);
             svcrt_pth_slots[i].task_id = -1;
             break;
@@ -700,6 +711,157 @@ svcrt_pthread_t svcrt_posix_pthread_self(void)
     /* 0 means "not a thread this layer created" - the App main task. */
     return SVCRT_PTHREAD_NULL;
 }
+
+
+#if (SVCRT_POSIX_PTHREAD_KEY == 1)
+
+/* ---- thread-specific data (TLS) -----------------------------------------
+ * A TSD slot is a row in a static table, indexed by the thread slot this
+ * layer hands out: pthread_self() returns slot + 1, and 0 means "the App
+ * main task".  There is no kernel object behind a key, so pthread_key_*
+ * needs no SVC - the whole feature is App-side, which is exactly its scope.
+ */
+typedef struct
+{
+    uint32 in_use;
+    void (*destructor)(void *);
+} svcrt_pth_key_t;
+
+static svcrt_pth_key_t svcrt_pth_keys[SVCRT_POSIX_KEY_MAX];
+static void *svcrt_pth_tsd[SVCRT_POSIX_KEY_MAX][(uint32)SVCRT_POSIX_THREAD_MAX + 1u];
+
+/* POSIX lets a destructor install a fresh value, which must then be
+ * destructed as well, and caps the loop.  Four rounds is the smallest the
+ * standard permits; a value set after the last round is dropped, also as
+ * the standard says. */
+#define SVCRT_POSIX_DTOR_ROUNDS  (4u)
+
+static void svcrt_pth_run_dtors(uint32 tslot)
+{
+    uint32 round;
+    uint32 k;
+
+    if(tslot > (uint32)SVCRT_POSIX_THREAD_MAX)
+    {
+        return;
+    }
+    for(round = 0u; round < SVCRT_POSIX_DTOR_ROUNDS; round++)
+    {
+        uint32 ran = 0u;
+
+        for(k = 0u; k < (uint32)SVCRT_POSIX_KEY_MAX; k++)
+        {
+            void *v = svcrt_pth_tsd[k][tslot];
+
+            if((svcrt_pth_keys[k].in_use != 0u) &&
+               (svcrt_pth_keys[k].destructor != 0) && (v != 0))
+            {
+                svcrt_pth_tsd[k][tslot] = 0;
+                svcrt_pth_keys[k].destructor(v);
+                ran = 1u;
+            }
+        }
+        if(ran == 0u)
+        {
+            break;
+        }
+    }
+}
+
+int svcrt_posix_key_create(pthread_key_t *key, void (*destructor)(void *))
+{
+    uint32 k;
+
+    if(key == 0)
+    {
+        errno = EINVAL;
+        return -1;
+    }
+    for(k = 0u; k < (uint32)SVCRT_POSIX_KEY_MAX; k++)
+    {
+        if(svcrt_pth_keys[k].in_use == 0u)
+        {
+            svcrt_pth_keys[k].in_use     = 1u;
+            svcrt_pth_keys[k].destructor = destructor;
+            /* Key 0 is never handed out: it doubles as "no key". */
+            *key = (pthread_key_t)(k + 1u);
+            return 0;
+        }
+    }
+    errno = EAGAIN;
+    return -1;
+}
+
+int svcrt_posix_key_delete(pthread_key_t key)
+{
+    uint32 t;
+
+    if((key == 0u) || (key > (pthread_key_t)SVCRT_POSIX_KEY_MAX) ||
+       (svcrt_pth_keys[key - 1u].in_use == 0u))
+    {
+        errno = EINVAL;
+        return -1;
+    }
+    for(t = 0u; t <= (uint32)SVCRT_POSIX_THREAD_MAX; t++)
+    {
+        svcrt_pth_tsd[key - 1u][t] = 0;
+    }
+    svcrt_pth_keys[key - 1u].in_use     = 0u;
+    svcrt_pth_keys[key - 1u].destructor = 0;
+    return 0;
+}
+
+int svcrt_posix_setspecific(pthread_key_t key, const void *value)
+{
+    uint32 tslot;
+
+    if((key == 0u) || (key > (pthread_key_t)SVCRT_POSIX_KEY_MAX) ||
+       (svcrt_pth_keys[key - 1u].in_use == 0u))
+    {
+        errno = EINVAL;
+        return -1;
+    }
+    tslot = (uint32)svcrt_posix_pthread_self();
+    svcrt_pth_tsd[key - 1u][tslot] = (void *)value;
+    return 0;
+}
+
+void *svcrt_posix_getspecific(pthread_key_t key)
+{
+    uint32 tslot;
+
+    if((key == 0u) || (key > (pthread_key_t)SVCRT_POSIX_KEY_MAX) ||
+       (svcrt_pth_keys[key - 1u].in_use == 0u))
+    {
+        errno = EINVAL;
+        return 0;
+    }
+    tslot = (uint32)svcrt_posix_pthread_self();
+    return svcrt_pth_tsd[key - 1u][tslot];
+}
+
+int svcrt_posix_once(pthread_once_t *once_control, void (*init_routine)(void))
+{
+    if((once_control == 0) || (init_routine == 0))
+    {
+        errno = EINVAL;
+        return -1;
+    }
+    /* The whole once-body runs under the scheduler lock: on a single core
+     * that makes "only one thread runs it, and any other caller sees the
+     * finished result" true without a second kernel object.  The price is
+     * that init_routine must not block. */
+    svcrt_sched_lock();
+    if(*once_control == 0u)
+    {
+        *once_control = 1u;
+        init_routine();
+    }
+    svcrt_sched_unlock();
+    return 0;
+}
+
+#endif /* SVCRT_POSIX_PTHREAD_KEY */
 
 /* ---- mutex ------------------------------------------------------------ */
 
@@ -1259,6 +1421,7 @@ static int svcrt_posix_fd_alloc(uint8 kind, int32 handle, uint8 is_dir,
 int svcrt_posix_open(const char *name, int flags, ...)
 {
     int fd;
+    svcrt_posix_fd_t *e;
 
     if(name == 0)
     {
@@ -1282,7 +1445,11 @@ int svcrt_posix_open(const char *name, int flags, ...)
             mode = 0u;
         }
 
-        h = svcrt_path_open(name, (uint32)flags);
+        /* O_NONBLOCK is this layer's own status flag, not a kernel path
+         * flag: strip it before forwarding, and remember it the same way
+         * fcntl(F_SETFL) does, so F_GETFL round-trips. It has no effect
+         * on regular-file I/O (POSIX), which is all a path can be here. */
+        h = svcrt_path_open(name, (uint32)(flags & ~O_NONBLOCK));
         if(h < 0)
         {
             errno = svcrt_posix_errno_from_vfs(h);
@@ -1295,6 +1462,11 @@ int svcrt_posix_open(const char *name, int flags, ...)
         {
             (void)svcrt_path_close(h);      /* do not leak the kernel handle */
             return -1;                      /* errno already set */
+        }
+        e = svcrt_posix_fd_slot(fd);
+        if(e != 0)
+        {
+            e->nonblock = ((flags & O_NONBLOCK) != 0) ? 1u : 0u;
         }
         return fd;
     }
@@ -1331,6 +1503,11 @@ int svcrt_posix_open(const char *name, int flags, ...)
         {
             (void)svcrt_dev_close(h);
             return -1;
+        }
+        e = svcrt_posix_fd_slot(fd);
+        if(e != 0)
+        {
+            e->nonblock = ((flags & O_NONBLOCK) != 0) ? 1u : 0u;
         }
         return fd;
     }
@@ -1556,13 +1733,16 @@ int svcrt_posix_fstat(int fd, struct stat *st)
         errno = EBADF;
         return -1;
     }
+    /* The slot must be resolved before the socket test below reads
+     * e->kind: using e first was reading whatever the stack held, and the
+     * compiler warns about it. */
+    e = svcrt_posix_fd_slot(fd);
     if((e != 0) && (e->kind == SVCRT_POSIX_FD_SOCK))
     {
         /* No size and no offset, and neither the file service nor the
          * device API is the right place to ask about a socket. */
         return svcrt_posix_stat_fill(st, S_IFSOCK, 0u);
     }
-    e = svcrt_posix_fd_slot(fd);
     if((e == 0) || (e->kind == SVCRT_POSIX_FD_DEV))
     {
         /* A device: character type, no size. */

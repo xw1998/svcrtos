@@ -488,7 +488,7 @@ for (int32 i = 0; i < cnt; i++) {
 | `tools/pack_app.py` | 打包 `.svcapp`；`--info` 看镜像头、`--verify` 校验 |
 | `tools/send_image.py` | 串口安装镜像（等价于 GUI 的「安装」页签） |
 | `tools/gen_api_doc.py` | 生成 API 文档（见 `docs/README.md`） |
-| `skills/svcrtos/SKILL.md` | 给 AI 代理的调用入口（见 §11） |
+| `skills/svcrtos/SKILL.md` | 工程操作手册（编译/烧录/安装/调试的命令闭包，见 §11） |
 
 ```bash
 python tools/gen_scatter.py --dump
@@ -501,26 +501,32 @@ python tools/gen_scatter.py --target all --output build
 1. ~~console 行级互斥~~——**已完成**（提交 `01b9728`）：console 加行级锁，`app_puts`
    改为整串一次 SVC，并新增 `lock_giveup` / `tx_drop` 计数（`log` 命令可见）。
    真机长跑（数百 KB 输出）`tx_drop = 0`。
-2. **镜像签名校验**——`signature[64]` 是占位字段，还没有信任链。
-3. **崩溃计数持久化**——挡住"崩溃导致整机复位"的启动环（建议 RTC 备份寄存器）。
+2. ~~镜像签名校验~~——**已实现，默认关**：`SVCRT_USE_IMAGE_SIGN=1` 时安装路径按
+   HMAC-SHA256 重算 `signature[64]` 并与镜像头比对，不一致直接拒装；打包侧用
+   `tools/pack_app.py --sign-key`。这是**对称**方案（能读到设备里那把密钥的人就能签），
+   不是「设备只持公钥」的完整信任链——那一条仍未做，见 `kernelsrc/include/svcrt_sign.h`。
+3. ~~崩溃计数持久化~~——**已实现**：跨复位计数落在共享 RAM 尾部的 UNINIT 日记里，
+   挡得住「崩溃 → 复位 → 再崩溃」的启动环（见 [崩溃恢复与镜像版本把关.md](崩溃恢复与镜像版本把关.md) §1）。
+   仍未做的是**掉电后**仍保留——UNINIT 掉电即清零，要那样得上 RTC 备份寄存器 / Flash。
 4. **槽位元数据持久化**——版本号、升级/回滚目前无法跨掉电保留。
 5. **A-B 回滚**——池已支持多槽位，但还没有升级/回滚策略。
-6. **镜像侧多槽位**——内核侧已完整支持（扫描、启动、停止、状态、故障计数、
-   按槽切栈、MPU 按槽隔离），但 `tools/pack_app.py` 的目标槽位仍按标称基址推导，
-   跨槽安装的镜像侧流程尚未打通。
+6. ~~镜像侧多槽位~~——**已打通**：重定位是线性增量（`落点 + payload_offset - nominal_base`），
+   镜像头里的 `nominal_base` 只是「打包时那一遍链接到哪」，内核不拿它当判据，
+   因此同一个镜像装进哪个槽都成立。真机证据见 §11.4：`install 2` 落 `0x080A0000`、
+   `install 0` 落 `0x08060000`，两处都 `RUNNING`。
 7. **SVC 边界零信任**——用户传入的指针已做"不得指向内核 RAM/Flash"的拒绝，
    但句柄仍是裸索引。
 
 ---
 
-## 11. 交给 AI 代理调试
+## 11. 脚本化与自动化调试
 
-这块板子上跑的是一套**可被 AI 直接驱动的工程**：源码、配置源头、上位机工具与调试
-通道都是确定性的，不需要人先做一遍再教给 AI。
+这套工程的操作面是**确定性的、可脚本化的**：源码、配置源头、上位机工具与调试通道
+都有稳定的输入输出，同一套动作既可以人工执行，也可以交给脚本自动执行。
 
 ### 11.1 项目内的 skill
 
-`skills/svcrtos/SKILL.md` 是给 AI 代理用的调用说明，包含四件事：
+`skills/svcrtos/SKILL.md` 是这套流程的操作手册，包含四件事：
 
 | 内容 | 作用 |
 |---|---|
@@ -529,15 +535,15 @@ python tools/gen_scatter.py --target all --output build
 | 串口闭环 | shell 命令表、安装协议、配置写入的三个握手约定 |
 | 调试通道 | 经 `mdk_agent_mcp`（[gitee](https://gitee.com/xw19981010/mdk_agent_mcp.git)）用 MCP 工具读写内存、变量、寄存器，替代手工下断点 |
 
-配套的图形界面 `tools/svcrt_host_gui.py` 适用于人工操作，AI 则用
+配套的图形界面 `tools/svcrt_host_gui.py` 适用于人工操作；自动化流程则用
 `tools/` 下的命令行脚本（同一套协议，输出可解析）。
 
-### 11.2 为什么 AI 能直接上手
+### 11.2 这套工程为什么适合自动化驱动
 
 - **一个地址源头**：改了 `CHIP_FLASH_SIZE`，分区、池、`.sct`、每个槽位全部自动重算，
-  AI 不需要在多个文件之间同步数字；
+  调用方不需要在多个文件之间同步数字；
 - **工具不猜原因**：设备拒绝配置记录时会在串口打印真实原因行，上位机原样转发
-  （见 §6.3 / §9），AI 拿到的是设备的话，不是工具的推测；
+  （见 §6.3 / §9），调用方拿到的是设备的话，不是工具的推测；
 - **状态可直读**：布局的权威副本在共享分区表，`layout_mode` 在 `0x20000000 + 52`
   （F427，u32 小端），可用调试器直接取，不必依赖任何命令的输出格式；
 - **失败方式的约定**：编译 0 Error / 1 Warning（继承的 `svcrt_context.S A1581W`）、
@@ -570,9 +576,9 @@ python tools/gen_scatter.py --target all --output build
 | 固定槽模式配置写入并重启读回 | 上板验证过 | `cfg show` 读到 `layout : fixed`，`pool` 列出 3 个固定槽（`0x08060000` / `0x08080000` / `0x080A0000`，各 128K） |
 | 按固定槽位安装的落点 | 上板验证过 | `install 2` → 设备回 `install: fixed slot 2 -> 0x080A0000`；`app` 显示新实例 `base 0x080A0000`、`ram 0x20014000`、`size 131072` |
 | 不兼容镜像被拒时当场返回 | 上板验证过 | 设备回 `[E][INSTALL:150] rejected: err -3` 后 **0.7 s** 主机即结束（修复前要等满 5 s 的 ACK 超时） |
-| 安装失败后设备回到干净的命令提示 | 未达成（已知副作用） | 见下 |
+| 安装失败后设备回到干净的命令提示 | 上板验证过 | 安装器返回前按 `reloc_count` 把本帧残下的重定位表排空（设备日志 `[I][INSTALL] drained N B of the rejected frame (table M B)`）。实测：把 `hw_compat_id` 改坏的镜像装进去，设备回 `rejected: err -3`，屏幕上只剩 `install: failed or timed out` 与干净提示行，不再有 `Command not found` |
 | App 侧 FPU（非特权 VFP + 切换现场） | 上板验证过 | `APP_DEMO` 自测新增 8c 段七项全过：`fpu.usr_vfp_math` / `fpu.s16_hold` / `fpu.thread_create` / `fpu.s16_ctx_main` / `fpu.s16_ctx_worker` / `fpu.float_vs_double`。判据是"写进 S16-S19 的值跨一次任务切换后读回仍等于期望值"，两个执行流用不同 seed 交错 20 轮互不污染。同一轮里 `shell.register ... FAIL (-2)` 是上面 §11.3 的已知占位问题，与 FPU 无关 |
-| 卸载与配置擦除后的还原流程 | 未验证 | 还原脚本把**配置槽序号**传给了 `app uninstall`，被 `slot_type` 校验挡下（见下） |
+| 卸载与配置擦除后的还原流程 | 部分验证 | 踩坑的那一步已修：GUI 把「配置槽序号」与「分区表槽号」拆成两个输入框并分别标注（见下），不再有拿错序号的可能；`app uninstall` + `cfg clear` 的完整还原流程**尚未重跑** |
 
 三点使用上的约定：
 
@@ -582,7 +588,7 @@ python tools/gen_scatter.py --target all --output build
   `id` 列、以及 `app uninstall <n>` / `app start <n>` 的参数，全部用的是后者。
   上例中镜像装在配置槽 2，分区表槽号却是 1：`pool` 的 `fixed slots` 段显示配置槽 2 为
   `RUNNING`，而 `app` 列表显示 `id 1`。**要确认落点看 `base`，不要拿两套序号互相对照。**
-- **帧在「头部」阶段就被拒时，控制台可能残留一行 `Command not found: ...`。**
+- **帧在「头部」阶段被拒时，残下的重定位表由安装器排空。**
   设备为了能校验重定位表，要求头和表**背靠背**发送；而兼容性判定只看了 256 B 头就
-  NAK 早退，此时那张表已在途中，落进 shell 就被当成命令。这是半双工窗口的固有结果，
-  不是安装失败的新原因，也不影响后续操作。
+  NAK 早退，此时那张表已在途中。安装器返回前会按 `reloc_count` 把它读完再交给 shell，
+  所以控制台不会再多出一行 `Command not found`。

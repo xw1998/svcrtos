@@ -375,6 +375,45 @@ static svcrt_DWORD win_worker(svcrt_LPVOID arg)
     return (svcrt_DWORD)0x1234u;
 }
 
+
+#if (SVCRT_POSIX_PTHREAD_KEY == 1)
+
+/* ---- thread-specific data (TLS) self test helpers --------------------- */
+
+static pthread_key_t g_tls_key;
+static pthread_once_t g_once_ctl = PTHREAD_ONCE_INIT;
+static volatile int32 g_tls_dtor_hits = 0;
+static volatile int32 g_tls_seen      = 0;
+static volatile int32 g_once_hits     = 0;
+
+static void tls_dtor(void *v)
+{
+    if(v == (void *)0x7A7Au)
+    {
+        g_tls_dtor_hits++;
+    }
+}
+
+static void *tls_worker(void *arg)
+{
+    (void)arg;
+    if(pthread_setspecific(g_tls_key, (void *)0x7A7Au) == 0)
+    {
+        if(pthread_getspecific(g_tls_key) == (void *)0x7A7Au)
+        {
+            g_tls_seen = 1;
+        }
+    }
+    return 0;
+}
+
+static void once_init(void)
+{
+    g_once_hits++;
+}
+
+#endif /* SVCRT_POSIX_PTHREAD_KEY */
+
 /* ---- condition variable self test helpers (section 10b) --------------- */
 
 /* 共享的"代际"计数：主线程持锁时把它 +1 再 signal，等待线程在自己的循环
@@ -896,6 +935,43 @@ void AppMain(void)
                    (int32)(ret != 0));
         }
     }
+
+#if (SVCRT_POSIX_PTHREAD_KEY == 1)
+
+    {
+        pthread_t th    = 0u;
+        int32     hits0 = g_tls_dtor_hits;
+
+        g_tls_seen = 0;
+        report("posix.key_create",
+               ((pthread_key_create(&g_tls_key, tls_dtor) == 0) &&
+                (g_tls_key != 0u)),
+               (int32)g_tls_key);
+        if(pthread_create(&th, 0, tls_worker, 0) == 0)
+        {
+            (void)pthread_join(th, 0);
+        }
+        report("posix.key_roundtrip", (g_tls_seen != 0), g_tls_seen);
+        /* The destructor runs when the thread leaves, which is before join
+         * returns, so the count must have moved by now. */
+        report("posix.key_dtor", ((g_tls_dtor_hits - hits0) == 1),
+               (int32)(g_tls_dtor_hits - hits0));
+        report("posix.key_delete", (pthread_key_delete(g_tls_key) == 0), 0);
+    }
+
+    {
+        int32 a;
+        int32 b;
+
+        g_once_hits = 0;
+        a = pthread_once(&g_once_ctl, once_init);
+        b = pthread_once(&g_once_ctl, once_init);
+        report("posix.once",
+               ((a == 0) && (b == 0) && (g_once_hits == 1)), g_once_hits);
+    }
+
+#endif /* SVCRT_POSIX_PTHREAD_KEY */
+
 
     {
         svcrt_pthread_mutex_t pm = PTHREAD_MUTEX_INITIALIZER;

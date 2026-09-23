@@ -345,8 +345,8 @@ svcrt_dev_write(h, &on, 1);            /* 点亮蓝灯 */
 |--------|--------|------|
 | `SVCRT_CPU_ARCH` | 由架构头派生（本板 `SVCRT_ARCH_CORTEX_M4`） | CPU 架构选择 |
 | `SVCRT_USE_FPU` | 由架构派生，本板 1 | 浮点单元使能 |
-| `SVCRT_USE_MPU` | 由架构派生，本板 0 | MPU 内存保护使能（**未接线**，见 `kernelsrc/src/svcrt_mpu.c` 的 @warning） |
-| `SVCRT_USE_PRIV` | 依赖 `SVCRT_USE_MPU`，本板 0 | 特权级分离使能 |
+| `SVCRT_USE_MPU` | 由架构派生，本板 1 | MPU 内存保护使能。Cortex-M4 上默认 = `SVCRT_ARCH_HAS_MPU`，全仓无显式关闭；机制与上板验证见 [docs/内存保护与App越权验证.md](docs/内存保护与App越权验证.md) |
+| `SVCRT_USE_PRIV` | 依赖 `SVCRT_USE_MPU`，本板 1 | 特权级分离使能。`SVCRT_USE_MPU == 1` 时自动为 1：App 任务非特权（CONTROL.nPRIV = 1），内核任务特权 |
 | `SVCRT_TASK_MAX_NUM` | 48 | 任务表总容量（静态 TCB 数组元素个数）。默认值已**移到 `config/svcrt_partition.h` 第九节**，与分区策略同源，见下文「任务容量分层」 |
 | `SVCRT_TASK_TABLE_RAM_MAX` | 8192 | TCB 数组的 RAM 预算上限（字节），**固定 8KB，不随容量派生**；守护断言直接比较 `sizeof(svcrt_task_table)`，超出则编译报错 |
 | `SVCRT_TICK_PERIOD_US` | 500 | 滴答周期（微秒） |
@@ -514,7 +514,7 @@ SVCrtOS 可移植到任何 ARM Cortex-M MCU，只需在 `board/` 目录下创建
 > 工具链：`tools/svcrt_layout.py` 生成配置记录、`tools/svcrt_cfg.py` 经串口在线写入配置区、
 > `tools/gen_scatter.py --target image --unit N` 生成各固件的分散加载文件、`tools/pack_app.py`
 > 打包 `.svcapp`。人操作走图形界面 `tools/svcrt_host_gui.py`（连接 / 控制台 / 安装 / 布局配置），
-> AI 代理走 `skills/svcrtos/SKILL.md`（见 docs 的《应用安装与调试指南》§11）。
+> 自动化流程走 `skills/svcrtos/SKILL.md`（见 docs 的《应用安装与调试指南》§11）。
 > 交给客户用 MDK 直接烧录调试的路径走**开发槽位表**（裸镜像，不参与回收）。
 > 完整语义见 [配置区与安装策略](docs/配置区与安装策略.md) 与
 > [应用安装与调试指南](docs/SVCrtOS应用安装与调试指南.md)。
@@ -556,9 +556,9 @@ SVCrtOS 采用统一的命名规范，参考 FreeRTOS / RT-Thread 风格：
 - `tools/gen_api_doc.py` 会先在系统临时目录生成一份 UTF-8 副本再跑 Doxygen，
   不改动仓库内任何源文件
 
-## AI 辅助调试（mdkdebug MCP）
+## 自动化调试通道（mdkdebug MCP）
 
-本工程的编译、烧录与上板调试通过外部 MCP 服务接入 AI 完成：
+本工程的编译、烧录与上板调试可经外部 MCP 服务自动完成：
 [mdk_agent_mcp](https://gitee.com/xw19981010/mdk_agent_mcp.git)。
 该服务把 Keil uVision 的 UVSOCK/TCP 通道封装成一组工具，调试过程不必人工操作
 Keil 界面，即可完成「编译 -> 烧录 -> 进入调试 -> 运行控制 -> 读回状态」的闭环。
@@ -642,7 +642,7 @@ STM32F427VGTx @96 MHz，DAPLink（SWD 两线，无 SWO）经 mdkdebug 的 SWD tr
 
 仍未上板验证或未闭环的项：
 
-- **MPU 隔离**（`SVCRT_USE_MPU` 默认关，`svcrt_mpu.c` 有 @warning）：分区与栈的地址已按槽派生，但保护尚未启用验证
+- **真实以太网收发**：板上无可用 PHY，网络路径跑的是回环网卡，未做真实链路收发验证（见 [docs/lwIP协议栈接入.md](docs/lwIP协议栈接入.md)）
 - **故障恢复的「连续重启 3 次禁用」**策略未做专项真机验证
 - **固定槽位模式下一次真实 `install <slot>` 的落点复验**（槽表已生效并被 `pool` 列出，但「装进去正好落在配置地址」这一环还没跑）
 - **调度器 `touch_tick` 的 32 位溢出边界**（约 24.8 天）未实测

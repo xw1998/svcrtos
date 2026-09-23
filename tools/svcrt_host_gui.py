@@ -589,7 +589,16 @@ class HostGui(object):
         self._status_shown = None
         self._progress = (0, 0)
         self._progress_shown = None
+        # Two different numbers, two different entry boxes.
+        #   var_slot_target : partition-table slot id - what the `app` /
+        #                     `drv` lists show in their `id` column, and
+        #                     what app/drv start/stop/uninstall take.
+        #   var_install_slot: config slot ordinal - the N in `install N`
+        #                     (fixed-slot mode only).
+        # They can disagree (config slot 2 -> partition id 1), so one
+        # spinner for both is how the wrong number gets sent.
         self.var_slot_target = tk.StringVar(value="0")
+        self.var_install_slot = tk.StringVar(value="0")
 
         root.title("%s — %s" % (APP_TITLE, PROJECT_ROOT))
         root.minsize(980, 660)
@@ -805,7 +814,9 @@ class HostGui(object):
 
         bar = ttk.Frame(quick)
         bar.grid(row=1, column=0, columnspan=8, sticky="w", padx=4, pady=(0, 6))
-        ttk.Label(bar, text="槽位").pack(side="left")
+        ttk.Label(bar, text="槽位 id").pack(side="left")
+        ttk.Label(bar, text="（取 app/drv 列表 id 列）",
+                  foreground="#666").pack(side="left", padx=(0, 4))
         ttk.Spinbox(bar, from_=0, to=15, width=4,
                     textvariable=self.var_slot_target).pack(side="left", padx=4)
         for text, fmt in (("启动", "app start %s"), ("停止", "app stop %s"),
@@ -898,8 +909,8 @@ class HostGui(object):
                         variable=self.var_fixed, value=True).grid(
             row=0, column=1, sticky="w", padx=10)
         ttk.Spinbox(opt, from_=0, to=15, width=4,
-                    textvariable=self.var_slot_target).grid(row=0, column=2, sticky="w")
-        ttk.Label(opt, text="（仅固定槽位模式有效；auto 模式下带槽位号会被拒）",
+                    textvariable=self.var_install_slot).grid(row=0, column=2, sticky="w")
+        ttk.Label(opt, text="（配置槽序号，仅固定槽位模式有效；auto 模式下带槽位号会被拒）",
                   foreground="#666").grid(row=0, column=3, sticky="w", padx=8)
 
         self.var_pre_reboot = tk.BooleanVar(value=True)
@@ -986,7 +997,7 @@ class HostGui(object):
 
         fixed = bool(self.var_fixed.get())
         try:
-            slot = int(self.var_slot_target.get())
+            slot = int(self.var_install_slot.get())
         except ValueError:
             slot = 0
         pre_reboot = self.var_pre_reboot.get()
@@ -1578,7 +1589,7 @@ HELP_TEXT = """SVCrtOS 上位机 —— 使用说明
     tools/pack_app.py --project ... --out APP.svcapp      打包镜像
 
 六、相关文档
-    docs/SVCrtOS应用安装与调试指南.md     （含第 11 节：交给 AI 代理调试）
+    docs/SVCrtOS应用安装与调试指南.md     （含第 11 节：脚本化与自动化调试）
     docs/配置区与安装策略.md              （配置区 ABI 与 CLI 细节）
     docs/内核Shell控制台使用说明.md        （shell 命令表）
 """

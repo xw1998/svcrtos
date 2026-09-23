@@ -194,6 +194,22 @@
  * 四、可靠性与运维
  * ============================================================ */
 
+
+/* 镜像数字签名（HMAC-SHA256）：安装时重算镜像的签名并与镜像头里的
+ * signature[64] 比对，不一致直接拒绝安装。开这个开关必须提供一把 32 字节
+ * 的预共享密钥 SVCRT_IMAGE_SIGN_KEY（32 个字节的初始化列表），否则编译期
+ * 就报错，而不是等到安装时才发现「没有密钥」。
+ * 这是一套**对称**方案：能读到设备里这把密钥的人就能签新镜像，所以它是
+ * 「防篡改 + 认来源」，不是完整信任链——设备只持公钥的非对称方案才是，
+ * 那不是这里实现的（详见 kernelsrc/include/svcrt_sign.h）。
+ * 默认关：需要密钥，不是每个用户都要。 */
+#ifndef SVCRT_USE_IMAGE_SIGN
+#define SVCRT_USE_IMAGE_SIGN          0
+#endif
+#if (SVCRT_USE_IMAGE_SIGN == 1) && !defined(SVCRT_IMAGE_SIGN_KEY)
+#error "SVCRT_USE_IMAGE_SIGN=1 requires SVCRT_IMAGE_SIGN_KEY (32 byte initialiser list)"
+#endif
+
 /* 跨复位崩溃日记（svcrt_crash.c）：落在共享内存尾部的 .noinit 区 */
 #ifndef SVCRT_USE_CRASH_LOG
 #define SVCRT_USE_CRASH_LOG           1
