@@ -20,8 +20,11 @@
 
 ```
 py -3 tools/pack_app.py --project example/stm32f427/app_sdk/MINI_DEMO/MDK-ARM/mini_demo.uvprojx \
-        --type miniapp --name MINI_DEMO --out build/mini_demo.svcapp
+        --type miniapp --no-autostart --name MINI_DEMO --out build/mini_demo.svcapp
 ```
+
+`--no-autostart` 不能省：小程序的默认类型是「自启」，不显式关掉时 `pack_app.py` 会直接
+报错（`--autostart 对小程序无效`）。
 
 打包工具会编译四遍（标称 / ROM+delta / RAM+delta / 双 delta 验证）并生成重定位表，
 与 App 走的是同一条流水线。打包期会顺带核对小程序的两条硬约束：
