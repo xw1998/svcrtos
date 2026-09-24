@@ -49,6 +49,7 @@
 #include "svcrt_guard.h"
 #include "svcrt_crash.h"
 #include "svcrt_partition.h"
+#include "svcrt_version.h"
 
 #include <string.h>
 
@@ -296,6 +297,7 @@ static int cmd_info(int argc, char *argv[])
     (void)svcrt_ptable_stats(&used, &total, &frag);
 
     ark_shell_printf("\r\nSVCrtOS kernel shell\r\n");
+    ark_shell_printf("version   : " SVCRT_VERSION_STRING "\r\n");
     ark_shell_printf("build     : " __DATE__ " " __TIME__ "\r\n");
     ark_shell_printf("partition : ABI v%u, hw 0x%08X\r\n",
                      (uint32)pt->version, pt->hw_compat_id);

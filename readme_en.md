@@ -122,7 +122,7 @@ board self-test:
 | `app_sdk/SEAMLESS_V1` / `SEAMLESS_V2` | Mini apps | Handing a control loop over while running (seamless upgrade), see [Seamless upgrade](docs/无缝升级例程.md) |
 | `app_sdk/BLED_APP` + `driver_sdk/BLED_DRV` | App + standalone driver | End-to-end example where three firmwares share no addresses, see `BLUE_LED_E2E_README.md` |
 | `app_sdk/APP_BAD` | App | A deliberately broken image: crash accounting and the three-strikes rule |
-| `driver_sdk/DRV_DEMO` | Standalone driver | Skeleton of a standalone driver firmware |
+| `driver_sdk/DRV_DEMO` | Driver | Driver skeleton on the same install channel as an app: `--type driver` -> `.svcapp` -> `install` |
 | `example/stm32f401/kernel/SVCRTOS_TEST` | Kernel | What a chip change costs (only `board/` and the board partition header) |
 
 ## Supported CPU architectures
@@ -390,14 +390,24 @@ compatibility layer so `pthread_create` or `CreateThread` style code works; see
 
 ## Driver development
 
-SVCrtOS deploys drivers in two forms. **The headline feature is the standalone driver - a driver
-compiled into a fully independent firmware, decoupled from the kernel, flashed and upgraded on its
-own**:
+SVCrtOS delivers drivers in three forms. **The headline feature is that a driver travels the exact
+same install channel as an app**: a driver is just a `.svcapp` with `type = driver`, installed with
+the same command into the same image pool, and the kernel routes it to a driver slot by the type in
+the image header.
 
 | Form | How it is built | Deployment | Where it fits |
 |---|---|---|---|
 | Built-in driver | Compiled with the kernel | Same firmware as the kernel | Fixed on-board peripherals |
+| **Pool-installed driver** | **Built on its own + `pack_app.py --type driver`** | **Serial `install` into the unified image pool, same `.svcapp` envelope as an app** | **Drivers shipped with an app, installed/uninstalled/upgraded** |
 | **Standalone driver** | **Built as its own .bin/.hex** | **Flashed into a dedicated ROM partition** | **Drivers that are hot-swapped or upgraded independently** |
+
+```bash
+# The only difference from packing an app is --type driver (type = 2 in the image)
+python tools/pack_app.py --project example/stm32f427/driver_sdk/DRV_DEMO/MDK-ARM/drv_demo.uvprojx \
+    --type driver --name DRV_DEMO --out build/DRV_DEMO/DRV_DEMO.svcapp
+# On the board type install to open the receive window (install <slot> in fixed mode),
+# then send the file as-is. Check with drv list: a type=drv slot record must appear.
+```
 
 ### Standalone drivers (external driver)
 
@@ -811,6 +821,7 @@ Closed on hardware:
 |---|---|
 | Kernel tick and scheduling | A heartbeat task keeps printing (`APP_ALIVE`, `cpu=0%`); periods and timeout wake-ups behave |
 | The install loop | A `.svcapp` is sent over serial, claimed by the boot scan, started from its slot |
+| Driver install loop | A driver package (`--type driver`, 2164 B, `type = 2` inside) goes through the **same `install` window** into the unified pool: `install: ok, slot 1`, `drv list` shows `1 drv RUNNING`, and `pool map` lists the app and the driver side by side in one pool |
 | Uninstall and space reclaim | The image is invalidated; the sector is erased only once the physical unit holding the last live slot is free, and `pool free` returns from 776244 B to 786432 B |
 | Image state after power loss | After a reset the kernel still distinguishes valid installed images, invalidated ones and raw images |
 | Raw-image (development slot) path | An image flashed straight into the pool is claimed, its RAM window `0x20014000` binds correctly, and it runs a ten-section self-test at boot; `app stop` puts it back to `RAW` and `app start` runs it again |

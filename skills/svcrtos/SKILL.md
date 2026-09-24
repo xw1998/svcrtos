@@ -118,6 +118,9 @@ py -3 tools/pack_app.py --verify build/APP_X.svcapp
 - **固定槽模式同时存在两套编号，别混用**：配置槽序号（布局 JSON / GUI 布局页看到的 0、1、2）
   只是「第几个固定槽」；`install: ok, slot N`、`app` / `drv` 列表的 `id` 列、以及
   `app start <n>` / `app stop <n>` / `app uninstall <n>` 的参数，全部是**分区表槽号**。
+- **App 与驱动走同一条通路**：驱动包就是 `pack_app.py --type driver` 产出的 `.svcapp`
+  （包内 `type = 2`），装法、窗口、流控、校验与 App 完全相同，内核按类型找槽。auto 模式
+  先 `install` 再发文件即可；fixed 模式必须装进配置里 `type = driver` 的槽，否则回 `err -7`。
   两套编号会不一致（实测：装在配置槽 2，分区表槽号是 1）。
   把配置槽序号直接拿去 `app uninstall`，会被 `slot_type` 校验挡下并回 `usage:`。
   **要确认落点就看 `base`**，不要拿两套序号互相对照。
@@ -227,6 +230,7 @@ MCP 调试工具，可不下载、不打断地读写目标：
 | `install` 被拒 `err -3` | 镜像 `hw_compat_id` 与内核不符 → `pack_app.py --info`，重新打包 |
 | 安装后 `app` 里出现两个实例、输出逐字节交错 | 上一个实例没停：`app list` → `app stop <slot>`（自启镜像会自己回来） |
 | `app uninstall 2` 回 `usage:`（明明槽位存在） | 拿配置槽序号当分区表槽号了：先 `app` 看 `base` 对上是哪一行，用那一行的 `id` |
+| `install <slot>` 回 `err -7` 而槽里原来的镜像也没了 | fixed 模式点名的槽类型不符（驱动包只能进 `type = driver` 的槽）。**`install <slot>` 是先清槽、再收帧**（日志 `fixed slot N: clearing it before receive`），旧镜像已经停了、槽也擦了；设备会另起一行给出「configured type X, image type Y」。要装 driver 包，配置里得有一个 driver 槽 |
 | 安装被拒后控制台冒出一行 `Command not found: ...` | 头/表必须背靠背发送，而兼容性只看 256 B 头就早退，残下的重定位表字节原先会落入 shell。安装器现在返回前会把这张表读完（日志 `drained N B of the rejected frame`）；若仍看到这一行，先确认设备侧有没有这条排空记录 |
 | `install: failed or timed out` | 看设备侧 `INSTALL` / `LOADER` 日志行 + `fault`；不要相信主机侧的"发送完成" |
 | `cfg show` 显示 fixed 但 `pool` 不列槽位 | 读 `0x20000000 + 52` 核对真正生效的 `layout_mode`，两个真相源要不一致就是 bug |

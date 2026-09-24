@@ -541,6 +541,10 @@ int32 svcrt_installer_run_once(int32 dev, uint32 timeout_ms)
                        "svcrt_loader_slot_hint_set() before opening the window");
             return SVCRT_LOADER_ERR_PARAM;
         }
+        SVCRT_LOGI("INSTALL",
+                   "fixed slot %d: clearing it before receive "
+                   "(an image running from it is stopped and invalidated)",
+                   (int)hint);
         if(svcrt_loader_clear_fixed_slot(hint) != 0)
         {
             SVCRT_LOGE("INSTALL", "cannot clear fixed slot %d", (int)hint);

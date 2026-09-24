@@ -235,6 +235,11 @@ python tools/pack_app.py --project example/stm32f427/app_sdk/APP_DEMO/MDK-ARM/ap
     --type app --version 1.0.0 --name "LED 闪烁示例" \
     --out build/APP_DEMO/APP_DEMO.svcapp
 
+# 驱动：同一个工具，只把 --type 换成 driver（包内 type = 2，入口符号默认 DRVSTART）
+python tools/pack_app.py --project example/stm32f427/driver_sdk/DRV_DEMO/MDK-ARM/drv_demo.uvprojx \
+    --type driver --name DRV_DEMO \
+    --out build/DRV_DEMO/DRV_DEMO.svcapp
+
 # 由已有的 .bin 离线打包（离线模式：必须给 A/B/C 三遍，D 遍用于打包期验证）
 # A = 标称基址、B = ROM +delta、C = RAM +delta、D = ROM +2delta & RAM +delta
 python tools/pack_app.py \
@@ -303,6 +308,10 @@ python tools/pack_app.py --verify build/APP_DEMO/APP_DEMO.svcapp    # 校验完�
    **fixed 模式必须点名槽位**：内核在收到镜像头之前不知道该擦哪个槽，所以裸
    `install` 在 fixed 模式下会直接回
    `usage: install <slot>   (fixed-slot mode needs an explicit slot)`
+   **而且这个槽会先被清干净**：内核在告诉你「可以发送」之前就停掉该槽里正在跑的镜像、
+   擦掉整个槽（设备日志 `fixed slot %d: clearing it before receive`）。所以敲错槽的代价
+   是那个槽里的旧镜像已经没了——**包括类型不符、最后被拒收（`err -7`）的时候**。
+   要把驱动包装上板，目标槽必须是配置里 `type = driver` 的槽位。
 3. 把 `.svcapp` 以**二进制方式**发给串口（不要用文本模式，会被改行尾）
    - `copy /b build\APP_DEMO\APP_DEMO.svcapp COM3`
 4. 发送完成后按 `INSTALLER_AUTO_START` 决定是否立即启动
@@ -335,6 +344,9 @@ python tools/pack_app.py --verify build/APP_DEMO/APP_DEMO.svcapp    # 校验完�
 - 注意：**同一个槽位要么放 `.svcapp`，要么放裸镜像，不能混**——
   带头的镜像入口是 `槽位基址 + 256 + entry_offset`，裸镜像入口是 `槽位基址`，
   两种布局相差 256 字节，混用会直接跑飞。
+- 驱动与 App 的差别只在镜像头里的 `type`：`--type driver` 产出 `type = 2`，内核按类型
+  找槽（auto 模式找空闲记录，fixed 模式认配置里 `type = driver` 的槽）。装进
+  `type = app` 的槽会被拒，设备回 `err -7`，并另起一行说明配置槽类型与镜像类型不符。
 
 ---
 

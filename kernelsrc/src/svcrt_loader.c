@@ -1287,6 +1287,17 @@ static int32 svcrt_loader_reserve_fixed(uint32 type, const svcrt_app_header_t *p
         return slot;
     }
 
+    if((hint >= 0) && ((uint32)hint < count))
+    {
+        /* The operator named a slot and it did not take the image: name the
+         * pair that does not match. A bare -7 (no free slot record) sends the
+         * operator looking for free pool space, while the real cause is the type
+         * mismatch between the configured slot and the incoming image. */
+        SVCRT_LOGE("LOADER",
+                   "fixed slot %d refused the image: configured type %u, image type %u",
+                   (int)hint, (unsigned)slots[hint].type, (unsigned)want);
+    }
+
     return (hint >= 0) ? SVCRT_LOADER_ERR_NO_SLOT : SVCRT_LOADER_ERR_NOSPACE;
 }
 

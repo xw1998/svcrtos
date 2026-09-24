@@ -89,7 +89,7 @@ SVCrtOS 把固件拆成**内核 / 驱动 / 应用**三块可以各自独立升�
 | `app_sdk/SEAMLESS_V1` / `SEAMLESS_V2` | 小程序 | 运行中交接控制权（无缝升级），见 [无缝升级例程](docs/无缝升级例程.md) |
 | `app_sdk/BLED_APP` + `driver_sdk/BLED_DRV` | 应用 + 独立驱动 | 三个固件互不依赖地址的端到端例子，见 `BLUE_LED_E2E_README.md` |
 | `app_sdk/APP_BAD` | 应用 | 故意写错的镜像：验证崩溃记账与「连续 3 次禁用」 |
-| `driver_sdk/DRV_DEMO` | 独立驱动 | 独立驱动固件的骨架 |
+| `driver_sdk/DRV_DEMO` | 驱动 | 驱动骨架，与 App 同一条安装通道：`--type driver` → `.svcapp` → `install` |
 | `example/stm32f401/kernel/SVCRTOS_TEST` | 内核 | 换一颗芯片要改多少（只改 `board/` 与板级分区头） |
 
 ## 支持 CPU 架构
@@ -338,12 +338,21 @@ App / 驱动在**自己的 RAM 窗口内**创建线程。线程需要 TCB 与调
 
 ## 驱动开发接口
 
-SVCrtOS 的驱动有两种部署形态，**核心亮点是「独立驱动」——驱动可以编译为完全独立的固件，与内核解耦、独立烧录、独立升级**：
+SVCrtOS 的驱动有三种投递形态，**核心亮点是「驱动与 App 走同一条安装通道」**：驱动就是一个 `type = driver` 的 `.svcapp`，用装 App 的同一套命令装进同一个镜像池，内核按镜像头里的类型分流到驱动槽位。
 
 | 形态 | 编译方式 | 部署 | 适用场景 |
 |------|---------|------|---------|
 | 内置驱动 | 随内核一起编译 | 与内核同一固件 | 板载固定外设 |
-| **独立驱动** | **单独编译为 .bin/.hex** | **烧录到专属 ROM 分区** | **可热插拔/独立升级的驱动** |
+| **池内安装驱动** | **单独编译 + `pack_app.py --type driver`** | **串口 `install` 进统一镜像池，与 App 同一个 `.svcapp` 封装** | **随应用一起分发、可安装/卸载/升级的驱动** |
+| **独立驱动固件** | **单独编译为 .bin/.hex** | **烧录到专属 ROM 分区** | **可热插拔/独立升级的驱动** |
+
+```bash
+# 与打包 App 的唯一差别是 --type driver（包内 type = 2，内核据此分流到驱动槽位）
+python tools/pack_app.py --project example/stm32f427/driver_sdk/DRV_DEMO/MDK-ARM/drv_demo.uvprojx \
+    --type driver --name DRV_DEMO --out build/DRV_DEMO/DRV_DEMO.svcapp
+# 上板后敲 install 打开接收窗口（fixed 模式敲 install <槽位号>），再把文件原样发给串口；
+# 校验用 drv list：应出现一条 type=drv 的槽位记录。
+```
 
 ### 独立驱动（External Driver）
 
@@ -701,6 +710,7 @@ STM32F427VGTx @96 MHz，DAPLink（SWD 两线，无 SWO）经 mdkdebug 的 SWD tr
 |----|------|
 | 内核节拍与调度 | 心跳任务持续输出（`APP_ALIVE`，`cpu=0%`），周期与超时唤醒正常 |
 | 应用安装闭环 | `.svcapp` 经串口装入、上电扫描认领、按槽启动 |
+| 驱动安装闭环 | 驱动包（`--type driver`，2164 B，包内 `type = 2`）经**同一个 `install` 窗口**装进统一镜像池：`install: ok, slot 1`、`drv list` 显示 `1 drv RUNNING`、`pool map` 里 app 与 drv 同列一个池；驱动注册的设备与命令（`TEMPDRV` / `temp`）当场可用 |
 | 卸载与空间回收 | 卸载作废镜像；最后一个活槽位所在的物理单元空出后扇区才真擦，`pool free` 由 776244 B 回到 786432 B |
 | 掉电后的镜像状态 | 复位后能正确区分「有效安装镜像 / 已作废 / 裸镜像」 |
 | 裸镜像（开发槽位）路径 | 直接烧到池内的镜像被认领，RAM 窗口 `0x20014000` 绑定正确，开机自启跑完十段自测；`app stop` 退回 `RAW`、`app start` 可再起 |

@@ -15,6 +15,7 @@
 
 #include "svcrt_types.h"
 #include "svcrt_ulog.h"
+#include "svcrt_version.h"
 
 /** @defgroup sync_ret 同步原语返回码
  *  @{
