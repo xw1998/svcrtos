@@ -1,6 +1,53 @@
 # SVCrtOS
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/badge/release-0.0.2-brightgreen.svg)](https://gitee.com/xw19981010/svcrtos_new/tags)
+[![Gitee](https://img.shields.io/badge/gitee-svcrtos__new-red.svg)](https://gitee.com/xw19981010/svcrtos_new)
+
+**简体中文 | [English](readme_en.md)**
+
 SVCrtOS 是一个面向 ARM Cortex-M 系列微控制器的安全实时操作系统（RTOS），采用 SVC（Supervisor Call）实现特权级隔离，利用 MPU 进行内存保护，支持多任务分区调度和统一设备驱动框架。
+
+**它对外的承诺只有一条：让 MCU 像手机一样安装、升级、卸载应用与驱动。**
+不写死地址、不重编内核、不整机重烧——应用与驱动以 `.svcapp` 镜像装进 Flash 上的统一镜像池，
+运行期认领、崩溃有记账、卸载按力度回收空间。
+
+## 它和通用 RTOS 差在哪
+
+通用 RTOS（FreeRTOS / RT-Thread / Zephyr）把应用编译进固件：换一个应用 = 改代码、重编、重烧、整机复位。
+SVCrtOS 把固件拆成**内核 / 驱动 / 应用**三块可以各自独立升级的映像，于是多出一条别人没有的能力线：
+
+| 维度 | 通用 RTOS | SVCrtOS |
+|---|---|---|
+| 换一个应用 | 改代码 → 重编固件 → 整机重烧 | 串口或图形上位机装入 `.svcapp`，重启后自动认领 |
+| 应用与地址的关系 | 编译期写死在同一张链接脚本里 | 地址只在 `config/svcrt_partition.h` 定义一次，其余全部派生；Loader / App 工程**禁止** include 分区头 |
+| 驱动的部署 | 随内核一起编译 | 可独立编译为专属 ROM 分区的固件，独立烧录、独立升级；App 只认设备名，不知道地址 |
+| 权限模型 | 全部代码同权（MPU 一般不开） | 任务跑非特权态，SVC 陷入内核；MPU 逐任务隔离，越权访问当场被硬件拦下 |
+| 应用写错后的死循环 | 看门狗复位整机 | 崩溃日记跨复位记账，同一镜像连续 3 次禁用**该槽位**，其余应用照常跑 |
+| 卸载 | 这个概念不存在 | 作废镜像 → 所属物理单元空出后真擦 → `pool free` 由 776244 B 回到 786432 B |
+| 运行中换版本 | 停机重启 | 两个小程序交接控制权，迭代计数逐字连续，交接空洞实测 27~407 ms |
+| 既有 C 代码的迁移 | 需要改成 RTOS 自己的 API | 提供 POSIX / Windows 兼容层，改 include 列表即可编译上板 |
+
+> 这张表只比「动态安装」这一条主线。生态、协议栈与功能认证是另外的维度，本项目不声称在那些方面更强。
+
+## 实测数据速览
+
+下面每个数字都来自设备端真实返回或内核导出，不是估算；口径与复现方式在各文档里写清。
+
+| 指标 | 实测值 | 出处 |
+|---|---|---|
+| 单趟 PendSV 往返（插桩关） | 710.5 → **430.9 周期**（就绪集改为 256 位两级位图 + 链，−39%） | [调度器说明](docs/调度器说明.md) |
+| PendSV 占 CPU（插桩关） | 0.768% → **0.448%** | [调度器说明](docs/调度器说明.md) |
+| 4.97 s 窗口内的切换间隔 | 5153 次切换**全部**落在 10 µs 与 2000 µs 两条带上，无一次跳变 | 本文 §调度表现 |
+| 空载 CPU 时间占用 | `idle` **99.48%** | 本文 §调度表现 |
+| MPU 越权防护 | `pass=78 fail=0`（App 主动越权访问被拦下） | [内存保护与App越权验证](docs/内存保护与App越权验证.md) |
+| FPU 非特权使用 | APP_DEMO 第八节七项全过：写进 S16-S19 的值跨任务切换后读回仍相符 | [应用安装与调试指南](docs/SVCrtOS应用安装与调试指南.md) |
+| VFS 端口并发 | 两个写者 + 一个只读读者压同一路径，读者只看到完整载荷，`pass=128 fail=0` | [VFS路径命名空间](docs/VFS路径命名空间.md) |
+| 文件类 POSIX | `FS_DEMO` 上板自检全过（open/read/write/stat/dirent 打到 VFS） | [POSIX与Windows兼容层说明](docs/POSIX与Windows兼容层说明.md) |
+| socket / select | F427 + `SOCKET_DEMO`，`pass=36 fail=0`（TCP 回显、UDP、IPv6 报错三组） | [socket与select兼容层](docs/socket与select兼容层.md) |
+| 运行中升级 | 交接空洞 **27 / 31 / 224 / 407 ms**，`it=994 → resumed at it=994`，受控量不回零 | [无缝升级例程](docs/无缝升级例程.md) |
+| 节拍计数器 32 位回绕 | 注入使 `svcrt_kernel_tick` 跨过回绕，两侧 `APP_ALIVE` 间隔精确 5.000 s | [调度器说明](docs/调度器说明.md) §2.3 |
+| 双板同源 | F427 与 F401 同一份内核源码均编译通过（F401 `Code=46526`） | 本文 §验证状态 |
 
 ## 核心特性
 
@@ -22,7 +69,28 @@ SVCrtOS 是一个面向 ARM Cortex-M 系列微控制器的安全实时操作系�
 - **线程服务**：App / 驱动可以在自己的固件与 RAM 窗口内创建线程（SVC 0x1B），入口与栈都要落在调用者自己的窗口内，否则拒绝
 - **POSIX / Windows 兼容层**：`pthread` / `semaphore` / `mqueue` / `unistd` 与 `CreateThread` / `Sleep` / `strcpy_s` 等常用名直接可用，移植既有 C 程序改 include 列表即可
 - **双 SDK 架构**：独立的应用 SDK 和驱动 SDK，支持编译为独立分区固件
+- **文件系统与 VFS**：内置 littlefs + NOR 块设备，`svcrt_fs` 门面之上是 ark_vfs 的路径命名空间；文件类 POSIX（`open` / `read` / `write` / `stat` / `dirent`）直接打到 VFS
+- **小程序**：文件系统里的第三种用户态应用——不安装、不占槽位，从卷里读进 RAM 就执行，退出即把两块内存（代码块 + RAM 块）还给内核；支持多实例、崩溃禁用与开机自启
+- **运行中升级**：两个小程序之间可以交接控制权（状态记录 + 请求记录两个文件，三条硬规则），旧版让出、新版接手，期间不停机、受控量不回零
 - **内核与芯片解耦**：采用 RT-Thread 类似的分层架构，内核零芯片依赖，移植只需修改 board/ 目录
+
+## 例程一览
+
+`example/stm32f427/` 下的每个工程都是可以直接 `UV4 -r` 编译、`-f` 烧录、上板自检的完整工程：
+
+| 工程 | 类型 | 演示什么 |
+|---|---|---|
+| `kernel/SVCRTOS_TEST` | 内核 | 内核本体（板上在跑的这一份） |
+| `app_sdk/APP_DEMO` | 应用 | 全功能自测八节：任务 / 事件 / 信号量 / 互斥锁 / 消息队列 / 软定时器 / 堆与 pthread / FPU |
+| `app_sdk/POSIX_DEMO` | 应用 | 把 Linux / Windows 写法的 C 程序直接搬上来 |
+| `app_sdk/FS_DEMO` | 应用 | 文件类 POSIX 打到 VFS / littlefs |
+| `app_sdk/SOCKET_DEMO` | 应用 | POSIX socket / select 跑在 lwIP 回环网卡上 |
+| `app_sdk/MINI_DEMO` | 小程序 | 从文件系统读进 RAM 执行、退出即归还两块内存 |
+| `app_sdk/SEAMLESS_V1` / `SEAMLESS_V2` | 小程序 | 运行中交接控制权（无缝升级），见 [无缝升级例程](docs/无缝升级例程.md) |
+| `app_sdk/BLED_APP` + `driver_sdk/BLED_DRV` | 应用 + 独立驱动 | 三个固件互不依赖地址的端到端例子，见 `BLUE_LED_E2E_README.md` |
+| `app_sdk/APP_BAD` | 应用 | 故意写错的镜像：验证崩溃记账与「连续 3 次禁用」 |
+| `driver_sdk/DRV_DEMO` | 独立驱动 | 独立驱动固件的骨架 |
+| `example/stm32f401/kernel/SVCRTOS_TEST` | 内核 | 换一颗芯片要改多少（只改 `board/` 与板级分区头） |
 
 ## 支持 CPU 架构
 
@@ -643,6 +711,7 @@ STM32F427VGTx @96 MHz，DAPLink（SWD 两线，无 SWO）经 mdkdebug 的 SWD tr
 | 节拍计数器 32 位回绕 | 定向注入使 `svcrt_kernel_tick` 从 `0xFFFFC000` 起算并跨过回绕：`t=` 由 `2147478038 ms` 跳回小值，两侧 `APP_ALIVE` 间隔精确 5.000 s，`fault` 无记录、`sched` 一致。该次实测牵出并修掉了延时链插入排序与到期判定在回绕处不一致的缺陷（见 [docs/调度器说明.md](docs/调度器说明.md) §2.3） |
 | VFS 端口并发锁 | 两个写者 + 一个只读的第三方读者同时压同一条路径：读者必须看到两种**完整**载荷（`vfs.conc_saw_both`），两次干净开机自检 `pass=128 fail=0`，`sched` 一致、`fault` 无记录（见 [docs/VFS路径命名空间.md](docs/VFS路径命名空间.md)） |
 | 常驻安装器的固定槽覆盖安装（`SHELL_ENABLE=0`） | `INSTALLER_FIXED_SLOT=0` 变体上板：上电先 `fixed slot 0 holds a running image (slot 0): stopping it first` → `fixed slot 0 cleared, send the file now`；覆盖安装不再出现 `err -4`，镜像装入后正常自启；同一上电周期内第二帧被干净拒绝（`one image already installed this boot: reboot before sending another one` + `drained 1932 B of the rejected frame`） |
+| 运行中无缝升级 | 两个小程序（`SEAMLESS_V1` / `SEAMLESS_V2`）交接控制权：V1 独占 10.7 ms/轮、V2 接管后 5.9 ms/轮；交接空洞 27/31/224/407 ms；迭代计数逐字连续（`it=994` → `994`）；受控量 `pv` 未回零；`guard starves=0`；交接前后 `fault` 行数不变。反例侧：旧版抢不回控制权、新版超时后 5000 ms 内无人释放、残留请求已撤回（见 [docs/无缝升级例程.md](docs/无缝升级例程.md)） |
 
 仍未上板验证或未闭环的项：
 
@@ -651,3 +720,39 @@ STM32F427VGTx @96 MHz，DAPLink（SWD 两线，无 SWO）经 mdkdebug 的 SWD tr
 - **固定槽位模式下一次真实 `install <slot>` 的落点复验**（槽表已生效并被 `pool` 列出，但「装进去正好落在配置地址」这一环还没跑）
 
 文档索引见 [docs/README.md](docs/README.md)。
+
+---
+
+## 文档地图
+
+| 我想…… | 看这份 |
+|---|---|
+| 把 App / 驱动调试起来、装到板子上、处理崩溃 | [SVCrtOS应用安装与调试指南](docs/SVCrtOS应用安装与调试指南.md)（操作手册，先读这份） |
+| 搞懂安装策略、设备端配置区、槽位与 RAM 窗口 | [配置区与安装策略](docs/配置区与安装策略.md) |
+| 查所有文档的索引 | [docs/README.md](docs/README.md) |
+| 看调度器怎么实现、实测代价账怎么算 | [调度器说明](docs/调度器说明.md) |
+| 看内存保护怎么起效、App 越权会怎样 | [内存保护与App越权验证](docs/内存保护与App越权验证.md) |
+| 把 Linux / Windows 上的 C 程序搬过来 | [POSIX与Windows兼容层说明](docs/POSIX与Windows兼容层说明.md) |
+| 写 socket / select 程序 | [socket与select兼容层](docs/socket与select兼容层.md) |
+| 加一个「放在文件系统里、想跑就跑」的小程序 | [小程序设计](docs/小程序设计.md) |
+| 做运行中升级 | [无缝升级例程](docs/无缝升级例程.md) |
+| 换一颗芯片 | [SVCrtOS移植手册](SVCrtOS移植手册.md) |
+| 查 API 签名与参数 | [api/SVCrtOS_API参考.md](docs/api/SVCrtOS_API参考.md) |
+| 让自动化流程（含 AI agent 工作流）驱动这块板子 | [skills/svcrtos/SKILL.md](skills/svcrtos/SKILL.md) |
+
+## 相关开源仓库
+
+| 仓库 | 关系 |
+|---|---|
+| [svcrtos_new](https://gitee.com/xw19981010/svcrtos_new) | 本仓库：内核 + 板级移植 + 示例工程 |
+| [ark-shell](https://gitee.com/xw19981010/ark-shell.git) | 内核控制台的上游组件（`kernelsrc/shell/` 为原样引入 + 一个 SVCrtOS 平台适配层） |
+| [ark_vfs](https://gitee.com/xw19981010/ark_vfs) | 零依赖 VFS，文件路径命名空间的上游（`kernelsrc/components/ark_vfs/` 为同步副本） |
+| [mdk_agent_mcp](https://gitee.com/xw19981010/mdk_agent_mcp.git) | 自动化编译 / 烧录 / 上板调试通道 |
+
+## 许可与版本
+
+- 许可证：[MIT](LICENSE)（Copyright © 2026 春雫）
+- 当前版本：**0.0.2**。版本以 git tag 为唯一记法，列表见 <https://gitee.com/xw19981010/svcrtos_new/tags>
+- **0.0.2**：动态安装主线补齐——小程序（文件系统里的第三种用户态应用）、运行中无缝升级、socket / select 与 lwIP 回环、文件类 POSIX；MPU 越权与 FPU 非特权使用上板验证；调度器就绪集改 256 位两级位图（单趟 PendSV −39%）
+- **0.0.1**：首个可安装应用的发布——自动选址与固定槽位两种安装模式可配置，图形上位机与项目内操作手册就位
+- 本文件为简体中文；英文版见 [readme_en.md](readme_en.md)

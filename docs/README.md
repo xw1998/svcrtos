@@ -10,6 +10,7 @@
 | 在 App 里写 Linux 风格的 socket / select 程序 | [socket与select兼容层.md](socket与select兼容层.md)（名字与边界、SVC 0x1E 契约、阻塞在 App 侧兑现、SOCKET_DEMO、限制） |
 | 查调度策略、这一轮调度器改了什么、还剩什么 | [调度器说明.md](调度器说明.md)（位图+链的 O(1) 就绪集、三种调度触发点、实测代价账与未做项） |
 | 看调度器在真机上长什么样（图） | 根目录 [`README.md`](../README.md) §调度表现（4.97 s trace 实测图，图存 `docs/img/`） |
+| 读英文项目说明 | 根目录 [`readme_en.md`](../readme_en.md)（与中文 [`readme.md`](../readme.md) 对应，同一份内容） |
 | 用串口控制台看状态、启停 App、改配置 | [内核Shell控制台使用说明.md](内核Shell控制台使用说明.md) |
 | 不想敲命令行，要图形界面 | `python tools/svcrt_host_gui.py`（连接 / 控制台 / 安装 / 布局配置四个页签） |
 | 用脚本 / 自动化流程驱动这块板子 | [`../skills/svcrtos/SKILL.md`](../skills/svcrtos/SKILL.md) 与《SVCrtOS应用安装与调试指南.md》§11 |
