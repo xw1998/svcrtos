@@ -89,6 +89,9 @@ py -3 tools/pack_app.py --verify build/APP_X.svcapp
   `app` / `drv` 列表的 `task` 列、`fault` 记录的任务号、`task <id>` 的参数全是这一个号；
   `task 0` 与越界号一律回 `task: no such task (ids run 1..<N>)`；
 - `pool` 打印镜像池与**固定槽位**（固定槽模式下才有槽位行）；
+- 控制台启动时先打印一段 ASCII 横幅（`ARK_SHELL_WELCOME`，在
+  `kernelsrc/shell/ark_shell/ark_shell_config.h`；`ARK_SHELL_WELCOME_ART=0` 回通用文案），
+  再给出提示符。**横幅只在启动时出现一次**，就绪判据用 `ark> ` 或静默，不要等横幅；
 - `sched` 自检就绪集（256 位两级位图 + 每优先级链）与任务表的**逐条**一致性：
   一致时打印 `sched: consistent (bitmap/links == task table)`，不一致时逐条打印
   `#idx prio= status= on_ready= next= prev=`，并附 `ready=<就绪数> top=<最高优先级任务>`；
@@ -157,7 +160,8 @@ magic "SCFG" 的记录 512 B，分 4 块 × 128 B 上传，逐块等流控字节
    设备收满 512 B 后报 `bad magic`——"配置写不进去"的头号原因；
 2. **同一时刻只能有一个读者打开串口**：安装窗口 / 配置接收窗口期间，其他串口工具
    会与设备抢 FIFO。GUI 的做法是暂停读线程后再独占；
-3. **不要在一条命令后马上发下一条**：设备会打印就绪横幅，等它（或等静默）再发。
+3. **不要在一条命令后马上发下一条**：设备跑完命令会重画 `ark> ` 提示符（启动时的那段
+   ASCII 横幅只在开机出现一次），等提示符或等静默再发。
 
 ---
 

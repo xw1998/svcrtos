@@ -3629,8 +3629,9 @@ static void svcrt_shell_task(void)
         sh_out("shell: command table full, kernel commands unavailable\r\n");
     }
 
-    sh_out("SVCrtOS console ready. Type 'help'.\r\n");
-
+    /* No separate "console ready" line: the shell prints its own
+     * welcome banner (see ark_shell_config.h) before the first prompt,
+     * and the prompt is the real "ready" marker. */
     for(;;)
     {
         uint32 budget = (uint32)SHELL_RX_DRAIN_MAX;

@@ -25,11 +25,30 @@ extern "C" {
 /* Prompt string */
 #define ARK_SHELL_PROMPT              "ark> "
 
-/* Welcome message */
+/* Welcome message ----------------------------------------------------
+ * SVCrtOS: the product banner goes here, not in svcrt_shell.c, because
+ * ark_shell_init() prints this string and only then draws the prompt -
+ * anything the kernel task prints after init would land below an
+ * already-drawn prompt.  The art is plain ASCII (figlet "standard",
+ * 40 columns max); set ARK_SHELL_WELCOME_ART to 0 for the plain line.
+ * ------------------------------------------------------------------- */
+#define ARK_SHELL_WELCOME_ART         1
+#if (ARK_SHELL_WELCOME_ART == 1)
+#define ARK_SHELL_WELCOME             \
+    "\r\n"                        \
+    " ______     ______      _    ___  ____\r\n"  \
+    "/ ___\\ \\   / / ___|_ __| |_ / _ \\/ ___|\r\n"  \
+    "\\___ \\\\ \\ / / |   | '__| __| | | \\___ \\\r\n"  \
+    " ___) |\\ V /| |___| |  | |_| |_| |___) |\r\n"  \
+    "|____/  \\_/  \\____|_|   \\__|\\___/|____/\r\n"  \
+    "\r\n"                        \
+    "SVCrtOS kernel shell - type 'help' for commands.\r\n\r\n"
+#else
 #define ARK_SHELL_WELCOME             \
     "\r\n"                        \
     "Ark Shell v1.0\r\n"          \
     "Type 'help' for commands.\r\n\r\n"
+#endif
 
 /* ---- History System Configuration ---- */
 #define ARK_SHELL_HISTORY_CAPACITY    8      /* Number of history entries.
