@@ -163,12 +163,56 @@ void ark_shell_autocomplete(struct ark_shell_s *shell)
                 return;
             }
             if (prefix_unchanged || common_len == word_len) {
-                /* List all candidates */
-                platform_uart_send_string("\r\n");
-                for (i = 0; i < g_cmd_count; i++) {
-                    if (strncmp(g_cmd_table[i].name, word, (size_t)word_len) == 0) {
-                        platform_uart_send_string("  ");
-                        platform_uart_send_string(g_cmd_table[i].name);
+                /* List all candidates, packed into columns the way bash does.
+                 * Column width follows the longest name so the table stays aligned;
+                 * the count is capped by ARK_SHELL_TAB_COLS and by what fits in
+                 * ARK_SHELL_TERM_COLS. */
+                {
+                    int cols;
+                    int colw;
+                    int col = 0;
+                    int maxlen = 0;
+
+                    for (i = 0; i < g_cmd_count; i++) {
+                        int l;
+                        if (strncmp(g_cmd_table[i].name, word, (size_t)word_len) != 0) {
+                            continue;
+                        }
+                        l = (int)strlen(g_cmd_table[i].name);
+                        if (l > maxlen) {
+                            maxlen = l;
+                        }
+                    }
+
+                    colw = maxlen + 2;
+                    cols = ARK_SHELL_TERM_COLS / colw;
+                    if (cols > ARK_SHELL_TAB_COLS) {
+                        cols = ARK_SHELL_TAB_COLS;
+                    }
+                    if (cols < 1) {
+                        cols = 1;
+                    }
+
+                    platform_uart_send_string("\r\n");
+                    for (i = 0; i < g_cmd_count; i++) {
+                        const char *nm;
+                        int pad;
+                        if (strncmp(g_cmd_table[i].name, word, (size_t)word_len) != 0) {
+                            continue;
+                        }
+                        nm = g_cmd_table[i].name;
+                        platform_uart_send_string(nm);
+                        pad = colw - (int)strlen(nm);
+                        while (pad-- > 0) {
+                            platform_uart_send(' ');
+                        }
+                        col++;
+                        if (col >= cols) {
+                            platform_uart_send_string("\r\n");
+                            col = 0;
+                        }
+                    }
+                    if (col != 0) {
                         platform_uart_send_string("\r\n");
                     }
                 }

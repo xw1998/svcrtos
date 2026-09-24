@@ -238,6 +238,9 @@ static int shell_handle_ctrl(ark_shell_t *shell, char ch)
         line_editor_clear(&shell->editor);
         shell_show_prompt(shell);
         return 0;
+    case 'd':  /* Ctrl+D: delete char at cursor (bash default) */
+        line_editor_delete(&shell->editor);
+        return 0;
     case 'e':  /* Ctrl+E: end */
         line_editor_move_end(&shell->editor);
         return 0;
@@ -259,6 +262,12 @@ static int shell_handle_ctrl(ark_shell_t *shell, char ch)
         platform_uart_send_string("\r\n(reverse-i-search): ");
         return 0;
 #endif
+    case 'n':  /* Ctrl+N: next history (same as Down arrow) */
+        history_down(&shell->history, &shell->editor);
+        return 0;
+    case 'p':  /* Ctrl+P: previous history (same as Up arrow) */
+        history_up(&shell->history, &shell->editor);
+        return 0;
     case 'u':  /* Ctrl+U: delete to home */
         line_editor_delete_to_home(&shell->editor);
         return 0;

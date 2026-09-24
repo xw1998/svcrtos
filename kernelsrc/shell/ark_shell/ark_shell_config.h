@@ -40,7 +40,9 @@ extern "C" {
 
 /* ---- Autocomplete Configuration ---- */
 #define ARK_SHELL_MAX_COMPLETIONS     16     /* Max candidates shown by Tab */
-#define ARK_SHELL_TAB_COLS            4      /* Columns per row in candidate list */
+#define ARK_SHELL_TAB_COLS            4      /* Max columns per row in the Tab candidate list */
+#define ARK_SHELL_TERM_COLS           80     /* Terminal width in columns; the candidate list is
+                                              * packed to fit it (see ark_shell_autocomplete.c) */
 
 /* ---- ESC Sequence Buffer ---- */
 #define ARK_SHELL_ESC_BUF_SIZE        16     /* Max length of escape sequence */
