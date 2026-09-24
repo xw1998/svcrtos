@@ -629,21 +629,31 @@ static int cmd_task(int argc, char *argv[])
          * A blocked task is read-only here: the frame holds the return
          * address of the call that never came back, which is the only
          * honest answer to "where is it stuck". */
+        /* Task ids are 1-based wherever the kernel names a task:
+         * svcrt_task_register(), the partition table's task column, the
+         * guard table and the fault records all use 1..N, with 0 meaning
+         * "no task".  The task table itself is 0-based, so the index is
+         * id - 1.  Printing the raw index here is how one task used to
+         * look like two different numbers depending on the command. */
         uint32 id = 0u;
+        uint32 idx;
         volatile uint32 *sp;
         int32 n;
 
         if((parse_u32(argv[1], &id) != 0) ||
-           ((int32)id >= svcrt_task_count) ||
-           (svcrt_task_table[id].stack_ptr == 0u))
+           (id == 0u) ||
+           (id > (uint32)svcrt_task_count) ||
+           (svcrt_task_table[id - 1u].stack_ptr == 0u))
         {
-            ark_shell_printf("task: no such task\r\n");
+            ark_shell_printf("task: no such task (ids run 1..%d)\r\n",
+                             (int)svcrt_task_count);
             return 1;
         }
-        sp = (volatile uint32 *)svcrt_task_table[id].stack_ptr;
+        idx = id - 1u;
+        sp = (volatile uint32 *)svcrt_task_table[idx].stack_ptr;
         ark_shell_printf("task %u sp=0x%08X st=%s frame words:\r\n",
-                         id, (uint32)svcrt_task_table[id].stack_ptr,
-                         task_state_name((uint32)svcrt_task_table[id].status));
+                         id, (uint32)svcrt_task_table[idx].stack_ptr,
+                         task_state_name((uint32)svcrt_task_table[idx].status));
         for(n = 0; n < 56; n++)
         {
             /* Raw, unfiltered: the frame layout depends on whether the task
@@ -660,8 +670,8 @@ static int cmd_task(int argc, char *argv[])
             extern volatile uint8 svcrt_dbg_wake_hits[];
 
             ark_shell_printf("  blocks=%u last_reason=%u\r\n",
-                             (unsigned int)svcrt_dbg_wake_hits[id],
-                             (unsigned int)svcrt_dbg_wake_last[id]);
+                             (unsigned int)svcrt_dbg_wake_hits[idx],
+                             (unsigned int)svcrt_dbg_wake_last[idx]);
         }
         return 0;
     }
@@ -682,7 +692,7 @@ static int cmd_task(int argc, char *argv[])
     {
         ark_shell_printf(" %-3d %-5u %-8s  %-6d  %-6d  " SHELL_TASK_PEAK_FMT
                          "  0x%08X\r\n",
-                         (int)i,
+                         (int)(i + 1),
                          (uint32)svcrt_task_table[i].priority,
                          task_state_name((uint32)svcrt_task_table[i].status),
                          svcrt_task_table[i].period,
@@ -692,8 +702,9 @@ static int cmd_task(int argc, char *argv[])
 #undef SHELL_TASK_PEAK_FMT
 #undef SHELL_TASK_PEAK_ARG
     }
-    ark_shell_printf("tasks: %d used / %u max\r\n",
-                     (int)svcrt_task_count, (uint32)SVCRT_TASK_MAX_NUM);
+    ark_shell_printf("tasks: %d used / %u max  (ids 1..%d)\r\n",
+                     (int)svcrt_task_count, (uint32)SVCRT_TASK_MAX_NUM,
+                     (int)svcrt_task_count);
     return 0;
 }
 
@@ -3531,7 +3542,7 @@ static int register_kernel_commands(void)
     g_cmd_table[idx++] = ARK_SHELL_CMD("drv", cmd_drv,
         "Driver slots: drv [list | start <slot> | stop <slot> | uninstall <slot>]", 4);
     g_cmd_table[idx++] = ARK_SHELL_CMD("task", cmd_task,
-        "List kernel tasks, or dump one task frame: task <id>", 3);
+        "List kernel tasks, or dump one task frame: task <id> (ids start at 1)", 3);
     g_cmd_table[idx++] = ARK_SHELL_CMD("sched", cmd_sched,
         "Scheduler readiness self-check (0 = consistent)", 1);
     g_cmd_table[idx++] = ARK_SHELL_CMD("fault", cmd_fault,

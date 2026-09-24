@@ -39,7 +39,7 @@
 | `info` | `info` | 内核版本时间、分区表（ABI/硬件签名/各段地址与大小）、任务占用、时基 |
 | `app` | `app [list \| start <slot> \| stop <slot> \| uninstall <slot>]` | App 槽位表：type / 状态 / auto / 任务号 / 崩溃计数 / 基址 / 大小 / RAM 窗口 / 入口；启停或卸载单个槽 |
 | `drv` | `drv [list \| start <slot> \| stop <slot> \| uninstall <slot>]` | 驱动槽位表，语义同 `app` |
-| `task` | `task [<id> [x]]` | 不带参数：内核任务表（优先级 / 状态 / 周期 / 等待时间 / 栈峰值 / 入口）。带 id：只打印那一个挂起任务的现场——`sp` / 状态 / **原样 56 个帧字**；再加第三个参数多打 `blocks=` 与 `last_reason=`（4 = 观察到 HANDOFF）。帧字故意不过滤：带不带 FPU 扩展帧决定哪个字是 PC，猜哪个字是 PC 就会把回溯变成错答案 |
+| `task` | `task [<id> [x]]` | 不带参数：内核任务表（优先级 / 状态 / 周期 / 等待时间 / 栈峰值 / 入口）。行首任务号**从 1 开始**（0 = 没有任务），与 `app` / `drv` 列表的 `task` 列同一套编号。带 id：只打印那一个挂起任务的现场——`sp` / 状态 / **原样 56 个帧字**；再加第三个参数多打 `blocks=` 与 `last_reason=`（4 = 观察到 HANDOFF）。帧字故意不过滤：带不带 FPU 扩展帧决定哪个字是 PC，猜哪个字是 PC 就会把回溯变成错答案 |
 | `sched` | `sched` | 调度器自检：就绪集（256 位两级位图 + 每优先级链）与任务表**逐条**比对。一致时回 `sched: consistent (bitmap/links == task table)` 与 `ready=<就绪数> top=<最高优先级任务>`；不一致时逐条打印 `#idx prio= status= on_ready= next= prev=`，便于直接定位哪个任务漏挂链 |
 | `fault` | `fault` | 故障环形记录：类型 + 任务号 + 时刻（含 `INSTALLFAIL`） |
 | `install` | `install` | 打开一次性安装窗口，等待一个 `.svcapp` 镜像（主控先敲命令，再发文件） |

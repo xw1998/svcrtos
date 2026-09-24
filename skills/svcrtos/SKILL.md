@@ -85,6 +85,9 @@ py -3 tools/pack_app.py --verify build/APP_X.svcapp
 `info` / `app` / `drv` / `task` / `sched` / `fault` / `install [slot]` / `log` / `pool` / `trace` / `cfg`
 
 - `app [list|start <slot>|stop <slot>|uninstall <slot>]`，`drv` 同构；
+- `task [<id> [x]]`：**任务号只有一套，从 1 开始，0 表示「没有任务」**——内核任务表行首、
+  `app` / `drv` 列表的 `task` 列、`fault` 记录的任务号、`task <id>` 的参数全是这一个号；
+  `task 0` 与越界号一律回 `task: no such task (ids run 1..<N>)`；
 - `pool` 打印镜像池与**固定槽位**（固定槽模式下才有槽位行）；
 - `sched` 自检就绪集（256 位两级位图 + 每优先级链）与任务表的**逐条**一致性：
   一致时打印 `sched: consistent (bitmap/links == task table)`，不一致时逐条打印
