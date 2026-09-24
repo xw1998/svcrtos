@@ -123,10 +123,16 @@ py -3 tools/pack_app.py --verify build/APP_X.svcapp
 - **fixed 模式覆盖安装会在开窗之前先擦目标槽**：`install <slot>` 走
   `svcrt_installer_run_once()`，开窗前按 `slot_hint` 预清目标槽（擦除占约 1 秒且期间收不进
   字节，必须发生在主机开始发之前）；没点名槽位（`slot_hint < 0`）时直接回参数错误，而不是
-  擦到一半。**未闭环**：`SHELL_ENABLE=0` 的常驻任务走的是 `svcrt_installer_pump()`，不经过
-  `run_once()`，因此没有这一步预清——它在 fixed 模式下的覆盖安装仍可能在帧中途擦除。
-  （常驻任务在收到头之前不知道映像是 app 还是 driver、该落哪个槽，所以它无法照抄这一步；
-  要闭环得给它一个配置来源的目标槽。）
+  擦到一半。
+- **`SHELL_ENABLE=0` 的常驻安装任务同样闭环**：它没有命令行，目标槽改由配置给出——
+  `config/svcrt_partition.h` 的 `INSTALLER_FIXED_SLOT`（配置槽序号，不是分区表槽号，默认
+  `-1`）。设成 N 后，常驻任务在开窗前先做一次准备：该槽里若有正在运行的镜像，先
+  `svcrt_loader_stop()` 停掉它（没有控制台，这一步等价于 `app stop <slot>`；不停就直接擦
+  会擦掉正在取指的代码），再整槽擦一次并打印 `fixed slot N cleared, send the file now`。
+  这个状态只建立一次：一个上电周期只接受一帧，第二帧被拒并回 `one image already installed
+  this boot: reboot before sending another one`，随后 drain 掉该帧的尾巴（日志出现
+  `drained N B of the rejected frame`）。保持默认 `-1` 时，fixed 模式下的常驻任务拒绝任何
+  帧，而不是猜一个槽去擦。
 - 覆盖安装一个正在运行的镜像会被拒（`-15 BUSY`）：先 `app stop <slot>`。
 - **镜像头的 `hw_compat_id` 必须等于内核的 `SVCRT_HW_COMPAT_ID`**（F427 当前为 `0x42700005`），
   否则安装会在写负载之前被拒（`err -3`）。仓库里 `build/` 下的旧镜像可能是旧兼容号，
@@ -222,6 +228,7 @@ MCP 调试工具，可不下载、不打断地读写目标：
 | trace 出来的时间轴长得离谱（几十秒）而数据只占最后一点 | 混段了：按最后一次 `sync` 切段再渲染（§4.1） |
 | 只看到红/绿在闪、蓝灯不动 | 正常：红/绿是内核自带 1 Hz 反相任务，蓝是 App 心跳。蓝不动 = 池里没有正在跑的 App |
 | 装了 BLED_DRV 但灯没变化 | 正常：`DrvMain` 只 `svcrt_task_wait(1000)`，它不翻转任何灯 |
+| 同一上电周期内「装完就早停」，重启后同一镜像却跑得好好的 | 固定槽的 RAM 窗口必须与上电扫描同源：两者都按镜像头的 `ram_size` 向上取整，配置里登记的 `ram_size` 只是上限。若安装路径按配置值绑窗口，栈会比扫描路径高出差值那么多，`fault` 里出现的是一条 `STACKOVF` —— 症状看着像 App 自身的栈不够，其实是窗口来源不一致 |
 
 ---
 

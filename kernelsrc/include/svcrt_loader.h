@@ -211,6 +211,14 @@ int32 svcrt_loader_load_dev_hdr(int32 dev, const svcrt_app_header_t *p_hdr, uint
  * blank), SVCRT_LOADER_ERR_FLASH when the erase failed. */
 int32 svcrt_loader_clear_fixed_slot(int32 index);
 
+/* Is a configured fixed slot safe to write into right now?
+ * 1 = the whole slot reads back 0xFF (a frame may be accepted without any
+ * erase), 0 = it still holds something (accepting a frame would erase flash
+ * while that frame is on the wire), -1 = not meaningful here (AUTO mode, or
+ * an index outside the configured slot table). Callers that own a live wire
+ * must use this to decide *before* committing a frame. */
+int32 svcrt_loader_fixed_slot_blank(int32 index);
+
 
 
 /**

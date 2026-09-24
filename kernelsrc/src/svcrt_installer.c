@@ -174,6 +174,12 @@ static void svcrt_installer_drain(int32 dev)
                    "drained %u B of the rejected frame (table %u B)",
                    (unsigned)got, (unsigned)rt);
     }
+
+    /* The frame is dead, so drop the header collected for it too. Without
+     * this the pump keeps reporting the same buffered header on every loop
+     * pass, and a refusal turns into a log flood at the task period
+     * ("one image already installed this boot" seen 100+ times in a row). */
+    svcrt_installer_got = 0u;
 }
 
 static int32 svcrt_installer_load(int32 dev, uint32 image_len)
@@ -301,6 +307,152 @@ static int32 svcrt_installer_commit(int32 dev)
     return svcrt_installer_load(dev, 0u);
 }
 
+/*
+ * Fixed-slot mode from the resident task.
+ *
+ * The shell path names the landing slot on the command line, so it can clear
+ * that slot before it tells the host to send. The resident task has no command
+ * line: the slot comes from the configuration (INSTALLER_FIXED_SLOT). What
+ * both paths must obey is the same single rule - an erase is only allowed
+ * while the line is quiet - so this task does two things:
+ *
+ *   1) once, before it listens for anything, clear the configured slot and
+ *      say so on the console (the host then has a ready line to wait for,
+ *      exactly like the shell's "send the file now");
+ *   2) accept exactly one frame per boot. A second frame would need another
+ *      erase, and by then the relocation table is on the wire; refusing it
+ *      keeps the frame from being half written. With no slot configured the
+ *      task refuses every frame instead of guessing one.
+ *
+ * AUTO mode is untouched: it never erases on reserve (it lands on a blank run
+ * found by the pool scan), so there is nothing to gate.
+ */
+#define SVCRT_INSTALLER_FIXED_UNJUDGED  (-1)
+#define SVCRT_INSTALLER_FIXED_READY     (0)
+#define SVCRT_INSTALLER_FIXED_DONE      (1)
+#define SVCRT_INSTALLER_FIXED_UNUSABLE  (2)
+
+static int32 svcrt_installer_fixed_state = SVCRT_INSTALLER_FIXED_UNJUDGED;
+
+/* One shot: make the configured fixed slot safe to receive into. Returns 0
+ * when a frame may be accepted, -1 when nothing may be installed at all. */
+static int32 svcrt_installer_fixed_prepare(void)
+{
+    if(svcrt_ptable_get()->layout_mode != (uint32)SVCRT_LAYOUT_MODE_FIXED)
+    {
+        return 0;
+    }
+
+#if (INSTALLER_FIXED_SLOT >= 0)
+    {
+        const svcrt_cfg_slot_t *cs = svcrt_layout_slot((int32)INSTALLER_FIXED_SLOT);
+        svcrt_partition_table_t *pt = svcrt_ptable_get();
+        uint32 j;
+
+        if(cs == 0)
+        {
+            SVCRT_LOGE("INSTALL", "INSTALLER_FIXED_SLOT %d is not a configured slot",
+                       (int)INSTALLER_FIXED_SLOT);
+            return -1;
+        }
+
+        /* There is no console here, so the operator's "app stop <slot>" has to
+         * happen in code: an image still running from this slot would be
+         * fetched out of Flash while the clear below erases it. Stop it first;
+         * if it cannot be stopped, refuse rather than erase anyway. */
+        for(j = 0u; (j < pt->slot_max) && (j < SVCRT_SLOT_ARRAY_MAX); j++)
+        {
+            if(pt->slot_type[j] == SVCRT_SLOT_FREE)
+            {
+                continue;
+            }
+            if(!((cs->base < (pt->slot_base[j] + pt->slot_size[j])) &&
+                 (pt->slot_base[j] < (cs->base + cs->size))))
+            {
+                continue;           /* does not overlap the configured slot */
+            }
+            if(pt->slot_state[j] != SVCRT_APP_SLOT_RUNNING)
+            {
+                continue;           /* nothing is executing from it */
+            }
+
+            SVCRT_LOGI("INSTALL",
+                       "fixed slot %d holds a running image (slot %u): stopping it first",
+                       (int)INSTALLER_FIXED_SLOT, (unsigned)j);
+
+            if(svcrt_loader_stop((uint32)j) != 0)
+            {
+                SVCRT_LOGE("INSTALL",
+                           "cannot stop the running image in fixed slot %d: refusing frames",
+                           (int)INSTALLER_FIXED_SLOT);
+                return -1;
+            }
+        }
+    }
+
+    svcrt_loader_slot_hint_set((int32)INSTALLER_FIXED_SLOT);
+
+    if(svcrt_loader_clear_fixed_slot((int32)INSTALLER_FIXED_SLOT) != 0)
+    {
+        SVCRT_LOGE("INSTALL", "cannot clear fixed slot %d",
+                   (int)INSTALLER_FIXED_SLOT);
+        return -1;
+    }
+
+    SVCRT_LOGI("INSTALL", "fixed slot %d cleared, send the file now",
+               (int)INSTALLER_FIXED_SLOT);
+    return 0;
+#else
+    /* Compile-time constant: no slot is configured, so nothing can be made
+     * safe to receive into. Refusing every frame beats guessing a slot and
+     * erasing it once the relocation table is already on the wire. */
+    SVCRT_LOGE("INSTALL",
+               "fixed-slot mode but no INSTALLER_FIXED_SLOT configured: "
+               "refusing frames (clearing a slot mid-frame would eat the "
+               "relocation table)");
+    return -1;
+#endif
+}
+
+/* May the frame whose header just arrived be committed? On refusal the caller
+ * drains the rest of the frame so it does not land in the console. */
+static int32 svcrt_installer_frame_ok(void)
+{
+    if(svcrt_ptable_get()->layout_mode != (uint32)SVCRT_LAYOUT_MODE_FIXED)
+    {
+        return 1;
+    }
+
+    if((svcrt_installer_fixed_state != SVCRT_INSTALLER_FIXED_READY) &&
+       (svcrt_installer_fixed_state != SVCRT_INSTALLER_FIXED_DONE))
+    {
+        return 0;               /* unusable, or the one-shot has not run yet */
+    }
+
+    if(svcrt_installer_fixed_state == SVCRT_INSTALLER_FIXED_DONE)
+    {
+        SVCRT_LOGE("INSTALL",
+                   "one image already installed this boot: reboot before "
+                   "sending another one");
+        return 0;
+    }
+
+    /* The slot was cleared before this window opened and nothing has been
+     * written into it since, so the loader finds it blank and neither of its
+     * erase points runs. Assert that rather than trust it. */
+    if(svcrt_loader_fixed_slot_blank((int32)INSTALLER_FIXED_SLOT) != 1)
+    {
+        SVCRT_LOGE("INSTALL",
+                   "fixed slot %d is not blank: refusing the frame instead of "
+                   "clearing it mid-frame (reboot and send again)",
+                   (int)INSTALLER_FIXED_SLOT);
+        return 0;
+    }
+
+    svcrt_loader_slot_hint_set((int32)INSTALLER_FIXED_SLOT);
+    return 1;
+}
+
 static void svcrt_installer_task(void)
 {
     char dev_name[] = INSTALLER_DEV_NAME;
@@ -316,9 +468,33 @@ static void svcrt_installer_task(void)
 
         if(dev >= 0)
         {
+            /* One shot, and it has to happen before the first byte is read:
+             * fixed mode must have its landing slot erased while the line is
+             * still quiet, not when a frame turns up. */
+            if(svcrt_installer_fixed_state == SVCRT_INSTALLER_FIXED_UNJUDGED)
+            {
+                svcrt_installer_fixed_state = (svcrt_installer_fixed_prepare() == 0)
+                                                  ? SVCRT_INSTALLER_FIXED_READY
+                                                  : SVCRT_INSTALLER_FIXED_UNUSABLE;
+            }
+
             if(svcrt_installer_pump(dev) == 0)
             {
-                (void)svcrt_installer_commit(dev);
+                if(svcrt_installer_frame_ok() != 0)
+                {
+                    int32 slot = svcrt_installer_commit(dev);
+
+                    if((slot >= 0) &&
+                       (svcrt_ptable_get()->layout_mode ==
+                        (uint32)SVCRT_LAYOUT_MODE_FIXED))
+                    {
+                        svcrt_installer_fixed_state = SVCRT_INSTALLER_FIXED_DONE;
+                    }
+                }
+                else
+                {
+                    svcrt_installer_drain(dev);
+                }
             }
         }
 

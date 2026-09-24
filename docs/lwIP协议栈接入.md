@@ -18,6 +18,10 @@ F401 内核工程回归 0 Error；F427 上装 `SOCKET_DEMO`（固定槽 0 覆盖
   没有任何 ETH 初始化，内核工程也没编 `stm32f4xx_hal_eth.c`。
   所以先验的是**协议栈与 socket 语义**（连接/收发/关闭/超时走同一条 TCP 状态机），
   真实收发等有网卡的硬件再接。
+- 板级侧另行复查过一遍：`board/stm32f427/` 下没有 PHY（LAN8720 一类）驱动、没有 MDIO
+  读写、没有 `eth_` 前缀的接口，引脚分配里也没有 RMII / MDIO 的痕迹。也就是说这一环缺的
+  是**硬件与 PHY 驱动**，不是软件待办；换一块带 PHY 的板子之前，真实链路收发没有可验证的
+  物证，本文只把它记成「**未验证**」。
 
 ## 2. 目录与来源
 
@@ -100,12 +104,12 @@ MPU 区域要求 2 的幂（`svcrt_partition.h` 的 `svcrt_mpu_window_check`）�
 
 | 项 | 结论 | 证据 |
 |---|---|---|
-| F427 内核工程链接通过 | **仅编译通过** | `Code=170258 RO-data=10094 RW-data=676 ZI-data=95584`，0 Error / 1 Warning（`svcrt_context.S A1581W`，既有）；这是**含 socket 服务（SVC 0x1E）**的当前构建 |
+| F427 内核工程链接通过 | **仅编译通过** | `Code=171350 RO-data=10254 RW-data=716 ZI-data=95544`，0 Error / 1 Warning（`svcrt_context.S A1581W`，既有）；这是**含 socket 服务（SVC 0x1E）**的当前构建 |
 | `.sct` 随配置头重算 | 已验证 | `build/kernel.sct` 生成 `LR_KERNEL 0x08000000 0x00040000` |
-| F401 内核工程回归 | 仅编译通过 | `Code=100102`，0 Error / 1 Warning。F401 配置里 `SVCRT_USE_LWIP` 未开，`svcrt_net.c` 走 stub 分支 |
+| F401 内核工程回归 | 仅编译通过 | `Code=100130`，0 Error / 1 Warning。F401 配置里 `SVCRT_USE_LWIP` 未开，`svcrt_net.c` 走 stub 分支 |
 | 路由门禁 | 已验证 | `tools/ci_gate.py` 7/7 |
 | 上板、socket 语义自检 | **上板验证过** | F427 + `SOCKET_DEMO`（固定槽 0 覆盖安装）：`[LWIP:45] tcpip up, loopif 127.0.0.1` → `[NET:1028] socket service up (SVC 0x1E)` → App 自检，`result : pass=36 fail=0`；逐项见 [socket与select兼容层.md](socket与select兼容层.md) §7 |
-| 真实以太网收发 | **未验证** | 这块板没有可用的 PHY 证据 |
+| 真实以太网收发 | **未验证** | 板级无 PHY 证据（无 PHY 驱动 / MDIO / `eth_` 接口 / RMII 引脚分配），见 §1 |
 
 ## 8. 容量与限制（记住这几条，接 App 面时会撞上）
 

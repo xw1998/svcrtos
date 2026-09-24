@@ -1568,6 +1568,9 @@ int32 svcrt_sched_activate(int32 new_task, uint32 old_psp)
              * 仅在 RUNNING 状态下检测，避免对 WAIT 任务误判（详见移植手册已知问题）。 */
             if(old_psp < (uint32)svcrt_task_table[tid].stack_bottom)
             {
+                /* 记录到故障表：栈溢出属于「无声死亡」，不记的话，
+                 * 任务表里只会多出一行 INVALID，控制台上没有任何线索。 */
+                svcrt_fault_record(SVCRT_FAULT_STACKOVF, (int32)tid + 1);
                 svcrt_ready_del(tid);           /* 栈溢出：从就绪集中摘除 */
                 svcrt_delay_disarm(tid);
                 svcrt_task_table[tid].status = SVCRT_TASK_INVALID;
@@ -2384,6 +2387,8 @@ void svcrt_task_kill_internal(void)
 {
     if(svcrt_current_task_id > 0)
     {
+        SVCRT_LOGI("TASK", "task %d exits (self kill)",
+                   (int)svcrt_current_task_id);
         /* 收尸：不清理的话，post/unlock 会把一个已经不在等待的任务置为
          * READY（相当于从旧栈“复活”它），而它持有的互斥锁会永久锁死。 */
         svcrt_task_release_resources(svcrt_current_task_id);

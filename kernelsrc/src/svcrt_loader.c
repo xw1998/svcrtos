@@ -180,6 +180,9 @@ static void svcrt_loader_halt_task(uint32 task_id)
 
     /* 收尸：把该任务从同步对象/消息队列的等待队列中摘除，并释放它持有的锁。
      * 否则它被踢出调度后，残留的锁与等待登记会牵连其它任务。 */
+    SVCRT_LOGE("LOADER", "halt task %d: taken out of the scheduler",
+               (int)task_id);
+    svcrt_fault_record(SVCRT_FAULT_TASKKILL, (int32)task_id);
     svcrt_task_release_resources((int32)task_id);
 
     SVCRT_DISABLE_IRQ();
@@ -1080,6 +1083,26 @@ int32 svcrt_loader_slot_hint_get(void)
     return svcrt_loader_slot_hint;
 }
 
+/* Is [base, base+size) entirely 0xFF? Reads flash directly, so it is cheap
+ * enough to ask before every frame; it is the one definition of "blank" that
+ * both the eraser and the wire-facing callers use. */
+static int32 svcrt_loader_span_blank(uint32 base, uint32 size)
+{
+    uint32 p;
+    uint32 end = base + size;
+
+    for(p = base; p < end; p += 4u)
+    {
+        if(*(const volatile uint32 *)p != 0xFFFFFFFFu)
+        {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+
 /* Erase [base, base+size) to 0xFF. Used to clear a fixed slot before an
  * overwrite install. An already blank range returns immediately: an erase
  * stalls the CPU for about a second per sector, and a serial frame arrives
@@ -1096,7 +1119,6 @@ static int32 svcrt_loader_clear_span(uint32 base, uint32 size)
 {
     svcrt_partition_table_t *pt = svcrt_ptable_get();
     uint32 end = base + size;
-    uint32 p;
     uint32 clr;
 
     if(size == 0u)
@@ -1109,15 +1131,7 @@ static int32 svcrt_loader_clear_span(uint32 base, uint32 size)
         return -1;
     }
 
-    for(p = base; p < end; p += 4u)
-    {
-        if(*(const volatile uint32 *)p != 0xFFFFFFFFu)
-        {
-            break;
-        }
-    }
-
-    if(p >= end)
+    if(svcrt_loader_span_blank(base, size) != 0)
     {
         return 0;               /* already blank */
     }
@@ -1148,8 +1162,31 @@ static int32 svcrt_loader_reserve_fixed(uint32 type, const svcrt_app_header_t *p
                                             : (uint32)SVCRT_CFG_TYPE_DRIVER;
     int32  hint  = svcrt_loader_slot_hint;
     uint32 i;
+    uint32 ram_size;
 
-    (void)p_hdr;
+    /* The RAM window a fixed slot binds must be sized by the image header,
+     * the same way the boot scan computes it (see svcrt_loader_scan): the
+     * buddy allocator rounds the header's ram_size up to a power of two, and
+     * that block is what the MPU region and the task stack are derived from.
+     * The ram_size registered for a slot in the configuration is an upper
+     * bound on the window, not the window itself.
+     *
+     * Binding the configured value instead hands one image two different
+     * windows depending on how it was started: a configured slot of 16K over
+     * an image that only declares 8K puts the stack 8K higher than the boot
+     * scan does. The image then runs against a stack_bottom its header never
+     * accounted for, and the first deep call chain is reported as a stack
+     * overflow, killing the task with nothing on the console. */
+    for(ram_size = SLOT_RAM_MIN_BLOCK; ram_size < p_hdr->ram_size; ram_size <<= 1u)
+    {
+        /* smallest power of two not below the declared ram_size */
+    }
+
+    if(ram_size > SLOT_RAM_MAX_BLOCK)
+    {
+        return SVCRT_LOADER_ERR_SIZE;
+    }
+
 
     /* 提示是一次性的：消费掉，后面的安装回到默认行为 */
     svcrt_loader_slot_hint = -1;
@@ -1169,7 +1206,8 @@ static int32 svcrt_loader_reserve_fixed(uint32 type, const svcrt_app_header_t *p
         {
             continue;               /* 操作者点名了槽，别的槽一律不看 */
         }
-        if(total > s_size)
+        if((total > s_size) ||
+           ((slots[i].ram_size != 0u) && (ram_size > slots[i].ram_size)))
         {
             /* 点名的槽装不下就直接说清楚；默默换下一个槽不是操作者要的结果 */
             return (hint >= 0) ? SVCRT_LOADER_ERR_SIZE : SVCRT_LOADER_ERR_NOSPACE;
@@ -1217,7 +1255,7 @@ static int32 svcrt_loader_reserve_fixed(uint32 type, const svcrt_app_header_t *p
             return SVCRT_LOADER_ERR_NO_SLOT;
         }
 
-        (void)svcrt_ptable_ram_bind((uint32)slot, slots[i].ram_base, slots[i].ram_size);
+        (void)svcrt_ptable_ram_bind((uint32)slot, slots[i].ram_base, ram_size);
         /* A fixed slot's landing area comes from the configuration, so what is
          * in it right now is none of our business: re-installing over an
          * existing image has to go through an erase first. Flash programming
@@ -1288,6 +1326,35 @@ int32 svcrt_loader_clear_fixed_slot(int32 index)
     return (svcrt_loader_clear_span(cs->base, cs->size) == 0)
                ? 0
                : SVCRT_LOADER_ERR_FLASH;
+}
+
+/* Is a configured fixed slot blank right now? Callers that own a live wire
+ * use this as a gate: an erase only ever runs while the line is quiet, so a
+ * slot that is not blank means the frame has to be refused, not committed
+ * (committing it would erase flash with the relocation table on the wire). */
+int32 svcrt_loader_fixed_slot_blank(int32 index)
+{
+    svcrt_partition_table_t *pt = svcrt_ptable_get();
+    const svcrt_cfg_slot_t *cs;
+
+    if(pt->layout_mode != (uint32)SVCRT_LAYOUT_MODE_FIXED)
+    {
+        return -1;              /* AUTO mode never erases on reserve */
+    }
+
+    if((index < 0) || ((uint32)index >= svcrt_layout_slot_count()))
+    {
+        return -1;
+    }
+
+    cs = svcrt_layout_slot((uint32)index);
+
+    if(cs == 0)
+    {
+        return -1;
+    }
+
+    return svcrt_loader_span_blank(cs->base, cs->size);
 }
 
 static int32 svcrt_loader_reserve(uint32 type, const svcrt_app_header_t *p_hdr,
@@ -2695,6 +2762,10 @@ int32 svcrt_loader_start(uint32 slot)
     svcrt_mpu_build_task(&svcrt_task_table[task_id - 1]);
 
     (void)svcrt_ptable_set_slot(slot, SVCRT_APP_SLOT_RUNNING, entry, (uint32)task_id);
+
+    SVCRT_LOGI("LOADER", "slot %u started as task %d: ram %08X+%08X stack %08X..%08X",
+               (unsigned)slot, (int)task_id, (unsigned)ram_base, (unsigned)ram_size,
+               (unsigned)stack_bottom, (unsigned)(stack_bottom + stack_size));
 
     svcrt_sched_activate_higher((uint8)priority);
 

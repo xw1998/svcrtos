@@ -388,6 +388,7 @@ svcrt_dev_write(h, &on, 1);            /* 点亮蓝灯 */
 | `APP_CRASH_RESTART_MAX` | 3 | App/驱动连续故障重启上限，达到即禁用；0 = 不限次 |
 | `INSTALLER_ENABLE` | 1 | 内核内安装模块（占用 COM1）；不用串口安装时置 0 |
 | `SHELL_ENABLE` | 1 | 内核 Shell 控制台（ark-shell，占用 `SHELL_DEV_NAME`）；置 1 时不注册常驻安装任务，安装改由 `install` 命令触发一次性窗口 |
+| `INSTALLER_FIXED_SLOT` | -1 | 固定槽模式下常驻安装任务的目标槽（配置槽序号）；`-1` = 不指定，此时常驻任务拒绝任何帧。设成 N：上电时先停掉该槽里正在运行的镜像、再整槽擦一次，然后只接受一帧，要再装就重启 |
 | 镜像头 `flags` | 0x1 | 逐槽开机自启标志，打包时由 `tools/pack_app.py --autostart / --no-autostart` 写入；运行期用 `app list` / `drv list` 的 auto 列查看 |
 | `SLOT_MAX` / `SVCRT_CFG_SLOT_MAX` | 16 / 8 | 槽位记录条数上限（共享表数组 / 设备端配置区容量）。两者都必须 ≤ `SVCRT_SLOT_ARRAY_MAX`（16，见 `svcrt_share.h`），越界由编译期断言拦住 |
 | `SVCRT_DEV_SLOT_MAX` / `SVCRT_DEV_RAM_WINDOW` | 4 / 16 KB | 开发槽位表条目数与每条的 RAM 窗口。窗口序号 = 起始单元号 % 条目数，公式与 `tools/gen_scatter.py` 的 `dev_ram_base` 同源 |
@@ -641,10 +642,11 @@ STM32F427VGTx @96 MHz，DAPLink（SWD 两线，无 SWO）经 mdkdebug 的 SWD tr
 | F401 移植 | 双板同源编译通过（F401 `Code=46526`） |
 | 节拍计数器 32 位回绕 | 定向注入使 `svcrt_kernel_tick` 从 `0xFFFFC000` 起算并跨过回绕：`t=` 由 `2147478038 ms` 跳回小值，两侧 `APP_ALIVE` 间隔精确 5.000 s，`fault` 无记录、`sched` 一致。该次实测牵出并修掉了延时链插入排序与到期判定在回绕处不一致的缺陷（见 [docs/调度器说明.md](docs/调度器说明.md) §2.3） |
 | VFS 端口并发锁 | 两个写者 + 一个只读的第三方读者同时压同一条路径：读者必须看到两种**完整**载荷（`vfs.conc_saw_both`），两次干净开机自检 `pass=128 fail=0`，`sched` 一致、`fault` 无记录（见 [docs/VFS路径命名空间.md](docs/VFS路径命名空间.md)） |
+| 常驻安装器的固定槽覆盖安装（`SHELL_ENABLE=0`） | `INSTALLER_FIXED_SLOT=0` 变体上板：上电先 `fixed slot 0 holds a running image (slot 0): stopping it first` → `fixed slot 0 cleared, send the file now`；覆盖安装不再出现 `err -4`，镜像装入后正常自启；同一上电周期内第二帧被干净拒绝（`one image already installed this boot: reboot before sending another one` + `drained 1932 B of the rejected frame`） |
 
 仍未上板验证或未闭环的项：
 
-- **真实以太网收发**：板上无可用 PHY，网络路径跑的是回环网卡，未做真实链路收发验证（见 [docs/lwIP协议栈接入.md](docs/lwIP协议栈接入.md)）
+- **真实以太网收发**：板级无可用 PHY（`board/stm32f427/` 下没有 PHY 驱动、MDIO 读写、`eth_` 接口与 RMII 引脚分配），网络路径跑的是回环网卡，未做真实链路收发验证（见 [docs/lwIP协议栈接入.md](docs/lwIP协议栈接入.md) §1）
 - **故障恢复的「连续重启 3 次禁用」**策略未做专项真机验证
 - **固定槽位模式下一次真实 `install <slot>` 的落点复验**（槽表已生效并被 `pool` 列出，但「装进去正好落在配置地址」这一环还没跑）
 
