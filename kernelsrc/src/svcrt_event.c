@@ -8,6 +8,7 @@
 #include "svcrt_event.h"
 #include "svcrt_hal.h"
 #include "svcrt_cfg.h"
+#include "svcrt_trace.h"     /* kernel auto hooks: event waits/wakes as sync records */
 
 static svcrt_event_obj_t svcrt_events[SVCRT_EVENT_NUM];
 
@@ -229,6 +230,7 @@ int32 svcrt_event_wait_internal(int32 event_handle, int32 timeout_ms)
     }
 
     /* 登记与置 WAIT 同处一个临界区（关中断进入、关中断返回），消除丢唤醒窗口 */
+    svcrt_trace_wait_obj(MDK_TRACE_SVCRT_OBJ(MDK_TRACE_SVCRT_CLASS_EVENT, idx));
     reason = svcrt_task_block_in_critical((uint32)timeout_ms);
 
     if(reason < 0)
@@ -289,6 +291,7 @@ void svcrt_event_set_internal(int32 event_handle)
             p_w->wake_reason = SVCRT_WAKE_HANDOFF;
             p_w->status      = SVCRT_TASK_READY;
             svcrt_ready_add(SVCRT_TASK_IDX(p_w));
+            mdk_trace_svcrt_obj_signal((uint16)idx, (uint8)MDK_TRACE_SVCRT_CLASS_EVENT);
             svcrt_events[idx].waiting_tasks[j] = 0;
         }
     }

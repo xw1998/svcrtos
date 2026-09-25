@@ -35,6 +35,11 @@
 /* 后端：SWD 无缝流（压缩入环 + 主机增量搬走）。 */
 #define MDK_TRACE_BACKEND_SWD         1
 
+/* 内核自动钩子：内核自己上报任务切换/生命周期与对象等待、唤醒
+ * （见 mdk_trace_svcrt.h）。置 0 时固件照样能编译、照样能录，但时间线上
+ * 没有内核事件，只剩应用代码手工插的那些点。 */
+#define MDK_TRACE_SVCRT_HOOKS         1
+
 /* 主频：把目标侧周期换算成时间要用到，84MHz。 */
 #define MDK_TRACE_CPU_HZ              84000000
 

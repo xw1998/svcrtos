@@ -33,6 +33,12 @@
 /* Backend: compressed RAM ring, drained by the host over SWD. */
 #define MDK_TRACE_BACKEND_SWD         1
 
+/* Kernel automation hooks: the kernel reports its own switches, task
+ * lifecycle and object waits/wakes (see mdk_trace_svcrt.h). With this at 0
+ * the firmware still links and still traces, but the timeline carries only
+ * what application code records by hand - no kernel events at all. */
+#define MDK_TRACE_SVCRT_HOOKS         1
+
 /* Core clock, derived from SystemClock_Config() in
  * example/stm32f427/kernel/SVCRTOS_TEST/Core/Src/main.c:
  *   HSI 16 MHz / PLLM 16 = 1 MHz, x PLLN 192 = 192 MHz VCO, / PLLP 2 = 96 MHz.
@@ -48,11 +54,10 @@
 #define MDK_TRACE_CPU_HZ              96000000
 
 /* Fault snapshot: extra pc/lr/sp/xpsr/hfsr/mmfar/bfar in the fault path.
- * NOTE: the F427 board file does not call mdk_trace_fault_capture() yet -
- * its four fault vectors still go straight to the kernel handlers - so this
- * switch has no producer on this board and is left at 0 to say so, rather
- * than 1 and producing an empty fault record the host would read as
- * "no fault happened". F401 has the capture wired. */
-#define MDK_TRACE_FAULT_FRAME         0
+ * The F427 board now wraps its four fault vectors (board/stm32f427/
+ * svcrt_board.c) with an AC5 assembly thunk that passes EXC_RETURN / MSP /
+ * PSP to mdk_trace_fault_capture() before the C body runs, so there is a real
+ * producer behind this switch - same wiring F401 already had. */
+#define MDK_TRACE_FAULT_FRAME         1
 
 #endif /* MDK_TRACE_CONFIG_H */

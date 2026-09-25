@@ -309,6 +309,12 @@ int32 svcrt_thread_create_internal(void (*entry)(void), uint32 *stack_bottom,
 
             svcrt_mpu_build_task(p_dst);
         }
+        if(tid > 0)
+        {
+            /* Same 0-based slot numbering as the switch / wait events, so the
+             * host resolves every one of them through svcrt_task_table. */
+            mdk_trace_svcrt_task_create((uint32_t)(tid - 1), (uint32_t)entry);
+        }
         return tid;
     }
 }
@@ -320,6 +326,10 @@ int32 svcrt_thread_self_internal(void)
 
 void svcrt_thread_exit_internal(void)
 {
+    if(svcrt_current_task_id > 0)
+    {
+        mdk_trace_svcrt_task_exit((uint32_t)(svcrt_current_task_id - 1));
+    }
     /* Self kill: the scheduler drops the task and switches away for good. */
     svcrt_task_kill_internal();
 }
@@ -2298,6 +2308,12 @@ int32 svcrt_task_block_in_critical(uint32 timeout_ms)
 {
     svcrt_task_t *p_tsk;
     int32 reason;
+    uint16 tr_obj13;
+
+    /* Consume the object registration first: the caller declared it right
+     * before this call, and it must not survive into the next block - not
+     * even on the early returns below. */
+    tr_obj13 = svcrt_trace_take_wait_obj();
 
     /* 调用约定：进入时中断已关 */
     if(svcrt_current_task_id <= 0)
@@ -2325,12 +2341,25 @@ int32 svcrt_task_block_in_critical(uint32 timeout_ms)
     }
     p_tsk->status      = SVCRT_TASK_WAIT;
     svcrt_trace_wait((uint8)(svcrt_current_task_id - 1));
+    if(tr_obj13 != 0u)
+    {
+        /* The object wait travels as a sync record: object identity has a
+         * field of its own there, so it cannot be mistaken for a task slot. */
+        mdk_trace_svcrt_obj_wait((uint16)(tr_obj13 & 0x3FFu), (uint8)(tr_obj13 >> 10));
+    }
 
     SVCRT_SWITCH_TASK();                /* 只是置 PendSV pending，此刻中断还关着 */
     SVCRT_ENABLE_IRQ();                 /* 开中断：PendSV 切走与 ISR 唤醒才有机会发生 */
     SVCRT_DISABLE_IRQ();                /* 回到本函数与调用方共同的临界区 */
 
     reason = p_tsk->wake_reason;
+    if((tr_obj13 != 0u) && ((reason & SVCRT_WAKE_HANDOFF) == 0))
+    {
+        /* No handoff token means nothing signalled on this task's behalf
+         * (timeout / object deleted / a wake nobody asked for): close the
+         * wait with a timeout so the host never sees an orphan wait. */
+        mdk_trace_svcrt_obj_timeout((uint16)(tr_obj13 & 0x3FFu), (uint8)(tr_obj13 >> 10));
+    }
     /* Read side of the token handoff.  The producer side (svcrt_sync.c)
      * is already provable through the object ledger; this is the only
      * way to prove the reason bit survived the window between "woken"

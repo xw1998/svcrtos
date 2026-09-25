@@ -33,6 +33,7 @@
 #include "svcrt_types.h"
 #include "svcrt_config.h"    /* feature gates: SVCRT_USE_MDK_TRACE */
 #include "mdk_trace.h"
+#include "mdk_trace_svcrt.h"   /* 内核自动钩子适配层（mdkdebug 组件） */
 
 /* ---------------- event ids ---------------- */
 #define SVCRT_TR_EV_NONE        0x00u
@@ -89,6 +90,19 @@ void   svcrt_trace_wait(uint8 task_id);
 /* Enter/exit of a hardware or core exception. `kind` is SVCRT_TR_ISR_*.
  * Safe from an exception handler: a few stores, no blocking. */
 void   svcrt_trace_isr(uint8 irq, uint8 kind);
+
+/* ---- 阻塞汇聚点：本次睡下等的是哪个对象 ----
+ * svcrt_task_block_in_critical() 是全内核唯一的阻塞汇聚点，它知道「睡了多久、
+ * 被谁唤醒」，但不知道「睡在哪个对象上」。这个声明把后半截补上：调用方在
+ * 阻塞之前登记对象，汇聚点在真正睡下前发一条 sync wait，在非正常唤醒
+ * （超时 / 对象被删 / 根本没睡成）时补一条 sync timeout，让 wait 与
+ * signal/acquire/timeout 严格成对。
+ *
+ * 契约：必须在调用 svcrt_task_block_in_critical() 之前、关中断状态下声明；
+ * 声明只被消费一次（函数一进去就取走），所以不会串到下一次阻塞上。
+ * obj13 = MDK_TRACE_SVCRT_OBJ(cls, idx)，0 = 无对象（不记 sync 事件）。 */
+void   svcrt_trace_wait_obj(uint16 obj13);
+uint16 svcrt_trace_take_wait_obj(void);
 
 /* ---------------- fault snapshot ----------------
  * MUST be the first statement of a fault handler: it reads LR (EXC_RETURN),

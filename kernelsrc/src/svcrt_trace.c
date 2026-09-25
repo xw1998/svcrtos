@@ -22,6 +22,23 @@
 #include "mdk_trace.h"
 #include "mdk_trace_swd.h"
 
+/* ---- 阻塞对象登记（见 svcrt_trace.h 的契约） ----
+ * 放在 #if 之外：关掉追踪时这两句也必须在，因为 svcrt_task.c 无条件调用。 */
+static volatile uint16 g_tr_wait_obj13;
+
+void svcrt_trace_wait_obj(uint16 obj13)
+{
+    g_tr_wait_obj13 = obj13;
+}
+
+uint16 svcrt_trace_take_wait_obj(void)
+{
+    uint16 v = g_tr_wait_obj13;
+
+    g_tr_wait_obj13 = 0u;   /* 只消费一次，不留给下一次阻塞 */
+    return v;
+}
+
 #include "ark_shell.h"
 #include "svcrt_config.h"    /* feature gates: SVCRT_USE_MDK_TRACE */
 #if SVCRT_USE_MDK_TRACE
@@ -45,6 +62,9 @@ void svcrt_trace_init(void)
      * run cannot be spliced onto this one). */
     mdk_trace_init();
 
+    /* 「内核钩子装好」这一刻打个标记，时间线可以从这里切开，
+     * 而不是从碰巧的第一条事件开始。 */
+    mdk_trace_svcrt_init();
     g_tr_on = 1u;
 }
 

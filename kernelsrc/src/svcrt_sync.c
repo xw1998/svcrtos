@@ -15,6 +15,7 @@
 #include "svcrt_sync.h"
 #include "svcrt_hal.h"
 #include "svcrt_cfg.h"
+#include "svcrt_trace.h"     /* kernel auto hooks: object waits/wakes as sync records */
 
 static svcrt_sem_obj_t svcrt_sems[SVCRT_SEM_NUM];
 static svcrt_mtx_obj_t svcrt_mtxs[SVCRT_MTX_NUM];
@@ -728,6 +729,7 @@ int32 svcrt_sem_wait_internal(int32 handle, int32 timeout_ms)
 
     /* 入队与置 WAIT 必须在同一临界区内完成：中间一旦开中断，ISR 里的 post
      * 就会把唤醒投给一个还没睡下的任务，唤醒随之丢失（见 task.c 的说明）。 */
+    svcrt_trace_wait_obj(MDK_TRACE_SVCRT_OBJ(MDK_TRACE_SVCRT_CLASS_SEM, idx));
     reason = svcrt_task_block_in_critical((uint32)timeout_ms);   /* 关中断返回 */
 
     if(reason < 0)
@@ -819,6 +821,7 @@ int32 svcrt_sem_post_internal(int32 handle)
         dbg_sem_reason[idx] = SVCRT_WAKE_HANDOFF;
         p_wake->status = SVCRT_TASK_READY;
         svcrt_ready_add(SVCRT_TASK_IDX(p_wake));
+        mdk_trace_svcrt_obj_signal((uint16)idx, (uint8)MDK_TRACE_SVCRT_CLASS_SEM);
     }
     else
     {
@@ -976,6 +979,7 @@ int32 svcrt_mtx_lock_internal(int32 handle, int32 timeout_ms)
     svcrt_mtx_propagate();
 
     /* 同 sem_wait：入队与置 WAIT 放在同一临界区内，消除唤醒丢失窗口 */
+    svcrt_trace_wait_obj(MDK_TRACE_SVCRT_OBJ(MDK_TRACE_SVCRT_CLASS_MUTEX, idx));
     reason = svcrt_task_block_in_critical((uint32)timeout_ms);   /* 关中断返回 */
 
     if(reason < 0)
@@ -1067,10 +1071,14 @@ int32 svcrt_mtx_unlock_internal(int32 handle)
         p_next->wake_reason = SVCRT_WAKE_HANDOFF;
         p_next->status = SVCRT_TASK_READY;
         svcrt_ready_add(SVCRT_TASK_IDX(p_next));
+        /* The lock is not going idle, it is being handed over: from the
+         * waiter's point of view this is the acquire that ends its wait. */
+        mdk_trace_svcrt_mutex_acquire((uint16)idx);
     }
     else
     {
         svcrt_mtxs[idx].owner = 0;
+        mdk_trace_svcrt_mutex_release((uint16)idx);
     }
 
     /* 撤销优先级继承：按基准优先级 + 仍在持有的其它锁重算
@@ -1137,10 +1145,13 @@ static void svcrt_mtx_release_locked(int32 idx, svcrt_task_t *p_owner)
         p_next->wake_reason = SVCRT_WAKE_HANDOFF;
         p_next->status      = SVCRT_TASK_READY;
         svcrt_ready_add(SVCRT_TASK_IDX(p_next));
+        /* Same handover as mtx_unlock: the waiter's wait closes here. */
+        mdk_trace_svcrt_mutex_acquire((uint16)idx);
     }
     else
     {
         svcrt_mtxs[idx].owner = 0;
+        mdk_trace_svcrt_mutex_release((uint16)idx);
     }
 
     svcrt_mtx_recalc_task_priority(p_owner);
@@ -1229,6 +1240,7 @@ int32 svcrt_cond_wait_internal(int32 cond_handle, int32 mtx_handle, int32 timeou
     }
 
     /* 关键的一步：交出锁 + 睡下，全程中断关闭 */
+    svcrt_trace_wait_obj(MDK_TRACE_SVCRT_OBJ(MDK_TRACE_SVCRT_CLASS_COND, ci));
     svcrt_mtx_release_locked(mi, p_tsk);
     reason = svcrt_task_block_in_critical((uint32)timeout_ms);
 
@@ -1380,6 +1392,7 @@ int32 svcrt_cond_signal_internal(int32 handle)
         p_tsk->wake_reason = SVCRT_WAKE_HANDOFF;
         p_tsk->status      = SVCRT_TASK_READY;
         svcrt_ready_add(SVCRT_TASK_IDX(p_tsk));
+        mdk_trace_svcrt_obj_signal((uint16)idx, (uint8)MDK_TRACE_SVCRT_CLASS_COND);
     }
     SVCRT_ENABLE_IRQ();
 
@@ -1415,6 +1428,7 @@ int32 svcrt_cond_broadcast_internal(int32 handle)
             p_tsk->wake_reason = SVCRT_WAKE_HANDOFF;
             p_tsk->status      = SVCRT_TASK_READY;
             svcrt_ready_add(SVCRT_TASK_IDX(p_tsk));
+            mdk_trace_svcrt_obj_signal((uint16)idx, (uint8)MDK_TRACE_SVCRT_CLASS_COND);
             woke++;
         }
     }

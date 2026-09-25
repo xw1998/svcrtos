@@ -14,6 +14,7 @@
 #include "svcrt_mq.h"
 #include "svcrt_cfg.h"
 #include "svcrt_hal.h"
+#include "svcrt_trace.h"     /* kernel auto hooks: queue waits/wakes as sync records */
 
 #if (SVCRT_USE_MQ == 1)
 
@@ -330,6 +331,7 @@ int32 svcrt_mq_send_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
     {
         svcrt_mq_put(p_mq, buf, len_words);
         svcrt_mq_wake_one(p_mq->recv_waiters);
+        mdk_trace_svcrt_obj_signal((uint16)idx, (uint8)MDK_TRACE_SVCRT_CLASS_QUEUE);
         SVCRT_ENABLE_IRQ();
         SVCRT_SWITCH_TASK();
         return 0;
@@ -373,6 +375,7 @@ int32 svcrt_mq_send_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
      * 否则 ISR 的唤醒会投给一个还没睡下的任务（唤醒丢失）。 */
 
     /* 阻塞等待接收者腾出空间（wake_reason: 0=被唤醒 1=超时） */
+    svcrt_trace_wait_obj(MDK_TRACE_SVCRT_OBJ(MDK_TRACE_SVCRT_CLASS_QUEUE, idx));
     ret = svcrt_task_block_in_critical((uint32)timeout_ms);
     /* User-mode waiter: register only, yield in the user wrapper */
     if(svcrt_sync_in_handler() != 0u)
@@ -426,6 +429,7 @@ int32 svcrt_mq_send_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
             }
         }
 
+        svcrt_trace_wait_obj(MDK_TRACE_SVCRT_OBJ(MDK_TRACE_SVCRT_CLASS_QUEUE, idx));
         ret = svcrt_task_block_in_critical((uint32)remain);     /* 关中断返回 */
 
         if((ret & SVCRT_WAKE_HANDOFF) == 0)
@@ -441,6 +445,7 @@ int32 svcrt_mq_send_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
     }
     svcrt_mq_put(p_mq, buf, len_words);
     svcrt_mq_wake_one(p_mq->recv_waiters);
+    mdk_trace_svcrt_obj_signal((uint16)idx, (uint8)MDK_TRACE_SVCRT_CLASS_QUEUE);
     SVCRT_ENABLE_IRQ();
     SVCRT_SWITCH_TASK();
     return 0;
@@ -471,6 +476,7 @@ int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
     {
         got = svcrt_mq_get(p_mq, buf, len_words);
         svcrt_mq_wake_one(p_mq->send_waiters);
+        mdk_trace_svcrt_obj_signal((uint16)idx, (uint8)MDK_TRACE_SVCRT_CLASS_QUEUE);
         SVCRT_ENABLE_IRQ();
         SVCRT_SWITCH_TASK();
         return got;
@@ -519,6 +525,7 @@ int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
         return SVCRT_SYNC_ERR_WOULDBLOCK;
     }
 
+    svcrt_trace_wait_obj(MDK_TRACE_SVCRT_OBJ(MDK_TRACE_SVCRT_CLASS_QUEUE, idx));
     reason = svcrt_task_block_in_critical((uint32)timeout_ms);   /* 关中断返回 */
 
     if(reason < 0)
@@ -562,6 +569,7 @@ int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
             }
         }
 
+        svcrt_trace_wait_obj(MDK_TRACE_SVCRT_OBJ(MDK_TRACE_SVCRT_CLASS_QUEUE, idx));
         reason = svcrt_task_block_in_critical((uint32)remain);  /* 关中断返回 */
 
         if((reason & SVCRT_WAKE_HANDOFF) == 0)
@@ -577,6 +585,7 @@ int32 svcrt_mq_recv_internal(int32 handle, uint32 *buf, int32 len_words, int32 t
     }
     got = svcrt_mq_get(p_mq, buf, len_words);
     svcrt_mq_wake_one(p_mq->send_waiters);
+    mdk_trace_svcrt_obj_signal((uint16)idx, (uint8)MDK_TRACE_SVCRT_CLASS_QUEUE);
     SVCRT_ENABLE_IRQ();
     SVCRT_SWITCH_TASK();
     return got;
@@ -603,6 +612,7 @@ int32 svcrt_mq_send_from_isr_internal(int32 handle, void *buf, int32 len_words)
     }
     svcrt_mq_put(p_mq, (uint32 *)buf, len_words);
     svcrt_mq_wake_one(p_mq->recv_waiters);
+    mdk_trace_svcrt_obj_signal((uint16)idx, (uint8)MDK_TRACE_SVCRT_CLASS_QUEUE);
     SVCRT_ENABLE_IRQ();
     /* 不在 ISR 内做上下文切换：唤醒的任务置 READY 后由下一次调度接管 */
     return 0;

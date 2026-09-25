@@ -934,6 +934,11 @@
               <FilePath>..\..\..\..\..\kernelsrc\components\mdk_trace\mdk_trace_swd.c</FilePath>
             </File>
             <File>
+              <FileName>mdk_trace_svcrt.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\kernelsrc\components\mdk_trace\mdk_trace_svcrt.c</FilePath>
+            </File>
+            <File>
               <FileName>svcrt_dev.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\kernelsrc\src\svcrt_dev.c</FilePath>
